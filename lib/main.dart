@@ -7,6 +7,8 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/registration_screen.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/profile/profile_setup_screen.dart';
+import 'screens/factory/create_factory_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +41,8 @@ class MyApp extends StatelessWidget {
           '/register': (context) => const RegistrationScreen(),
           '/forgot-password': (context) => const ForgotPasswordScreen(),
           '/home': (context) => const HomeScreen(),
+          '/profile-setup': (context) => const ProfileSetupScreen(),
+          '/create-factory': (context) => const CreateFactoryScreen(),
         },
       ),
     );
@@ -52,8 +56,20 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
 
+    if (authProvider.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     if (authProvider.isAuthenticated) {
-      return const HomeScreen();
+      if (!authProvider.hasProfile) {
+        return const ProfileSetupScreen();
+      } else if (!authProvider.hasFactory) {
+        return const CreateFactoryScreen();
+      } else {
+        return const HomeScreen();
+      }
     } else {
       return const LoginScreen();
     }

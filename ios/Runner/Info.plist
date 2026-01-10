@@ -43,6 +43,11 @@
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We need your location to fetch your current address for your profile.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>We need your location to fetch your current address for your profile.</string>
+
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 </dict>
