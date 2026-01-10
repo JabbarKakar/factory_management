@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "116368782292",
+    "project_id": "factory-management-8307e",
+    "storage_bucket": "factory-management-8307e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:116368782292:android:1aaea384973ae33f5f9c41",
+        "android_client_info": {
+          "package_name": "com.example.factory_management"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBNUb9BzgxqkUUPddI9bDdILL6le4vQ0U0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
