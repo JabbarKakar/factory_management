@@ -146,4 +146,12 @@ class AuthProvider with ChangeNotifier {
       return false;
     }
   }
+
+  // Refresh Factory Status
+  Future<void> refreshFactoryStatus() async {
+    if (_user != null) {
+      _hasFactory = await _profileService.hasFactory(_user!.uid);
+      notifyListeners();
+    }
+  }
 }

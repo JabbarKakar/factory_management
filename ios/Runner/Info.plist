@@ -47,6 +47,10 @@
 	<string>We need your location to fetch your current address for your profile.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>We need your location to fetch your current address for your profile.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>We need access to your camera to capture your profile picture.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your photo library to select your profile picture.</string>
 
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>

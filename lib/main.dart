@@ -35,8 +35,9 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
         ),
         debugShowCheckedModeBanner: false,
-        home: const AuthWrapper(),
+        // home: const AuthWrapper(), // Removed because '/' is defined in routes
         routes: {
+          '/': (context) => const AuthWrapper(),
           '/login': (context) => const LoginScreen(),
           '/register': (context) => const RegistrationScreen(),
           '/forgot-password': (context) => const ForgotPasswordScreen(),

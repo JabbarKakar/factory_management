@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/user_profile.dart';
+import '../../services/profile_service.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -21,6 +24,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _addressController = TextEditingController();
   
   bool _isGettingLocation = false;
+  File? _imageFile;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -30,6 +35,52 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     _cnicController.dispose();
     _addressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 75,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          _imageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
+  }
+
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchLocation() async {
@@ -81,6 +132,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       
       final user = authProvider.user;
       if (user == null) return;
+      
+      String? imageUrl;
+      
+      // Upload image first if selected
+      if (_imageFile != null) {
+        // We can use ProfileService directly or through Provider if we added a method there
+        // For simplicity, let's instantiate ProfileService here or add upload method to AuthProvider
+        // Better to separate or keep cleaner. 
+        // Since logic is simple, let's use the Service directly here for upload to get URL.
+        try {
+           final profileService = ProfileService();
+           imageUrl = await profileService.uploadProfileImage(_imageFile!, user.uid);
+        } catch (e) {
+          if (mounted) {
+             ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text('Failed to upload image'), backgroundColor: Colors.red),
+             );
+             return;
+          }
+        }
+      }
 
       final profile = UserProfile(
         uid: user.uid,
@@ -90,17 +162,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         phoneNumber: _phoneNumberController.text.trim(),
         cnic: _cnicController.text.trim(),
         address: _addressController.text.trim(),
+        profileImageUrl: imageUrl,
       );
 
       final success = await authProvider.saveProfile(profile);
 
-      if (success) {
-        // Navigation will be handled by AuthWrapper or we can push directly if needed
-        // But since auth state (hasProfile) changes, AuthWrapper might react.
-        // However, Provider listeners usually trigger rebuilds.
-        // Let's rely on AuthWrapper's reactive nature or manual push if wrapper isn't sufficient yet.
-        // For now, let's assume AuthWrapper rebuilds. If not, we can force navigation.
-      } else {
+      if (!success) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -131,11 +198,39 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-               const Icon(
-                  Icons.person_pin,
-                  size: 80,
-                  color: Colors.blueAccent,
-                ),
+               Center(
+                 child: Stack(
+                   children: [
+                     CircleAvatar(
+                       radius: 50,
+                       backgroundColor: Colors.grey[200],
+                       backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
+                       child: _imageFile == null
+                           ? const Icon(Icons.person, size: 50, color: Colors.grey)
+                           : null,
+                     ),
+                     Positioned(
+                       bottom: 0,
+                       right: 0,
+                       child: GestureDetector(
+                         onTap: _showImagePickerOptions,
+                         child: Container(
+                           padding: const EdgeInsets.all(8),
+                           decoration: const BoxDecoration(
+                             color: Colors.blueAccent,
+                             shape: BoxShape.circle,
+                           ),
+                           child: const Icon(
+                             Icons.camera_alt,
+                             color: Colors.white,
+                             size: 20,
+                           ),
+                         ),
+                       ),
+                     ),
+                   ],
+                 ),
+               ),
                 const SizedBox(height: 24),
               Text(
                 'Personal Details',
@@ -231,7 +326,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   Container(
                     height: 56,
                     decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.1),
+                      color: Colors.blueAccent.withAlpha(26), // approx 0.1 opacity
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: IconButton(
