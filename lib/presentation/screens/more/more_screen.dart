@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../blocs/auth/auth_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../routes/route_paths.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/settings_section.dart';
 import '../../widgets/theme_mode_selector.dart';
@@ -45,6 +47,13 @@ class MoreScreen extends StatelessWidget {
             title: AppStrings.general,
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.receipt_long_outlined),
+                  title: const Text(AppStrings.factoryExpenses),
+                  subtitle: const Text(AppStrings.factoryExpensesSubtitle),
+                  onTap: () => context.push(RoutePaths.expenses),
+                ),
+                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
                   title: const Text(AppStrings.settings),

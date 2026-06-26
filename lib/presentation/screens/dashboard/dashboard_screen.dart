@@ -142,6 +142,11 @@ class DashboardScreen extends StatelessWidget {
                       label: const Text(AppStrings.newSalesOrder),
                     ),
                     FilledButton.tonalIcon(
+                      onPressed: () => context.push(RoutePaths.expensesAdd),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                      label: const Text(AppStrings.addExpense),
+                    ),
+                    FilledButton.tonalIcon(
                       onPressed: () => context.push(RoutePaths.customersAdd),
                       icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
                       label: const Text(AppStrings.addCustomer),

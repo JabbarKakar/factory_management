@@ -10,6 +10,8 @@ import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
 import '../../blocs/dashboard/dashboard_bloc.dart';
+import '../../blocs/expense/expense_form_bloc.dart';
+import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
@@ -35,6 +37,8 @@ import '../screens/sales/record_sales_payment_screen.dart';
 import '../screens/sales/sales_invoice_screen.dart';
 import '../screens/sales/sales_order_detail_screen.dart';
 import '../screens/sales/sales_order_list_screen.dart';
+import '../screens/expenses/add_edit_expense_screen.dart';
+import '../screens/expenses/expenses_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/notifications/notification_center_screen.dart';
 import '../screens/shell/main_shell.dart';
@@ -102,6 +106,54 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                 );
           return NotificationCenterScreen(initialFilter: initialFilter);
         },
+      ),
+      GoRoute(
+        path: RoutePaths.expenses,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<ExpenseListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(ExpenseListWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: const ExpensesScreen(),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'add',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<ExpenseFormBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(ExpenseFormInitialized(factoryId: factoryId));
+                  }
+                  return bloc;
+                },
+                child: const AddEditExpenseScreen(),
+              );
+            },
+          ),
+          GoRoute(
+            path: ':expenseId/edit',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final expenseId = state.pathParameters['expenseId']!;
+              return BlocProvider(
+                create: (_) => getIt<ExpenseFormBloc>()
+                  ..add(ExpenseFormLoadRequested(expenseId)),
+                child: AddEditExpenseScreen(expenseId: expenseId),
+              );
+            },
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

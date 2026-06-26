@@ -9,12 +9,15 @@ import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
 import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/notification/notification_bloc.dart';
+import '../../blocs/expense/expense_form_bloc.dart';
+import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../blocs/theme/theme_cubit.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
+import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
@@ -70,6 +73,7 @@ void setupDependencies() {
       scannerService: getIt<PaymentDueScannerService>(),
     ),
   );
+  getIt.registerLazySingleton<ExpenseRepository>(ExpenseRepository.new);
   getIt.registerLazySingleton<JobWorkCleanupService>(
     () => JobWorkCleanupService(jobWorkRepository: getIt<JobWorkRepository>()),
   );
@@ -138,5 +142,11 @@ void setupDependencies() {
       ledgerService: getIt<CustomerLedgerService>(),
       scannerService: getIt<PaymentDueScannerService>(),
     ),
+  );
+  getIt.registerFactory<ExpenseListBloc>(
+    () => ExpenseListBloc(repository: getIt<ExpenseRepository>()),
+  );
+  getIt.registerFactory<ExpenseFormBloc>(
+    () => ExpenseFormBloc(repository: getIt<ExpenseRepository>()),
   );
 }

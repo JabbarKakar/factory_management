@@ -47,6 +47,10 @@ abstract final class RoutePaths {
       '/sales/invoices/$invoiceId/payment';
   static const String more = '/more';
   static const String notifications = '/notifications';
+  static const String expenses = '/expenses';
+  static const String expensesAdd = '/expenses/add';
+
+  static String expenseEdit(String id) => '/expenses/$id/edit';
 
   static String notificationsWithFilter(NotificationFilter filter) =>
       '$notifications?filter=${filter.name}';

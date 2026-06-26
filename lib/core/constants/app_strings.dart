@@ -315,4 +315,37 @@ abstract final class AppStrings {
   static const String salesInvoice = 'Sales Invoice';
   static const String salesInvoiceNotReady =
       'Generate an invoice when the sales order is ready for pickup.';
+
+  // Expenses (Sprint 10)
+  static const String expenses = 'Expenses';
+  static const String addExpense = 'Add Expense';
+  static const String editExpense = 'Edit Expense';
+  static const String saveExpense = 'Save Expense';
+  static const String expenseCreated = 'Expense recorded';
+  static const String expenseUpdated = 'Expense updated';
+  static const String expenseDeleted = 'Expense deleted';
+  static const String deleteExpenseTitle = 'Delete expense?';
+  static const String deleteExpenseMessage =
+      'This expense entry will be permanently removed.';
+  static const String searchExpenses = 'Search description, payee, bill #...';
+  static const String noExpensesYet = 'No expenses recorded yet';
+  static const String noExpensesFound = 'No expenses found';
+  static const String addFirstExpense =
+      'Record factory costs like electricity, fuel, wages, and maintenance';
+  static const String expensesLoadError = 'Could not load expenses';
+  static const String expensesThisMonth = 'Showing Total';
+  static const String filteredTotal = 'Filtered Total';
+  static const String monthToDate = 'Month to Date';
+  static const String allCategories = 'All';
+  static const String expenseDetails = 'Expense Details';
+  static const String optionalDetails = 'Optional Details';
+  static const String expenseDate = 'Expense Date';
+  static const String expenseCategory = 'Category';
+  static const String description = 'Description';
+  static const String amountPkr = 'Amount (PKR)';
+  static const String payeeName = 'Payee / Vendor';
+  static const String billNumber = 'Bill / Invoice #';
+  static const String factoryExpenses = 'Factory Expenses';
+  static const String factoryExpensesSubtitle =
+      'Track electricity, fuel, wages, and other costs';
 }
