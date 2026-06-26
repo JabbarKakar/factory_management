@@ -44,8 +44,18 @@ enum JobWorkStatus {
   }
 
   bool get isActive => switch (this) {
-        JobWorkStatus.closed || JobWorkStatus.cancelled => false,
-        _ => true,
+        JobWorkStatus.received ||
+        JobWorkStatus.agreed ||
+        JobWorkStatus.inCutting ||
+        JobWorkStatus.qc ||
+        JobWorkStatus.ready =>
+          true,
+        JobWorkStatus.invoiced ||
+        JobWorkStatus.paid ||
+        JobWorkStatus.collected ||
+        JobWorkStatus.closed ||
+        JobWorkStatus.cancelled =>
+          false,
       };
 
   bool get canRecordOutput => switch (this) {

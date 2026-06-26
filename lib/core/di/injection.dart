@@ -3,6 +3,7 @@ import 'package:get_it/get_it.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
+import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../blocs/job_work/job_work_form_bloc.dart';
 import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
@@ -72,6 +73,15 @@ void setupDependencies() {
   );
   getIt.registerFactory<CustomerListBloc>(
     () => CustomerListBloc(repository: getIt<CustomerRepository>()),
+  );
+  getIt.registerFactory<DashboardBloc>(
+    () => DashboardBloc(
+      paymentRepository: getIt<PaymentRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+      customerRepository: getIt<CustomerRepository>(),
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      scannerService: getIt<PaymentDueScannerService>(),
+    ),
   );
   getIt.registerFactory<CustomerFormBloc>(
     () => CustomerFormBloc(

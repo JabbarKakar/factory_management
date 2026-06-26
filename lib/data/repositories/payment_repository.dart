@@ -61,6 +61,20 @@ class PaymentRepository {
         });
   }
 
+  Stream<List<Payment>> watchPaymentsForFactory(String factoryId) {
+    return _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .snapshots()
+        .map((snapshot) {
+          final payments = snapshot.docs
+              .map((doc) =>
+                  PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
+              .toList();
+          payments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+          return payments;
+        });
+  }
+
   Future<Payment> recordJobWorkPayment({
     required String invoiceId,
     required double amount,

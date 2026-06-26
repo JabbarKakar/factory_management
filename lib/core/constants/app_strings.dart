@@ -237,4 +237,16 @@ abstract final class AppStrings {
   static const String earlier = 'Earlier';
   static const String viewAllNotifications = 'View all notifications';
   static const String refreshNotifications = 'Refresh alerts';
+
+  // Dashboard (Sprint 7)
+  static const String revenueToday = 'Revenue Today';
+  static const String activeJobWork = 'Active Job Work';
+  static const String overdueTotal = 'Overdue';
+  static const String customerCount = 'Customers';
+  static const String quickActions = 'Quick Actions';
+  static const String dashboardMvpReady =
+      'Job work MVP is live — track orders, invoices, and payments from here.';
+  static const String paymentsReceivedToday = 'Payments received today';
+  static const String dashboardLoadError =
+      'Could not load dashboard data. Pull down to retry.';
 }

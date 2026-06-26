@@ -9,6 +9,7 @@ import '../../blocs/job_work/job_work_list_bloc.dart';
 import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
+import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../core/di/injection.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../screens/splash/splash_screen.dart';
@@ -102,7 +103,19 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             routes: [
               GoRoute(
                 path: RoutePaths.dashboard,
-                builder: (context, state) => const DashboardScreen(),
+                builder: (context, state) {
+                  return BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<DashboardBloc>();
+                      final factoryId = readFactoryId(context);
+                      if (factoryId != null) {
+                        bloc.add(DashboardWatchStarted(factoryId));
+                      }
+                      return bloc;
+                    },
+                    child: const DashboardScreen(),
+                  );
+                },
               ),
             ],
           ),

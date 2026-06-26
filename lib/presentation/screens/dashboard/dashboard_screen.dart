@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../blocs/auth/auth_bloc.dart';
+import '../../../blocs/dashboard/dashboard_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../domain/entities/dashboard_kpis.dart';
+import '../../../domain/enums/notification_enums.dart';
+import '../../routes/route_paths.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/payment_reminders_card.dart';
 
@@ -22,61 +28,171 @@ class DashboardScreen extends StatelessWidget {
           NotificationBell(),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome${user != null ? ', ${user.name}' : ''}',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+      body: BlocConsumer<DashboardBloc, DashboardState>(
+        listenWhen: (prev, curr) =>
+            prev.status != curr.status &&
+            curr.status == DashboardStatus.failure,
+        listener: (context, state) {
+          if (state.errorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.errorMessage!)),
+            );
+          }
+        },
+        builder: (context, state) {
+          if (state.status == DashboardStatus.loading &&
+              state.kpis == DashboardKpis.empty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              final factoryId = user?.factoryId;
+              if (factoryId != null) {
+                context
+                    .read<DashboardBloc>()
+                    .add(DashboardWatchStarted(factoryId));
+              }
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (state.status == DashboardStatus.failure) ...[
+                  Card(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              state.errorMessage ??
+                                  AppStrings.dashboardLoadError,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Payment due alerts are active. Check the bell for details.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                  ),
+                  const SizedBox(height: 16),
                 ],
-              ),
-            ),
-          ),
-          if (user != null) ...[
-            const SizedBox(height: 16),
-            PaymentRemindersCard(factoryId: user.factoryId),
-          ],
-          const SizedBox(height: 16),
-          Text(
-            'Quick overview',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome${user != null ? ', ${user.name}' : ''}',
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          AppStrings.dashboardMvpReady,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-          ),
-          const SizedBox(height: 12),
-          const _KpiGrid(),
-        ],
+                if (user != null) ...[
+                  const SizedBox(height: 16),
+                  PaymentRemindersCard(factoryId: user.factoryId),
+                ],
+                const SizedBox(height: 16),
+                Text(
+                  AppStrings.quickActions,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.tonalIcon(
+                      onPressed: () => context.push(RoutePaths.jobWorkAdd),
+                      icon: const Icon(Icons.content_cut_outlined, size: 18),
+                      label: const Text(AppStrings.newJobWorkOrder),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: () => context.push(RoutePaths.customersAdd),
+                      icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                      label: const Text(AppStrings.addCustomer),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Quick overview',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                _KpiGrid(kpis: state.kpis),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
 class _KpiGrid extends StatelessWidget {
-  const _KpiGrid();
+  const _KpiGrid({required this.kpis});
+
+  final DashboardKpis kpis;
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _KpiItem('Revenue Today', '—', Icons.payments_outlined, AppColors.success),
-      _KpiItem('Active Job Work', '—', Icons.content_cut, AppColors.primary),
-      _KpiItem('Overdue', '—', Icons.warning_amber_rounded, AppColors.overdue),
-      _KpiItem('Customers', '—', Icons.people_outline, AppColors.accent),
+    final items = [
+      _KpiItem(
+        label: AppStrings.revenueToday,
+        value: Formatters.currencyPkr(kpis.revenueToday),
+        subtitle: AppStrings.paymentsReceivedToday,
+        icon: Icons.payments_outlined,
+        color: AppColors.success,
+        onTap: () => context.push(RoutePaths.notifications),
+      ),
+      _KpiItem(
+        label: AppStrings.activeJobWork,
+        value: '${kpis.activeJobWorkCount}',
+        icon: Icons.content_cut,
+        color: AppColors.primary,
+        onTap: () => context.go(RoutePaths.jobWork),
+      ),
+      _KpiItem(
+        label: AppStrings.overdueTotal,
+        value: Formatters.currencyPkr(kpis.overdueAmount),
+        subtitle:
+            kpis.overdueCount > 0 ? '${kpis.overdueCount} invoice(s)' : null,
+        icon: Icons.warning_amber_rounded,
+        color: AppColors.overdue,
+        onTap: () => context.push(
+          RoutePaths.notificationsWithFilter(NotificationFilter.overdue),
+        ),
+      ),
+      _KpiItem(
+        label: AppStrings.customerCount,
+        value: '${kpis.customerCount}',
+        icon: Icons.people_outline,
+        color: AppColors.accent,
+        onTap: () => context.go(RoutePaths.customers),
+      ),
     ];
 
     return GridView.count(
@@ -85,30 +201,58 @@ class _KpiGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.4,
+      childAspectRatio: 1.05,
       children: items
           .map(
             (item) => Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(item.icon, color: item.color),
-                    const Spacer(),
-                    Text(
-                      item.value,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: item.onTap,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Icon(item.icon, color: item.color, size: 22),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              item.value,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
                           ),
-                    ),
-                    Text(
-                      item.label,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
+                          Text(
+                            item.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppColors.textSecondary),
                           ),
-                    ),
-                  ],
+                          if (item.subtitle != null)
+                            Text(
+                              item.subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .labelSmall
+                                  ?.copyWith(color: item.color),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -119,10 +263,19 @@ class _KpiGrid extends StatelessWidget {
 }
 
 class _KpiItem {
-  const _KpiItem(this.label, this.value, this.icon, this.color);
+  const _KpiItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.subtitle,
+  });
 
   final String label;
   final String value;
+  final String? subtitle;
   final IconData icon;
   final Color color;
+  final VoidCallback onTap;
 }
