@@ -150,6 +150,14 @@ abstract final class AppStrings {
   static const String closedDate = 'Closed Date';
   static const String markMaterialCollected = 'Mark Material Collected';
   static const String closeJobWorkOrder = 'Close Order';
+  static const String markCollectedTitle = 'Mark material collected?';
+  static const String markCollectedMessage =
+      'Confirm the customer has picked up their finished material.';
+  static const String closeJobWorkTitle = 'Close job work order?';
+  static const String closeJobWorkMessage =
+      'This order will be marked as closed and archived.';
+  static const String jobWorkCollected = 'Material marked as collected';
+  static const String jobWorkClosed = 'Job work order closed';
   static const String pendingPickups = 'Pending Pickups';
   static const String pendingPickupsSubtitle =
       'Finished material still at the factory awaiting customer pickup';
@@ -270,6 +278,9 @@ abstract final class AppStrings {
   static const String salesOrderUpdated = 'Sales order updated';
   static const String salesOrderCancelled = 'Sales order cancelled';
   static const String salesOrderClosed = 'Sales order closed';
+  static const String closeSalesOrderTitle = 'Close sales order?';
+  static const String closeSalesOrderMessage =
+      'This order will be marked as closed and archived.';
   static const String cancelSalesOrderTitle = 'Cancel sales order?';
   static const String cancelSalesOrderMessage =
       'This order will be marked as cancelled.';

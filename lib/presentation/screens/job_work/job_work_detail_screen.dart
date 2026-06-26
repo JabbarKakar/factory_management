@@ -8,6 +8,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
 import '../../widgets/job_work/job_work_status_badge.dart';
 import '../../widgets/settings_section.dart';
@@ -60,7 +61,25 @@ class JobWorkDetailScreen extends StatelessWidget {
         );
   }
 
-  void _advanceCompletion(BuildContext context, JobWorkStatus nextStatus) {
+  Future<void> _advanceCompletion(
+    BuildContext context,
+    JobWorkStatus nextStatus,
+  ) async {
+    final isCollect = nextStatus == JobWorkStatus.collected;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: isCollect
+          ? AppStrings.markCollectedTitle
+          : AppStrings.closeJobWorkTitle,
+      message: isCollect
+          ? AppStrings.markCollectedMessage
+          : AppStrings.closeJobWorkMessage,
+      confirmLabel: isCollect
+          ? AppStrings.markMaterialCollected
+          : AppStrings.closeJobWorkOrder,
+    );
+    if (confirmed != true || !context.mounted) return;
+
     context.read<JobWorkFormBloc>().add(
           JobWorkFormCompletionRequested(
             jobWorkId: jobWorkId,
@@ -77,6 +96,11 @@ class JobWorkDetailScreen extends StatelessWidget {
             state.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.errorMessage!)),
+          );
+        }
+        if (state.successMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.successMessage!)),
           );
         }
       },

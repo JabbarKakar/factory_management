@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/constants/app_strings.dart';
 import '../../core/constants/marble_data.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../domain/entities/customer.dart';
@@ -55,7 +56,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     JobWorkFormLoadRequested event,
     Emitter<JobWorkFormState> emit,
   ) async {
-    emit(state.copyWith(status: JobWorkFormStatus.loading, isEditing: true));
+    emit(state.copyWith(status: JobWorkFormStatus.loading, isEditing: true, clearMessages: true));
     try {
       final order = await _repository.getJobWorkOrder(event.jobWorkId);
       if (order == null) {
@@ -202,6 +203,10 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         state.copyWith(
           status: JobWorkFormStatus.ready,
           order: order,
+          successMessage: event.newStatus == JobWorkStatus.collected
+              ? AppStrings.jobWorkCollected
+              : AppStrings.jobWorkClosed,
+          errorMessage: null,
         ),
       );
     } catch (_) {

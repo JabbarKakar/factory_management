@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/constants/app_strings.dart';
 import '../../core/constants/marble_data.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../domain/entities/customer.dart';
@@ -54,7 +55,7 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
     SalesOrderFormLoadRequested event,
     Emitter<SalesOrderFormState> emit,
   ) async {
-    emit(state.copyWith(status: SalesOrderFormStatus.loading, isEditing: true));
+    emit(state.copyWith(status: SalesOrderFormStatus.loading, isEditing: true, clearMessages: true));
     try {
       final order = await _repository.getSalesOrder(event.salesOrderId);
       if (order == null) {
@@ -167,6 +168,11 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
         state.copyWith(
           status: SalesOrderFormStatus.ready,
           order: order,
+          successMessage: event.newStatus == SalesOrderStatus.closed
+              ? AppStrings.salesOrderClosed
+              : null,
+          clearMessages: event.newStatus != SalesOrderStatus.closed,
+          errorMessage: null,
         ),
       );
     } catch (_) {

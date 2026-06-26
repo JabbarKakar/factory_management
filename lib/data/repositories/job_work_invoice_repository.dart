@@ -141,9 +141,12 @@ class JobWorkInvoiceRepository {
     final batch = _firestore.batch();
 
     batch.set(_collection.doc(id), model.toFirestore(isCreate: true));
+    final orderStatus = dueAmount <= 0
+        ? JobWorkStatus.paid
+        : JobWorkStatus.invoiced;
     batch.update(_jobWorkRepository.jobWorkDoc(order.id), {
       'invoiceId': id,
-      'status': JobWorkStatus.invoiced.firestoreValue,
+      'status': orderStatus.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 

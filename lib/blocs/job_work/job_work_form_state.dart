@@ -16,6 +16,7 @@ class JobWorkFormState extends Equatable {
     this.order,
     this.eligibleCustomers = const [],
     this.errorMessage,
+    this.successMessage,
     this.isEditing = false,
   });
 
@@ -23,6 +24,7 @@ class JobWorkFormState extends Equatable {
   final JobWorkOrder? order;
   final List<Customer> eligibleCustomers;
   final String? errorMessage;
+  final String? successMessage;
   final bool isEditing;
 
   JobWorkFormState copyWith({
@@ -30,13 +32,16 @@ class JobWorkFormState extends Equatable {
     JobWorkOrder? order,
     List<Customer>? eligibleCustomers,
     String? errorMessage,
+    String? successMessage,
+    bool clearMessages = false,
     bool? isEditing,
   }) {
     return JobWorkFormState(
       status: status ?? this.status,
       order: order ?? this.order,
       eligibleCustomers: eligibleCustomers ?? this.eligibleCustomers,
-      errorMessage: errorMessage,
+      errorMessage: clearMessages ? null : errorMessage,
+      successMessage: clearMessages ? null : successMessage,
       isEditing: isEditing ?? this.isEditing,
     );
   }
@@ -47,6 +52,7 @@ class JobWorkFormState extends Equatable {
         order,
         eligibleCustomers,
         errorMessage,
+        successMessage,
         isEditing,
       ];
 }

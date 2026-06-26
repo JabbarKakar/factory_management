@@ -40,7 +40,20 @@ class SalesOrderDetailScreen extends StatelessWidget {
     }
   }
 
-  void _advanceStatus(BuildContext context, SalesOrderStatus nextStatus) {
+  Future<void> _advanceStatus(
+    BuildContext context,
+    SalesOrderStatus nextStatus,
+  ) async {
+    if (nextStatus == SalesOrderStatus.closed) {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: AppStrings.closeSalesOrderTitle,
+        message: AppStrings.closeSalesOrderMessage,
+        confirmLabel: AppStrings.closeJobWorkOrder,
+      );
+      if (confirmed != true || !context.mounted) return;
+    }
+
     context.read<SalesOrderFormBloc>().add(
           SalesOrderFormStatusAdvanceRequested(
             salesOrderId: salesOrderId,
@@ -78,6 +91,11 @@ class SalesOrderDetailScreen extends StatelessWidget {
             state.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.errorMessage!)),
+          );
+        }
+        if (state.successMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.successMessage!)),
           );
         }
         if (state.status == SalesOrderFormStatus.ready &&
@@ -318,6 +336,13 @@ class SalesOrderDetailScreen extends StatelessWidget {
                         _Row(
                           AppStrings.specialInstructions,
                           order.specialInstructions!,
+                        ),
+                      ],
+                      if (order.closedAt != null) ...[
+                        const SizedBox(height: 8),
+                        _Row(
+                          AppStrings.closedDate,
+                          DateFormat.yMMMd().format(order.closedAt!),
                         ),
                       ],
                     ],

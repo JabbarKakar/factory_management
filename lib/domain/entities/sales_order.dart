@@ -63,6 +63,7 @@ class SalesOrder extends Equatable {
     this.paymentDueDate,
     this.specialInstructions,
     this.invoiceId,
+    this.closedAt,
     this.updatedAt,
   });
 
@@ -87,6 +88,7 @@ class SalesOrder extends Equatable {
   final DateTime? paymentDueDate;
   final String? specialInstructions;
   final String? invoiceId;
+  final DateTime? closedAt;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -124,6 +126,7 @@ class SalesOrder extends Equatable {
     DateTime? paymentDueDate,
     String? specialInstructions,
     String? invoiceId,
+    DateTime? closedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -149,6 +152,7 @@ class SalesOrder extends Equatable {
       paymentDueDate: paymentDueDate ?? this.paymentDueDate,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       invoiceId: invoiceId ?? this.invoiceId,
+      closedAt: closedAt ?? this.closedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -177,6 +181,7 @@ class SalesOrder extends Equatable {
         paymentDueDate,
         specialInstructions,
         invoiceId,
+        closedAt,
         createdAt,
         updatedAt,
       ];
