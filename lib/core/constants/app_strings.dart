@@ -22,4 +22,22 @@ abstract final class AppStrings {
   // Placeholders
   static const String comingSoon = 'Coming in a future sprint';
   static const String phase2 = 'Phase 2';
+
+  // Theme
+  static const String appearance = 'Appearance';
+  static const String themeLight = 'Light';
+  static const String themeDark = 'Dark';
+  static const String themeSystem = 'System';
+
+  // More / Account
+  static const String general = 'General';
+  static const String account = 'Account';
+  static const String settings = 'Settings';
+  static const String help = 'Help';
+  static const String cancel = 'Cancel';
+  static const String confirm = 'Confirm';
+  static const String logoutTitle = 'Log out?';
+  static const String logoutMessage =
+      'You will need to sign in again to access the factory dashboard.';
+  static const String logoutSubtitle = 'Sign out of your account';
 }

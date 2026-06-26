@@ -4,9 +4,28 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../blocs/auth/auth_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
+import '../../widgets/settings_section.dart';
+import '../../widgets/theme_mode_selector.dart';
+import '../../widgets/user_profile_card.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.logoutTitle,
+      message: AppStrings.logoutMessage,
+      confirmLabel: AppStrings.logout,
+      cancelLabel: AppStrings.cancel,
+      destructive: true,
+    );
+
+    if (!context.mounted || !confirmed) return;
+
+    context.read<AuthBloc>().add(const AuthLogoutRequested());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,45 +36,44 @@ class MoreScreen extends StatelessWidget {
       appBar: AppBar(title: const Text(AppStrings.more)),
       body: ListView(
         children: [
-          if (user != null)
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                child: Text(
-                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
+          if (user != null) UserProfileCard(user: user),
+          SettingsSection(
+            title: AppStrings.appearance,
+            child: const ThemeModeSelector(),
+          ),
+          SettingsSection(
+            title: AppStrings.general,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.settings_outlined),
+                  title: const Text(AppStrings.settings),
+                  subtitle: const Text(AppStrings.comingSoon),
+                  onTap: () {},
                 ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.help_outline),
+                  title: const Text(AppStrings.help),
+                  subtitle: const Text(AppStrings.comingSoon),
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ),
+          SettingsSection(
+            title: AppStrings.account,
+            child: ListTile(
+              leading: const Icon(Icons.logout, color: AppColors.error),
+              title: const Text(
+                AppStrings.logout,
+                style: TextStyle(color: AppColors.error),
               ),
-              title: Text(user.name),
-              subtitle: Text('${user.email} · ${user.role}'),
+              subtitle: const Text(AppStrings.logoutSubtitle),
+              onTap: () => _confirmLogout(context),
             ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Settings'),
-            subtitle: const Text(AppStrings.comingSoon),
-            onTap: () {},
           ),
-          ListTile(
-            leading: const Icon(Icons.help_outline),
-            title: const Text('Help'),
-            subtitle: const Text(AppStrings.comingSoon),
-            onTap: () {},
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: AppColors.error),
-            title: const Text(
-              AppStrings.logout,
-              style: TextStyle(color: AppColors.error),
-            ),
-            onTap: () {
-              context.read<AuthBloc>().add(const AuthLogoutRequested());
-            },
-          ),
+          const SizedBox(height: 24),
         ],
       ),
     );

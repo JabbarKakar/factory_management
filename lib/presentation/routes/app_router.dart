@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 
 import '../../blocs/auth/auth_bloc.dart';
+import '../screens/splash/splash_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/customers/customers_placeholder_screen.dart';
@@ -14,15 +15,20 @@ import 'route_paths.dart';
 
 GoRouter createAppRouter(AuthBloc authBloc) {
   return GoRouter(
-    initialLocation: RoutePaths.dashboard,
+    initialLocation: RoutePaths.splash,
     refreshListenable: GoRouterRefreshStream(authBloc.stream),
     redirect: (context, state) {
       final authState = authBloc.state;
       final isAuthenticated = authState is AuthAuthenticated;
       final isBootstrapping =
           authState is AuthInitial || authState is AuthLoading;
+      final isSplash = state.matchedLocation == RoutePaths.splash;
       final isAuthRoute = state.matchedLocation == RoutePaths.login ||
           state.matchedLocation == RoutePaths.forgotPassword;
+
+      if (isSplash) {
+        return null;
+      }
 
       if (isBootstrapping) {
         return null;
@@ -39,6 +45,10 @@ GoRouter createAppRouter(AuthBloc authBloc) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: RoutePaths.splash,
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: RoutePaths.login,
         builder: (context, state) => const LoginScreen(),

@@ -51,7 +51,11 @@ class AuthRepository {
   Future<AppUser> _fetchUserProfile(User user) async {
     final doc = await _firestore.collection('users').doc(user.uid).get();
     if (doc.exists && doc.data() != null) {
-      return UserModel.fromFirestore(user.uid, doc.data()!).toEntity();
+      return UserModel.fromFirestore(
+        user.uid,
+        doc.data()!,
+        authPhotoUrl: user.photoURL,
+      ).toEntity();
     }
     return _ensureUserProfile(user);
   }
@@ -61,7 +65,11 @@ class AuthRepository {
     final doc = await docRef.get();
 
     if (doc.exists && doc.data() != null) {
-      return UserModel.fromFirestore(user.uid, doc.data()!).toEntity();
+      return UserModel.fromFirestore(
+        user.uid,
+        doc.data()!,
+        authPhotoUrl: user.photoURL,
+      ).toEntity();
     }
 
     final model = UserModel(
@@ -71,6 +79,7 @@ class AuthRepository {
       role: 'owner',
       factoryId: 'default',
       createdAt: DateTime.now(),
+      photoUrl: user.photoURL,
     );
 
     await docRef.set({

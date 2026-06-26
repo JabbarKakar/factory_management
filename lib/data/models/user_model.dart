@@ -8,6 +8,7 @@ class UserModel {
     required this.role,
     required this.factoryId,
     required this.createdAt,
+    this.photoUrl,
   });
 
   final String id;
@@ -16,8 +17,14 @@ class UserModel {
   final String role;
   final String factoryId;
   final DateTime? createdAt;
+  final String? photoUrl;
 
-  factory UserModel.fromFirestore(String id, Map<String, dynamic> data) {
+  factory UserModel.fromFirestore(
+    String id,
+    Map<String, dynamic> data, {
+    String? authPhotoUrl,
+  }) {
+    final storedPhoto = data['photoUrl'] as String?;
     return UserModel(
       id: id,
       email: data['email'] as String? ?? '',
@@ -25,6 +32,7 @@ class UserModel {
       role: data['role'] as String? ?? 'owner',
       factoryId: data['factoryId'] as String? ?? 'default',
       createdAt: (data['createdAt'] as dynamic)?.toDate() as DateTime?,
+      photoUrl: _resolvePhotoUrl(storedPhoto, authPhotoUrl),
     );
   }
 
@@ -34,6 +42,7 @@ class UserModel {
       'name': name,
       'role': role,
       'factoryId': factoryId,
+      if (photoUrl != null) 'photoUrl': photoUrl,
       'createdAt': createdAt,
     };
   }
@@ -45,6 +54,13 @@ class UserModel {
       name: name,
       role: role,
       factoryId: factoryId,
+      photoUrl: photoUrl,
     );
+  }
+
+  static String? _resolvePhotoUrl(String? stored, String? authPhotoUrl) {
+    if (stored != null && stored.isNotEmpty) return stored;
+    if (authPhotoUrl != null && authPhotoUrl.isNotEmpty) return authPhotoUrl;
+    return null;
   }
 }
