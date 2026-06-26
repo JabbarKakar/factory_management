@@ -24,6 +24,7 @@ import '../screens/job_work/job_work_list_screen.dart';
 import '../screens/job_work/record_job_work_output_screen.dart';
 import '../screens/job_work/record_payment_screen.dart';
 import '../screens/more/more_screen.dart';
+import '../screens/notifications/notification_center_screen.dart';
 import '../screens/sales/sales_placeholder_screen.dart';
 import '../screens/shell/main_shell.dart';
 import '../utils/auth_context.dart';
@@ -76,6 +77,11 @@ GoRouter createAppRouter(AuthBloc authBloc) {
       GoRoute(
         path: RoutePaths.forgotPassword,
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.notifications,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const NotificationCenterScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

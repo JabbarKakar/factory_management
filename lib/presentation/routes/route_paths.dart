@@ -24,4 +24,5 @@ abstract final class RoutePaths {
   static String customerEdit(String id) => '/customers/$id/edit';
   static const String sales = '/sales';
   static const String more = '/more';
+  static const String notifications = '/notifications';
 }

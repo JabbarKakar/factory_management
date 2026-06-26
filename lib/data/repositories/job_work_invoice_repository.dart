@@ -64,6 +64,31 @@ class JobWorkInvoiceRepository {
         });
   }
 
+  Future<List<JobWorkInvoice>> getOpenInvoicesForFactory(String factoryId) async {
+    final snapshot =
+        await _collection.where('factoryId', isEqualTo: factoryId).get();
+    final invoices = snapshot.docs
+        .map((doc) => JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .where((invoice) => invoice.dueAmount > 0)
+        .toList();
+    return invoices;
+  }
+
+  Stream<List<JobWorkInvoice>> watchOpenInvoicesForFactory(String factoryId) {
+    return _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs
+              .map((doc) =>
+                  JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()))
+              .map((model) => model.toEntity())
+              .where((invoice) => invoice.dueAmount > 0)
+              .toList();
+        });
+  }
+
   Future<JobWorkInvoice> generateFromJobWorkOrder(String jobWorkId) async {
     final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
     if (order == null) {

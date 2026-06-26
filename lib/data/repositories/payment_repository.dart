@@ -6,8 +6,10 @@ import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../models/payment_model.dart';
 import '../services/customer_ledger_service.dart';
+import '../services/payment_due_scanner_service.dart';
 import 'job_work_invoice_repository.dart';
 import 'job_work_repository.dart';
+import 'notification_repository.dart';
 
 class PaymentRepository {
   PaymentRepository({
@@ -15,15 +17,21 @@ class PaymentRepository {
     required JobWorkInvoiceRepository invoiceRepository,
     required JobWorkRepository jobWorkRepository,
     CustomerLedgerService? ledgerService,
+    NotificationRepository? notificationRepository,
+    PaymentDueScannerService? scannerService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _invoiceRepository = invoiceRepository,
         _jobWorkRepository = jobWorkRepository,
-        _ledgerService = ledgerService;
+        _ledgerService = ledgerService,
+        _notificationRepository = notificationRepository,
+        _scannerService = scannerService;
 
   final FirebaseFirestore _firestore;
   final JobWorkInvoiceRepository _invoiceRepository;
   final JobWorkRepository _jobWorkRepository;
   final CustomerLedgerService? _ledgerService;
+  final NotificationRepository? _notificationRepository;
+  final PaymentDueScannerService? _scannerService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
@@ -136,6 +144,19 @@ class PaymentRepository {
 
     await batch.commit();
     await _ledgerService?.syncCustomerBalance(invoice.customerId);
+
+    if (newDue > 0 && _notificationRepository != null && _scannerService != null) {
+      final updatedInvoice = await _invoiceRepository.getInvoice(invoiceId);
+      if (updatedInvoice != null) {
+        await _notificationRepository.createNotification(
+          _scannerService.buildPartialPaymentNotification(
+            invoice: updatedInvoice,
+            amountPaid: appliedAmount,
+            remainingDue: newDue,
+          ),
+        );
+      }
+    }
 
     return payment;
   }

@@ -7,15 +7,18 @@ import '../../blocs/job_work/job_work_form_bloc.dart';
 import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
 import '../../blocs/job_work/job_work_output_bloc.dart';
-import '../../data/repositories/job_work_invoice_repository.dart';
-import '../../data/repositories/payment_repository.dart';
-import '../../data/services/customer_ledger_service.dart';
+import '../../blocs/notification/notification_bloc.dart';
 import '../../blocs/theme/theme_cubit.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
+import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/notification_repository.dart';
+import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/theme_repository.dart';
+import '../../data/services/customer_ledger_service.dart';
 import '../../data/services/job_work_cleanup_service.dart';
+import '../../data/services/payment_due_scanner_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -29,10 +32,17 @@ void setupDependencies() {
       jobWorkRepository: getIt<JobWorkRepository>(),
     ),
   );
+  getIt.registerLazySingleton<NotificationRepository>(NotificationRepository.new);
   getIt.registerLazySingleton<CustomerLedgerService>(
     () => CustomerLedgerService(
       customerRepository: getIt<CustomerRepository>(),
       invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<PaymentDueScannerService>(
+    () => PaymentDueScannerService(
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      notificationRepository: getIt<NotificationRepository>(),
     ),
   );
   getIt.registerLazySingleton<PaymentRepository>(
@@ -40,6 +50,8 @@ void setupDependencies() {
       invoiceRepository: getIt<JobWorkInvoiceRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
       ledgerService: getIt<CustomerLedgerService>(),
+      notificationRepository: getIt<NotificationRepository>(),
+      scannerService: getIt<PaymentDueScannerService>(),
     ),
   );
   getIt.registerLazySingleton<JobWorkCleanupService>(
@@ -51,6 +63,12 @@ void setupDependencies() {
   );
   getIt.registerLazySingleton<ThemeCubit>(
     () => ThemeCubit(getIt<ThemeRepository>()),
+  );
+  getIt.registerLazySingleton<NotificationBloc>(
+    () => NotificationBloc(
+      repository: getIt<NotificationRepository>(),
+      scannerService: getIt<PaymentDueScannerService>(),
+    ),
   );
   getIt.registerFactory<CustomerListBloc>(
     () => CustomerListBloc(repository: getIt<CustomerRepository>()),

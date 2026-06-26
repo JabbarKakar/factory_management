@@ -4,29 +4,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../blocs/auth/auth_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../widgets/notification_bell.dart';
+import '../../widgets/payment_reminders_card.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final user = context.select<AuthBloc, String?>((bloc) {
-      final state = bloc.state;
-      if (state is AuthAuthenticated) {
-        return state.user.name;
-      }
-      return null;
-    });
+    final authState = context.watch<AuthBloc>().state;
+    final user = authState is AuthAuthenticated ? authState.user : null;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppStrings.dashboard),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            tooltip: 'Notifications',
-            onPressed: () {},
-          ),
+        actions: const [
+          NotificationBell(),
         ],
       ),
       body: ListView(
@@ -39,14 +32,14 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Welcome${user != null ? ', $user' : ''}',
+                    'Welcome${user != null ? ', ${user.name}' : ''}',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Sprint 1 complete — foundation is ready.',
+                    'Payment due alerts are active. Check the bell for details.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -55,6 +48,10 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
           ),
+          if (user != null) ...[
+            const SizedBox(height: 16),
+            PaymentRemindersCard(factoryId: user.factoryId),
+          ],
           const SizedBox(height: 16),
           Text(
             'Quick overview',

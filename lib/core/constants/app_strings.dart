@@ -224,4 +224,17 @@ abstract final class AppStrings {
   static const String invoiceTypeJobWork = 'Job Work Invoice';
   static const String paymentReceived = 'Payment Received';
   static const String ledgerAmountDue = 'due';
+
+  // Notifications (Sprint 6)
+  static const String notifications = 'Notifications';
+  static const String markAllRead = 'Mark all read';
+  static const String noNotifications = 'No notifications yet';
+  static const String paymentReminders = 'Payment Reminders';
+  static const String dueThisWeek = 'Due This Week';
+  static const String overduePayments = 'Overdue';
+  static const String today = 'Today';
+  static const String yesterday = 'Yesterday';
+  static const String earlier = 'Earlier';
+  static const String viewAllNotifications = 'View all notifications';
+  static const String refreshNotifications = 'Refresh alerts';
 }
