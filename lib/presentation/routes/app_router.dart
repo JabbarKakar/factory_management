@@ -12,6 +12,7 @@ import '../../blocs/customer/customer_list_bloc.dart';
 import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../blocs/expense/expense_form_bloc.dart';
 import '../../blocs/expense/expense_list_bloc.dart';
+import '../../blocs/pl/pl_report_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
@@ -39,6 +40,7 @@ import '../screens/sales/sales_order_detail_screen.dart';
 import '../screens/sales/sales_order_list_screen.dart';
 import '../screens/expenses/add_edit_expense_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
+import '../screens/reports/pl_report_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/notifications/notification_center_screen.dart';
 import '../screens/shell/main_shell.dart';
@@ -154,6 +156,23 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             },
           ),
         ],
+      ),
+      GoRoute(
+        path: RoutePaths.plReport,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<PlReportBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(PlReportWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: const PlReportScreen(),
+          );
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

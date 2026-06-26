@@ -51,6 +51,7 @@ abstract final class RoutePaths {
   static const String expensesAdd = '/expenses/add';
 
   static String expenseEdit(String id) => '/expenses/$id/edit';
+  static const String plReport = '/reports/pl';
 
   static String notificationsWithFilter(NotificationFilter filter) =>
       '$notifications?filter=${filter.name}';

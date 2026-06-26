@@ -350,4 +350,27 @@ abstract final class AppStrings {
   static const String expenseEntriesThisMonth = 'entries this month';
   static const String factoryExpensesSubtitle =
       'Track electricity, fuel, wages, and other costs';
+
+  // P&L Report (Sprint 11)
+  static const String monthlyPlReport = 'Monthly P&L';
+  static const String plReportSubtitle =
+      'Income from payments vs factory expenses';
+  static const String plReportLoadError = 'Could not load P&L report';
+  static const String plReportEmpty =
+      'No payments or expenses recorded for this month yet.';
+  static const String plReportFootnote =
+      'Revenue is based on payments received. Expenses use recorded expense dates.';
+  static const String revenue = 'Revenue';
+  static const String salesRevenue = 'Sales Revenue';
+  static const String jobWorkRevenue = 'Job Work Revenue';
+  static const String totalRevenue = 'Total Revenue';
+  static const String totalExpenses = 'Total Expenses';
+  static const String netProfit = 'Net Profit';
+  static const String netLoss = 'Net Loss';
+  static const String netProfitMargin = 'Net Profit Margin';
+  static const String paymentsRecorded = 'payments recorded';
+  static const String noExpensesThisMonth = 'No expenses recorded this month';
+  static const String previousMonth = 'Previous month';
+  static const String nextMonth = 'Next month';
+  static const String reports = 'Reports';
 }
