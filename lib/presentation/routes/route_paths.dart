@@ -1,3 +1,5 @@
+import '../../domain/enums/notification_enums.dart';
+
 abstract final class RoutePaths {
   static const String splash = '/';
   static const String login = '/login';
@@ -25,4 +27,7 @@ abstract final class RoutePaths {
   static const String sales = '/sales';
   static const String more = '/more';
   static const String notifications = '/notifications';
+
+  static String notificationsWithFilter(NotificationFilter filter) =>
+      '$notifications?filter=${filter.name}';
 }

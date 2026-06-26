@@ -45,10 +45,16 @@ enum NotificationPriority {
 
 enum NotificationFilter {
   all,
-  payments;
+  payments,
+  dueThisWeek,
+  overdue;
 
   String get label => switch (this) {
         NotificationFilter.all => 'All',
         NotificationFilter.payments => 'Payments',
+        NotificationFilter.dueThisWeek => 'Due Soon',
+        NotificationFilter.overdue => 'Overdue',
       };
+
+  bool get isQuickFilter => this == dueThisWeek || this == overdue;
 }

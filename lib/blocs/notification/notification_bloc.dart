@@ -154,6 +154,23 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
       NotificationFilter.all => notifications,
       NotificationFilter.payments =>
         notifications.where((n) => n.type.isPaymentType).toList(),
+      NotificationFilter.dueThisWeek => notifications.where((n) {
+          if (n.type == NotificationType.paymentOverdue ||
+              n.type == NotificationType.partialPaymentReceived) {
+            return false;
+          }
+          if (!n.type.isPaymentType) return false;
+          final due = n.dueDate;
+          if (due == null) return false;
+          final now = DateTime.now();
+          final today = DateTime(now.year, now.month, now.day);
+          final dueDay = DateTime(due.year, due.month, due.day);
+          final daysUntil = dueDay.difference(today).inDays;
+          return daysUntil >= 0 && daysUntil <= 7;
+        }).toList(),
+      NotificationFilter.overdue => notifications
+          .where((n) => n.type == NotificationType.paymentOverdue)
+          .toList(),
     };
   }
 

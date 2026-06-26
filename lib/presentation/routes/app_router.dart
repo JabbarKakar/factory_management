@@ -10,6 +10,7 @@ import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
 import '../../core/di/injection.dart';
+import '../../domain/enums/notification_enums.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
@@ -81,7 +82,16 @@ GoRouter createAppRouter(AuthBloc authBloc) {
       GoRoute(
         path: RoutePaths.notifications,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const NotificationCenterScreen(),
+        builder: (context, state) {
+          final filterName = state.uri.queryParameters['filter'];
+          final initialFilter = filterName == null
+              ? NotificationFilter.all
+              : NotificationFilter.values.firstWhere(
+                  (filter) => filter.name == filterName,
+                  orElse: () => NotificationFilter.all,
+                );
+          return NotificationCenterScreen(initialFilter: initialFilter);
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

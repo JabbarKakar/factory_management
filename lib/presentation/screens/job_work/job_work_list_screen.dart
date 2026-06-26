@@ -9,6 +9,7 @@ import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_list_tile.dart';
+import '../../widgets/notification_bell.dart';
 
 class JobWorkListScreen extends StatefulWidget {
   const JobWorkListScreen({super.key});
@@ -29,7 +30,12 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.jobWork)),
+      appBar: AppBar(
+        title: const Text(AppStrings.jobWork),
+        actions: const [
+          NotificationBell(),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab-job-work',
         onPressed: () => context.push(RoutePaths.jobWorkAdd),

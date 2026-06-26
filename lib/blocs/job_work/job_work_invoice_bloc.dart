@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
+import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/enums/invoice_enums.dart';
@@ -17,9 +18,11 @@ class JobWorkInvoiceBloc
     required JobWorkInvoiceRepository invoiceRepository,
     required PaymentRepository paymentRepository,
     required CustomerLedgerService ledgerService,
+    required PaymentDueScannerService scannerService,
   })  : _invoiceRepository = invoiceRepository,
         _paymentRepository = paymentRepository,
         _ledgerService = ledgerService,
+        _scannerService = scannerService,
         super(const JobWorkInvoiceState()) {
     on<JobWorkInvoiceLoadByJobWork>(_onLoadByJobWork);
     on<JobWorkInvoiceLoadById>(_onLoadById);
@@ -30,6 +33,7 @@ class JobWorkInvoiceBloc
   final JobWorkInvoiceRepository _invoiceRepository;
   final PaymentRepository _paymentRepository;
   final CustomerLedgerService _ledgerService;
+  final PaymentDueScannerService _scannerService;
 
   Future<void> _onLoadByJobWork(
     JobWorkInvoiceLoadByJobWork event,
@@ -95,6 +99,7 @@ class JobWorkInvoiceBloc
       final invoice =
           await _invoiceRepository.generateFromJobWorkOrder(event.jobWorkId);
       await _ledgerService.syncCustomerBalance(invoice.customerId);
+      await _scannerService.scan(invoice.factoryId);
       await _emitWithPayments(invoice, emit, saved: true);
     } catch (e) {
       emit(

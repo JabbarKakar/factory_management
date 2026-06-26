@@ -93,6 +93,7 @@ void setupDependencies() {
       invoiceRepository: getIt<JobWorkInvoiceRepository>(),
       paymentRepository: getIt<PaymentRepository>(),
       ledgerService: getIt<CustomerLedgerService>(),
+      scannerService: getIt<PaymentDueScannerService>(),
     ),
   );
 }

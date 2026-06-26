@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
@@ -6,6 +7,8 @@ import '../../core/di/injection.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/services/payment_due_scanner_service.dart';
+import '../../domain/enums/notification_enums.dart';
+import '../routes/route_paths.dart';
 
 class PaymentRemindersCard extends StatelessWidget {
   const PaymentRemindersCard({required this.factoryId, super.key});
@@ -67,6 +70,10 @@ class PaymentRemindersCard extends StatelessWidget {
                         count: summary.dueThisWeekCount,
                         amount: summary.dueThisWeekAmount,
                         color: AppColors.dueSoon,
+                        onTap: () => _openNotifications(
+                          context,
+                          NotificationFilter.dueThisWeek,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -76,6 +83,10 @@ class PaymentRemindersCard extends StatelessWidget {
                         count: summary.overdueCount,
                         amount: summary.overdueAmount,
                         color: AppColors.overdue,
+                        onTap: () => _openNotifications(
+                          context,
+                          NotificationFilter.overdue,
+                        ),
                       ),
                     ),
                   ],
@@ -87,6 +98,15 @@ class PaymentRemindersCard extends StatelessWidget {
       },
     );
   }
+
+  Future<void> _openNotifications(
+    BuildContext context,
+    NotificationFilter filter,
+  ) async {
+    await getIt<PaymentDueScannerService>().scan(factoryId);
+    if (!context.mounted) return;
+    await context.push(RoutePaths.notificationsWithFilter(filter));
+  }
 }
 
 class _SummaryTile extends StatelessWidget {
@@ -95,44 +115,60 @@ class _SummaryTile extends StatelessWidget {
     required this.count,
     required this.amount,
     required this.color,
+    required this.onTap,
   });
 
   final String label;
   final int count;
   final double amount;
   final Color color;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+    return Material(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
-          const SizedBox(height: 8),
-          Text(
-            '$count',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, size: 18, color: color),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$count',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              Text(
+                Formatters.currencyPkr(amount),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
           ),
-          Text(
-            Formatters.currencyPkr(amount),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
+        ),
       ),
     );
   }

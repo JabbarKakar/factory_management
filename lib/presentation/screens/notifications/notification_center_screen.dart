@@ -11,8 +11,31 @@ import '../../../domain/entities/app_notification.dart';
 import '../../../domain/enums/notification_enums.dart';
 import '../../routes/route_paths.dart';
 
-class NotificationCenterScreen extends StatelessWidget {
-  const NotificationCenterScreen({super.key});
+class NotificationCenterScreen extends StatefulWidget {
+  const NotificationCenterScreen({
+    this.initialFilter = NotificationFilter.all,
+    super.key,
+  });
+
+  final NotificationFilter initialFilter;
+
+  @override
+  State<NotificationCenterScreen> createState() =>
+      _NotificationCenterScreenState();
+}
+
+class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialFilter != NotificationFilter.all) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        getIt<NotificationBloc>().add(
+          NotificationFilterChanged(widget.initialFilter),
+        );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,19 +85,23 @@ class _NotificationCenterView extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(
-                  children: NotificationFilter.values.map((filter) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(filter.label),
-                        selected: state.filter == filter,
-                        onSelected: (_) => context.read<NotificationBloc>().add(
-                              NotificationFilterChanged(filter),
-                            ),
-                      ),
-                    );
-                  }).toList(),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: NotificationFilter.values.map((filter) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(filter.label),
+                          selected: state.filter == filter,
+                          onSelected: (_) =>
+                              context.read<NotificationBloc>().add(
+                                    NotificationFilterChanged(filter),
+                                  ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
               Expanded(child: _buildBody(context, state)),

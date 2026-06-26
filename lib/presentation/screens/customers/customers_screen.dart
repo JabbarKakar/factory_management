@@ -9,6 +9,7 @@ import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../widgets/customers/customer_list_tile.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/notification_bell.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -31,6 +32,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppStrings.customers),
+        actions: const [
+          NotificationBell(),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'fab-customers',
