@@ -7,6 +7,7 @@ import 'blocs/theme/theme_cubit.dart';
 import 'core/constants/app_strings.dart';
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
+import 'data/services/job_work_cleanup_service.dart';
 import 'presentation/routes/app_router.dart';
 
 class FactoryManagementApp extends StatefulWidget {
@@ -27,6 +28,25 @@ class _FactoryManagementAppState extends State<FactoryManagementApp> {
     _authBloc = getIt<AuthBloc>()..add(const AuthCheckRequested());
     _themeCubit = getIt<ThemeCubit>();
     _router = createAppRouter(_authBloc);
+    _runOrphanedJobWorkCleanupIfNeeded();
+  }
+
+  void _runOrphanedJobWorkCleanupIfNeeded() {
+    final authState = _authBloc.state;
+    if (authState is AuthAuthenticated) {
+      getIt<JobWorkCleanupService>()
+          .runIfNeeded(authState.user.factoryId)
+          .ignore();
+      return;
+    }
+
+    _authBloc.stream
+        .where((state) => state is AuthAuthenticated)
+        .first
+        .then((state) {
+      final user = (state as AuthAuthenticated).user;
+      getIt<JobWorkCleanupService>().runIfNeeded(user.factoryId).ignore();
+    }).ignore();
   }
 
   @override

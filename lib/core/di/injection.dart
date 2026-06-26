@@ -10,6 +10,7 @@ import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/theme_repository.dart';
+import '../../data/services/job_work_cleanup_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -18,6 +19,9 @@ void setupDependencies() {
   getIt.registerLazySingleton<ThemeRepository>(ThemeRepository.new);
   getIt.registerLazySingleton<CustomerRepository>(CustomerRepository.new);
   getIt.registerLazySingleton<JobWorkRepository>(JobWorkRepository.new);
+  getIt.registerLazySingleton<JobWorkCleanupService>(
+    () => JobWorkCleanupService(jobWorkRepository: getIt<JobWorkRepository>()),
+  );
 
   getIt.registerFactory<AuthBloc>(
     () => AuthBloc(authRepository: getIt<AuthRepository>()),
@@ -29,7 +33,10 @@ void setupDependencies() {
     () => CustomerListBloc(repository: getIt<CustomerRepository>()),
   );
   getIt.registerFactory<CustomerFormBloc>(
-    () => CustomerFormBloc(repository: getIt<CustomerRepository>()),
+    () => CustomerFormBloc(
+      repository: getIt<CustomerRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+    ),
   );
   getIt.registerFactory<JobWorkListBloc>(
     () => JobWorkListBloc(repository: getIt<JobWorkRepository>()),

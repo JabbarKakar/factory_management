@@ -305,7 +305,8 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
           );
         }
 
-        if (state.eligibleCustomers.isEmpty &&
+        if (!isEditing &&
+            state.eligibleCustomers.isEmpty &&
             state.status == JobWorkFormStatus.ready) {
           return Scaffold(
             appBar: AppBar(title: const Text(AppStrings.newJobWorkOrder)),

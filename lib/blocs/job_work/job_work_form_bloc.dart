@@ -73,7 +73,10 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         state.copyWith(
           status: JobWorkFormStatus.ready,
           order: order,
-          eligibleCustomers: customers,
+          eligibleCustomers: _repository.customersForOrderForm(
+            eligible: customers,
+            order: order,
+          ),
           isEditing: true,
         ),
       );

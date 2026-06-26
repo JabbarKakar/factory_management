@@ -54,7 +54,7 @@ abstract final class AppStrings {
   static const String customerDeleted = 'Customer deleted';
   static const String deleteCustomerTitle = 'Delete customer?';
   static const String deleteCustomerMessage =
-      'This will permanently remove the customer record.';
+      'This will permanently remove the customer and all linked job work orders.';
   static const String searchCustomers = 'Search name, phone, city...';
   static const String all = 'All';
   static const String noCustomersYet = 'No customers yet';
@@ -119,7 +119,7 @@ abstract final class AppStrings {
   static const String jobWorkLoadError = 'Could not load job work orders';
   static const String selectCustomer = 'Select Customer';
   static const String noJobWorkCustomers =
-      'No job-work customers found. Add a customer with Job Work or Both service type.';
+      'No customers found. Add a customer before creating a job work order.';
   static const String customerAndDates = 'Customer & Dates';
   static const String inputMaterial = 'Customer\'s Material (Input)';
   static const String cuttingSpecification = 'Cutting Specification';

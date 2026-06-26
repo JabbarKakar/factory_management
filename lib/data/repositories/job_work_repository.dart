@@ -48,11 +48,6 @@ class JobWorkRepository {
     return snapshot.docs
         .map((doc) => CustomerModel.fromFirestore(doc.id, doc.data()))
         .map((model) => model.toEntity())
-        .where(
-          (customer) =>
-              customer.serviceType == CustomerServiceType.jobWork ||
-              customer.serviceType == CustomerServiceType.both,
-        )
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
   }
@@ -86,6 +81,99 @@ class JobWorkRepository {
       'status': JobWorkStatus.cancelled.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<int> countOrdersForCustomer(String customerId) async {
+    final snapshot = await _jobWorkCollection
+        .where('customerId', isEqualTo: customerId)
+        .get();
+    return snapshot.docs.length;
+  }
+
+  Future<void> deleteOrdersForCustomer(String customerId) async {
+    final snapshot = await _jobWorkCollection
+        .where('customerId', isEqualTo: customerId)
+        .get();
+
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
+  /// Deletes job work orders whose [customerId] no longer exists.
+  Future<int> deleteOrphanedOrders(String factoryId) async {
+    final ordersSnapshot = await _jobWorkCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .get();
+
+    if (ordersSnapshot.docs.isEmpty) return 0;
+
+    final customersSnapshot = await _customerCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .get();
+
+    final customerIds = customersSnapshot.docs.map((doc) => doc.id).toSet();
+
+    final orphanedDocs = ordersSnapshot.docs.where((doc) {
+      final customerId = doc.data()['customerId'] as String? ?? '';
+      return customerId.isEmpty || !customerIds.contains(customerId);
+    }).toList();
+
+    if (orphanedDocs.isEmpty) return 0;
+
+    const batchLimit = 500;
+    var deletedCount = 0;
+
+    for (var index = 0; index < orphanedDocs.length; index += batchLimit) {
+      final batch = _firestore.batch();
+      final chunk = orphanedDocs.skip(index).take(batchLimit);
+      for (final doc in chunk) {
+        batch.delete(doc.reference);
+        deletedCount++;
+      }
+      await batch.commit();
+    }
+
+    return deletedCount;
+  }
+
+  /// Ensures the order's linked customer appears in the picker (e.g. if deleted).
+  List<Customer> customersForOrderForm({
+    required List<Customer> eligible,
+    JobWorkOrder? order,
+  }) {
+    if (order == null || order.customerId.isEmpty) return eligible;
+    if (eligible.any((customer) => customer.id == order.customerId)) {
+      return eligible;
+    }
+
+    return [
+      _removedCustomerPlaceholder(order),
+      ...eligible,
+    ];
+  }
+
+  Customer _removedCustomerPlaceholder(JobWorkOrder order) {
+    return Customer(
+      id: order.customerId,
+      factoryId: order.factoryId,
+      customerType: CustomerType.individual,
+      name: order.customerName.isEmpty
+          ? 'Removed customer'
+          : '${order.customerName} (removed)',
+      phone: '',
+      serviceType: CustomerServiceType.jobWork,
+      category: CustomerCategory.retail,
+      paymentTerms: PaymentTerms.cash,
+      creditLimit: 0,
+      balance: 0,
+      openingBalance: 0,
+      createdAt: order.createdAt,
+    );
   }
 
   Future<String> _generateJobWorkNumber(String factoryId) async {
