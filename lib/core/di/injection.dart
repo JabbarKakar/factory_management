@@ -12,6 +12,9 @@ import '../../blocs/notification/notification_bloc.dart';
 import '../../blocs/expense/expense_form_bloc.dart';
 import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/pl/pl_report_bloc.dart';
+import '../../blocs/raw_material/raw_material_detail_bloc.dart';
+import '../../blocs/raw_material/raw_material_list_bloc.dart';
+import '../../blocs/raw_material/stock_movement_bloc.dart';
 import '../../blocs/supplier/supplier_form_bloc.dart';
 import '../../blocs/supplier/supplier_list_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
@@ -25,12 +28,14 @@ import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/payment_repository.dart';
+import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/repositories/supplier_repository.dart';
 import '../../data/repositories/theme_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
 import '../../data/services/pl_report_service.dart';
+import '../../data/services/raw_material_stock_service.dart';
 import '../../data/services/job_work_cleanup_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 
@@ -81,6 +86,12 @@ void setupDependencies() {
   getIt.registerLazySingleton<PlReportService>(PlReportService.new);
   getIt.registerLazySingleton<ExpenseRepository>(ExpenseRepository.new);
   getIt.registerLazySingleton<SupplierRepository>(SupplierRepository.new);
+  getIt.registerLazySingleton<RawMaterialStockService>(
+    RawMaterialStockService.new,
+  );
+  getIt.registerLazySingleton<RawMaterialRepository>(
+    () => RawMaterialRepository(stockService: getIt<RawMaterialStockService>()),
+  );
   getIt.registerLazySingleton<JobWorkCleanupService>(
     () => JobWorkCleanupService(jobWorkRepository: getIt<JobWorkRepository>()),
   );
@@ -109,6 +120,7 @@ void setupDependencies() {
       jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
       expenseRepository: getIt<ExpenseRepository>(),
+      rawMaterialRepository: getIt<RawMaterialRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
     ),
   );
@@ -169,5 +181,14 @@ void setupDependencies() {
   );
   getIt.registerFactory<SupplierFormBloc>(
     () => SupplierFormBloc(repository: getIt<SupplierRepository>()),
+  );
+  getIt.registerFactory<RawMaterialListBloc>(
+    () => RawMaterialListBloc(repository: getIt<RawMaterialRepository>()),
+  );
+  getIt.registerFactory<RawMaterialDetailBloc>(
+    () => RawMaterialDetailBloc(repository: getIt<RawMaterialRepository>()),
+  );
+  getIt.registerFactory<StockMovementBloc>(
+    () => StockMovementBloc(repository: getIt<RawMaterialRepository>()),
   );
 }

@@ -23,4 +23,10 @@ abstract final class Formatters {
     final prefix = amount < 0 ? '- ' : '';
     return '$prefix₨ $formatted';
   }
+
+  static String stockQuantity(double quantity, String unitLabel) {
+    final formatted =
+        quantity.toStringAsFixed(quantity == quantity.roundToDouble() ? 0 : 2);
+    return '$formatted $unitLabel';
+  }
 }

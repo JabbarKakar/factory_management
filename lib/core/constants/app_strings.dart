@@ -410,4 +410,42 @@ abstract final class AppStrings {
   static const String recordPurchase = 'Record Purchase';
   static const String viewAllPurchases = 'View all purchases';
   static const String showLessPurchases = 'Show less';
+
+  // Raw materials (Sprint 13)
+  static const String rawMaterials = 'Raw Materials';
+  static const String rawMaterialStock = 'Raw Material Stock';
+  static const String rawMaterialStockSubtitle =
+      'Track blocks, slabs, and consumables in/out';
+  static const String searchRawMaterials = 'Search material type...';
+  static const String rawMaterialsLoadError = 'Could not load raw material stock';
+  static const String stockIn = 'Stock In';
+  static const String stockOut = 'Stock Out';
+  static const String recordStockIn = 'Record Stock In';
+  static const String recordStockOut = 'Record Stock Out';
+  static const String stockInRecorded = 'Stock received';
+  static const String stockOutRecorded = 'Stock consumed';
+  static const String currentStock = 'Current Stock';
+  static const String reorderLevel = 'Reorder Level';
+  static const String averageCost = 'Average Cost';
+  static const String stockValue = 'Stock Value';
+  static const String lastReceipt = 'Last Receipt';
+  static const String stockHistory = 'Stock History';
+  static const String noStockHistory = 'No stock movements recorded yet';
+  static const String lowStock = 'Low Stock';
+  static const String lowStockMaterials = 'Low Stock Items';
+  static const String inStock = 'In Stock';
+  static const String unitCostPkr = 'Unit Cost (PKR)';
+  static const String totalCost = 'Total Cost';
+  static const String receiptDate = 'Receipt Date';
+  static const String movementDate = 'Movement Date';
+  static const String referenceNumber = 'Reference / Challan #';
+  static const String consumptionReason = 'Reason / Notes';
+  static const String setReorderLevel = 'Set Reorder Level';
+  static const String reorderLevelUpdated = 'Reorder level updated';
+  static const String reorderLevelHint =
+      'Alert when stock falls to or below this level';
+  static const String recordStockInFirst =
+      'Record stock in first before setting a reorder level';
+  static const String materialDetails = 'Material Details';
+  static const String noStockMovementsFound = 'No movements match your filters';
 }

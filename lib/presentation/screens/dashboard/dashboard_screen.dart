@@ -242,6 +242,16 @@ class _KpiGrid extends StatelessWidget {
         onTap: () => context.push(RoutePaths.expenses),
       ),
       _KpiItem(
+        label: AppStrings.lowStockMaterials,
+        value: '${kpis.lowStockCount}',
+        subtitle: kpis.lowStockCount > 0
+            ? AppStrings.lowStock
+            : AppStrings.rawMaterialStock,
+        icon: Icons.inventory_2_outlined,
+        color: kpis.lowStockCount > 0 ? AppColors.warning : AppColors.accent,
+        onTap: () => context.push(RoutePaths.rawMaterials),
+      ),
+      _KpiItem(
         label: AppStrings.customerCount,
         value: '${kpis.customerCount}',
         icon: Icons.people_outline,

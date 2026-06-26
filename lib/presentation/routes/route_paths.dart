@@ -69,6 +69,16 @@ abstract final class RoutePaths {
   static String supplierDetail(String id) => '/suppliers/$id';
 
   static String supplierEdit(String id) => '/suppliers/$id/edit';
+  static const String rawMaterials = '/raw-materials';
+
+  static String rawMaterialDetail(String materialType) =>
+      '/raw-materials/$materialType';
+
+  static String rawMaterialStockIn(String materialType) =>
+      '/raw-materials/$materialType/stock-in';
+
+  static String rawMaterialStockOut(String materialType) =>
+      '/raw-materials/$materialType/stock-out';
 
   static String notificationsWithFilter(NotificationFilter filter) =>
       '$notifications?filter=${filter.name}';

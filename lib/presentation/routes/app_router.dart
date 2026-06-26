@@ -13,12 +13,16 @@ import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../blocs/expense/expense_form_bloc.dart';
 import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/pl/pl_report_bloc.dart';
+import '../../blocs/raw_material/raw_material_detail_bloc.dart';
+import '../../blocs/raw_material/raw_material_list_bloc.dart';
+import '../../blocs/raw_material/stock_movement_bloc.dart';
 import '../../blocs/supplier/supplier_form_bloc.dart';
 import '../../blocs/supplier/supplier_list_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
+import '../../domain/enums/raw_material_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../../domain/enums/sales_enums.dart';
@@ -43,6 +47,9 @@ import '../screens/sales/sales_order_list_screen.dart';
 import '../screens/expenses/add_edit_expense_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/reports/pl_report_screen.dart';
+import '../screens/raw_materials/raw_material_detail_screen.dart';
+import '../screens/raw_materials/raw_materials_screen.dart';
+import '../screens/raw_materials/record_stock_movement_screen.dart';
 import '../screens/suppliers/add_edit_supplier_screen.dart';
 import '../screens/suppliers/supplier_detail_screen.dart';
 import '../screens/suppliers/suppliers_screen.dart';
@@ -239,6 +246,107 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     create: (_) => getIt<SupplierFormBloc>()
                       ..add(SupplierFormLoadRequested(supplierId)),
                     child: AddEditSupplierScreen(supplierId: supplierId),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: RoutePaths.rawMaterials,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<RawMaterialListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(RawMaterialListWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: const RawMaterialsScreen(),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: ':materialType',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final materialType = state.pathParameters['materialType']!;
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<RawMaterialDetailBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(
+                      RawMaterialDetailWatchStarted(
+                        factoryId: factoryId,
+                        materialType:
+                            RawMaterialType.fromString(materialType),
+                      ),
+                    );
+                  }
+                  return bloc;
+                },
+                child: RawMaterialDetailScreen(materialTypeName: materialType),
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'stock-in',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final materialType = state.pathParameters['materialType']!;
+                  return BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<StockMovementBloc>();
+                      final factoryId = readFactoryId(context);
+                      if (factoryId != null) {
+                        bloc.add(
+                          StockMovementInitialized(
+                            factoryId: factoryId,
+                            materialType:
+                                RawMaterialType.fromString(materialType),
+                            movementType: StockMovementType.stockIn,
+                          ),
+                        );
+                      }
+                      return bloc;
+                    },
+                    child: RecordStockMovementScreen(
+                      materialTypeName: materialType,
+                      movementTypeName: StockMovementType.stockIn.name,
+                    ),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'stock-out',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final materialType = state.pathParameters['materialType']!;
+                  return BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<StockMovementBloc>();
+                      final factoryId = readFactoryId(context);
+                      if (factoryId != null) {
+                        bloc.add(
+                          StockMovementInitialized(
+                            factoryId: factoryId,
+                            materialType:
+                                RawMaterialType.fromString(materialType),
+                            movementType: StockMovementType.stockOut,
+                          ),
+                        );
+                      }
+                      return bloc;
+                    },
+                    child: RecordStockMovementScreen(
+                      materialTypeName: materialType,
+                      movementTypeName: StockMovementType.stockOut.name,
+                    ),
                   );
                 },
               ),

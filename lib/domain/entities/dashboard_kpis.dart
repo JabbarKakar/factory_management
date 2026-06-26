@@ -8,6 +8,7 @@ class DashboardKpis extends Equatable {
     required this.pendingPickupCount,
     required this.expensesThisMonth,
     required this.expenseCountThisMonth,
+    required this.lowStockCount,
     required this.overdueAmount,
     required this.overdueCount,
     required this.customerCount,
@@ -20,6 +21,7 @@ class DashboardKpis extends Equatable {
     pendingPickupCount: 0,
     expensesThisMonth: 0,
     expenseCountThisMonth: 0,
+    lowStockCount: 0,
     overdueAmount: 0,
     overdueCount: 0,
     customerCount: 0,
@@ -31,6 +33,7 @@ class DashboardKpis extends Equatable {
   final int pendingPickupCount;
   final double expensesThisMonth;
   final int expenseCountThisMonth;
+  final int lowStockCount;
   final int overdueCount;
   final double overdueAmount;
   final int customerCount;
@@ -43,6 +46,7 @@ class DashboardKpis extends Equatable {
         pendingPickupCount,
         expensesThisMonth,
         expenseCountThisMonth,
+        lowStockCount,
         overdueCount,
         overdueAmount,
         customerCount,
