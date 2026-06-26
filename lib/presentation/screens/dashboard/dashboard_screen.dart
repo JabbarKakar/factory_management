@@ -128,6 +128,11 @@ class DashboardScreen extends StatelessWidget {
                       label: const Text(AppStrings.newJobWorkOrder),
                     ),
                     FilledButton.tonalIcon(
+                      onPressed: () => context.push(RoutePaths.salesAdd),
+                      icon: const Icon(Icons.shopping_bag_outlined, size: 18),
+                      label: const Text(AppStrings.newSalesOrder),
+                    ),
+                    FilledButton.tonalIcon(
                       onPressed: () => context.push(RoutePaths.customersAdd),
                       icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
                       label: const Text(AppStrings.addCustomer),
@@ -173,7 +178,15 @@ class _KpiGrid extends StatelessWidget {
         value: '${kpis.activeJobWorkCount}',
         icon: Icons.content_cut,
         color: AppColors.primary,
-        onTap: () => context.go(RoutePaths.jobWork),
+        onTap: () => context.go(RoutePaths.jobWorkList(filter: 'inProgress')),
+      ),
+      _KpiItem(
+        label: AppStrings.activeSales,
+        value: '${kpis.activeSalesCount}',
+        subtitle: AppStrings.activeSalesOrders,
+        icon: Icons.shopping_bag_outlined,
+        color: AppColors.primary,
+        onTap: () => context.go(RoutePaths.salesList(filter: 'inProgress')),
       ),
       _KpiItem(
         label: AppStrings.overdueTotal,

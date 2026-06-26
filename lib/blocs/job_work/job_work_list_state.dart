@@ -8,7 +8,6 @@ class JobWorkListState extends Equatable {
     this.orders = const [],
     this.visibleOrders = const [],
     this.searchQuery = '',
-    this.showActiveOnly = true,
     this.stageFilter = JobWorkListStageFilter.all,
     this.errorMessage,
   });
@@ -17,7 +16,6 @@ class JobWorkListState extends Equatable {
   final List<JobWorkOrder> orders;
   final List<JobWorkOrder> visibleOrders;
   final String searchQuery;
-  final bool showActiveOnly;
   final JobWorkListStageFilter stageFilter;
   final String? errorMessage;
 
@@ -26,7 +24,6 @@ class JobWorkListState extends Equatable {
     List<JobWorkOrder>? orders,
     List<JobWorkOrder>? visibleOrders,
     String? searchQuery,
-    bool? showActiveOnly,
     JobWorkListStageFilter? stageFilter,
     String? errorMessage,
   }) {
@@ -35,7 +32,6 @@ class JobWorkListState extends Equatable {
       orders: orders ?? this.orders,
       visibleOrders: visibleOrders ?? this.visibleOrders,
       searchQuery: searchQuery ?? this.searchQuery,
-      showActiveOnly: showActiveOnly ?? this.showActiveOnly,
       stageFilter: stageFilter ?? this.stageFilter,
       errorMessage: errorMessage,
     );
@@ -47,7 +43,6 @@ class JobWorkListState extends Equatable {
         orders,
         visibleOrders,
         searchQuery,
-        showActiveOnly,
         stageFilter,
         errorMessage,
       ];

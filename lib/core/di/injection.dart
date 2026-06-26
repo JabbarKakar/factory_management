@@ -93,6 +93,7 @@ void setupDependencies() {
     () => DashboardBloc(
       paymentRepository: getIt<PaymentRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      salesOrderRepository: getIt<SalesOrderRepository>(),
       customerRepository: getIt<CustomerRepository>(),
       jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
@@ -103,6 +104,8 @@ void setupDependencies() {
     () => CustomerFormBloc(
       repository: getIt<CustomerRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      salesOrderRepository: getIt<SalesOrderRepository>(),
+      salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
     ),
   );
   getIt.registerFactory<JobWorkListBloc>(

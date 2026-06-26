@@ -16,7 +16,6 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         super(const JobWorkListState()) {
     on<JobWorkListWatchStarted>(_onWatchStarted);
     on<JobWorkListSearchChanged>(_onSearchChanged);
-    on<JobWorkListStatusFilterChanged>(_onStatusFilterChanged);
     on<JobWorkListStageFilterChanged>(_onStageFilterChanged);
     on<_JobWorkListUpdated>(_onListUpdated);
     on<_JobWorkListStreamFailed>(_onStreamFailed);
@@ -29,7 +28,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     JobWorkListWatchStarted event,
     Emitter<JobWorkListState> emit,
   ) async {
-    emit(state.copyWith(status: JobWorkListStatus.loading));
+    emit(
+      state.copyWith(
+        status: JobWorkListStatus.loading,
+        stageFilter: event.initialFilter ?? state.stageFilter,
+      ),
+    );
     await _subscription?.cancel();
     _subscription = _repository.watchJobWorkOrders(event.factoryId).listen(
           (orders) => add(_JobWorkListUpdated(orders)),
@@ -51,24 +55,6 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         visibleOrders: _applyFilters(
           state.orders,
           query: event.query,
-          showActiveOnly: state.showActiveOnly,
-          stageFilter: state.stageFilter,
-        ),
-      ),
-    );
-  }
-
-  void _onStatusFilterChanged(
-    JobWorkListStatusFilterChanged event,
-    Emitter<JobWorkListState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        showActiveOnly: event.showActiveOnly,
-        visibleOrders: _applyFilters(
-          state.orders,
-          query: state.searchQuery,
-          showActiveOnly: event.showActiveOnly,
           stageFilter: state.stageFilter,
         ),
       ),
@@ -85,7 +71,6 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         visibleOrders: _applyFilters(
           state.orders,
           query: state.searchQuery,
-          showActiveOnly: state.showActiveOnly,
           stageFilter: event.stageFilter,
         ),
       ),
@@ -103,7 +88,6 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         visibleOrders: _applyFilters(
           event.orders,
           query: state.searchQuery,
-          showActiveOnly: state.showActiveOnly,
           stageFilter: state.stageFilter,
         ),
         errorMessage: null,
@@ -126,16 +110,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
   List<JobWorkOrder> _applyFilters(
     List<JobWorkOrder> orders, {
     required String query,
-    required bool showActiveOnly,
     required JobWorkListStageFilter stageFilter,
   }) {
     final normalizedQuery = query.trim().toLowerCase();
-    final stageStatus = stageFilter.status;
 
-    return orders.where((order) {
-      if (showActiveOnly && !order.status.isActive) return false;
-      if (stageStatus != null && order.status != stageStatus) return false;
-
+    final filtered = orders.where((order) {
+      if (!stageFilter.matches(order.status)) return false;
       if (normalizedQuery.isEmpty) return true;
 
       final haystack = [
@@ -147,6 +127,14 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
 
       return haystack.contains(normalizedQuery);
     }).toList();
+
+    filtered.sort((a, b) {
+      final rankCompare = a.status.listSortRank.compareTo(b.status.listSortRank);
+      if (rankCompare != 0) return rankCompare;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+
+    return filtered;
   }
 
   @override

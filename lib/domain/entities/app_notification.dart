@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../enums/invoice_enums.dart';
 import '../enums/notification_enums.dart';
 
 class AppNotification extends Equatable {
@@ -14,7 +15,9 @@ class AppNotification extends Equatable {
     required this.dedupeKey,
     this.customerId,
     this.invoiceId,
+    this.invoiceType,
     this.jobWorkId,
+    this.salesOrderId,
     this.invoiceNumber,
     this.amountDue,
     this.dueDate,
@@ -31,7 +34,9 @@ class AppNotification extends Equatable {
   final String body;
   final String? customerId;
   final String? invoiceId;
+  final InvoiceType? invoiceType;
   final String? jobWorkId;
+  final String? salesOrderId;
   final String? invoiceNumber;
   final double? amountDue;
   final DateTime? dueDate;
@@ -43,6 +48,10 @@ class AppNotification extends Equatable {
 
   bool isReadBy(String userId) => readBy.contains(userId);
 
+  bool get isSalesInvoice =>
+      invoiceType == InvoiceType.sales ||
+      (invoiceType == null && salesOrderId != null);
+
   AppNotification copyWith({
     String? id,
     String? factoryId,
@@ -52,7 +61,9 @@ class AppNotification extends Equatable {
     String? body,
     String? customerId,
     String? invoiceId,
+    InvoiceType? invoiceType,
     String? jobWorkId,
+    String? salesOrderId,
     String? invoiceNumber,
     double? amountDue,
     DateTime? dueDate,
@@ -71,7 +82,9 @@ class AppNotification extends Equatable {
       body: body ?? this.body,
       customerId: customerId ?? this.customerId,
       invoiceId: invoiceId ?? this.invoiceId,
+      invoiceType: invoiceType ?? this.invoiceType,
       jobWorkId: jobWorkId ?? this.jobWorkId,
+      salesOrderId: salesOrderId ?? this.salesOrderId,
       invoiceNumber: invoiceNumber ?? this.invoiceNumber,
       amountDue: amountDue ?? this.amountDue,
       dueDate: dueDate ?? this.dueDate,
@@ -93,7 +106,9 @@ class AppNotification extends Equatable {
         body,
         customerId,
         invoiceId,
+        invoiceType,
         jobWorkId,
+        salesOrderId,
         invoiceNumber,
         amountDue,
         dueDate,

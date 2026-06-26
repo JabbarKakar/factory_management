@@ -8,7 +8,6 @@ class SalesOrderListState extends Equatable {
     this.orders = const [],
     this.visibleOrders = const [],
     this.searchQuery = '',
-    this.showActiveOnly = true,
     this.stageFilter = SalesListFilter.all,
     this.errorMessage,
   });
@@ -17,7 +16,6 @@ class SalesOrderListState extends Equatable {
   final List<SalesOrder> orders;
   final List<SalesOrder> visibleOrders;
   final String searchQuery;
-  final bool showActiveOnly;
   final SalesListFilter stageFilter;
   final String? errorMessage;
 
@@ -26,7 +24,6 @@ class SalesOrderListState extends Equatable {
     List<SalesOrder>? orders,
     List<SalesOrder>? visibleOrders,
     String? searchQuery,
-    bool? showActiveOnly,
     SalesListFilter? stageFilter,
     String? errorMessage,
   }) {
@@ -35,7 +32,6 @@ class SalesOrderListState extends Equatable {
       orders: orders ?? this.orders,
       visibleOrders: visibleOrders ?? this.visibleOrders,
       searchQuery: searchQuery ?? this.searchQuery,
-      showActiveOnly: showActiveOnly ?? this.showActiveOnly,
       stageFilter: stageFilter ?? this.stageFilter,
       errorMessage: errorMessage,
     );
@@ -47,7 +43,6 @@ class SalesOrderListState extends Equatable {
         orders,
         visibleOrders,
         searchQuery,
-        showActiveOnly,
         stageFilter,
         errorMessage,
       ];

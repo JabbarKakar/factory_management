@@ -5,6 +5,8 @@ import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/sales_invoice_repository.dart';
+import '../../data/repositories/sales_order_repository.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/enums/customer_enums.dart';
 
@@ -15,8 +17,12 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
   CustomerFormBloc({
     required CustomerRepository repository,
     required JobWorkRepository jobWorkRepository,
+    required SalesOrderRepository salesOrderRepository,
+    required SalesInvoiceRepository salesInvoiceRepository,
   })  : _repository = repository,
         _jobWorkRepository = jobWorkRepository,
+        _salesOrderRepository = salesOrderRepository,
+        _salesInvoiceRepository = salesInvoiceRepository,
         super(const CustomerFormState()) {
     on<CustomerFormLoadRequested>(_onLoadRequested);
     on<CustomerFormInitialized>(_onInitialized);
@@ -28,6 +34,8 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
 
   final CustomerRepository _repository;
   final JobWorkRepository _jobWorkRepository;
+  final SalesOrderRepository _salesOrderRepository;
+  final SalesInvoiceRepository _salesInvoiceRepository;
   StreamSubscription<Customer?>? _watchSubscription;
 
   Future<void> _onLoadRequested(
@@ -155,6 +163,8 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
   ) async {
     emit(state.copyWith(status: CustomerFormStatus.saving));
     try {
+      await _salesInvoiceRepository.deleteInvoicesForCustomer(event.customerId);
+      await _salesOrderRepository.deleteOrdersForCustomer(event.customerId);
       await _jobWorkRepository.deleteOrdersForCustomer(event.customerId);
       await _repository.deleteCustomer(event.customerId);
       await _watchSubscription?.cancel();

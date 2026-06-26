@@ -54,7 +54,7 @@ abstract final class AppStrings {
   static const String customerDeleted = 'Customer deleted';
   static const String deleteCustomerTitle = 'Delete customer?';
   static const String deleteCustomerMessage =
-      'This will permanently remove the customer and all linked job work orders.';
+      'This will permanently remove the customer and all linked job work and sales orders.';
   static const String searchCustomers = 'Search name, phone, city...';
   static const String all = 'All';
   static const String noCustomersYet = 'No customers yet';
@@ -111,7 +111,6 @@ abstract final class AppStrings {
       'This order will be marked as cancelled.';
   static const String cancelOrder = 'Cancel Order';
   static const String searchJobWork = 'Search order #, customer, variety...';
-  static const String activeOrdersOnly = 'Active orders only';
   static const String noJobWorkYet = 'No job work orders yet';
   static const String noJobWorkFound = 'No job work orders found';
   static const String addFirstJobWork =
@@ -242,11 +241,13 @@ abstract final class AppStrings {
   // Dashboard (Sprint 7)
   static const String revenueToday = 'Revenue Today';
   static const String activeJobWork = 'Active Job Work';
+  static const String activeSales = 'Active Sales';
+  static const String activeSalesOrders = 'Received or ready orders';
   static const String overdueTotal = 'Overdue';
   static const String customerCount = 'Customers';
   static const String quickActions = 'Quick Actions';
   static const String dashboardMvpReady =
-      'Job work MVP is live — track orders, invoices, and payments from here.';
+      'Track job work and sales orders, invoices, and payments from here.';
   static const String paymentsReceivedToday = 'Payments received today';
   static const String dashboardLoadError =
       'Could not load dashboard data. Pull down to retry.';

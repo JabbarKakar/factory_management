@@ -97,6 +97,10 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
     try {
       final invoice =
           await _invoiceRepository.generateFromSalesOrder(event.salesOrderId);
+      await _paymentRepository.ensureInvoicePaidAmountRecorded(
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.sales,
+      );
       await _ledgerService.syncCustomerBalance(invoice.customerId);
       await _scannerService.scan(invoice.factoryId);
       await _emitWithPayments(invoice, emit, saved: true);
@@ -153,11 +157,12 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
     bool saved = false,
     bool paymentRecorded = false,
   }) async {
-    final payments =
-        await _paymentRepository.getPaymentsForCustomer(invoice.customerId);
-    final invoicePayments = payments
-        .where((payment) => payment.invoiceId == invoice.id)
-        .toList();
+    await _paymentRepository.ensureInvoicePaidAmountRecorded(
+      invoiceId: invoice.id,
+      invoiceType: InvoiceType.sales,
+    );
+    final invoicePayments =
+        await _paymentRepository.getPaymentsForInvoice(invoice.id);
 
     emit(
       state.copyWith(

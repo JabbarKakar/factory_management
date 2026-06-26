@@ -6,6 +6,7 @@ import '../../domain/entities/app_notification.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/enums/notification_enums.dart';
+import '../../domain/enums/invoice_enums.dart';
 import '../repositories/job_work_invoice_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/sales_invoice_repository.dart';
@@ -229,6 +230,7 @@ class PaymentDueScannerService {
       amountPaid: amountPaid,
       remainingDue: remainingDue,
       jobWorkId: invoice.jobWorkId,
+      invoiceType: InvoiceType.jobWork,
     );
   }
 
@@ -246,6 +248,8 @@ class PaymentDueScannerService {
       dueDate: invoice.dueDate,
       amountPaid: amountPaid,
       remainingDue: remainingDue,
+      salesOrderId: invoice.salesOrderId,
+      invoiceType: InvoiceType.sales,
     );
   }
 
@@ -259,6 +263,8 @@ class PaymentDueScannerService {
     required double amountPaid,
     required double remainingDue,
     String? jobWorkId,
+    String? salesOrderId,
+    InvoiceType? invoiceType,
   }) {
     return AppNotification(
       id: '',
@@ -270,7 +276,9 @@ class PaymentDueScannerService {
           '$invoiceNumber: ${Formatters.currencyPkr(amountPaid)} received. ${Formatters.currencyPkr(remainingDue)} remaining.',
       customerId: customerId,
       invoiceId: invoiceId,
+      invoiceType: invoiceType,
       jobWorkId: jobWorkId,
+      salesOrderId: salesOrderId,
       invoiceNumber: invoiceNumber,
       amountDue: remainingDue,
       dueDate: dueDate,
@@ -298,7 +306,9 @@ class PaymentDueScannerService {
       body: body,
       customerId: invoice.customerId,
       invoiceId: invoice.id,
+      invoiceType: invoice.invoiceType,
       jobWorkId: invoice.jobWorkId,
+      salesOrderId: invoice.salesOrderId,
       invoiceNumber: invoice.invoiceNumber,
       amountDue: invoice.dueAmount,
       dueDate: invoice.dueDate,
@@ -320,6 +330,8 @@ class _DueInvoiceRef {
     required this.dueAmount,
     required this.dueDate,
     this.jobWorkId,
+    this.salesOrderId,
+    required this.invoiceType,
   });
 
   final String id;
@@ -330,6 +342,8 @@ class _DueInvoiceRef {
   final double dueAmount;
   final DateTime? dueDate;
   final String? jobWorkId;
+  final String? salesOrderId;
+  final InvoiceType invoiceType;
 
   factory _DueInvoiceRef.fromJobWork(JobWorkInvoice invoice) {
     return _DueInvoiceRef(
@@ -341,6 +355,7 @@ class _DueInvoiceRef {
       dueAmount: invoice.dueAmount,
       dueDate: invoice.dueDate,
       jobWorkId: invoice.jobWorkId,
+      invoiceType: InvoiceType.jobWork,
     );
   }
 
@@ -353,6 +368,8 @@ class _DueInvoiceRef {
       invoiceNumber: invoice.invoiceNumber,
       dueAmount: invoice.dueAmount,
       dueDate: invoice.dueDate,
+      salesOrderId: invoice.salesOrderId,
+      invoiceType: InvoiceType.sales,
     );
   }
 }

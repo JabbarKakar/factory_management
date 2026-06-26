@@ -29,6 +29,20 @@ enum SalesOrderStatus {
         _ => false,
       };
 
+  bool get isCompleted => switch (this) {
+        SalesOrderStatus.paid || SalesOrderStatus.closed => true,
+        _ => false,
+      };
+
+  bool get isListMuted => isCompleted || this == SalesOrderStatus.cancelled;
+
+  int get listSortRank => switch (this) {
+        SalesOrderStatus.received || SalesOrderStatus.ready => 0,
+        SalesOrderStatus.invoiced => 1,
+        SalesOrderStatus.paid || SalesOrderStatus.closed => 2,
+        SalesOrderStatus.cancelled => 3,
+      };
+
   SalesOrderStatus? get nextStatus => switch (this) {
         SalesOrderStatus.received => SalesOrderStatus.ready,
         _ => null,
@@ -105,24 +119,41 @@ enum SalesOrderSource {
 
 enum SalesListFilter {
   all,
+  inProgress,
   received,
   ready,
   invoiced,
-  paid;
+  paid,
+  closed,
+  cancelled;
 
   String get label => switch (this) {
         SalesListFilter.all => 'All',
+        SalesListFilter.inProgress => 'In Progress',
         SalesListFilter.received => 'Received',
         SalesListFilter.ready => 'Ready',
         SalesListFilter.invoiced => 'Invoiced',
         SalesListFilter.paid => 'Paid',
+        SalesListFilter.closed => 'Closed',
+        SalesListFilter.cancelled => 'Cancelled',
       };
 
-  SalesOrderStatus? get status => switch (this) {
-        SalesListFilter.received => SalesOrderStatus.received,
-        SalesListFilter.ready => SalesOrderStatus.ready,
-        SalesListFilter.invoiced => SalesOrderStatus.invoiced,
-        SalesListFilter.paid => SalesOrderStatus.paid,
-        SalesListFilter.all => null,
+  static SalesListFilter fromQuery(String? value) {
+    if (value == null || value.isEmpty) return SalesListFilter.all;
+    return SalesListFilter.values.firstWhere(
+      (filter) => filter.name == value,
+      orElse: () => SalesListFilter.all,
+    );
+  }
+
+  bool matches(SalesOrderStatus status) => switch (this) {
+        SalesListFilter.all => true,
+        SalesListFilter.inProgress => status.isActive,
+        SalesListFilter.received => status == SalesOrderStatus.received,
+        SalesListFilter.ready => status == SalesOrderStatus.ready,
+        SalesListFilter.invoiced => status == SalesOrderStatus.invoiced,
+        SalesListFilter.paid => status == SalesOrderStatus.paid,
+        SalesListFilter.closed => status == SalesOrderStatus.closed,
+        SalesListFilter.cancelled => status == SalesOrderStatus.cancelled,
       };
 }

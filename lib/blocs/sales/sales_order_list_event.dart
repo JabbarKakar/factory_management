@@ -8,12 +8,13 @@ sealed class SalesOrderListEvent extends Equatable {
 }
 
 final class SalesOrderListWatchStarted extends SalesOrderListEvent {
-  const SalesOrderListWatchStarted(this.factoryId);
+  const SalesOrderListWatchStarted(this.factoryId, {this.initialFilter});
 
   final String factoryId;
+  final SalesListFilter? initialFilter;
 
   @override
-  List<Object?> get props => [factoryId];
+  List<Object?> get props => [factoryId, initialFilter];
 }
 
 final class SalesOrderListSearchChanged extends SalesOrderListEvent {
@@ -23,15 +24,6 @@ final class SalesOrderListSearchChanged extends SalesOrderListEvent {
 
   @override
   List<Object?> get props => [query];
-}
-
-final class SalesOrderListStatusFilterChanged extends SalesOrderListEvent {
-  const SalesOrderListStatusFilterChanged(this.showActiveOnly);
-
-  final bool showActiveOnly;
-
-  @override
-  List<Object?> get props => [showActiveOnly];
 }
 
 final class SalesOrderListStageFilterChanged extends SalesOrderListEvent {

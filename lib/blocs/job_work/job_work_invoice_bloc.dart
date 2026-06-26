@@ -98,6 +98,10 @@ class JobWorkInvoiceBloc
     try {
       final invoice =
           await _invoiceRepository.generateFromJobWorkOrder(event.jobWorkId);
+      await _paymentRepository.ensureInvoicePaidAmountRecorded(
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.jobWork,
+      );
       await _ledgerService.syncCustomerBalance(invoice.customerId);
       await _scannerService.scan(invoice.factoryId);
       await _emitWithPayments(invoice, emit, saved: true);
@@ -155,11 +159,12 @@ class JobWorkInvoiceBloc
     bool saved = false,
     bool paymentRecorded = false,
   }) async {
-    final payments =
-        await _paymentRepository.getPaymentsForCustomer(invoice.customerId);
-    final invoicePayments = payments
-        .where((payment) => payment.invoiceId == invoice.id)
-        .toList();
+    await _paymentRepository.ensureInvoicePaidAmountRecorded(
+      invoiceId: invoice.id,
+      invoiceType: InvoiceType.jobWork,
+    );
+    final invoicePayments =
+        await _paymentRepository.getPaymentsForInvoice(invoice.id);
 
     emit(
       state.copyWith(

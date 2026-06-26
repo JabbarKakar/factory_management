@@ -8,12 +8,13 @@ sealed class JobWorkListEvent extends Equatable {
 }
 
 final class JobWorkListWatchStarted extends JobWorkListEvent {
-  const JobWorkListWatchStarted(this.factoryId);
+  const JobWorkListWatchStarted(this.factoryId, {this.initialFilter});
 
   final String factoryId;
+  final JobWorkListStageFilter? initialFilter;
 
   @override
-  List<Object?> get props => [factoryId];
+  List<Object?> get props => [factoryId, initialFilter];
 }
 
 final class JobWorkListSearchChanged extends JobWorkListEvent {
@@ -23,15 +24,6 @@ final class JobWorkListSearchChanged extends JobWorkListEvent {
 
   @override
   List<Object?> get props => [query];
-}
-
-final class JobWorkListStatusFilterChanged extends JobWorkListEvent {
-  const JobWorkListStatusFilterChanged(this.showActiveOnly);
-
-  final bool showActiveOnly;
-
-  @override
-  List<Object?> get props => [showActiveOnly];
 }
 
 final class JobWorkListStageFilterChanged extends JobWorkListEvent {

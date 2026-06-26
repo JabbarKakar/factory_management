@@ -14,7 +14,9 @@ import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
+import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/notification_enums.dart';
+import '../../domain/enums/sales_enums.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
@@ -136,7 +138,15 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                       final bloc = getIt<JobWorkListBloc>();
                       final factoryId = readFactoryId(context);
                       if (factoryId != null) {
-                        bloc.add(JobWorkListWatchStarted(factoryId));
+                        final filter = JobWorkListStageFilter.fromQuery(
+                          state.uri.queryParameters['filter'],
+                        );
+                        bloc.add(
+                          JobWorkListWatchStarted(
+                            factoryId,
+                            initialFilter: filter,
+                          ),
+                        );
                       }
                       return bloc;
                     },
@@ -316,7 +326,15 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                       final bloc = getIt<SalesOrderListBloc>();
                       final factoryId = readFactoryId(context);
                       if (factoryId != null) {
-                        bloc.add(SalesOrderListWatchStarted(factoryId));
+                        final filter = SalesListFilter.fromQuery(
+                          state.uri.queryParameters['filter'],
+                        );
+                        bloc.add(
+                          SalesOrderListWatchStarted(
+                            factoryId,
+                            initialFilter: filter,
+                          ),
+                        );
                       }
                       return bloc;
                     },

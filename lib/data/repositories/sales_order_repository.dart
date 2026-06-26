@@ -119,7 +119,15 @@ class SalesOrderRepository {
   }
 
   Future<void> updateSalesOrder(SalesOrder order) async {
-    final updated = _recomputeTotals(order);
+    var updated = _recomputeTotals(order);
+    if (updated.status == SalesOrderStatus.received) {
+      updated = updated.copyWith(
+        paymentDueDate: _dueDateFromTerms(
+          updated.paymentTerms,
+          updated.orderDate,
+        ),
+      );
+    }
     final model = SalesOrderModel.fromEntity(updated);
     await _ordersCollection.doc(order.id).update(model.toFirestore());
   }
@@ -136,6 +144,56 @@ class SalesOrderRepository {
       'status': SalesOrderStatus.cancelled.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<void> deleteOrdersForCustomer(String customerId) async {
+    final snapshot = await _ordersCollection
+        .where('customerId', isEqualTo: customerId)
+        .get();
+
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
+  Future<int> deleteOrphanedOrders(String factoryId) async {
+    final ordersSnapshot = await _ordersCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .get();
+
+    if (ordersSnapshot.docs.isEmpty) return 0;
+
+    final customersSnapshot = await _customerCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .get();
+
+    final customerIds = customersSnapshot.docs.map((doc) => doc.id).toSet();
+
+    final orphanedDocs = ordersSnapshot.docs.where((doc) {
+      final customerId = doc.data()['customerId'] as String? ?? '';
+      return customerId.isEmpty || !customerIds.contains(customerId);
+    }).toList();
+
+    if (orphanedDocs.isEmpty) return 0;
+
+    const batchLimit = 500;
+    var deletedCount = 0;
+
+    for (var index = 0; index < orphanedDocs.length; index += batchLimit) {
+      final batch = _firestore.batch();
+      final chunk = orphanedDocs.skip(index).take(batchLimit);
+      for (final doc in chunk) {
+        batch.delete(doc.reference);
+        deletedCount++;
+      }
+      await batch.commit();
+    }
+
+    return deletedCount;
   }
 
   SalesOrder _recomputeTotals(SalesOrder order) {

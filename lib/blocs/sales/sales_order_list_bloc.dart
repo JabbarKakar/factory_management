@@ -16,7 +16,6 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
         super(const SalesOrderListState()) {
     on<SalesOrderListWatchStarted>(_onWatchStarted);
     on<SalesOrderListSearchChanged>(_onSearchChanged);
-    on<SalesOrderListStatusFilterChanged>(_onStatusFilterChanged);
     on<SalesOrderListStageFilterChanged>(_onStageFilterChanged);
     on<_SalesOrderListUpdated>(_onListUpdated);
     on<_SalesOrderListStreamFailed>(_onStreamFailed);
@@ -29,7 +28,12 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
     SalesOrderListWatchStarted event,
     Emitter<SalesOrderListState> emit,
   ) async {
-    emit(state.copyWith(status: SalesOrderListStatus.loading));
+    emit(
+      state.copyWith(
+        status: SalesOrderListStatus.loading,
+        stageFilter: event.initialFilter ?? state.stageFilter,
+      ),
+    );
     await _subscription?.cancel();
     _subscription = _repository.watchSalesOrders(event.factoryId).listen(
           (orders) => add(_SalesOrderListUpdated(orders)),
@@ -51,24 +55,6 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
         visibleOrders: _applyFilters(
           state.orders,
           query: event.query,
-          showActiveOnly: state.showActiveOnly,
-          stageFilter: state.stageFilter,
-        ),
-      ),
-    );
-  }
-
-  void _onStatusFilterChanged(
-    SalesOrderListStatusFilterChanged event,
-    Emitter<SalesOrderListState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        showActiveOnly: event.showActiveOnly,
-        visibleOrders: _applyFilters(
-          state.orders,
-          query: state.searchQuery,
-          showActiveOnly: event.showActiveOnly,
           stageFilter: state.stageFilter,
         ),
       ),
@@ -85,7 +71,6 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
         visibleOrders: _applyFilters(
           state.orders,
           query: state.searchQuery,
-          showActiveOnly: state.showActiveOnly,
           stageFilter: event.stageFilter,
         ),
       ),
@@ -103,7 +88,6 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
         visibleOrders: _applyFilters(
           event.orders,
           query: state.searchQuery,
-          showActiveOnly: state.showActiveOnly,
           stageFilter: state.stageFilter,
         ),
         errorMessage: null,
@@ -126,16 +110,12 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
   List<SalesOrder> _applyFilters(
     List<SalesOrder> orders, {
     required String query,
-    required bool showActiveOnly,
     required SalesListFilter stageFilter,
   }) {
     final normalizedQuery = query.trim().toLowerCase();
-    final stageStatus = stageFilter.status;
 
-    return orders.where((order) {
-      if (showActiveOnly && !order.status.isActive) return false;
-      if (stageStatus != null && order.status != stageStatus) return false;
-
+    final filtered = orders.where((order) {
+      if (!stageFilter.matches(order.status)) return false;
       if (normalizedQuery.isEmpty) return true;
 
       final haystack = [
@@ -147,6 +127,14 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
 
       return haystack.contains(normalizedQuery);
     }).toList();
+
+    filtered.sort((a, b) {
+      final rankCompare = a.status.listSortRank.compareTo(b.status.listSortRank);
+      if (rankCompare != 0) return rankCompare;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+
+    return filtered;
   }
 
   @override

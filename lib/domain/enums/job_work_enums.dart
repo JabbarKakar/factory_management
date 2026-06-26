@@ -58,6 +58,40 @@ enum JobWorkStatus {
           false,
       };
 
+  bool get isInProduction => switch (this) {
+        JobWorkStatus.received ||
+        JobWorkStatus.agreed ||
+        JobWorkStatus.inCutting ||
+        JobWorkStatus.qc =>
+          true,
+        _ => false,
+      };
+
+  bool get isCompleted => switch (this) {
+        JobWorkStatus.paid ||
+        JobWorkStatus.collected ||
+        JobWorkStatus.closed =>
+          true,
+        _ => false,
+      };
+
+  bool get isListMuted => isCompleted || this == JobWorkStatus.cancelled;
+
+  int get listSortRank => switch (this) {
+        JobWorkStatus.received ||
+        JobWorkStatus.agreed ||
+        JobWorkStatus.inCutting ||
+        JobWorkStatus.qc ||
+        JobWorkStatus.ready =>
+          0,
+        JobWorkStatus.invoiced => 1,
+        JobWorkStatus.paid ||
+        JobWorkStatus.collected ||
+        JobWorkStatus.closed =>
+          2,
+        JobWorkStatus.cancelled => 3,
+      };
+
   bool get canRecordOutput => switch (this) {
         JobWorkStatus.agreed ||
         JobWorkStatus.inCutting ||
@@ -94,28 +128,39 @@ enum JobWorkStatus {
 
 enum JobWorkListStageFilter {
   all,
-  inCutting,
-  qc,
+  inProgress,
   ready,
   invoiced,
-  paid;
+  paid,
+  completed,
+  cancelled;
 
   String get label => switch (this) {
-        JobWorkListStageFilter.all => 'All Stages',
-        JobWorkListStageFilter.inCutting => 'In Cutting',
-        JobWorkListStageFilter.qc => 'QC',
+        JobWorkListStageFilter.all => 'All',
+        JobWorkListStageFilter.inProgress => 'In Progress',
         JobWorkListStageFilter.ready => 'Ready',
         JobWorkListStageFilter.invoiced => 'Invoiced',
         JobWorkListStageFilter.paid => 'Paid',
+        JobWorkListStageFilter.completed => 'Completed',
+        JobWorkListStageFilter.cancelled => 'Cancelled',
       };
 
-  JobWorkStatus? get status => switch (this) {
-        JobWorkListStageFilter.inCutting => JobWorkStatus.inCutting,
-        JobWorkListStageFilter.qc => JobWorkStatus.qc,
-        JobWorkListStageFilter.ready => JobWorkStatus.ready,
-        JobWorkListStageFilter.invoiced => JobWorkStatus.invoiced,
-        JobWorkListStageFilter.paid => JobWorkStatus.paid,
-        JobWorkListStageFilter.all => null,
+  static JobWorkListStageFilter fromQuery(String? value) {
+    if (value == null || value.isEmpty) return JobWorkListStageFilter.all;
+    return JobWorkListStageFilter.values.firstWhere(
+      (filter) => filter.name == value,
+      orElse: () => JobWorkListStageFilter.all,
+    );
+  }
+
+  bool matches(JobWorkStatus status) => switch (this) {
+        JobWorkListStageFilter.all => true,
+        JobWorkListStageFilter.inProgress => status.isInProduction,
+        JobWorkListStageFilter.ready => status == JobWorkStatus.ready,
+        JobWorkListStageFilter.invoiced => status == JobWorkStatus.invoiced,
+        JobWorkListStageFilter.paid => status == JobWorkStatus.paid,
+        JobWorkListStageFilter.completed => status.isCompleted,
+        JobWorkListStageFilter.cancelled => status == JobWorkStatus.cancelled,
       };
 }
 

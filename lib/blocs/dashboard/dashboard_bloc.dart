@@ -8,6 +8,7 @@ import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
+import '../../data/repositories/sales_order_repository.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_kpis.dart';
@@ -15,6 +16,7 @@ import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/sales_invoice.dart';
+import '../../domain/entities/sales_order.dart';
 
 part 'dashboard_event.dart';
 part 'dashboard_state.dart';
@@ -23,12 +25,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   DashboardBloc({
     required PaymentRepository paymentRepository,
     required JobWorkRepository jobWorkRepository,
+    required SalesOrderRepository salesOrderRepository,
     required CustomerRepository customerRepository,
     required JobWorkInvoiceRepository jobWorkInvoiceRepository,
     required SalesInvoiceRepository salesInvoiceRepository,
     required PaymentDueScannerService scannerService,
   })  : _paymentRepository = paymentRepository,
         _jobWorkRepository = jobWorkRepository,
+        _salesOrderRepository = salesOrderRepository,
         _customerRepository = customerRepository,
         _jobWorkInvoiceRepository = jobWorkInvoiceRepository,
         _salesInvoiceRepository = salesInvoiceRepository,
@@ -42,6 +46,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   final PaymentRepository _paymentRepository;
   final JobWorkRepository _jobWorkRepository;
+  final SalesOrderRepository _salesOrderRepository;
   final CustomerRepository _customerRepository;
   final JobWorkInvoiceRepository _jobWorkInvoiceRepository;
   final SalesInvoiceRepository _salesInvoiceRepository;
@@ -49,12 +54,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   StreamSubscription<List<Payment>>? _paymentsSub;
   StreamSubscription<List<JobWorkOrder>>? _jobWorkSub;
+  StreamSubscription<List<SalesOrder>>? _salesSub;
   StreamSubscription<List<Customer>>? _customersSub;
   StreamSubscription<List<JobWorkInvoice>>? _jobWorkInvoicesSub;
   StreamSubscription<List<SalesInvoice>>? _salesInvoicesSub;
 
   List<Payment> _payments = const [];
   List<JobWorkOrder> _orders = const [];
+  List<SalesOrder> _salesOrders = const [];
   List<Customer> _customers = const [];
   List<JobWorkInvoice> _jobWorkInvoices = const [];
   List<SalesInvoice> _salesInvoices = const [];
@@ -83,6 +90,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         .listen(
           (orders) {
             _orders = orders;
+            add(const _DashboardDataUpdated());
+          },
+          onError: (_) => add(
+            const _DashboardStreamFailed('Could not load dashboard data.'),
+          ),
+        );
+
+    _salesSub = _salesOrderRepository
+        .watchSalesOrders(event.factoryId)
+        .listen(
+          (orders) {
+            _salesOrders = orders;
             add(const _DashboardDataUpdated());
           },
           onError: (_) => add(
@@ -148,6 +167,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     final activeJobWorkCount =
         _orders.where((order) => order.status.isActive).length;
 
+    final activeSalesCount =
+        _salesOrders.where((order) => order.status.isActive).length;
+
     final overdueSummary = _scannerService.summarizeAll(
       jobWorkInvoices: _jobWorkInvoices,
       salesInvoices: _salesInvoices,
@@ -159,6 +181,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         kpis: DashboardKpis(
           revenueToday: revenueToday,
           activeJobWorkCount: activeJobWorkCount,
+          activeSalesCount: activeSalesCount,
           overdueAmount: overdueSummary.overdueAmount,
           overdueCount: overdueSummary.overdueCount,
           customerCount: _customers.length,
@@ -187,11 +210,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   Future<void> _cancelSubscriptions() async {
     await _paymentsSub?.cancel();
     await _jobWorkSub?.cancel();
+    await _salesSub?.cancel();
     await _customersSub?.cancel();
     await _jobWorkInvoicesSub?.cancel();
     await _salesInvoicesSub?.cancel();
     _paymentsSub = null;
     _jobWorkSub = null;
+    _salesSub = null;
     _customersSub = null;
     _jobWorkInvoicesSub = null;
     _salesInvoicesSub = null;

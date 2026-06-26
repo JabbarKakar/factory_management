@@ -168,7 +168,14 @@ class _NotificationCenterView extends StatelessWidget {
     bloc.add(NotificationMarkReadRequested(notification.id));
 
     if (notification.invoiceId != null) {
-      context.push(RoutePaths.recordPayment(notification.invoiceId!));
+      final paymentRoute = notification.isSalesInvoice
+          ? RoutePaths.salesRecordPayment(notification.invoiceId!)
+          : RoutePaths.recordPayment(notification.invoiceId!);
+      context.push(paymentRoute);
+      return;
+    }
+    if (notification.salesOrderId != null) {
+      context.push(RoutePaths.salesDetail(notification.salesOrderId!));
       return;
     }
     if (notification.customerId != null) {

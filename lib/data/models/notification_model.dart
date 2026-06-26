@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entities/app_notification.dart';
+import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/notification_enums.dart';
 
 class NotificationModel {
@@ -15,7 +16,9 @@ class NotificationModel {
     required this.dedupeKey,
     this.customerId,
     this.invoiceId,
+    this.invoiceType,
     this.jobWorkId,
+    this.salesOrderId,
     this.invoiceNumber,
     this.amountDue,
     this.dueDate,
@@ -32,7 +35,9 @@ class NotificationModel {
   final String body;
   final String? customerId;
   final String? invoiceId;
+  final InvoiceType? invoiceType;
   final String? jobWorkId;
+  final String? salesOrderId;
   final String? invoiceNumber;
   final double? amountDue;
   final DateTime? dueDate;
@@ -55,7 +60,11 @@ class NotificationModel {
       body: data['body'] as String? ?? '',
       customerId: data['customerId'] as String?,
       invoiceId: data['invoiceId'] as String?,
+      invoiceType: data['invoiceType'] == null
+          ? null
+          : InvoiceType.fromString(data['invoiceType'] as String?),
       jobWorkId: data['jobWorkId'] as String?,
+      salesOrderId: data['salesOrderId'] as String?,
       invoiceNumber: data['invoiceNumber'] as String?,
       amountDue: (data['amountDue'] as num?)?.toDouble(),
       dueDate: (data['dueDate'] as Timestamp?)?.toDate(),
@@ -76,7 +85,9 @@ class NotificationModel {
       'body': body,
       if (customerId != null) 'customerId': customerId,
       if (invoiceId != null) 'invoiceId': invoiceId,
+      if (invoiceType != null) 'invoiceType': invoiceType!.firestoreValue,
       if (jobWorkId != null) 'jobWorkId': jobWorkId,
+      if (salesOrderId != null) 'salesOrderId': salesOrderId,
       if (invoiceNumber != null) 'invoiceNumber': invoiceNumber,
       if (amountDue != null) 'amountDue': amountDue,
       if (dueDate != null) 'dueDate': Timestamp.fromDate(dueDate!),
@@ -98,7 +109,9 @@ class NotificationModel {
       body: body,
       customerId: customerId,
       invoiceId: invoiceId,
+      invoiceType: invoiceType,
       jobWorkId: jobWorkId,
+      salesOrderId: salesOrderId,
       invoiceNumber: invoiceNumber,
       amountDue: amountDue,
       dueDate: dueDate,
@@ -120,7 +133,9 @@ class NotificationModel {
       body: notification.body,
       customerId: notification.customerId,
       invoiceId: notification.invoiceId,
+      invoiceType: notification.invoiceType,
       jobWorkId: notification.jobWorkId,
+      salesOrderId: notification.salesOrderId,
       invoiceNumber: notification.invoiceNumber,
       amountDue: notification.amountDue,
       dueDate: notification.dueDate,

@@ -84,6 +84,57 @@ class PaymentRepository {
         });
   }
 
+  Future<List<Payment>> getPaymentsForInvoice(String invoiceId) async {
+    final snapshot =
+        await _collection.where('invoiceId', isEqualTo: invoiceId).get();
+    final payments = snapshot.docs
+        .map((doc) => PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
+        .toList();
+    payments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+    return payments;
+  }
+
+  /// Records invoice paid amount in the payments ledger when advance was taken
+  /// at booking and no payment row exists yet (feeds dashboard revenue + ledger).
+  Future<void> ensureInvoicePaidAmountRecorded({
+    required String invoiceId,
+    required InvoiceType invoiceType,
+  }) async {
+    final existing = await getPaymentsForInvoice(invoiceId);
+    if (existing.isNotEmpty) return;
+
+    if (invoiceType == InvoiceType.sales) {
+      final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
+      if (invoice == null || invoice.paidAmount <= 0) return;
+      await _createStandalonePayment(
+        factoryId: invoice.factoryId,
+        customerId: invoice.customerId,
+        customerName: invoice.customerName,
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.sales,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: invoice.paidAmount,
+        paymentDate: invoice.createdAt,
+        notes: 'Amount received at invoicing (incl. advance)',
+      );
+      return;
+    }
+
+    final invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
+    if (invoice == null || invoice.paidAmount <= 0) return;
+    await _createStandalonePayment(
+      factoryId: invoice.factoryId,
+      customerId: invoice.customerId,
+      customerName: invoice.customerName,
+      invoiceId: invoice.id,
+      invoiceType: InvoiceType.jobWork,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.paidAmount,
+      paymentDate: invoice.createdAt,
+      notes: 'Amount received at invoicing (incl. advance)',
+    );
+  }
+
   Future<Payment> recordJobWorkPayment({
     required String invoiceId,
     required double amount,
@@ -299,6 +350,57 @@ class PaymentRepository {
     if (onFullyPaid != null) {
       await onFullyPaid();
     }
+
+    return payment;
+  }
+
+  Future<Payment> _createStandalonePayment({
+    required String factoryId,
+    required String customerId,
+    required String customerName,
+    required String invoiceId,
+    required InvoiceType invoiceType,
+    required String invoiceNumber,
+    required double amount,
+    required DateTime paymentDate,
+    PaymentMethod method = PaymentMethod.cash,
+    String? reference,
+    String? notes,
+  }) async {
+    final paymentId = _uuid.v4();
+    final payment = Payment(
+      id: paymentId,
+      factoryId: factoryId,
+      customerId: customerId,
+      customerName: customerName,
+      invoiceId: invoiceId,
+      invoiceType: invoiceType,
+      invoiceNumber: invoiceNumber,
+      amount: amount,
+      method: method,
+      paymentDate: paymentDate,
+      reference: reference,
+      notes: notes,
+      createdAt: DateTime.now(),
+    );
+
+    await _collection.doc(paymentId).set(
+          PaymentModel(
+            id: paymentId,
+            factoryId: payment.factoryId,
+            customerId: payment.customerId,
+            customerName: payment.customerName,
+            invoiceId: payment.invoiceId,
+            invoiceType: payment.invoiceType,
+            invoiceNumber: payment.invoiceNumber,
+            amount: payment.amount,
+            method: payment.method,
+            paymentDate: payment.paymentDate,
+            reference: payment.reference,
+            notes: payment.notes,
+            createdAt: payment.createdAt,
+          ).toFirestore(isCreate: true),
+        );
 
     return payment;
   }

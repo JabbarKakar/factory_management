@@ -75,43 +75,26 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: BlocBuilder<JobWorkListBloc, JobWorkListState>(
-              buildWhen: (prev, curr) =>
-                  prev.showActiveOnly != curr.showActiveOnly ||
-                  prev.stageFilter != curr.stageFilter,
+              buildWhen: (prev, curr) => prev.stageFilter != curr.stageFilter,
               builder: (context, state) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FilterChip(
-                      label: const Text(AppStrings.activeOrdersOnly),
-                      selected: state.showActiveOnly,
-                      onSelected: (selected) {
-                        context.read<JobWorkListBloc>().add(
-                              JobWorkListStatusFilterChanged(selected),
-                            );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: JobWorkListStageFilter.values.map((filter) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              label: Text(filter.label),
-                              selected: state.stageFilter == filter,
-                              onSelected: (_) {
-                                context.read<JobWorkListBloc>().add(
-                                      JobWorkListStageFilterChanged(filter),
-                                    );
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: JobWorkListStageFilter.values.map((filter) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(filter.label),
+                          selected: state.stageFilter == filter,
+                          onSelected: (_) {
+                            context.read<JobWorkListBloc>().add(
+                                  JobWorkListStageFilterChanged(filter),
+                                );
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 );
               },
             ),
@@ -147,8 +130,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                   return EmptyStateView(
                     icon: Icons.content_cut,
                     title: state.searchQuery.isNotEmpty ||
-                            state.stageFilter != JobWorkListStageFilter.all ||
-                            !state.showActiveOnly
+                            state.stageFilter != JobWorkListStageFilter.all
                         ? AppStrings.noJobWorkFound
                         : AppStrings.noJobWorkYet,
                     subtitle: state.searchQuery.isNotEmpty

@@ -141,11 +141,14 @@ class SalesInvoiceRepository {
 
     final model = SalesInvoiceModel.fromEntity(invoice);
     final batch = _firestore.batch();
+    final orderStatus = dueAmount <= 0
+        ? SalesOrderStatus.paid
+        : SalesOrderStatus.invoiced;
 
     batch.set(_collection.doc(id), model.toFirestore(isCreate: true));
     batch.update(_salesOrderRepository.salesOrderDoc(order.id), {
       'invoiceId': id,
-      'status': SalesOrderStatus.invoiced.firestoreValue,
+      'status': orderStatus.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
@@ -158,6 +161,19 @@ class SalesInvoiceRepository {
   Future<void> updateInvoice(SalesInvoice invoice) async {
     final model = SalesInvoiceModel.fromEntity(invoice);
     await _collection.doc(invoice.id).update(model.toFirestore());
+  }
+
+  Future<void> deleteInvoicesForCustomer(String customerId) async {
+    final snapshot =
+        await _collection.where('customerId', isEqualTo: customerId).get();
+
+    if (snapshot.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
   }
 
   List<InvoiceLineItem> _buildLineItems(SalesOrder order) {

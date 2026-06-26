@@ -8,6 +8,11 @@ abstract final class RoutePaths {
   static const String jobWork = '/job-work';
   static const String jobWorkAdd = '/job-work/add';
 
+  static String jobWorkList({String? filter}) {
+    if (filter == null || filter.isEmpty) return jobWork;
+    return '$jobWork?filter=$filter';
+  }
+
   static String jobWorkDetail(String id) => '/job-work/$id';
 
   static String jobWorkEdit(String id) => '/job-work/$id/edit';
@@ -26,6 +31,11 @@ abstract final class RoutePaths {
   static String customerEdit(String id) => '/customers/$id/edit';
   static const String sales = '/sales';
   static const String salesAdd = '/sales/add';
+
+  static String salesList({String? filter}) {
+    if (filter == null || filter.isEmpty) return sales;
+    return '$sales?filter=$filter';
+  }
 
   static String salesDetail(String id) => '/sales/$id';
 

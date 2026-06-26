@@ -17,6 +17,7 @@ class SalesOrderListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final isListMuted = order.status.isListMuted;
     final itemSummary = order.lineItems.isEmpty
         ? 'No line items'
         : order.lineItems
@@ -25,8 +26,13 @@ class SalesOrderListTile extends StatelessWidget {
             .take(2)
             .join(', ');
 
-    return Card(
+    return Opacity(
+      opacity: isListMuted ? 0.62 : 1,
+      child: Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: isListMuted
+          ? Theme.of(context).colorScheme.surfaceContainerHighest
+          : null,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
@@ -87,6 +93,7 @@ class SalesOrderListTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

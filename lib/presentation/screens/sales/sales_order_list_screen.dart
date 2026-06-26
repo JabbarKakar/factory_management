@@ -75,43 +75,26 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: BlocBuilder<SalesOrderListBloc, SalesOrderListState>(
-              buildWhen: (prev, curr) =>
-                  prev.showActiveOnly != curr.showActiveOnly ||
-                  prev.stageFilter != curr.stageFilter,
+              buildWhen: (prev, curr) => prev.stageFilter != curr.stageFilter,
               builder: (context, state) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FilterChip(
-                      label: const Text(AppStrings.activeOrdersOnly),
-                      selected: state.showActiveOnly,
-                      onSelected: (selected) {
-                        context.read<SalesOrderListBloc>().add(
-                              SalesOrderListStatusFilterChanged(selected),
-                            );
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: SalesListFilter.values.map((filter) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              label: Text(filter.label),
-                              selected: state.stageFilter == filter,
-                              onSelected: (_) {
-                                context.read<SalesOrderListBloc>().add(
-                                      SalesOrderListStageFilterChanged(filter),
-                                    );
-                              },
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: SalesListFilter.values.map((filter) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(filter.label),
+                          selected: state.stageFilter == filter,
+                          onSelected: (_) {
+                            context.read<SalesOrderListBloc>().add(
+                                  SalesOrderListStageFilterChanged(filter),
+                                );
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 );
               },
             ),
@@ -147,8 +130,7 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
                   return EmptyStateView(
                     icon: Icons.shopping_bag_outlined,
                     title: state.searchQuery.isNotEmpty ||
-                            state.stageFilter != SalesListFilter.all ||
-                            !state.showActiveOnly
+                            state.stageFilter != SalesListFilter.all
                         ? AppStrings.noSalesOrdersFound
                         : AppStrings.noSalesOrdersYet,
                     subtitle: state.searchQuery.isNotEmpty
