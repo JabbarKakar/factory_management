@@ -20,6 +20,10 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    match /jobWorkOrders/{jobWorkId} {
+      allow read, write: if isSignedIn();
+    }
+
     // Tighten these rules as modules are implemented in later sprints.
     match /{document=**} {
       allow read, write: if isSignedIn();

@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../blocs/auth/auth_bloc.dart';
+import '../../blocs/job_work/job_work_form_bloc.dart';
+import '../../blocs/job_work/job_work_list_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
 import '../../core/di/injection.dart';
@@ -13,7 +15,9 @@ import '../screens/customers/add_edit_customer_screen.dart';
 import '../screens/customers/customer_detail_screen.dart';
 import '../screens/customers/customers_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
-import '../screens/job_work/job_work_placeholder_screen.dart';
+import '../screens/job_work/add_edit_job_work_screen.dart';
+import '../screens/job_work/job_work_detail_screen.dart';
+import '../screens/job_work/job_work_list_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/sales/sales_placeholder_screen.dart';
 import '../screens/shell/main_shell.dart';
@@ -85,7 +89,67 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             routes: [
               GoRoute(
                 path: RoutePaths.jobWork,
-                builder: (context, state) => const JobWorkPlaceholderScreen(),
+                builder: (context, state) {
+                  return BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<JobWorkListBloc>();
+                      final factoryId = readFactoryId(context);
+                      if (factoryId != null) {
+                        bloc.add(JobWorkListWatchStarted(factoryId));
+                      }
+                      return bloc;
+                    },
+                    child: const JobWorkListScreen(),
+                  );
+                },
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      return BlocProvider(
+                        create: (context) {
+                          final bloc = getIt<JobWorkFormBloc>();
+                          final factoryId = readFactoryId(context);
+                          if (factoryId != null) {
+                            bloc.add(
+                              JobWorkFormInitialized(factoryId: factoryId),
+                            );
+                          }
+                          return bloc;
+                        },
+                        child: const AddEditJobWorkScreen(),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: ':jobWorkId',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final jobWorkId = state.pathParameters['jobWorkId']!;
+                      return BlocProvider(
+                        create: (_) => getIt<JobWorkFormBloc>()
+                          ..add(JobWorkFormLoadRequested(jobWorkId)),
+                        child: JobWorkDetailScreen(jobWorkId: jobWorkId),
+                      );
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkFormBloc>()
+                              ..add(JobWorkFormLoadRequested(jobWorkId)),
+                            child: AddEditJobWorkScreen(jobWorkId: jobWorkId),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),

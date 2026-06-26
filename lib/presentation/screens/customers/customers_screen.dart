@@ -33,6 +33,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
         title: const Text(AppStrings.customers),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'fab-customers',
         onPressed: () => context.push(RoutePaths.customersAdd),
         icon: const Icon(Icons.person_add_alt_1_outlined),
         label: const Text(AppStrings.addCustomer),
