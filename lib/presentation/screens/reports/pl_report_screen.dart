@@ -346,12 +346,14 @@ class _LineGroup extends StatelessWidget {
       child: Column(
         children: [
           for (var i = 0; i < lines.length; i++) ...[
+            if (lines[i].bold && i > 0) const Divider(height: 24),
             _SummaryRow(
               label: lines[i].label,
               value: Formatters.currencyPkr(lines[i].amount),
               bold: lines[i].bold,
             ),
-            if (i < lines.length - 1) const SizedBox(height: 8),
+            if (i < lines.length - 1 && !lines[i + 1].bold)
+              const SizedBox(height: 8),
           ],
           if (footer != null) ...[
             const SizedBox(height: 12),
