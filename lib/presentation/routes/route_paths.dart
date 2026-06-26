@@ -5,6 +5,11 @@ abstract final class RoutePaths {
   static const String dashboard = '/dashboard';
   static const String jobWork = '/job-work';
   static const String customers = '/customers';
+  static const String customersAdd = '/customers/add';
+
+  static String customerDetail(String id) => '/customers/$id';
+
+  static String customerEdit(String id) => '/customers/$id/edit';
   static const String sales = '/sales';
   static const String more = '/more';
 }

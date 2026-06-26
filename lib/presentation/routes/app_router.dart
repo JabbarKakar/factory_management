@@ -1,20 +1,31 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../blocs/auth/auth_bloc.dart';
+import '../../blocs/customer/customer_form_bloc.dart';
+import '../../blocs/customer/customer_list_bloc.dart';
+import '../../core/di/injection.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
-import '../screens/customers/customers_placeholder_screen.dart';
+import '../screens/customers/add_edit_customer_screen.dart';
+import '../screens/customers/customer_detail_screen.dart';
+import '../screens/customers/customers_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/job_work/job_work_placeholder_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/sales/sales_placeholder_screen.dart';
 import '../screens/shell/main_shell.dart';
+import '../utils/auth_context.dart';
 import 'go_router_refresh_stream.dart';
 import 'route_paths.dart';
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 GoRouter createAppRouter(AuthBloc authBloc) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: RoutePaths.splash,
     refreshListenable: GoRouterRefreshStream(authBloc.stream),
     redirect: (context, state) {
@@ -82,7 +93,69 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             routes: [
               GoRoute(
                 path: RoutePaths.customers,
-                builder: (context, state) => const CustomersPlaceholderScreen(),
+                builder: (context, state) {
+                  return BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<CustomerListBloc>();
+                      final factoryId = readFactoryId(context);
+                      if (factoryId != null) {
+                        bloc.add(CustomerListWatchStarted(factoryId));
+                      }
+                      return bloc;
+                    },
+                    child: const CustomersScreen(),
+                  );
+                },
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      return BlocProvider(
+                        create: (context) {
+                          final bloc = getIt<CustomerFormBloc>();
+                          final factoryId = readFactoryId(context);
+                          if (factoryId != null) {
+                            bloc.add(
+                              CustomerFormInitialized(factoryId: factoryId),
+                            );
+                          }
+                          return bloc;
+                        },
+                        child: const AddEditCustomerScreen(),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: ':customerId',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final customerId = state.pathParameters['customerId']!;
+                      return BlocProvider(
+                        create: (_) => getIt<CustomerFormBloc>()
+                          ..add(CustomerFormLoadRequested(customerId)),
+                        child: CustomerDetailScreen(customerId: customerId),
+                      );
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final customerId =
+                              state.pathParameters['customerId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<CustomerFormBloc>()
+                              ..add(CustomerFormLoadRequested(customerId)),
+                            child: AddEditCustomerScreen(
+                              customerId: customerId,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),

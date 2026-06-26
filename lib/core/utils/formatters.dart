@@ -17,4 +17,10 @@ abstract final class Formatters {
     if (parts.length == 1) return parts.first[0].toUpperCase();
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
+
+  static String currencyPkr(double amount) {
+    final formatted = amount.abs().toStringAsFixed(amount == amount.roundToDouble() ? 0 : 2);
+    final prefix = amount < 0 ? '- ' : '';
+    return '$prefix₨ $formatted';
+  }
 }

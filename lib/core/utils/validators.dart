@@ -19,4 +19,35 @@ abstract final class Validators {
     }
     return null;
   }
+
+  static String? requiredText(String? value, {String field = 'This field'}) {
+    if (value == null || value.trim().isEmpty) {
+      return '$field is required';
+    }
+    return null;
+  }
+
+  static String? phone(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Phone number is required';
+    }
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 10) {
+      return 'Enter a valid phone number';
+    }
+    return null;
+  }
+
+  static String? optionalEmail(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return email(value);
+  }
+
+  static String? serviceDescription(
+    String? value, {
+    required bool required,
+  }) {
+    if (!required) return null;
+    return requiredText(value, field: 'Service description');
+  }
 }
