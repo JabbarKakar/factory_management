@@ -41,6 +41,7 @@ class JobWorkOrderModel {
     this.output,
     this.execution,
     this.shiftLogs = const [],
+    this.invoiceId,
     this.updatedAt,
   });
 
@@ -77,6 +78,7 @@ class JobWorkOrderModel {
   final JobWorkOutput? output;
   final JobWorkExecution? execution;
   final List<JobWorkShiftLog> shiftLogs;
+  final String? invoiceId;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -136,6 +138,7 @@ class JobWorkOrderModel {
               .whereType<Map>()
               .map((item) => _shiftLogFromMap(item.cast<String, dynamic>()))
               .toList(),
+      invoiceId: data['invoiceId'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -236,6 +239,7 @@ class JobWorkOrderModel {
         'execution': _executionToMap(execution!),
       if (shiftLogs.isNotEmpty)
         'outputShifts': shiftLogs.map(_shiftLogToMap).toList(),
+      if (invoiceId != null) 'invoiceId': invoiceId,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -354,6 +358,7 @@ class JobWorkOrderModel {
       output: output,
       execution: execution,
       shiftLogs: shiftLogs,
+      invoiceId: invoiceId,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -394,6 +399,7 @@ class JobWorkOrderModel {
       output: order.output,
       execution: order.execution,
       shiftLogs: order.shiftLogs,
+      invoiceId: order.invoiceId,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     );

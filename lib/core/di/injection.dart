@@ -4,8 +4,12 @@ import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
 import '../../blocs/job_work/job_work_form_bloc.dart';
+import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
 import '../../blocs/job_work/job_work_output_bloc.dart';
+import '../../data/repositories/job_work_invoice_repository.dart';
+import '../../data/repositories/payment_repository.dart';
+import '../../data/services/customer_ledger_service.dart';
 import '../../blocs/theme/theme_cubit.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
@@ -20,6 +24,24 @@ void setupDependencies() {
   getIt.registerLazySingleton<ThemeRepository>(ThemeRepository.new);
   getIt.registerLazySingleton<CustomerRepository>(CustomerRepository.new);
   getIt.registerLazySingleton<JobWorkRepository>(JobWorkRepository.new);
+  getIt.registerLazySingleton<JobWorkInvoiceRepository>(
+    () => JobWorkInvoiceRepository(
+      jobWorkRepository: getIt<JobWorkRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<CustomerLedgerService>(
+    () => CustomerLedgerService(
+      customerRepository: getIt<CustomerRepository>(),
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<PaymentRepository>(
+    () => PaymentRepository(
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+      ledgerService: getIt<CustomerLedgerService>(),
+    ),
+  );
   getIt.registerLazySingleton<JobWorkCleanupService>(
     () => JobWorkCleanupService(jobWorkRepository: getIt<JobWorkRepository>()),
   );
@@ -47,5 +69,12 @@ void setupDependencies() {
   );
   getIt.registerFactory<JobWorkOutputBloc>(
     () => JobWorkOutputBloc(repository: getIt<JobWorkRepository>()),
+  );
+  getIt.registerFactory<JobWorkInvoiceBloc>(
+    () => JobWorkInvoiceBloc(
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      paymentRepository: getIt<PaymentRepository>(),
+      ledgerService: getIt<CustomerLedgerService>(),
+    ),
   );
 }

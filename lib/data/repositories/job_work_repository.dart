@@ -19,6 +19,9 @@ class JobWorkRepository {
   CollectionReference<Map<String, dynamic>> get _jobWorkCollection =>
       _firestore.collection('jobWorkOrders');
 
+  DocumentReference<Map<String, dynamic>> jobWorkDoc(String id) =>
+      _jobWorkCollection.doc(id);
+
   CollectionReference<Map<String, dynamic>> get _customerCollection =>
       _firestore.collection('customers');
 

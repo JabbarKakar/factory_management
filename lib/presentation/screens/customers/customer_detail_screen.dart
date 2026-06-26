@@ -9,6 +9,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/customer.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/customers/customer_balance_indicator.dart';
+import '../../widgets/customers/customer_ledger_section.dart';
 import '../../widgets/customers/service_type_chip.dart';
 import '../../widgets/settings_section.dart';
 
@@ -95,6 +96,7 @@ class CustomerDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              CustomerLedgerSection(customerId: customer.id),
               SettingsSection(
                 title: AppStrings.contactInformation,
                 child: _DetailList(

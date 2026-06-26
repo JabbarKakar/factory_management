@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/job_work/job_work_form_bloc.dart';
+import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
 import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
@@ -18,8 +19,10 @@ import '../screens/customers/customers_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/job_work/add_edit_job_work_screen.dart';
 import '../screens/job_work/job_work_detail_screen.dart';
+import '../screens/job_work/job_work_invoice_screen.dart';
 import '../screens/job_work/job_work_list_screen.dart';
 import '../screens/job_work/record_job_work_output_screen.dart';
+import '../screens/job_work/record_payment_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/sales/sales_placeholder_screen.dart';
 import '../screens/shell/main_shell.dart';
@@ -125,6 +128,18 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     },
                   ),
                   GoRoute(
+                    path: 'invoices/:invoiceId/payment',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final invoiceId = state.pathParameters['invoiceId']!;
+                      return BlocProvider(
+                        create: (_) => getIt<JobWorkInvoiceBloc>()
+                          ..add(JobWorkInvoiceLoadById(invoiceId)),
+                        child: RecordPaymentScreen(invoiceId: invoiceId),
+                      );
+                    },
+                  ),
+                  GoRoute(
                     path: ':jobWorkId',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) {
@@ -161,6 +176,21 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                             child: RecordJobWorkOutputScreen(
                               jobWorkId: jobWorkId,
                             ),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'invoice',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkInvoiceBloc>()
+                              ..add(
+                                JobWorkInvoiceLoadByJobWork(jobWorkId),
+                              ),
+                            child: JobWorkInvoiceScreen(jobWorkId: jobWorkId),
                           );
                         },
                       ),

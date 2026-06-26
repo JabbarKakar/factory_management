@@ -196,4 +196,33 @@ abstract final class AppStrings {
   static const String deleteShiftLog = 'Remove shift?';
   static const String deleteShiftLogMessage =
       'This shift entry will be removed from the order.';
+
+  // Job Work Invoice & Payments (Sprint 5)
+  static const String jobWorkInvoice = 'Job Work Invoice';
+  static const String generateInvoice = 'Generate Invoice';
+  static const String viewInvoice = 'View Invoice';
+  static const String recordPayment = 'Record Payment';
+  static const String invoiceGenerated = 'Invoice generated successfully';
+  static const String paymentRecorded = 'Payment recorded successfully';
+  static const String invoiceNotReady =
+      'Generate an invoice when the job work order is ready for pickup.';
+  static const String invoiceNumber = 'Invoice Number';
+  static const String invoiceTotal = 'Invoice Total';
+  static const String amountPaid = 'Amount Paid';
+  static const String amountDue = 'Amount Due';
+  static const String lineItems = 'Line Items';
+  static const String paymentHistory = 'Payment History';
+  static const String paymentAmount = 'Payment Amount (PKR)';
+  static const String paymentMethod = 'Payment Method';
+  static const String paymentDate = 'Payment Date';
+  static const String paymentReference = 'Reference / Cheque #';
+  static const String paymentNotes = 'Payment Notes';
+  static const String savePayment = 'Save Payment';
+  static const String noPaymentsYet = 'No payments recorded yet';
+  static const String accountLedger = 'Account Ledger';
+  static const String ledgerOpeningBalanceNote =
+      'Balance includes opening balance plus unpaid job work invoices.';
+  static const String noLedgerActivity = 'No invoices or payments yet';
+  static const String invoiceTypeJobWork = 'Job Work Invoice';
+  static const String paymentReceived = 'Payment Received';
 }

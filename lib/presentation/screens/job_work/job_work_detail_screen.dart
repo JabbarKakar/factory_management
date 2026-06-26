@@ -28,6 +28,29 @@ class JobWorkDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _openInvoice(BuildContext context) async {
+    await context.push(RoutePaths.jobWorkInvoice(jobWorkId));
+    if (context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
+
+  Future<void> _openRecordPayment(
+    BuildContext context,
+    String invoiceId,
+  ) async {
+    final recorded = await context.push<bool>(
+      RoutePaths.recordPayment(invoiceId),
+    );
+    if (recorded == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
+
   void _advanceStatus(BuildContext context, JobWorkStatus nextStatus) {
     context.read<JobWorkFormBloc>().add(
           JobWorkFormStatusAdvanceRequested(
@@ -273,7 +296,8 @@ class JobWorkDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              if (order.status == JobWorkStatus.ready)
+              if (order.status == JobWorkStatus.ready &&
+                  (order.invoiceId == null || order.invoiceId!.isEmpty))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: Card(
@@ -283,19 +307,61 @@ class JobWorkDetailScreen extends StatelessWidget {
                         .withValues(alpha: 0.35),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.receipt_long_outlined,
-                            color: Theme.of(context).colorScheme.primary,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.receipt_long_outlined,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  AppStrings.invoiceNotReady,
+                                  style:
+                                      Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              AppStrings.invoiceSprint5,
-                              style: Theme.of(context).textTheme.bodyMedium,
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: () => _openInvoice(context),
+                            icon: const Icon(Icons.receipt_long),
+                            label: const Text(AppStrings.generateInvoice),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              if (order.invoiceId != null && order.invoiceId!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => _openInvoice(context),
+                            icon: const Icon(Icons.receipt_long_outlined),
+                            label: const Text(AppStrings.viewInvoice),
+                          ),
+                          if (order.status != JobWorkStatus.paid) ...[
+                            const SizedBox(height: 8),
+                            FilledButton.icon(
+                              onPressed: () => _openRecordPayment(
+                                context,
+                                order.invoiceId!,
+                              ),
+                              icon: const Icon(Icons.payments_outlined),
+                              label: const Text(AppStrings.recordPayment),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),

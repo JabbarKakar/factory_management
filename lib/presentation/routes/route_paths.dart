@@ -11,6 +11,11 @@ abstract final class RoutePaths {
   static String jobWorkEdit(String id) => '/job-work/$id/edit';
 
   static String jobWorkRecordOutput(String id) => '/job-work/$id/record-output';
+
+  static String jobWorkInvoice(String jobWorkId) => '/job-work/$jobWorkId/invoice';
+
+  static String recordPayment(String invoiceId) =>
+      '/job-work/invoices/$invoiceId/payment';
   static const String customers = '/customers';
   static const String customersAdd = '/customers/add';
 
