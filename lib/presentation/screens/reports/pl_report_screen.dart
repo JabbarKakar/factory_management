@@ -160,12 +160,25 @@ class PlReportScreen extends StatelessWidget {
                   child: report.expenseLines.isEmpty
                       ? Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Text(
-                            AppStrings.noExpensesThisMonth,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(color: AppColors.textSecondary),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                AppStrings.noExpensesThisMonth,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: AppColors.textSecondary),
+                              ),
+                              const Divider(height: 24),
+                              _SummaryRow(
+                                label: AppStrings.totalExpenses,
+                                value: Formatters.currencyPkr(
+                                  report.totalExpenses,
+                                ),
+                                bold: true,
+                              ),
+                            ],
                           ),
                         )
                       : _LineGroup(
@@ -194,8 +207,12 @@ class PlReportScreen extends StatelessWidget {
                       child: Column(
                         children: [
                           _SummaryRow(
-                            label: AppStrings.netProfit,
-                            value: Formatters.currencyPkr(report.netProfit),
+                            label: report.netProfit >= 0
+                                ? AppStrings.netProfit
+                                : AppStrings.netLoss,
+                            value: Formatters.currencyPkr(
+                              report.netProfit.abs(),
+                            ),
                             valueColor: report.netProfit >= 0
                                 ? AppColors.success
                                 : AppColors.error,
