@@ -178,8 +178,6 @@ abstract final class AppStrings {
   static const String statusUpdated = 'Order status updated';
   static const String statusAutoAdvanced =
       'Order status updated automatically based on output';
-  static const String invoiceSprint5 =
-      'Invoicing and payment — Sprint 5';
   static const String outputNotRecordedYet =
       'No output recorded yet. Record grades and waste when cutting is complete.';
   static const String shiftLogs = 'Shift Logs';
@@ -225,4 +223,5 @@ abstract final class AppStrings {
   static const String noLedgerActivity = 'No invoices or payments yet';
   static const String invoiceTypeJobWork = 'Job Work Invoice';
   static const String paymentReceived = 'Payment Received';
+  static const String ledgerAmountDue = 'due';
 }

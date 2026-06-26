@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -20,48 +22,67 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
     on<CustomerFormInitialized>(_onInitialized);
     on<CustomerFormSubmitted>(_onSubmitted);
     on<CustomerFormDeleteRequested>(_onDeleteRequested);
+    on<_CustomerFormUpdated>(_onUpdated);
+    on<_CustomerFormStreamFailed>(_onStreamFailed);
   }
 
   final CustomerRepository _repository;
   final JobWorkRepository _jobWorkRepository;
+  StreamSubscription<Customer?>? _watchSubscription;
 
   Future<void> _onLoadRequested(
     CustomerFormLoadRequested event,
     Emitter<CustomerFormState> emit,
   ) async {
     emit(state.copyWith(status: CustomerFormStatus.loading, isEditing: true));
-    try {
-      final customer = await _repository.getCustomer(event.customerId);
-      if (customer == null) {
-        emit(
-          state.copyWith(
-            status: CustomerFormStatus.failure,
-            errorMessage: 'Customer not found.',
+    await _watchSubscription?.cancel();
+    _watchSubscription = _repository.watchCustomer(event.customerId).listen(
+          (customer) {
+            if (customer == null) {
+              add(const _CustomerFormStreamFailed('Customer not found.'));
+            } else {
+              add(_CustomerFormUpdated(customer));
+            }
+          },
+          onError: (_) => add(
+            const _CustomerFormStreamFailed('Could not load customer.'),
           ),
         );
-        return;
-      }
-      emit(
-        state.copyWith(
-          status: CustomerFormStatus.ready,
-          customer: customer,
-          isEditing: true,
-        ),
-      );
-    } catch (_) {
-      emit(
-        state.copyWith(
-          status: CustomerFormStatus.failure,
-          errorMessage: 'Could not load customer.',
-        ),
-      );
-    }
   }
 
-  void _onInitialized(
-    CustomerFormInitialized event,
+  void _onUpdated(
+    _CustomerFormUpdated event,
     Emitter<CustomerFormState> emit,
   ) {
+    emit(
+      state.copyWith(
+        status: CustomerFormStatus.ready,
+        customer: event.customer,
+        isEditing: true,
+        errorMessage: null,
+      ),
+    );
+  }
+
+  void _onStreamFailed(
+    _CustomerFormStreamFailed event,
+    Emitter<CustomerFormState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        status: CustomerFormStatus.failure,
+        errorMessage: event.message,
+      ),
+    );
+  }
+
+  Future<void> _onInitialized(
+    CustomerFormInitialized event,
+    Emitter<CustomerFormState> emit,
+  ) async {
+    await _watchSubscription?.cancel();
+    _watchSubscription = null;
+
     if (event.customer != null) {
       emit(
         state.copyWith(
@@ -136,6 +157,8 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
     try {
       await _jobWorkRepository.deleteOrdersForCustomer(event.customerId);
       await _repository.deleteCustomer(event.customerId);
+      await _watchSubscription?.cancel();
+      _watchSubscription = null;
       emit(state.copyWith(status: CustomerFormStatus.deleted));
     } catch (_) {
       emit(
@@ -146,4 +169,28 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
       );
     }
   }
+
+  @override
+  Future<void> close() {
+    _watchSubscription?.cancel();
+    return super.close();
+  }
+}
+
+final class _CustomerFormUpdated extends CustomerFormEvent {
+  const _CustomerFormUpdated(this.customer);
+
+  final Customer customer;
+
+  @override
+  List<Object?> get props => [customer];
+}
+
+final class _CustomerFormStreamFailed extends CustomerFormEvent {
+  const _CustomerFormStreamFailed(this.message);
+
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
 }

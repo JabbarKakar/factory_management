@@ -45,28 +45,8 @@ class CustomerLedgerSection extends StatelessWidget {
                     }
 
                     final entries = <_LedgerEntry>[
-                      ...invoices.map(
-                        (invoice) => _LedgerEntry(
-                          date: invoice.createdAt,
-                          title:
-                              '${AppStrings.invoiceTypeJobWork} ${invoice.invoiceNumber}',
-                          subtitle: invoice.jobWorkNumber,
-                          amount: invoice.dueAmount > 0
-                              ? invoice.dueAmount
-                              : invoice.totalAmount,
-                          isCredit: true,
-                        ),
-                      ),
-                      ...payments.map(
-                        (payment) => _LedgerEntry(
-                          date: payment.paymentDate,
-                          title: AppStrings.paymentReceived,
-                          subtitle:
-                              '${payment.invoiceNumber} · ${payment.method.label}',
-                          amount: payment.amount,
-                          isCredit: false,
-                        ),
-                      ),
+                      ...invoices.map(_entryFromInvoice),
+                      ...payments.map(_entryFromPayment),
                     ]..sort((a, b) => b.date.compareTo(a.date));
 
                     return Column(
@@ -86,7 +66,32 @@ class CustomerLedgerSection extends StatelessWidget {
       ),
     );
   }
+
+  _LedgerEntry _entryFromInvoice(JobWorkInvoice invoice) {
+    final isSettled = invoice.dueAmount <= 0;
+    return _LedgerEntry(
+      date: invoice.createdAt,
+      title: '${AppStrings.invoiceTypeJobWork} ${invoice.invoiceNumber}',
+      subtitle: isSettled
+          ? '${invoice.jobWorkNumber} · ${invoice.status.label}'
+          : '${invoice.jobWorkNumber} · ${Formatters.currencyPkr(invoice.dueAmount)} ${AppStrings.ledgerAmountDue}',
+      amount: isSettled ? invoice.totalAmount : invoice.dueAmount,
+      kind: isSettled ? _LedgerEntryKind.settled : _LedgerEntryKind.outstanding,
+    );
+  }
+
+  _LedgerEntry _entryFromPayment(Payment payment) {
+    return _LedgerEntry(
+      date: payment.paymentDate,
+      title: AppStrings.paymentReceived,
+      subtitle: '${payment.invoiceNumber} · ${payment.method.label}',
+      amount: payment.amount,
+      kind: _LedgerEntryKind.payment,
+    );
+  }
 }
+
+enum _LedgerEntryKind { outstanding, settled, payment }
 
 class _LedgerEntry {
   const _LedgerEntry({
@@ -94,14 +99,14 @@ class _LedgerEntry {
     required this.title,
     required this.subtitle,
     required this.amount,
-    required this.isCredit,
+    required this.kind,
   });
 
   final DateTime date;
   final String title;
   final String subtitle;
   final double amount;
-  final bool isCredit;
+  final _LedgerEntryKind kind;
 }
 
 class _LedgerRow extends StatelessWidget {
@@ -112,9 +117,20 @@ class _LedgerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    final amountColor = entry.isCredit
-        ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.primary;
+    final (amountText, amountColor) = switch (entry.kind) {
+      _LedgerEntryKind.outstanding => (
+          '+${Formatters.currencyPkr(entry.amount)}',
+          Theme.of(context).colorScheme.error,
+        ),
+      _LedgerEntryKind.settled => (
+          Formatters.currencyPkr(entry.amount),
+          muted,
+        ),
+      _LedgerEntryKind.payment => (
+          '-${Formatters.currencyPkr(entry.amount)}',
+          Theme.of(context).colorScheme.primary,
+        ),
+    };
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,14 +141,17 @@ class _LedgerRow extends StatelessWidget {
             children: [
               Text(
                 entry.title,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: entry.kind == _LedgerEntryKind.settled ? muted : null,
+                ),
               ),
               Text(entry.subtitle, style: TextStyle(color: muted, fontSize: 12)),
             ],
           ),
         ),
         Text(
-          '${entry.isCredit ? '+' : '-'}${Formatters.currencyPkr(entry.amount)}',
+          amountText,
           style: TextStyle(
             color: amountColor,
             fontWeight: FontWeight.w700,

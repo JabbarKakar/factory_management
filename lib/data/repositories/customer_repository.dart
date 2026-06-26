@@ -34,6 +34,13 @@ class CustomerRepository {
     return CustomerModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
+  Stream<Customer?> watchCustomer(String id) {
+    return _collection.doc(id).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return CustomerModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    });
+  }
+
   Future<Customer> createCustomer(Customer customer) async {
     final id = customer.id.isEmpty ? _uuid.v4() : customer.id;
     final model = CustomerModel.fromEntity(

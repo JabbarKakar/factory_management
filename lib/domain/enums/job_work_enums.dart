@@ -86,19 +86,25 @@ enum JobWorkListStageFilter {
   all,
   inCutting,
   qc,
-  ready;
+  ready,
+  invoiced,
+  paid;
 
   String get label => switch (this) {
         JobWorkListStageFilter.all => 'All Stages',
         JobWorkListStageFilter.inCutting => 'In Cutting',
         JobWorkListStageFilter.qc => 'QC',
         JobWorkListStageFilter.ready => 'Ready',
+        JobWorkListStageFilter.invoiced => 'Invoiced',
+        JobWorkListStageFilter.paid => 'Paid',
       };
 
   JobWorkStatus? get status => switch (this) {
         JobWorkListStageFilter.inCutting => JobWorkStatus.inCutting,
         JobWorkListStageFilter.qc => JobWorkStatus.qc,
         JobWorkListStageFilter.ready => JobWorkStatus.ready,
+        JobWorkListStageFilter.invoiced => JobWorkStatus.invoiced,
+        JobWorkListStageFilter.paid => JobWorkStatus.paid,
         JobWorkListStageFilter.all => null,
       };
 }
