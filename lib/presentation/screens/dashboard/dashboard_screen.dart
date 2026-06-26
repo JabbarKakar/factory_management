@@ -9,6 +9,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/dashboard_kpis.dart';
 import '../../../domain/enums/notification_enums.dart';
+import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/payment_reminders_card.dart';
@@ -249,7 +250,9 @@ class _KpiGrid extends StatelessWidget {
             : AppStrings.rawMaterialStock,
         icon: Icons.inventory_2_outlined,
         color: kpis.lowStockCount > 0 ? AppColors.warning : AppColors.accent,
-        onTap: () => context.push(RoutePaths.rawMaterials),
+        onTap: () => context.push(
+          RoutePaths.rawMaterialsList(filter: RawMaterialListFilter.lowStock),
+        ),
       ),
       _KpiItem(
         label: AppStrings.customerCount,

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/supplier/supplier_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/supplier.dart';
+import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/settings_section.dart';
 import '../../widgets/suppliers/supplier_purchases_section.dart';
@@ -51,19 +52,32 @@ class SupplierDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            heroTag: 'fab-supplier-purchase',
-            onPressed: () => context.push(
-              RoutePaths.expensesAddForSupplier(
-                supplierId: supplier.id,
-                payeeName: supplier.name,
+          floatingActionButton: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              FloatingActionButton.extended(
+                heroTag: 'fab-supplier-purchase',
+                onPressed: () => context.push(
+                  RoutePaths.expensesAddForSupplier(
+                    supplierId: supplier.id,
+                    payeeName: supplier.name,
+                  ),
+                ),
+                icon: const Icon(Icons.add_shopping_cart_outlined),
+                label: const Text(AppStrings.recordPurchase),
               ),
-            ),
-            icon: const Icon(Icons.add_shopping_cart_outlined),
-            label: const Text(AppStrings.recordPurchase),
+              const SizedBox(height: 12),
+              FloatingActionButton.extended(
+                heroTag: 'fab-supplier-stock-in',
+                onPressed: () => _showMaterialPicker(context, supplier),
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: const Text(AppStrings.stockIn),
+              ),
+            ],
           ),
           body: ListView(
-            padding: const EdgeInsets.only(bottom: 88),
+            padding: const EdgeInsets.only(bottom: 140),
             children: [
               _ProfileHeader(supplier: supplier),
               SupplierPurchasesSection(supplierId: supplier.id),
@@ -107,6 +121,46 @@ class SupplierDetailScreen extends StatelessWidget {
                     if (supplier.notes != null)
                       _DetailItem(AppStrings.notes, supplier.notes!),
                   ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showMaterialPicker(BuildContext context, Supplier supplier) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Text(
+                  AppStrings.selectMaterialForStockIn,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              ...RawMaterialType.values.map(
+                (materialType) => ListTile(
+                  title: Text(materialType.label),
+                  subtitle: Text(materialType.unit.label),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    context.push(
+                      RoutePaths.rawMaterialStockIn(
+                        materialType.name,
+                        supplierId: supplier.id,
+                      ),
+                    );
+                  },
                 ),
               ),
             ],

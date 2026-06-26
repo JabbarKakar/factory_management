@@ -448,4 +448,5 @@ abstract final class AppStrings {
       'Record stock in first before setting a reorder level';
   static const String materialDetails = 'Material Details';
   static const String noStockMovementsFound = 'No movements match your filters';
+  static const String selectMaterialForStockIn = 'Select material to receive';
 }

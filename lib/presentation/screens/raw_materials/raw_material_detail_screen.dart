@@ -6,10 +6,14 @@ import 'package:intl/intl.dart';
 import '../../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/repositories/supplier_repository.dart';
 import '../../../domain/entities/stock_transaction.dart';
+import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/auth_context.dart';
 import '../../widgets/raw_materials/low_stock_badge.dart';
 import '../../widgets/settings_section.dart';
 
@@ -91,6 +95,7 @@ class RawMaterialDetailScreen extends StatelessWidget {
         }
 
         final material = state.material;
+        final factoryId = readFactoryId(context);
 
         return Scaffold(
           appBar: AppBar(
@@ -230,13 +235,42 @@ class RawMaterialDetailScreen extends StatelessWidget {
                               ?.copyWith(color: AppColors.textSecondary),
                         ),
                       )
-                    : Column(
-                        children: state.transactions
-                            .map((transaction) => _TransactionTile(
-                                  transaction: transaction,
-                                ))
-                            .toList(),
-                      ),
+                    : factoryId == null
+                        ? Column(
+                            children: state.transactions
+                                .map(
+                                  (transaction) => _TransactionTile(
+                                    transaction: transaction,
+                                  ),
+                                )
+                                .toList(),
+                          )
+                        : StreamBuilder<List<Supplier>>(
+                            stream: getIt<SupplierRepository>()
+                                .watchSuppliers(factoryId),
+                            builder: (context, snapshot) {
+                              final supplierNames = {
+                                for (final supplier
+                                    in snapshot.data ?? const <Supplier>[])
+                                  supplier.id: supplier.name,
+                              };
+
+                              return Column(
+                                children: state.transactions
+                                    .map(
+                                      (transaction) => _TransactionTile(
+                                        transaction: transaction,
+                                        supplierName: transaction.supplierId !=
+                                                null
+                                            ? supplierNames[
+                                                transaction.supplierId]
+                                            : null,
+                                      ),
+                                    )
+                                    .toList(),
+                              );
+                            },
+                          ),
               ),
             ],
           ),
@@ -274,9 +308,13 @@ class _SummaryRow extends StatelessWidget {
 }
 
 class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.transaction});
+  const _TransactionTile({
+    required this.transaction,
+    this.supplierName,
+  });
 
   final StockTransaction transaction;
+  final String? supplierName;
 
   @override
   Widget build(BuildContext context) {
@@ -285,6 +323,15 @@ class _TransactionTile extends StatelessWidget {
     final prefix = isIn ? '+' : '−';
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
 
+    final subtitleParts = <String>[
+      DateFormat.yMMMd().format(transaction.transactionDate),
+      transaction.transactionNumber,
+      if (isIn &&
+          supplierName != null &&
+          supplierName!.isNotEmpty)
+        supplierName!,
+    ];
+
     return ListTile(
       leading: Icon(
         isIn ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
@@ -292,7 +339,7 @@ class _TransactionTile extends StatelessWidget {
       ),
       title: Text(transaction.movementType.label),
       subtitle: Text(
-        '${DateFormat.yMMMd().format(transaction.transactionDate)} · ${transaction.transactionNumber}',
+        subtitleParts.join(' · '),
         style: TextStyle(color: muted),
       ),
       trailing: Text(

@@ -1,4 +1,5 @@
 import '../../domain/enums/notification_enums.dart';
+import '../../domain/enums/raw_material_enums.dart';
 
 abstract final class RoutePaths {
   static const String splash = '/';
@@ -71,11 +72,29 @@ abstract final class RoutePaths {
   static String supplierEdit(String id) => '/suppliers/$id/edit';
   static const String rawMaterials = '/raw-materials';
 
+  static String rawMaterialsList({RawMaterialListFilter? filter}) {
+    if (filter == null || filter == RawMaterialListFilter.all) {
+      return rawMaterials;
+    }
+    return '$rawMaterials?filter=${filter.name}';
+  }
+
   static String rawMaterialDetail(String materialType) =>
       '/raw-materials/$materialType';
 
-  static String rawMaterialStockIn(String materialType) =>
-      '/raw-materials/$materialType/stock-in';
+  static String rawMaterialStockIn(
+    String materialType, {
+    String? supplierId,
+  }) {
+    final query = <String, String>{};
+    if (supplierId != null && supplierId.isNotEmpty) {
+      query['supplierId'] = supplierId;
+    }
+    return Uri(
+      path: '/raw-materials/$materialType/stock-in',
+      queryParameters: query.isEmpty ? null : query,
+    ).toString();
+  }
 
   static String rawMaterialStockOut(String materialType) =>
       '/raw-materials/$materialType/stock-out';

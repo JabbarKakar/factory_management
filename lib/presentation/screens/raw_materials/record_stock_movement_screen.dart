@@ -18,11 +18,13 @@ class RecordStockMovementScreen extends StatefulWidget {
   const RecordStockMovementScreen({
     required this.materialTypeName,
     required this.movementTypeName,
+    this.initialSupplierId,
     super.key,
   });
 
   final String materialTypeName;
   final String movementTypeName;
+  final String? initialSupplierId;
 
   bool get isStockIn =>
       StockMovementType.fromString(movementTypeName) ==
@@ -46,6 +48,14 @@ class _RecordStockMovementScreenState extends State<RecordStockMovementScreen> {
   final _unitCostController = TextEditingController();
   final _referenceController = TextEditingController();
   final _notesController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isStockIn && widget.initialSupplierId != null) {
+      _supplierId = widget.initialSupplierId;
+    }
+  }
 
   @override
   void dispose() {

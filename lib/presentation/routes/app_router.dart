@@ -257,6 +257,14 @@ GoRouter createAppRouter(AuthBloc authBloc) {
         path: RoutePaths.rawMaterials,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
+          final filterName = state.uri.queryParameters['filter'];
+          final initialFilter = filterName == null
+              ? null
+              : RawMaterialListFilter.values.firstWhere(
+                  (filter) => filter.name == filterName,
+                  orElse: () => RawMaterialListFilter.all,
+                );
+
           return BlocProvider(
             create: (context) {
               final bloc = getIt<RawMaterialListBloc>();
@@ -266,7 +274,9 @@ GoRouter createAppRouter(AuthBloc authBloc) {
               }
               return bloc;
             },
-            child: const RawMaterialsScreen(),
+            child: RawMaterialsScreen(
+              initialFilter: filterName == null ? null : initialFilter,
+            ),
           );
         },
         routes: [
@@ -299,6 +309,7 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) {
                   final materialType = state.pathParameters['materialType']!;
+                  final supplierId = state.uri.queryParameters['supplierId'];
                   return BlocProvider(
                     create: (context) {
                       final bloc = getIt<StockMovementBloc>();
@@ -318,6 +329,7 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     child: RecordStockMovementScreen(
                       materialTypeName: materialType,
                       movementTypeName: StockMovementType.stockIn.name,
+                      initialSupplierId: supplierId,
                     ),
                   );
                 },

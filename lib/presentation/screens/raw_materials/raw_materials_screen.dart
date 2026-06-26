@@ -12,7 +12,9 @@ import '../../widgets/empty_state_view.dart';
 import '../../widgets/raw_materials/raw_material_list_tile.dart';
 
 class RawMaterialsScreen extends StatefulWidget {
-  const RawMaterialsScreen({super.key});
+  const RawMaterialsScreen({this.initialFilter, super.key});
+
+  final RawMaterialListFilter? initialFilter;
 
   @override
   State<RawMaterialsScreen> createState() => _RawMaterialsScreenState();
@@ -20,6 +22,20 @@ class RawMaterialsScreen extends StatefulWidget {
 
 class _RawMaterialsScreenState extends State<RawMaterialsScreen> {
   final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    final filter = widget.initialFilter;
+    if (filter != null && filter != RawMaterialListFilter.all) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<RawMaterialListBloc>().add(
+              RawMaterialListFilterChanged(filter),
+            );
+      });
+    }
+  }
 
   @override
   void dispose() {
