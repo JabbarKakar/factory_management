@@ -146,6 +146,15 @@ abstract final class AppStrings {
   static const String advanceReceived = 'Advance Received (PKR)';
   static const String balanceDue = 'Balance Due';
   static const String paymentDueDate = 'Payment Due Date';
+  static const String collectedDate = 'Collected Date';
+  static const String closedDate = 'Closed Date';
+  static const String markMaterialCollected = 'Mark Material Collected';
+  static const String closeJobWorkOrder = 'Close Order';
+  static const String pendingPickups = 'Pending Pickups';
+  static const String pendingPickupsSubtitle =
+      'Finished material still at the factory awaiting customer pickup';
+  static const String awaitingCustomerPickup = 'Awaiting customer pickup';
+  static const String viewAll = 'View all';
 
   // Job Work — Output (Sprint 4)
   static const String recordOutput = 'Record Output';
@@ -260,6 +269,7 @@ abstract final class AppStrings {
   static const String salesOrderCreated = 'Sales order created';
   static const String salesOrderUpdated = 'Sales order updated';
   static const String salesOrderCancelled = 'Sales order cancelled';
+  static const String salesOrderClosed = 'Sales order closed';
   static const String cancelSalesOrderTitle = 'Cancel sales order?';
   static const String cancelSalesOrderMessage =
       'This order will be marked as cancelled.';

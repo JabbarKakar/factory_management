@@ -5,6 +5,7 @@ class DashboardKpis extends Equatable {
     required this.revenueToday,
     required this.activeJobWorkCount,
     required this.activeSalesCount,
+    required this.pendingPickupCount,
     required this.overdueAmount,
     required this.overdueCount,
     required this.customerCount,
@@ -14,6 +15,7 @@ class DashboardKpis extends Equatable {
     revenueToday: 0,
     activeJobWorkCount: 0,
     activeSalesCount: 0,
+    pendingPickupCount: 0,
     overdueAmount: 0,
     overdueCount: 0,
     customerCount: 0,
@@ -22,6 +24,7 @@ class DashboardKpis extends Equatable {
   final double revenueToday;
   final int activeJobWorkCount;
   final int activeSalesCount;
+  final int pendingPickupCount;
   final int overdueCount;
   final double overdueAmount;
   final int customerCount;
@@ -31,6 +34,7 @@ class DashboardKpis extends Equatable {
         revenueToday,
         activeJobWorkCount,
         activeSalesCount,
+        pendingPickupCount,
         overdueCount,
         overdueAmount,
         customerCount,

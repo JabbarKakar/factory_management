@@ -41,6 +41,8 @@ class JobWorkOrder extends Equatable {
     this.execution,
     this.shiftLogs = const [],
     this.invoiceId,
+    this.collectedAt,
+    this.closedAt,
     this.updatedAt,
   });
 
@@ -85,6 +87,8 @@ class JobWorkOrder extends Equatable {
   final JobWorkExecution? execution;
   final List<JobWorkShiftLog> shiftLogs;
   final String? invoiceId;
+  final DateTime? collectedAt;
+  final DateTime? closedAt;
 
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -139,6 +143,8 @@ class JobWorkOrder extends Equatable {
     JobWorkExecution? execution,
     List<JobWorkShiftLog>? shiftLogs,
     String? invoiceId,
+    DateTime? collectedAt,
+    DateTime? closedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -179,6 +185,8 @@ class JobWorkOrder extends Equatable {
       execution: execution ?? this.execution,
       shiftLogs: shiftLogs ?? this.shiftLogs,
       invoiceId: invoiceId ?? this.invoiceId,
+      collectedAt: collectedAt ?? this.collectedAt,
+      closedAt: closedAt ?? this.closedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -220,6 +228,8 @@ class JobWorkOrder extends Equatable {
         execution,
         shiftLogs,
         invoiceId,
+        collectedAt,
+        closedAt,
         createdAt,
         updatedAt,
       ];

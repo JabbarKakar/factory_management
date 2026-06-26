@@ -68,9 +68,14 @@ enum JobWorkStatus {
       };
 
   bool get isCompleted => switch (this) {
-        JobWorkStatus.paid ||
-        JobWorkStatus.collected ||
-        JobWorkStatus.closed =>
+        JobWorkStatus.collected || JobWorkStatus.closed => true,
+        _ => false,
+      };
+
+  bool get isPendingPickup => switch (this) {
+        JobWorkStatus.ready ||
+        JobWorkStatus.invoiced ||
+        JobWorkStatus.paid =>
           true,
         _ => false,
       };
@@ -81,14 +86,13 @@ enum JobWorkStatus {
         JobWorkStatus.received ||
         JobWorkStatus.agreed ||
         JobWorkStatus.inCutting ||
-        JobWorkStatus.qc ||
-        JobWorkStatus.ready =>
+        JobWorkStatus.qc =>
           0,
-        JobWorkStatus.invoiced => 1,
-        JobWorkStatus.paid ||
-        JobWorkStatus.collected ||
-        JobWorkStatus.closed =>
-          2,
+        JobWorkStatus.ready ||
+        JobWorkStatus.invoiced ||
+        JobWorkStatus.paid =>
+          1,
+        JobWorkStatus.collected || JobWorkStatus.closed => 2,
         JobWorkStatus.cancelled => 3,
       };
 
@@ -124,6 +128,18 @@ enum JobWorkStatus {
         JobWorkStatus.ready => 'Mark Ready for Pickup',
         _ => '',
       };
+
+  JobWorkStatus? get nextCompletionStatus => switch (this) {
+        JobWorkStatus.paid => JobWorkStatus.collected,
+        JobWorkStatus.collected => JobWorkStatus.closed,
+        _ => null,
+      };
+
+  String get completionActionLabel => switch (nextCompletionStatus) {
+        JobWorkStatus.collected => 'Mark Material Collected',
+        JobWorkStatus.closed => 'Close Order',
+        _ => '',
+      };
 }
 
 enum JobWorkListStageFilter {
@@ -132,6 +148,7 @@ enum JobWorkListStageFilter {
   ready,
   invoiced,
   paid,
+  pendingPickup,
   completed,
   cancelled;
 
@@ -141,6 +158,7 @@ enum JobWorkListStageFilter {
         JobWorkListStageFilter.ready => 'Ready',
         JobWorkListStageFilter.invoiced => 'Invoiced',
         JobWorkListStageFilter.paid => 'Paid',
+        JobWorkListStageFilter.pendingPickup => 'Pending Pickup',
         JobWorkListStageFilter.completed => 'Completed',
         JobWorkListStageFilter.cancelled => 'Cancelled',
       };
@@ -159,6 +177,7 @@ enum JobWorkListStageFilter {
         JobWorkListStageFilter.ready => status == JobWorkStatus.ready,
         JobWorkListStageFilter.invoiced => status == JobWorkStatus.invoiced,
         JobWorkListStageFilter.paid => status == JobWorkStatus.paid,
+        JobWorkListStageFilter.pendingPickup => status.isPendingPickup,
         JobWorkListStageFilter.completed => status.isCompleted,
         JobWorkListStageFilter.cancelled => status == JobWorkStatus.cancelled,
       };

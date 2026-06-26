@@ -60,6 +60,15 @@ class JobWorkDetailScreen extends StatelessWidget {
         );
   }
 
+  void _advanceCompletion(BuildContext context, JobWorkStatus nextStatus) {
+    context.read<JobWorkFormBloc>().add(
+          JobWorkFormCompletionRequested(
+            jobWorkId: jobWorkId,
+            newStatus: nextStatus,
+          ),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<JobWorkFormBloc, JobWorkFormState>(
@@ -94,6 +103,7 @@ class JobWorkDetailScreen extends StatelessWidget {
             order.status == JobWorkStatus.received;
         final canRecordOutput = order.status.canRecordOutput;
         final nextStatus = order.status.nextOperationalStatus;
+        final nextCompletionStatus = order.status.nextCompletionStatus;
         final isSaving = state.status == JobWorkFormStatus.saving;
         final hasOutput = order.output?.isRecorded == true;
 
@@ -158,6 +168,21 @@ class JobWorkDetailScreen extends StatelessWidget {
                                 ? null
                                 : () => _advanceStatus(context, nextStatus),
                             child: Text(order.status.advanceActionLabel),
+                          ),
+                        ),
+                      ],
+                      if (nextCompletionStatus != null) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: isSaving
+                                ? null
+                                : () => _advanceCompletion(
+                                      context,
+                                      nextCompletionStatus,
+                                    ),
+                            child: Text(order.status.completionActionLabel),
                           ),
                         ),
                       ],
@@ -293,6 +318,16 @@ class JobWorkDetailScreen extends StatelessWidget {
                         DateFormat.yMMMd()
                             .format(order.expectedCompletionDate!),
                       ),
+                    if (order.collectedAt != null)
+                      _Row(
+                        AppStrings.collectedDate,
+                        DateFormat.yMMMd().format(order.collectedAt!),
+                      ),
+                    if (order.closedAt != null)
+                      _Row(
+                        AppStrings.closedDate,
+                        DateFormat.yMMMd().format(order.closedAt!),
+                      ),
                   ],
                 ),
               ),
@@ -351,7 +386,9 @@ class JobWorkDetailScreen extends StatelessWidget {
                             icon: const Icon(Icons.receipt_long_outlined),
                             label: const Text(AppStrings.viewInvoice),
                           ),
-                          if (order.status != JobWorkStatus.paid) ...[
+                          if (order.status != JobWorkStatus.paid &&
+                              order.status != JobWorkStatus.collected &&
+                              order.status != JobWorkStatus.closed) ...[
                             const SizedBox(height: 8),
                             FilledButton.icon(
                               onPressed: () => _openRecordPayment(

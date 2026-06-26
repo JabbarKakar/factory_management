@@ -133,9 +133,21 @@ class SalesOrderRepository {
   }
 
   Future<void> advanceSalesOrderStatus(String id, SalesOrderStatus status) async {
+    final order = await getSalesOrder(id);
+    if (order == null) {
+      throw StateError('Sales order not found.');
+    }
+
+    if (order.status == SalesOrderStatus.paid &&
+        status != SalesOrderStatus.closed) {
+      throw StateError('Paid sales orders can only be closed.');
+    }
+
     await _ordersCollection.doc(id).update({
       'status': status.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
+      if (status == SalesOrderStatus.closed)
+        'closedAt': FieldValue.serverTimestamp(),
     });
   }
 

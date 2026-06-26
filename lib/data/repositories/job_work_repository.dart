@@ -89,6 +89,38 @@ class JobWorkRepository {
     });
   }
 
+  Future<void> advanceJobWorkCompletionStatus(
+    String id,
+    JobWorkStatus targetStatus,
+  ) async {
+    final order = await getJobWorkOrder(id);
+    if (order == null) {
+      throw StateError('Job work order not found.');
+    }
+
+    final allowed = switch ((order.status, targetStatus)) {
+      (JobWorkStatus.paid, JobWorkStatus.collected) => true,
+      (JobWorkStatus.collected, JobWorkStatus.closed) => true,
+      _ => false,
+    };
+    if (!allowed) {
+      throw StateError('Invalid job work completion status transition.');
+    }
+
+    final updates = <String, dynamic>{
+      'status': targetStatus.firestoreValue,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (targetStatus == JobWorkStatus.collected) {
+      updates['collectedAt'] = FieldValue.serverTimestamp();
+    }
+    if (targetStatus == JobWorkStatus.closed) {
+      updates['closedAt'] = FieldValue.serverTimestamp();
+    }
+
+    await _jobWorkCollection.doc(id).update(updates);
+  }
+
   Future<JobWorkOrder> recordJobWorkOutput(JobWorkOrder order) async {
     final manualOutput = order.output ?? const JobWorkOutput();
     final output = order.shiftLogs.isNotEmpty

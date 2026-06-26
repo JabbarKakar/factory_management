@@ -170,6 +170,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     final activeSalesCount =
         _salesOrders.where((order) => order.status.isActive).length;
 
+    final pendingPickupCount =
+        _orders.where((order) => order.status.isPendingPickup).length;
+
+    final pendingPickups = _orders
+        .where((order) => order.status.isPendingPickup)
+        .toList()
+      ..sort((a, b) {
+        final rankCompare = a.status.listSortRank.compareTo(b.status.listSortRank);
+        if (rankCompare != 0) return rankCompare;
+        return a.createdAt.compareTo(b.createdAt);
+      });
+
     final overdueSummary = _scannerService.summarizeAll(
       jobWorkInvoices: _jobWorkInvoices,
       salesInvoices: _salesInvoices,
@@ -182,10 +194,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           revenueToday: revenueToday,
           activeJobWorkCount: activeJobWorkCount,
           activeSalesCount: activeSalesCount,
+          pendingPickupCount: pendingPickupCount,
           overdueAmount: overdueSummary.overdueAmount,
           overdueCount: overdueSummary.overdueCount,
           customerCount: _customers.length,
         ),
+        pendingPickups: pendingPickups.take(5).toList(),
         errorMessage: null,
       ),
     );

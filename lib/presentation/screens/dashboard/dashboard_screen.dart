@@ -12,6 +12,7 @@ import '../../../domain/enums/notification_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/payment_reminders_card.dart';
+import '../../widgets/pending_pickups_card.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -110,6 +111,14 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   PaymentRemindersCard(factoryId: user.factoryId),
                 ],
+                if (state.pendingPickups.isNotEmpty ||
+                    state.kpis.pendingPickupCount > 0) ...[
+                  const SizedBox(height: 16),
+                  PendingPickupsCard(
+                    pendingPickups: state.pendingPickups,
+                    totalCount: state.kpis.pendingPickupCount,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 Text(
                   AppStrings.quickActions,
@@ -187,6 +196,14 @@ class _KpiGrid extends StatelessWidget {
         icon: Icons.shopping_bag_outlined,
         color: AppColors.primary,
         onTap: () => context.go(RoutePaths.salesList(filter: 'inProgress')),
+      ),
+      _KpiItem(
+        label: AppStrings.pendingPickups,
+        value: '${kpis.pendingPickupCount}',
+        subtitle: AppStrings.awaitingCustomerPickup,
+        icon: Icons.inventory_2_outlined,
+        color: AppColors.accent,
+        onTap: () => context.go(RoutePaths.jobWorkList(filter: 'pendingPickup')),
       ),
       _KpiItem(
         label: AppStrings.overdueTotal,

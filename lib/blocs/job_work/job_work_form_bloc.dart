@@ -20,6 +20,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     on<JobWorkFormSubmitted>(_onSubmitted);
     on<JobWorkFormCancelRequested>(_onCancelRequested);
     on<JobWorkFormStatusAdvanceRequested>(_onStatusAdvanceRequested);
+    on<JobWorkFormCompletionRequested>(_onCompletionRequested);
   }
 
   final JobWorkRepository _repository;
@@ -171,6 +172,43 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         state.copyWith(
           status: JobWorkFormStatus.failure,
           errorMessage: 'Could not update order status.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onCompletionRequested(
+    JobWorkFormCompletionRequested event,
+    Emitter<JobWorkFormState> emit,
+  ) async {
+    emit(state.copyWith(status: JobWorkFormStatus.saving));
+    try {
+      await _repository.advanceJobWorkCompletionStatus(
+        event.jobWorkId,
+        event.newStatus,
+      );
+      final order = await _repository.getJobWorkOrder(event.jobWorkId);
+      if (order == null) {
+        emit(
+          state.copyWith(
+            status: JobWorkFormStatus.failure,
+            errorMessage: 'Job work order not found.',
+          ),
+        );
+        return;
+      }
+
+      emit(
+        state.copyWith(
+          status: JobWorkFormStatus.ready,
+          order: order,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: JobWorkFormStatus.failure,
+          errorMessage: 'Could not update order completion status.',
         ),
       );
     }

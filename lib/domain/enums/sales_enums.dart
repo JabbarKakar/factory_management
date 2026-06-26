@@ -45,11 +45,13 @@ enum SalesOrderStatus {
 
   SalesOrderStatus? get nextStatus => switch (this) {
         SalesOrderStatus.received => SalesOrderStatus.ready,
+        SalesOrderStatus.paid => SalesOrderStatus.closed,
         _ => null,
       };
 
   String get advanceActionLabel => switch (nextStatus) {
         SalesOrderStatus.ready => 'Mark Ready',
+        SalesOrderStatus.closed => 'Close Order',
         _ => '',
       };
 }
