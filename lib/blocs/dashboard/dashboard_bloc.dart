@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/customer_repository.dart';
+import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
@@ -12,6 +13,7 @@ import '../../data/repositories/sales_order_repository.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_kpis.dart';
+import '../../domain/entities/expense.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
@@ -29,6 +31,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required CustomerRepository customerRepository,
     required JobWorkInvoiceRepository jobWorkInvoiceRepository,
     required SalesInvoiceRepository salesInvoiceRepository,
+    required ExpenseRepository expenseRepository,
     required PaymentDueScannerService scannerService,
   })  : _paymentRepository = paymentRepository,
         _jobWorkRepository = jobWorkRepository,
@@ -36,6 +39,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _customerRepository = customerRepository,
         _jobWorkInvoiceRepository = jobWorkInvoiceRepository,
         _salesInvoiceRepository = salesInvoiceRepository,
+        _expenseRepository = expenseRepository,
         _scannerService = scannerService,
         super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted);
@@ -50,6 +54,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final CustomerRepository _customerRepository;
   final JobWorkInvoiceRepository _jobWorkInvoiceRepository;
   final SalesInvoiceRepository _salesInvoiceRepository;
+  final ExpenseRepository _expenseRepository;
   final PaymentDueScannerService _scannerService;
 
   StreamSubscription<List<Payment>>? _paymentsSub;
@@ -58,6 +63,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<Customer>>? _customersSub;
   StreamSubscription<List<JobWorkInvoice>>? _jobWorkInvoicesSub;
   StreamSubscription<List<SalesInvoice>>? _salesInvoicesSub;
+  StreamSubscription<List<Expense>>? _expensesSub;
 
   List<Payment> _payments = const [];
   List<JobWorkOrder> _orders = const [];
@@ -65,6 +71,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<Customer> _customers = const [];
   List<JobWorkInvoice> _jobWorkInvoices = const [];
   List<SalesInvoice> _salesInvoices = const [];
+  List<Expense> _expenses = const [];
 
   Future<void> _onWatchStarted(
     DashboardWatchStarted event,
@@ -144,6 +151,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             const _DashboardStreamFailed('Could not load dashboard data.'),
           ),
         );
+
+    _expensesSub = _expenseRepository
+        .watchExpenses(event.factoryId)
+        .listen(
+          (expenses) {
+            _expenses = expenses;
+            add(const _DashboardDataUpdated());
+          },
+          onError: (_) => add(
+            const _DashboardStreamFailed('Could not load dashboard data.'),
+          ),
+        );
   }
 
   Future<void> _onWatchStopped(
@@ -187,6 +206,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       salesInvoices: _salesInvoices,
     );
 
+    final expensesThisMonthList = _expenses.where((expense) {
+      final date = expense.expenseDate;
+      return date.year == now.year && date.month == now.month;
+    }).toList();
+
+    final expensesThisMonth = expensesThisMonthList.fold<double>(
+      0,
+      (sum, expense) => sum + expense.amount,
+    );
+
     emit(
       state.copyWith(
         status: DashboardStatus.loaded,
@@ -195,6 +224,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           activeJobWorkCount: activeJobWorkCount,
           activeSalesCount: activeSalesCount,
           pendingPickupCount: pendingPickupCount,
+          expensesThisMonth: expensesThisMonth,
+          expenseCountThisMonth: expensesThisMonthList.length,
           overdueAmount: overdueSummary.overdueAmount,
           overdueCount: overdueSummary.overdueCount,
           customerCount: _customers.length,
@@ -228,12 +259,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _customersSub?.cancel();
     await _jobWorkInvoicesSub?.cancel();
     await _salesInvoicesSub?.cancel();
+    await _expensesSub?.cancel();
     _paymentsSub = null;
     _jobWorkSub = null;
     _salesSub = null;
     _customersSub = null;
     _jobWorkInvoicesSub = null;
     _salesInvoicesSub = null;
+    _expensesSub = null;
   }
 
   @override

@@ -333,7 +333,7 @@ abstract final class AppStrings {
   static const String addFirstExpense =
       'Record factory costs like electricity, fuel, wages, and maintenance';
   static const String expensesLoadError = 'Could not load expenses';
-  static const String expensesThisMonth = 'Showing Total';
+  static const String expensesThisMonth = 'This Month';
   static const String filteredTotal = 'Filtered Total';
   static const String monthToDate = 'Month to Date';
   static const String allCategories = 'All';
@@ -346,6 +346,8 @@ abstract final class AppStrings {
   static const String payeeName = 'Payee / Vendor';
   static const String billNumber = 'Bill / Invoice #';
   static const String factoryExpenses = 'Factory Expenses';
+  static const String viewExpenses = 'View Expenses';
+  static const String expenseEntriesThisMonth = 'entries this month';
   static const String factoryExpensesSubtitle =
       'Track electricity, fuel, wages, and other costs';
 }

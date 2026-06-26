@@ -101,6 +101,7 @@ void setupDependencies() {
       customerRepository: getIt<CustomerRepository>(),
       jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
+      expenseRepository: getIt<ExpenseRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
     ),
   );

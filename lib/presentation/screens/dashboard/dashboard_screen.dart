@@ -147,6 +147,11 @@ class DashboardScreen extends StatelessWidget {
                       label: const Text(AppStrings.addExpense),
                     ),
                     FilledButton.tonalIcon(
+                      onPressed: () => context.push(RoutePaths.expenses),
+                      icon: const Icon(Icons.list_alt_outlined, size: 18),
+                      label: const Text(AppStrings.viewExpenses),
+                    ),
+                    FilledButton.tonalIcon(
                       onPressed: () => context.push(RoutePaths.customersAdd),
                       icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
                       label: const Text(AppStrings.addCustomer),
@@ -220,6 +225,16 @@ class _KpiGrid extends StatelessWidget {
         onTap: () => context.push(
           RoutePaths.notificationsWithFilter(NotificationFilter.overdue),
         ),
+      ),
+      _KpiItem(
+        label: AppStrings.factoryExpenses,
+        value: Formatters.currencyPkr(kpis.expensesThisMonth),
+        subtitle: kpis.expenseCountThisMonth > 0
+            ? '${kpis.expenseCountThisMonth} ${AppStrings.expenseEntriesThisMonth}'
+            : AppStrings.expensesThisMonth,
+        icon: Icons.receipt_long_outlined,
+        color: AppColors.warning,
+        onTap: () => context.push(RoutePaths.expenses),
       ),
       _KpiItem(
         label: AppStrings.customerCount,
