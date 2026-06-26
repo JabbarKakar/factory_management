@@ -13,6 +13,8 @@ import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../blocs/expense/expense_form_bloc.dart';
 import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/pl/pl_report_bloc.dart';
+import '../../blocs/supplier/supplier_form_bloc.dart';
+import '../../blocs/supplier/supplier_list_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
@@ -41,6 +43,9 @@ import '../screens/sales/sales_order_list_screen.dart';
 import '../screens/expenses/add_edit_expense_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/reports/pl_report_screen.dart';
+import '../screens/suppliers/add_edit_supplier_screen.dart';
+import '../screens/suppliers/supplier_detail_screen.dart';
+import '../screens/suppliers/suppliers_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/notifications/notification_center_screen.dart';
 import '../screens/shell/main_shell.dart';
@@ -130,6 +135,8 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             path: 'add',
             parentNavigatorKey: rootNavigatorKey,
             builder: (context, state) {
+              final supplierId = state.uri.queryParameters['supplierId'];
+              final payeeName = state.uri.queryParameters['payee'];
               return BlocProvider(
                 create: (context) {
                   final bloc = getIt<ExpenseFormBloc>();
@@ -139,7 +146,10 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                   }
                   return bloc;
                 },
-                child: const AddEditExpenseScreen(),
+                child: AddEditExpenseScreen(
+                  initialSupplierId: supplierId,
+                  initialPayeeName: payeeName,
+                ),
               );
             },
           ),
@@ -173,6 +183,68 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             child: const PlReportScreen(),
           );
         },
+      ),
+      GoRoute(
+        path: RoutePaths.suppliers,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<SupplierListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(SupplierListWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: const SuppliersScreen(),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'add',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<SupplierFormBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(SupplierFormInitialized(factoryId: factoryId));
+                  }
+                  return bloc;
+                },
+                child: const AddEditSupplierScreen(),
+              );
+            },
+          ),
+          GoRoute(
+            path: ':supplierId',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final supplierId = state.pathParameters['supplierId']!;
+              return BlocProvider(
+                create: (_) => getIt<SupplierFormBloc>()
+                  ..add(SupplierFormLoadRequested(supplierId)),
+                child: SupplierDetailScreen(supplierId: supplierId),
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'edit',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final supplierId = state.pathParameters['supplierId']!;
+                  return BlocProvider(
+                    create: (_) => getIt<SupplierFormBloc>()
+                      ..add(SupplierFormLoadRequested(supplierId)),
+                    child: AddEditSupplierScreen(supplierId: supplierId),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

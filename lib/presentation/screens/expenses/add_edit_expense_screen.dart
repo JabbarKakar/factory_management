@@ -5,18 +5,28 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/expense/expense_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
 import '../../utils/auth_context.dart';
 import '../../../core/utils/validators.dart';
+import '../../../data/repositories/supplier_repository.dart';
 import '../../../domain/entities/expense.dart';
+import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/expense_enums.dart';
 import '../../../domain/enums/invoice_enums.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/settings_section.dart';
 
 class AddEditExpenseScreen extends StatefulWidget {
-  const AddEditExpenseScreen({this.expenseId, super.key});
+  const AddEditExpenseScreen({
+    this.expenseId,
+    this.initialSupplierId,
+    this.initialPayeeName,
+    super.key,
+  });
 
   final String? expenseId;
+  final String? initialSupplierId;
+  final String? initialPayeeName;
 
   @override
   State<AddEditExpenseScreen> createState() => _AddEditExpenseScreenState();
@@ -28,6 +38,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   DateTime _expenseDate = DateTime.now();
   ExpenseCategory _category = ExpenseCategory.miscellaneous;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
+  String? _supplierId;
 
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
@@ -38,6 +49,20 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   bool _populated = false;
 
   bool get _isEditing => widget.expenseId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final supplierId = widget.initialSupplierId;
+    if (!_isEditing && supplierId != null && supplierId.isNotEmpty) {
+      _supplierId = supplierId;
+      _category = ExpenseCategory.rawMaterialPurchase;
+      final payee = widget.initialPayeeName;
+      if (payee != null && payee.isNotEmpty) {
+        _payeeController.text = payee;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -56,6 +81,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     _expenseDate = expense.expenseDate;
     _category = expense.category;
     _paymentMethod = expense.paymentMethod;
+    _supplierId = expense.supplierId;
     _descriptionController.text = expense.description;
     _amountController.text = expense.amount.toStringAsFixed(0);
     _payeeController.text = expense.payeeName ?? '';
@@ -94,6 +120,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
       payeeName: _payeeController.text.trim().isEmpty
           ? null
           : _payeeController.text.trim(),
+      supplierId: _supplierId,
       billNumber: _billNumberController.text.trim().isEmpty
           ? null
           : _billNumberController.text.trim(),
@@ -168,6 +195,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
         }
 
         final isSaving = state.status == ExpenseFormStatus.saving;
+        final factoryId = readFactoryId(context);
 
         return Scaffold(
           appBar: AppBar(
@@ -289,6 +317,56 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
+                        if (factoryId != null)
+                          StreamBuilder<List<Supplier>>(
+                            stream: getIt<SupplierRepository>()
+                                .watchSuppliers(factoryId),
+                            builder: (context, snapshot) {
+                              final suppliers = snapshot.data ?? const [];
+                              return DropdownButtonFormField<String?>(
+                                initialValue: _supplierId != null &&
+                                        suppliers.any(
+                                          (supplier) =>
+                                              supplier.id == _supplierId,
+                                        )
+                                    ? _supplierId
+                                    : null,
+                                decoration: const InputDecoration(
+                                  labelText: AppStrings.linkSupplier,
+                                ),
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text(AppStrings.noSupplierLinked),
+                                  ),
+                                  ...suppliers.map(
+                                    (supplier) => DropdownMenuItem<String?>(
+                                      value: supplier.id,
+                                      child: Text(supplier.name),
+                                    ),
+                                  ),
+                                ],
+                                onChanged: isSaving
+                                    ? null
+                                    : (value) {
+                                        setState(() {
+                                          _supplierId = value;
+                                          if (value != null) {
+                                            final supplier = suppliers
+                                                .firstWhere(
+                                                  (item) => item.id == value,
+                                                );
+                                            _payeeController.text =
+                                                supplier.name;
+                                          } else {
+                                            _payeeController.clear();
+                                          }
+                                        });
+                                      },
+                              );
+                            },
+                          ),
+                        if (factoryId != null) const SizedBox(height: 12),
                         TextFormField(
                           controller: _payeeController,
                           decoration: const InputDecoration(

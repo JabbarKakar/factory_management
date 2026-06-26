@@ -373,4 +373,41 @@ abstract final class AppStrings {
   static const String previousMonth = 'Previous month';
   static const String nextMonth = 'Next month';
   static const String reports = 'Reports';
+
+  // Suppliers (Sprint 12)
+  static const String suppliers = 'Suppliers';
+  static const String addSupplier = 'Add Supplier';
+  static const String editSupplier = 'Edit Supplier';
+  static const String saveSupplier = 'Save Supplier';
+  static const String supplierDetails = 'Supplier Details';
+  static const String supplierCreated = 'Supplier added';
+  static const String supplierUpdated = 'Supplier updated';
+  static const String supplierDeleted = 'Supplier deleted';
+  static const String suppliersLoadError = 'Could not load suppliers';
+  static const String supplierNotFound = 'Supplier not found';
+  static const String noSuppliersYet = 'No suppliers yet';
+  static const String noSuppliersFound = 'No suppliers found';
+  static const String addFirstSupplier =
+      'Add quarries, vendors, and service providers you buy from';
+  static const String searchSuppliers = 'Search name, phone, city...';
+  static const String factorySuppliers = 'Factory Suppliers';
+  static const String factorySuppliersSubtitle =
+      'Manage vendors and track linked purchases';
+  static const String supplierType = 'Supplier Type';
+  static const String materialsSupplied = 'Materials Supplied';
+  static const String purchaseHistory = 'Purchase History';
+  static const String totalPurchases = 'Total Purchases';
+  static const String noPurchasesYet = 'No purchases linked to this supplier yet';
+  static const String noPurchasesHint =
+      'Link expenses to this supplier when recording a purchase';
+  static const String purchasesCount = 'purchase(s)';
+  static const String deleteSupplierTitle = 'Delete Supplier?';
+  static const String deleteSupplierMessage =
+      'This supplier will be removed from your directory. Linked expense records will remain unchanged.';
+  static const String linkSupplier = 'Link Supplier';
+  static const String noSupplierLinked = 'None';
+  static const String supplierInformation = 'Supplier Information';
+  static const String recordPurchase = 'Record Purchase';
+  static const String viewAllPurchases = 'View all purchases';
+  static const String showLessPurchases = 'Show less';
 }

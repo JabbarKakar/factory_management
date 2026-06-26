@@ -50,8 +50,25 @@ abstract final class RoutePaths {
   static const String expenses = '/expenses';
   static const String expensesAdd = '/expenses/add';
 
+  static String expensesAddForSupplier({
+    required String supplierId,
+    String? payeeName,
+  }) {
+    final query = <String, String>{'supplierId': supplierId};
+    if (payeeName != null && payeeName.trim().isNotEmpty) {
+      query['payee'] = payeeName.trim();
+    }
+    return Uri(path: expensesAdd, queryParameters: query).toString();
+  }
+
   static String expenseEdit(String id) => '/expenses/$id/edit';
   static const String plReport = '/reports/pl';
+  static const String suppliers = '/suppliers';
+  static const String suppliersAdd = '/suppliers/add';
+
+  static String supplierDetail(String id) => '/suppliers/$id';
+
+  static String supplierEdit(String id) => '/suppliers/$id/edit';
 
   static String notificationsWithFilter(NotificationFilter filter) =>
       '$notifications?filter=${filter.name}';

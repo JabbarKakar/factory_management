@@ -15,6 +15,7 @@ class Expense extends Equatable {
     required this.paymentMethod,
     required this.createdAt,
     this.payeeName,
+    this.supplierId,
     this.billNumber,
     this.notes,
     this.updatedAt,
@@ -29,6 +30,7 @@ class Expense extends Equatable {
   final double amount;
   final PaymentMethod paymentMethod;
   final String? payeeName;
+  final String? supplierId;
   final String? billNumber;
   final String? notes;
   final DateTime createdAt;
@@ -44,6 +46,7 @@ class Expense extends Equatable {
     double? amount,
     PaymentMethod? paymentMethod,
     String? payeeName,
+    String? supplierId,
     String? billNumber,
     String? notes,
     DateTime? createdAt,
@@ -59,6 +62,7 @@ class Expense extends Equatable {
       amount: amount ?? this.amount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       payeeName: payeeName ?? this.payeeName,
+      supplierId: supplierId ?? this.supplierId,
       billNumber: billNumber ?? this.billNumber,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -77,6 +81,7 @@ class Expense extends Equatable {
         amount,
         paymentMethod,
         payeeName,
+        supplierId,
         billNumber,
         notes,
         createdAt,

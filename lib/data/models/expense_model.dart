@@ -16,6 +16,7 @@ class ExpenseModel {
     required this.paymentMethod,
     required this.createdAt,
     this.payeeName,
+    this.supplierId,
     this.billNumber,
     this.notes,
     this.updatedAt,
@@ -30,6 +31,7 @@ class ExpenseModel {
   final double amount;
   final PaymentMethod paymentMethod;
   final String? payeeName;
+  final String? supplierId;
   final String? billNumber;
   final String? notes;
   final DateTime createdAt;
@@ -48,6 +50,7 @@ class ExpenseModel {
       paymentMethod:
           PaymentMethod.fromString(data['paymentMethod'] as String?),
       payeeName: data['payeeName'] as String?,
+      supplierId: data['supplierId'] as String?,
       billNumber: data['billNumber'] as String?,
       notes: data['notes'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -65,6 +68,7 @@ class ExpenseModel {
       'amount': amount,
       'paymentMethod': paymentMethod.firestoreValue,
       if (payeeName != null && payeeName!.isNotEmpty) 'payeeName': payeeName,
+      if (supplierId != null && supplierId!.isNotEmpty) 'supplierId': supplierId,
       if (billNumber != null && billNumber!.isNotEmpty) 'billNumber': billNumber,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
@@ -82,6 +86,7 @@ class ExpenseModel {
         amount: amount,
         paymentMethod: paymentMethod,
         payeeName: payeeName,
+        supplierId: supplierId,
         billNumber: billNumber,
         notes: notes,
         createdAt: createdAt,
@@ -98,6 +103,7 @@ class ExpenseModel {
         amount: expense.amount,
         paymentMethod: expense.paymentMethod,
         payeeName: expense.payeeName,
+        supplierId: expense.supplierId,
         billNumber: expense.billNumber,
         notes: expense.notes,
         createdAt: expense.createdAt,
