@@ -1,0 +1,273 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
+import '../../../blocs/sales/sales_invoice_bloc.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
+import '../../routes/route_paths.dart';
+import '../../widgets/job_work/invoice_status_badge.dart';
+import '../../widgets/settings_section.dart';
+
+class SalesInvoiceScreen extends StatelessWidget {
+  const SalesInvoiceScreen({required this.salesOrderId, super.key});
+
+  final String salesOrderId;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<SalesInvoiceBloc, SalesInvoiceState>(
+      listener: (context, state) {
+        if (state.status == SalesInvoiceStatus.generated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text(AppStrings.invoiceGenerated)),
+          );
+        }
+        if (state.status == SalesInvoiceStatus.failure &&
+            state.errorMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.errorMessage!)),
+          );
+        }
+      },
+      builder: (context, state) {
+        if (state.status == SalesInvoiceStatus.loading ||
+            state.status == SalesInvoiceStatus.initial) {
+          return Scaffold(
+            appBar: AppBar(title: const Text(AppStrings.salesInvoice)),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (state.status == SalesInvoiceStatus.notFound) {
+          return Scaffold(
+            appBar: AppBar(title: const Text(AppStrings.salesInvoice)),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.receipt_long_outlined, size: 56),
+                    const SizedBox(height: 16),
+                    Text(
+                      AppStrings.salesInvoiceNotReady,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: state.status == SalesInvoiceStatus.saving
+                          ? null
+                          : () => context.read<SalesInvoiceBloc>().add(
+                                SalesInvoiceGenerateRequested(salesOrderId),
+                              ),
+                      icon: const Icon(Icons.receipt_long),
+                      label: const Text(AppStrings.generateInvoice),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        final invoice = state.invoice;
+        if (invoice == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text(AppStrings.salesInvoice)),
+            body: Center(
+              child: Text(state.errorMessage ?? 'Invoice not available'),
+            ),
+          );
+        }
+
+        final isSaving = state.status == SalesInvoiceStatus.saving;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text(AppStrings.salesInvoice),
+            actions: [
+              if (invoice.dueAmount > 0)
+                IconButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final recorded = await context.push<bool>(
+                            RoutePaths.salesRecordPayment(invoice.id),
+                          );
+                          if (recorded == true && context.mounted) {
+                            context.read<SalesInvoiceBloc>().add(
+                                  SalesInvoiceLoadByOrder(salesOrderId),
+                                );
+                          }
+                        },
+                  icon: const Icon(Icons.payments_outlined),
+                  tooltip: AppStrings.recordPayment,
+                ),
+            ],
+          ),
+          body: ListView(
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              Card(
+                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              invoice.invoiceNumber,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          InvoiceStatusBadge(status: invoice.status),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(invoice.customerName),
+                      Text(
+                        invoice.orderNumber,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SettingsSection(
+                title: AppStrings.lineItems,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      for (final item in invoice.lineItems) ...[
+                        _Row(
+                          item.description,
+                          item.amount > 0
+                              ? Formatters.currencyPkr(item.amount)
+                              : '—',
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              SettingsSection(
+                title: AppStrings.pricingAgreement,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _Row(
+                        AppStrings.invoiceTotal,
+                        Formatters.currencyPkr(invoice.totalAmount),
+                      ),
+                      const SizedBox(height: 8),
+                      _Row(
+                        AppStrings.amountPaid,
+                        Formatters.currencyPkr(invoice.paidAmount),
+                      ),
+                      const SizedBox(height: 8),
+                      _Row(
+                        AppStrings.amountDue,
+                        Formatters.currencyPkr(invoice.dueAmount),
+                        bold: true,
+                      ),
+                      if (invoice.dueDate != null) ...[
+                        const SizedBox(height: 8),
+                        _Row(
+                          AppStrings.paymentDueDate,
+                          DateFormat.yMMMd().format(invoice.dueDate!),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              SettingsSection(
+                title: AppStrings.paymentHistory,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: state.payments.isEmpty
+                      ? Text(AppStrings.noPaymentsYet)
+                      : Column(
+                          children: [
+                            for (final payment in state.payments) ...[
+                              _Row(
+                                '${DateFormat.yMMMd().format(payment.paymentDate)} · ${payment.method.label}',
+                                Formatters.currencyPkr(payment.amount),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ],
+                        ),
+                ),
+              ),
+              if (invoice.dueAmount > 0)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: FilledButton.icon(
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            final recorded = await context.push<bool>(
+                              RoutePaths.salesRecordPayment(invoice.id),
+                            );
+                            if (recorded == true && context.mounted) {
+                              context.read<SalesInvoiceBloc>().add(
+                                    SalesInvoiceLoadByOrder(salesOrderId),
+                                  );
+                            }
+                          },
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text(AppStrings.recordPayment),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row(this.label, this.value, {this.bold = false});
+
+  final String label;
+  final String value;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(label, style: TextStyle(color: muted)),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

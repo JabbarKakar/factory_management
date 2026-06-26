@@ -4,31 +4,40 @@ import 'package:uuid/uuid.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
+import '../../domain/enums/sales_enums.dart';
 import '../models/payment_model.dart';
 import '../services/customer_ledger_service.dart';
 import '../services/payment_due_scanner_service.dart';
 import 'job_work_invoice_repository.dart';
 import 'job_work_repository.dart';
 import 'notification_repository.dart';
+import 'sales_invoice_repository.dart';
+import 'sales_order_repository.dart';
 
 class PaymentRepository {
   PaymentRepository({
     FirebaseFirestore? firestore,
-    required JobWorkInvoiceRepository invoiceRepository,
+    required JobWorkInvoiceRepository jobWorkInvoiceRepository,
+    required SalesInvoiceRepository salesInvoiceRepository,
     required JobWorkRepository jobWorkRepository,
+    required SalesOrderRepository salesOrderRepository,
     CustomerLedgerService? ledgerService,
     NotificationRepository? notificationRepository,
     PaymentDueScannerService? scannerService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _invoiceRepository = invoiceRepository,
+        _jobWorkInvoiceRepository = jobWorkInvoiceRepository,
+        _salesInvoiceRepository = salesInvoiceRepository,
         _jobWorkRepository = jobWorkRepository,
+        _salesOrderRepository = salesOrderRepository,
         _ledgerService = ledgerService,
         _notificationRepository = notificationRepository,
         _scannerService = scannerService;
 
   final FirebaseFirestore _firestore;
-  final JobWorkInvoiceRepository _invoiceRepository;
+  final JobWorkInvoiceRepository _jobWorkInvoiceRepository;
+  final SalesInvoiceRepository _salesInvoiceRepository;
   final JobWorkRepository _jobWorkRepository;
+  final SalesOrderRepository _salesOrderRepository;
   final CustomerLedgerService? _ledgerService;
   final NotificationRepository? _notificationRepository;
   final PaymentDueScannerService? _scannerService;
@@ -87,7 +96,7 @@ class PaymentRepository {
       throw StateError('Payment amount must be greater than zero.');
     }
 
-    final invoice = await _invoiceRepository.getInvoice(invoiceId);
+    final invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
     if (invoice == null) {
       throw StateError('Invoice not found.');
     }
@@ -95,7 +104,8 @@ class PaymentRepository {
       throw StateError('This invoice is already fully paid.');
     }
 
-    final appliedAmount = amount > invoice.dueAmount ? invoice.dueAmount : amount;
+    final appliedAmount =
+        amount > invoice.dueAmount ? invoice.dueAmount : amount;
     final newPaid = invoice.paidAmount + appliedAmount;
     final newDue = invoice.dueAmount - appliedAmount;
     final newStatus = InvoiceStatus.fromAmounts(
@@ -105,9 +115,7 @@ class PaymentRepository {
       dueDate: invoice.dueDate,
     );
 
-    final paymentId = _uuid.v4();
-    final payment = Payment(
-      id: paymentId,
+    final payment = await _recordPayment(
       factoryId: invoice.factoryId,
       customerId: invoice.customerId,
       customerName: invoice.customerName,
@@ -115,6 +123,149 @@ class PaymentRepository {
       invoiceType: InvoiceType.jobWork,
       invoiceNumber: invoice.invoiceNumber,
       amount: appliedAmount,
+      method: method,
+      paymentDate: paymentDate,
+      reference: reference,
+      notes: notes,
+      invoiceCollection: _jobWorkInvoiceRepository.collection,
+      invoiceUpdate: {
+        'paid': newPaid,
+        'due': newDue,
+        'status': newStatus.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      onFullyPaid: newDue <= 0
+          ? () => _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
+                'status': JobWorkStatus.paid.firestoreValue,
+                'updatedAt': FieldValue.serverTimestamp(),
+              })
+          : null,
+    );
+
+    await _ledgerService?.syncCustomerBalance(invoice.customerId);
+
+    if (newDue > 0 &&
+        _notificationRepository != null &&
+        _scannerService != null) {
+      final updatedInvoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
+      if (updatedInvoice != null) {
+        await _notificationRepository.createNotification(
+          _scannerService.buildPartialPaymentNotification(
+            invoice: updatedInvoice,
+            amountPaid: appliedAmount,
+            remainingDue: newDue,
+          ),
+        );
+      }
+    }
+
+    return payment;
+  }
+
+  Future<Payment> recordSalesPayment({
+    required String invoiceId,
+    required double amount,
+    required PaymentMethod method,
+    required DateTime paymentDate,
+    String? reference,
+    String? notes,
+  }) async {
+    if (amount <= 0) {
+      throw StateError('Payment amount must be greater than zero.');
+    }
+
+    final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
+    if (invoice == null) {
+      throw StateError('Invoice not found.');
+    }
+    if (invoice.dueAmount <= 0) {
+      throw StateError('This invoice is already fully paid.');
+    }
+
+    final appliedAmount =
+        amount > invoice.dueAmount ? invoice.dueAmount : amount;
+    final newPaid = invoice.paidAmount + appliedAmount;
+    final newDue = invoice.dueAmount - appliedAmount;
+    final newStatus = InvoiceStatus.fromAmounts(
+      dueAmount: newDue,
+      paidAmount: newPaid,
+      totalAmount: invoice.totalAmount,
+      dueDate: invoice.dueDate,
+    );
+
+    final payment = await _recordPayment(
+      factoryId: invoice.factoryId,
+      customerId: invoice.customerId,
+      customerName: invoice.customerName,
+      invoiceId: invoice.id,
+      invoiceType: InvoiceType.sales,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: appliedAmount,
+      method: method,
+      paymentDate: paymentDate,
+      reference: reference,
+      notes: notes,
+      invoiceCollection: _salesInvoiceRepository.collection,
+      invoiceUpdate: {
+        'paid': newPaid,
+        'due': newDue,
+        'status': newStatus.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      onFullyPaid: newDue <= 0
+          ? () => _salesOrderRepository.salesOrderDoc(invoice.salesOrderId).update({
+                'status': SalesOrderStatus.paid.firestoreValue,
+                'updatedAt': FieldValue.serverTimestamp(),
+              })
+          : null,
+    );
+
+    await _ledgerService?.syncCustomerBalance(invoice.customerId);
+
+    if (newDue > 0 &&
+        _notificationRepository != null &&
+        _scannerService != null) {
+      final updatedInvoice = await _salesInvoiceRepository.getInvoice(invoiceId);
+      if (updatedInvoice != null) {
+        await _notificationRepository.createNotification(
+          _scannerService.buildSalesPartialPaymentNotification(
+            invoice: updatedInvoice,
+            amountPaid: appliedAmount,
+            remainingDue: newDue,
+          ),
+        );
+      }
+    }
+
+    return payment;
+  }
+
+  Future<Payment> _recordPayment({
+    required String factoryId,
+    required String customerId,
+    required String customerName,
+    required String invoiceId,
+    required InvoiceType invoiceType,
+    required String invoiceNumber,
+    required double amount,
+    required PaymentMethod method,
+    required DateTime paymentDate,
+    required CollectionReference<Map<String, dynamic>> invoiceCollection,
+    required Map<String, dynamic> invoiceUpdate,
+    Future<void> Function()? onFullyPaid,
+    String? reference,
+    String? notes,
+  }) async {
+    final paymentId = _uuid.v4();
+    final payment = Payment(
+      id: paymentId,
+      factoryId: factoryId,
+      customerId: customerId,
+      customerName: customerName,
+      invoiceId: invoiceId,
+      invoiceType: invoiceType,
+      invoiceNumber: invoiceNumber,
+      amount: amount,
       method: method,
       paymentDate: paymentDate,
       reference: reference,
@@ -142,34 +293,11 @@ class PaymentRepository {
       ).toFirestore(isCreate: true),
     );
 
-    batch.update(_invoiceRepository.collection.doc(invoiceId), {
-      'paid': newPaid,
-      'due': newDue,
-      'status': newStatus.firestoreValue,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    if (newDue <= 0) {
-      batch.update(_jobWorkRepository.jobWorkDoc(invoice.jobWorkId), {
-        'status': JobWorkStatus.paid.firestoreValue,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    }
-
+    batch.update(invoiceCollection.doc(invoiceId), invoiceUpdate);
     await batch.commit();
-    await _ledgerService?.syncCustomerBalance(invoice.customerId);
 
-    if (newDue > 0 && _notificationRepository != null && _scannerService != null) {
-      final updatedInvoice = await _invoiceRepository.getInvoice(invoiceId);
-      if (updatedInvoice != null) {
-        await _notificationRepository.createNotification(
-          _scannerService.buildPartialPaymentNotification(
-            invoice: updatedInvoice,
-            amountPaid: appliedAmount,
-            remainingDue: newDue,
-          ),
-        );
-      }
+    if (onFullyPaid != null) {
+      await onFullyPaid();
     }
 
     return payment;

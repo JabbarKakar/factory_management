@@ -5,8 +5,10 @@ import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/job_work_invoice_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
+import '../../../data/repositories/sales_invoice_repository.dart';
 import '../../../domain/entities/job_work_invoice.dart';
 import '../../../domain/entities/payment.dart';
+import '../../../domain/entities/sales_invoice.dart';
 import '../settings_section.dart';
 
 class CustomerLedgerSection extends StatelessWidget {
@@ -16,7 +18,8 @@ class CustomerLedgerSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invoiceRepository = getIt<JobWorkInvoiceRepository>();
+    final jobWorkInvoiceRepository = getIt<JobWorkInvoiceRepository>();
+    final salesInvoiceRepository = getIt<SalesInvoiceRepository>();
     final paymentRepository = getIt<PaymentRepository>();
 
     return SettingsSection(
@@ -32,30 +35,41 @@ class CustomerLedgerSection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             StreamBuilder<List<JobWorkInvoice>>(
-              stream: invoiceRepository.watchInvoicesForCustomer(customerId),
-              builder: (context, invoiceSnapshot) {
-                return StreamBuilder<List<Payment>>(
-                  stream: paymentRepository.watchPaymentsForCustomer(customerId),
-                  builder: (context, paymentSnapshot) {
-                    final invoices = invoiceSnapshot.data ?? const [];
-                    final payments = paymentSnapshot.data ?? const [];
+              stream: jobWorkInvoiceRepository.watchInvoicesForCustomer(customerId),
+              builder: (context, jobWorkSnapshot) {
+                return StreamBuilder<List<SalesInvoice>>(
+                  stream:
+                      salesInvoiceRepository.watchInvoicesForCustomer(customerId),
+                  builder: (context, salesSnapshot) {
+                    return StreamBuilder<List<Payment>>(
+                      stream:
+                          paymentRepository.watchPaymentsForCustomer(customerId),
+                      builder: (context, paymentSnapshot) {
+                        final jobWorkInvoices = jobWorkSnapshot.data ?? const [];
+                        final salesInvoices = salesSnapshot.data ?? const [];
+                        final payments = paymentSnapshot.data ?? const [];
 
-                    if (invoices.isEmpty && payments.isEmpty) {
-                      return Text(AppStrings.noLedgerActivity);
-                    }
+                        if (jobWorkInvoices.isEmpty &&
+                            salesInvoices.isEmpty &&
+                            payments.isEmpty) {
+                          return Text(AppStrings.noLedgerActivity);
+                        }
 
-                    final entries = <_LedgerEntry>[
-                      ...invoices.map(_entryFromInvoice),
-                      ...payments.map(_entryFromPayment),
-                    ]..sort((a, b) => b.date.compareTo(a.date));
+                        final entries = <_LedgerEntry>[
+                          ...jobWorkInvoices.map(_entryFromJobWorkInvoice),
+                          ...salesInvoices.map(_entryFromSalesInvoice),
+                          ...payments.map(_entryFromPayment),
+                        ]..sort((a, b) => b.date.compareTo(a.date));
 
-                    return Column(
-                      children: [
-                        for (final entry in entries.take(10)) ...[
-                          _LedgerRow(entry: entry),
-                          const SizedBox(height: 8),
-                        ],
-                      ],
+                        return Column(
+                          children: [
+                            for (final entry in entries.take(10)) ...[
+                              _LedgerRow(entry: entry),
+                              const SizedBox(height: 8),
+                            ],
+                          ],
+                        );
+                      },
                     );
                   },
                 );
@@ -67,7 +81,7 @@ class CustomerLedgerSection extends StatelessWidget {
     );
   }
 
-  _LedgerEntry _entryFromInvoice(JobWorkInvoice invoice) {
+  _LedgerEntry _entryFromJobWorkInvoice(JobWorkInvoice invoice) {
     final isSettled = invoice.dueAmount <= 0;
     return _LedgerEntry(
       date: invoice.createdAt,
@@ -75,6 +89,19 @@ class CustomerLedgerSection extends StatelessWidget {
       subtitle: isSettled
           ? '${invoice.jobWorkNumber} · ${invoice.status.label}'
           : '${invoice.jobWorkNumber} · ${Formatters.currencyPkr(invoice.dueAmount)} ${AppStrings.ledgerAmountDue}',
+      amount: isSettled ? invoice.totalAmount : invoice.dueAmount,
+      kind: isSettled ? _LedgerEntryKind.settled : _LedgerEntryKind.outstanding,
+    );
+  }
+
+  _LedgerEntry _entryFromSalesInvoice(SalesInvoice invoice) {
+    final isSettled = invoice.dueAmount <= 0;
+    return _LedgerEntry(
+      date: invoice.createdAt,
+      title: '${AppStrings.invoiceTypeSales} ${invoice.invoiceNumber}',
+      subtitle: isSettled
+          ? '${invoice.orderNumber} · ${invoice.status.label}'
+          : '${invoice.orderNumber} · ${Formatters.currencyPkr(invoice.dueAmount)} ${AppStrings.ledgerAmountDue}',
       amount: isSettled ? invoice.totalAmount : invoice.dueAmount,
       kind: isSettled ? _LedgerEntryKind.settled : _LedgerEntryKind.outstanding,
     );

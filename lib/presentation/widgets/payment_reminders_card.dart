@@ -6,7 +6,10 @@ import '../../core/constants/app_strings.dart';
 import '../../core/di/injection.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
+import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/services/payment_due_scanner_service.dart';
+import '../../domain/entities/job_work_invoice.dart';
+import '../../domain/entities/sales_invoice.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../routes/route_paths.dart';
 
@@ -17,83 +20,91 @@ class PaymentRemindersCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final invoiceRepository = getIt<JobWorkInvoiceRepository>();
+    final jobWorkInvoiceRepository = getIt<JobWorkInvoiceRepository>();
+    final salesInvoiceRepository = getIt<SalesInvoiceRepository>();
     final scanner = getIt<PaymentDueScannerService>();
 
-    return StreamBuilder(
-      stream: invoiceRepository.watchOpenInvoicesForFactory(factoryId),
-      builder: (context, snapshot) {
-        final invoices = snapshot.data ?? const [];
-        final summary = scanner.summarize(invoices);
+    return StreamBuilder<List<JobWorkInvoice>>(
+      stream: jobWorkInvoiceRepository.watchOpenInvoicesForFactory(factoryId),
+      builder: (context, jobWorkSnapshot) {
+        return StreamBuilder<List<SalesInvoice>>(
+          stream: salesInvoiceRepository.watchOpenInvoicesForFactory(factoryId),
+          builder: (context, salesSnapshot) {
+            final summary = scanner.summarizeAll(
+              jobWorkInvoices: jobWorkSnapshot.data ?? const [],
+              salesInvoices: salesSnapshot.data ?? const [],
+            );
 
-        if (!summary.hasAlerts) {
-          return Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_outline,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'No payment dues or overdues this week.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  AppStrings.paymentReminders,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+            if (!summary.hasAlerts) {
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'No payment dues or overdues this week.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 16),
-                Row(
+              );
+            }
+
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _SummaryTile(
-                        label: AppStrings.dueThisWeek,
-                        count: summary.dueThisWeekCount,
-                        amount: summary.dueThisWeekAmount,
-                        color: AppColors.dueSoon,
-                        onTap: () => _openNotifications(
-                          context,
-                          NotificationFilter.dueThisWeek,
-                        ),
-                      ),
+                    Text(
+                      AppStrings.paymentReminders,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _SummaryTile(
-                        label: AppStrings.overduePayments,
-                        count: summary.overdueCount,
-                        amount: summary.overdueAmount,
-                        color: AppColors.overdue,
-                        onTap: () => _openNotifications(
-                          context,
-                          NotificationFilter.overdue,
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SummaryTile(
+                            label: AppStrings.dueThisWeek,
+                            count: summary.dueThisWeekCount,
+                            amount: summary.dueThisWeekAmount,
+                            color: AppColors.dueSoon,
+                            onTap: () => _openNotifications(
+                              context,
+                              NotificationFilter.dueThisWeek,
+                            ),
+                          ),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _SummaryTile(
+                            label: AppStrings.overduePayments,
+                            count: summary.overdueCount,
+                            amount: summary.overdueAmount,
+                            color: AppColors.overdue,
+                            onTap: () => _openNotifications(
+                              context,
+                              NotificationFilter.overdue,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );

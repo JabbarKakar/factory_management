@@ -9,6 +9,9 @@ import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
 import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/notification/notification_bloc.dart';
+import '../../blocs/sales/sales_invoice_bloc.dart';
+import '../../blocs/sales/sales_order_form_bloc.dart';
+import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../blocs/theme/theme_cubit.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
@@ -16,6 +19,8 @@ import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/payment_repository.dart';
+import '../../data/repositories/sales_invoice_repository.dart';
+import '../../data/repositories/sales_order_repository.dart';
 import '../../data/repositories/theme_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
 import '../../data/services/job_work_cleanup_service.dart';
@@ -28,28 +33,38 @@ void setupDependencies() {
   getIt.registerLazySingleton<ThemeRepository>(ThemeRepository.new);
   getIt.registerLazySingleton<CustomerRepository>(CustomerRepository.new);
   getIt.registerLazySingleton<JobWorkRepository>(JobWorkRepository.new);
+  getIt.registerLazySingleton<SalesOrderRepository>(SalesOrderRepository.new);
   getIt.registerLazySingleton<JobWorkInvoiceRepository>(
     () => JobWorkInvoiceRepository(
       jobWorkRepository: getIt<JobWorkRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<SalesInvoiceRepository>(
+    () => SalesInvoiceRepository(
+      salesOrderRepository: getIt<SalesOrderRepository>(),
     ),
   );
   getIt.registerLazySingleton<NotificationRepository>(NotificationRepository.new);
   getIt.registerLazySingleton<CustomerLedgerService>(
     () => CustomerLedgerService(
       customerRepository: getIt<CustomerRepository>(),
-      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
     ),
   );
   getIt.registerLazySingleton<PaymentDueScannerService>(
     () => PaymentDueScannerService(
-      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
       notificationRepository: getIt<NotificationRepository>(),
     ),
   );
   getIt.registerLazySingleton<PaymentRepository>(
     () => PaymentRepository(
-      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      salesOrderRepository: getIt<SalesOrderRepository>(),
       ledgerService: getIt<CustomerLedgerService>(),
       notificationRepository: getIt<NotificationRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
@@ -79,7 +94,8 @@ void setupDependencies() {
       paymentRepository: getIt<PaymentRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
       customerRepository: getIt<CustomerRepository>(),
-      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
     ),
   );
@@ -101,6 +117,20 @@ void setupDependencies() {
   getIt.registerFactory<JobWorkInvoiceBloc>(
     () => JobWorkInvoiceBloc(
       invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      paymentRepository: getIt<PaymentRepository>(),
+      ledgerService: getIt<CustomerLedgerService>(),
+      scannerService: getIt<PaymentDueScannerService>(),
+    ),
+  );
+  getIt.registerFactory<SalesOrderListBloc>(
+    () => SalesOrderListBloc(repository: getIt<SalesOrderRepository>()),
+  );
+  getIt.registerFactory<SalesOrderFormBloc>(
+    () => SalesOrderFormBloc(repository: getIt<SalesOrderRepository>()),
+  );
+  getIt.registerFactory<SalesInvoiceBloc>(
+    () => SalesInvoiceBloc(
+      invoiceRepository: getIt<SalesInvoiceRepository>(),
       paymentRepository: getIt<PaymentRepository>(),
       ledgerService: getIt<CustomerLedgerService>(),
       scannerService: getIt<PaymentDueScannerService>(),

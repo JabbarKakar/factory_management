@@ -25,6 +25,16 @@ abstract final class RoutePaths {
 
   static String customerEdit(String id) => '/customers/$id/edit';
   static const String sales = '/sales';
+  static const String salesAdd = '/sales/add';
+
+  static String salesDetail(String id) => '/sales/$id';
+
+  static String salesEdit(String id) => '/sales/$id/edit';
+
+  static String salesInvoice(String salesOrderId) => '/sales/$salesOrderId/invoice';
+
+  static String salesRecordPayment(String invoiceId) =>
+      '/sales/invoices/$invoiceId/payment';
   static const String more = '/more';
   static const String notifications = '/notifications';
 

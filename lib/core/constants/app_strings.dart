@@ -219,9 +219,10 @@ abstract final class AppStrings {
   static const String noPaymentsYet = 'No payments recorded yet';
   static const String accountLedger = 'Account Ledger';
   static const String ledgerOpeningBalanceNote =
-      'Balance includes opening balance plus unpaid job work invoices.';
+      'Balance includes opening balance plus unpaid invoices.';
   static const String noLedgerActivity = 'No invoices or payments yet';
   static const String invoiceTypeJobWork = 'Job Work Invoice';
+  static const String invoiceTypeSales = 'Sales Invoice';
   static const String paymentReceived = 'Payment Received';
   static const String ledgerAmountDue = 'due';
 
@@ -249,4 +250,47 @@ abstract final class AppStrings {
   static const String paymentsReceivedToday = 'Payments received today';
   static const String dashboardLoadError =
       'Could not load dashboard data. Pull down to retry.';
+
+  // Sales (Sprint 8)
+  static const String newSalesOrder = 'New Sales Order';
+  static const String saveSalesOrder = 'Save Sales Order';
+  static const String editSalesOrder = 'Edit Sales Order';
+  static const String salesOrderDetails = 'Sales Order Details';
+  static const String salesOrderCreated = 'Sales order created';
+  static const String salesOrderUpdated = 'Sales order updated';
+  static const String salesOrderCancelled = 'Sales order cancelled';
+  static const String cancelSalesOrderTitle = 'Cancel sales order?';
+  static const String cancelSalesOrderMessage =
+      'This order will be marked as cancelled.';
+  static const String searchSalesOrders = 'Search order #, customer, variety...';
+  static const String noSalesOrdersYet = 'No sales orders yet';
+  static const String noSalesOrdersFound = 'No sales orders found';
+  static const String addFirstSalesOrder =
+      'Create a sales order when a buyer purchases finished marble';
+  static const String salesLoadError = 'Could not load sales orders';
+  static const String noSalesCustomers =
+      'No buyer customers found. Add a buyer customer before creating a sales order.';
+  static const String salesLineItemRequired = 'Add at least one line item with quantity and rate';
+  static const String orderDate = 'Order Date';
+  static const String orderSource = 'Order Source';
+  static const String orderDetails = 'Order Details';
+  static const String expectedDelivery = 'Expected Delivery';
+  static const String deliveryDetails = 'Delivery Details';
+  static const String deliveryAddress = 'Delivery Address';
+  static const String addLineItem = 'Add Line Item';
+  static const String lineItem = 'Line Item';
+  static const String productType = 'Product Type';
+  static const String sizeThickness = 'Size / Thickness';
+  static const String quantity = 'Quantity';
+  static const String unit = 'Unit';
+  static const String unitRate = 'Unit Rate (PKR)';
+  static const String discountPercent = 'Discount %';
+  static const String lineTotal = 'Line Total';
+  static const String subtotal = 'Subtotal';
+  static const String orderDiscount = 'Order Discount (PKR)';
+  static const String taxAmount = 'Tax (PKR)';
+  static const String grandTotal = 'Grand Total';
+  static const String salesInvoice = 'Sales Invoice';
+  static const String salesInvoiceNotReady =
+      'Generate an invoice when the sales order is ready for pickup.';
 }
