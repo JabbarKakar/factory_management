@@ -147,6 +147,53 @@ abstract final class AppStrings {
   static const String advanceReceived = 'Advance Received (PKR)';
   static const String balanceDue = 'Balance Due';
   static const String paymentDueDate = 'Payment Due Date';
-  static const String outputRecordingSprint4 =
-      'Output recording (Grade A/B/C, waste) — Sprint 4';
+
+  // Job Work — Output (Sprint 4)
+  static const String recordOutput = 'Record Output';
+  static const String editOutput = 'Edit Output';
+  static const String outputRecording = 'Output Recording';
+  static const String outputByGrade = 'Output by Quality Grade';
+  static const String gradeA = 'Grade A (sq. ft)';
+  static const String gradeB = 'Grade B (sq. ft)';
+  static const String gradeC = 'Grade C (sq. ft)';
+  static const String reject = 'Reject (sq. ft)';
+  static const String totalUsableOutput = 'Total Usable Output';
+  static const String wasteAndYield = 'Waste & Yield';
+  static const String wasteGenerated = 'Waste Generated';
+  static const String wasteUnit = 'Waste Unit';
+  static const String wastePercent = 'Waste %';
+  static const String yieldPercent = 'Yield %';
+  static const String slurryDust = 'Slurry / Dust (optional)';
+  static const String wasteDisposition = 'Waste Disposition';
+  static const String cuttingExecution = 'Cutting Execution';
+  static const String cuttingStartDate = 'Cutting Start Date';
+  static const String cuttingCompletionDate = 'Cutting Completion Date';
+  static const String supervisorName = 'Supervisor Name';
+  static const String progressNotes = 'Progress Notes';
+  static const String saveOutput = 'Save Output';
+  static const String outputSaved = 'Output recorded successfully';
+  static const String outputSaveError = 'Could not save output recording';
+  static const String outputGradeRequired =
+      'Enter at least one output or waste value';
+  static const String statusUpdated = 'Order status updated';
+  static const String statusAutoAdvanced =
+      'Order status updated automatically based on output';
+  static const String invoiceSprint5 =
+      'Invoicing and payment — Sprint 5';
+  static const String outputNotRecordedYet =
+      'No output recorded yet. Record grades and waste when cutting is complete.';
+  static const String shiftLogs = 'Shift Logs';
+  static const String addShiftLog = 'Add Shift';
+  static const String shiftDate = 'Shift Date';
+  static const String shiftName = 'Shift Name';
+  static const String shiftNotes = 'Shift Notes';
+  static const String shiftLogsHint =
+      'Add one entry per shift for multi-day jobs. Totals are calculated automatically.';
+  static const String manualTotals = 'Manual Totals';
+  static const String manualTotalsLocked =
+      'Totals are calculated from shift logs below.';
+  static const String noShiftLogsYet = 'No shift logs yet';
+  static const String deleteShiftLog = 'Remove shift?';
+  static const String deleteShiftLogMessage =
+      'This shift entry will be removed from the order.';
 }

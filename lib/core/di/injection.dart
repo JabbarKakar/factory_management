@@ -5,6 +5,7 @@ import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
 import '../../blocs/job_work/job_work_form_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
+import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/theme/theme_cubit.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
@@ -43,5 +44,8 @@ void setupDependencies() {
   );
   getIt.registerFactory<JobWorkFormBloc>(
     () => JobWorkFormBloc(repository: getIt<JobWorkRepository>()),
+  );
+  getIt.registerFactory<JobWorkOutputBloc>(
+    () => JobWorkOutputBloc(repository: getIt<JobWorkRepository>()),
   );
 }

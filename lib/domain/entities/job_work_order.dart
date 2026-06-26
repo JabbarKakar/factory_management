@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../enums/customer_enums.dart';
 import '../enums/job_work_enums.dart';
+import 'job_work_output.dart';
 
 class JobWorkOrder extends Equatable {
   const JobWorkOrder({
@@ -36,6 +37,9 @@ class JobWorkOrder extends Equatable {
     this.expectedOutputSqFt,
     this.specialInstructions,
     this.paymentDueDate,
+    this.output,
+    this.execution,
+    this.shiftLogs = const [],
     this.updatedAt,
   });
 
@@ -75,6 +79,10 @@ class JobWorkOrder extends Equatable {
   final double balanceDue;
   final PaymentTerms paymentTerms;
   final DateTime? paymentDueDate;
+
+  final JobWorkOutput? output;
+  final JobWorkExecution? execution;
+  final List<JobWorkShiftLog> shiftLogs;
 
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -125,6 +133,9 @@ class JobWorkOrder extends Equatable {
     double? balanceDue,
     PaymentTerms? paymentTerms,
     DateTime? paymentDueDate,
+    JobWorkOutput? output,
+    JobWorkExecution? execution,
+    List<JobWorkShiftLog>? shiftLogs,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -161,6 +172,9 @@ class JobWorkOrder extends Equatable {
       balanceDue: balanceDue ?? this.balanceDue,
       paymentTerms: paymentTerms ?? this.paymentTerms,
       paymentDueDate: paymentDueDate ?? this.paymentDueDate,
+      output: output ?? this.output,
+      execution: execution ?? this.execution,
+      shiftLogs: shiftLogs ?? this.shiftLogs,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -198,6 +212,9 @@ class JobWorkOrder extends Equatable {
         balanceDue,
         paymentTerms,
         paymentDueDate,
+        output,
+        execution,
+        shiftLogs,
         createdAt,
         updatedAt,
       ];

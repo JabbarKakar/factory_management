@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/job_work_output.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../models/customer_model.dart';
@@ -73,7 +74,57 @@ class JobWorkRepository {
 
   Future<void> updateJobWorkOrder(JobWorkOrder order) async {
     final model = JobWorkOrderModel.fromEntity(order);
-    await _jobWorkCollection.doc(order.id).update(model.toFirestore());
+    await _jobWorkCollection
+        .doc(order.id)
+        .update(model.toFirestoreWithComputedYield());
+  }
+
+  Future<void> advanceJobWorkStatus(String id, JobWorkStatus status) async {
+    await _jobWorkCollection.doc(id).update({
+      'status': status.firestoreValue,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<JobWorkOrder> recordJobWorkOutput(JobWorkOrder order) async {
+    final manualOutput = order.output ?? const JobWorkOutput();
+    final output = order.shiftLogs.isNotEmpty
+        ? JobWorkOutput.aggregateFromShifts(
+            order.shiftLogs,
+            wasteDisposition: manualOutput.wasteDisposition,
+            slurryDust: manualOutput.slurryDust,
+          ).copyWith(recordedAt: DateTime.now())
+        : manualOutput.copyWith(recordedAt: DateTime.now());
+
+    final withOutput = order.copyWith(output: output);
+    final newStatus = _statusAfterOutputSaved(withOutput);
+    final updated = withOutput.copyWith(status: newStatus);
+
+    await updateJobWorkOrder(updated);
+    return (await getJobWorkOrder(order.id)) ?? updated;
+  }
+
+  JobWorkStatus _statusAfterOutputSaved(JobWorkOrder order) {
+    final output = order.output;
+    if (output == null || !output.isRecorded) return order.status;
+
+    final hasCompletion = order.execution?.cuttingCompletionDate != null;
+    final hasStart = order.execution?.cuttingStartDate != null;
+
+    if (hasCompletion) {
+      return switch (order.status) {
+        JobWorkStatus.qc => JobWorkStatus.ready,
+        JobWorkStatus.inCutting || JobWorkStatus.agreed => JobWorkStatus.qc,
+        _ => order.status,
+      };
+    }
+
+    if (order.status == JobWorkStatus.agreed &&
+        (hasStart || output.totalUsableSqFt > 0)) {
+      return JobWorkStatus.inCutting;
+    }
+
+    return order.status;
   }
 
   Future<void> cancelJobWorkOrder(String id) async {

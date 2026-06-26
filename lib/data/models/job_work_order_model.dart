@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/job_work_output.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 
@@ -37,6 +38,9 @@ class JobWorkOrderModel {
     this.expectedOutputSqFt,
     this.specialInstructions,
     this.paymentDueDate,
+    this.output,
+    this.execution,
+    this.shiftLogs = const [],
     this.updatedAt,
   });
 
@@ -70,6 +74,9 @@ class JobWorkOrderModel {
   final double balanceDue;
   final PaymentTerms paymentTerms;
   final DateTime? paymentDueDate;
+  final JobWorkOutput? output;
+  final JobWorkExecution? execution;
+  final List<JobWorkShiftLog> shiftLogs;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -77,6 +84,9 @@ class JobWorkOrderModel {
     final cuttingSpec = data['cuttingSpec'] as Map<String, dynamic>? ?? {};
     final input = data['input'] as Map<String, dynamic>? ?? {};
     final pricing = data['pricing'] as Map<String, dynamic>? ?? {};
+    final outputData = data['output'] as Map<String, dynamic>?;
+    final executionData = data['execution'] as Map<String, dynamic>?;
+    final shiftLogsData = data['outputShifts'] as List?;
 
     return JobWorkOrderModel(
       id: id,
@@ -117,8 +127,66 @@ class JobWorkOrderModel {
       balanceDue: (pricing['balanceDue'] as num?)?.toDouble() ?? 0,
       paymentTerms: PaymentTerms.fromString(pricing['paymentTerms'] as String?),
       paymentDueDate: (pricing['paymentDueDate'] as Timestamp?)?.toDate(),
+      output: outputData == null ? null : _outputFromMap(outputData),
+      execution:
+          executionData == null ? null : _executionFromMap(executionData),
+      shiftLogs: shiftLogsData == null
+          ? const []
+          : shiftLogsData
+              .whereType<Map>()
+              .map((item) => _shiftLogFromMap(item.cast<String, dynamic>()))
+              .toList(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  static JobWorkOutput _outputFromMap(Map<String, dynamic> data) {
+    final wasteUnit = WasteUnit.fromString(data['wasteUnit'] as String?);
+    final wasteTons = (data['wasteTons'] as num?)?.toDouble();
+    final wasteSqFt = (data['wasteSqFt'] as num?)?.toDouble();
+
+    return JobWorkOutput(
+      gradeASqFt: (data['gradeASqFt'] as num?)?.toDouble() ?? 0,
+      gradeBSqFt: (data['gradeBSqFt'] as num?)?.toDouble() ?? 0,
+      gradeCSqFt: (data['gradeCSqFt'] as num?)?.toDouble() ?? 0,
+      rejectSqFt: (data['rejectSqFt'] as num?)?.toDouble() ?? 0,
+      wasteAmount: wasteUnit == WasteUnit.sqFt
+          ? (wasteSqFt ?? 0)
+          : (wasteTons ?? (data['wasteAmount'] as num?)?.toDouble() ?? 0),
+      wasteUnit: wasteUnit,
+      slurryDust: data['slurryDust'] as String?,
+      wasteDisposition: WasteDisposition.fromString(
+        data['wasteDisposition'] as String?,
+      ),
+      recordedAt: (data['recordedAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  static JobWorkExecution _executionFromMap(Map<String, dynamic> data) {
+    return JobWorkExecution(
+      cuttingStartDate: (data['startDate'] as Timestamp?)?.toDate(),
+      cuttingCompletionDate: (data['endDate'] as Timestamp?)?.toDate(),
+      supervisorName: data['supervisor'] as String?,
+      progressNotes: data['progressNotes'] as String?,
+    );
+  }
+
+  static JobWorkShiftLog _shiftLogFromMap(Map<String, dynamic> data) {
+    return JobWorkShiftLog(
+      id: data['id'] as String? ?? '',
+      shiftDate:
+          (data['shiftDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      shiftName: data['shiftName'] as String?,
+      gradeASqFt: (data['gradeASqFt'] as num?)?.toDouble() ?? 0,
+      gradeBSqFt: (data['gradeBSqFt'] as num?)?.toDouble() ?? 0,
+      gradeCSqFt: (data['gradeCSqFt'] as num?)?.toDouble() ?? 0,
+      rejectSqFt: (data['rejectSqFt'] as num?)?.toDouble() ?? 0,
+      wasteAmount: (data['wasteAmount'] as num?)?.toDouble() ?? 0,
+      wasteUnit: WasteUnit.fromString(data['wasteUnit'] as String?),
+      notes: data['notes'] as String?,
+      recordedAt:
+          (data['recordedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 
@@ -163,8 +231,91 @@ class JobWorkOrderModel {
         if (paymentDueDate != null)
           'paymentDueDate': Timestamp.fromDate(paymentDueDate!),
       },
+      if (output != null) 'output': _outputToMap(output!, totalTons),
+      if (execution != null && execution!.hasData)
+        'execution': _executionToMap(execution!),
+      if (shiftLogs.isNotEmpty)
+        'outputShifts': shiftLogs.map(_shiftLogToMap).toList(),
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
+  static Map<String, dynamic> _outputToMap(
+    JobWorkOutput output,
+    double inputTons,
+  ) {
+    final wastePercent = output.wastePercent(inputTons);
+    final yieldPercent = output.yieldPercent(null);
+
+    return {
+      'gradeASqFt': output.gradeASqFt,
+      'gradeBSqFt': output.gradeBSqFt,
+      'gradeCSqFt': output.gradeCSqFt,
+      'rejectSqFt': output.rejectSqFt,
+      'totalUsableSqFt': output.totalUsableSqFt,
+      if (output.wasteUnit == WasteUnit.tons) 'wasteTons': output.wasteAmount,
+      if (output.wasteUnit == WasteUnit.sqFt) 'wasteSqFt': output.wasteAmount,
+      'wasteUnit': output.wasteUnit.firestoreValue,
+      'wasteAmount': output.wasteAmount,
+      'wastePercent': wastePercent,
+      'yieldPercent': yieldPercent,
+      if (output.slurryDust != null) 'slurryDust': output.slurryDust,
+      'wasteDisposition': output.wasteDisposition.firestoreValue,
+      if (output.recordedAt != null)
+        'recordedAt': Timestamp.fromDate(output.recordedAt!),
+    };
+  }
+
+  static Map<String, dynamic> _outputToMapWithExpected(
+    JobWorkOutput output,
+    double inputTons,
+    double? expectedSqFt,
+  ) {
+    final map = _outputToMap(output, inputTons);
+    map['yieldPercent'] = output.yieldPercent(expectedSqFt);
+    return map;
+  }
+
+  Map<String, dynamic> toFirestoreWithComputedYield() {
+    final data = toFirestore();
+    final outputValue = output;
+    if (outputValue != null) {
+      data['output'] = _outputToMapWithExpected(
+        outputValue,
+        totalTons,
+        expectedOutputSqFt,
+      );
+    }
+    return data;
+  }
+
+  static Map<String, dynamic> _executionToMap(JobWorkExecution execution) {
+    return {
+      if (execution.cuttingStartDate != null)
+        'startDate': Timestamp.fromDate(execution.cuttingStartDate!),
+      if (execution.cuttingCompletionDate != null)
+        'endDate': Timestamp.fromDate(execution.cuttingCompletionDate!),
+      if (execution.supervisorName != null)
+        'supervisor': execution.supervisorName,
+      if (execution.progressNotes != null)
+        'progressNotes': execution.progressNotes,
+    };
+  }
+
+  static Map<String, dynamic> _shiftLogToMap(JobWorkShiftLog shift) {
+    return {
+      'id': shift.id,
+      'shiftDate': Timestamp.fromDate(shift.shiftDate),
+      if (shift.shiftName != null) 'shiftName': shift.shiftName,
+      'gradeASqFt': shift.gradeASqFt,
+      'gradeBSqFt': shift.gradeBSqFt,
+      'gradeCSqFt': shift.gradeCSqFt,
+      'rejectSqFt': shift.rejectSqFt,
+      'wasteAmount': shift.wasteAmount,
+      'wasteUnit': shift.wasteUnit.firestoreValue,
+      if (shift.notes != null) 'notes': shift.notes,
+      'recordedAt': Timestamp.fromDate(shift.recordedAt),
     };
   }
 
@@ -200,6 +351,9 @@ class JobWorkOrderModel {
       balanceDue: balanceDue,
       paymentTerms: paymentTerms,
       paymentDueDate: paymentDueDate,
+      output: output,
+      execution: execution,
+      shiftLogs: shiftLogs,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -237,6 +391,9 @@ class JobWorkOrderModel {
       balanceDue: order.balanceDue,
       paymentTerms: order.paymentTerms,
       paymentDueDate: order.paymentDueDate,
+      output: order.output,
+      execution: order.execution,
+      shiftLogs: order.shiftLogs,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     );

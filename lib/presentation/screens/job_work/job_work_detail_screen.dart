@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/enums/job_work_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/job_work/job_work_output_summary.dart';
 import '../../widgets/job_work/job_work_status_badge.dart';
 import '../../widgets/settings_section.dart';
 
@@ -15,9 +17,37 @@ class JobWorkDetailScreen extends StatelessWidget {
 
   final String jobWorkId;
 
+  Future<void> _openRecordOutput(BuildContext context) async {
+    final saved = await context.push<bool>(
+      RoutePaths.jobWorkRecordOutput(jobWorkId),
+    );
+    if (saved == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
+
+  void _advanceStatus(BuildContext context, JobWorkStatus nextStatus) {
+    context.read<JobWorkFormBloc>().add(
+          JobWorkFormStatusAdvanceRequested(
+            jobWorkId: jobWorkId,
+            newStatus: nextStatus,
+          ),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<JobWorkFormBloc, JobWorkFormState>(
+    return BlocConsumer<JobWorkFormBloc, JobWorkFormState>(
+      listener: (context, state) {
+        if (state.status == JobWorkFormStatus.failure &&
+            state.errorMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.errorMessage!)),
+          );
+        }
+      },
       builder: (context, state) {
         if (state.status == JobWorkFormStatus.loading ||
             state.status == JobWorkFormStatus.initial) {
@@ -37,16 +67,30 @@ class JobWorkDetailScreen extends StatelessWidget {
           );
         }
 
-        final canEdit = order.status.isActive;
+        final canEditIntake = order.status == JobWorkStatus.agreed ||
+            order.status == JobWorkStatus.received;
+        final canRecordOutput = order.status.canRecordOutput;
+        final nextStatus = order.status.nextOperationalStatus;
+        final isSaving = state.status == JobWorkFormStatus.saving;
+        final hasOutput = order.output?.isRecorded == true;
 
         return Scaffold(
           appBar: AppBar(
             title: const Text(AppStrings.jobWorkDetails),
             actions: [
-              if (canEdit)
+              if (canRecordOutput)
                 IconButton(
-                  onPressed: () =>
-                      context.push(RoutePaths.jobWorkEdit(order.id)),
+                  onPressed: isSaving
+                      ? null
+                      : () => _openRecordOutput(context),
+                  icon: Icon(hasOutput ? Icons.edit_note : Icons.fact_check_outlined),
+                  tooltip: hasOutput ? AppStrings.editOutput : AppStrings.recordOutput,
+                ),
+              if (canEditIntake)
+                IconButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => context.push(RoutePaths.jobWorkEdit(order.id)),
                   icon: const Icon(Icons.edit_outlined),
                   tooltip: AppStrings.editJobWorkOrder,
                 ),
@@ -81,10 +125,45 @@ class JobWorkDetailScreen extends StatelessWidget {
                         order.customerName,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
+                      if (order.status.canAdvanceOperationally &&
+                          nextStatus != null) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.tonal(
+                            onPressed: isSaving
+                                ? null
+                                : () => _advanceStatus(context, nextStatus),
+                            child: Text(order.status.advanceActionLabel),
+                          ),
+                        ),
+                      ],
+                      if (canRecordOutput) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: isSaving
+                                ? null
+                                : () => _openRecordOutput(context),
+                            icon: Icon(
+                              hasOutput
+                                  ? Icons.edit_note_outlined
+                                  : Icons.fact_check_outlined,
+                            ),
+                            label: Text(
+                              hasOutput
+                                  ? AppStrings.editOutput
+                                  : AppStrings.recordOutput,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
+              JobWorkOutputSummary(order: order),
               SettingsSection(
                 title: AppStrings.pricingAgreement,
                 child: Padding(
@@ -194,33 +273,34 @@ class JobWorkDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Card(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primaryContainer
-                      .withValues(alpha: 0.35),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            AppStrings.outputRecordingSprint4,
-                            style: Theme.of(context).textTheme.bodyMedium,
+              if (order.status == JobWorkStatus.ready)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Card(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primaryContainer
+                        .withValues(alpha: 0.35),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.receipt_long_outlined,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              AppStrings.invoiceSprint5,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         );

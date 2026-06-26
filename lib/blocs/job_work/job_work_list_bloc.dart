@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/job_work_repository.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/enums/job_work_enums.dart';
 
 part 'job_work_list_event.dart';
 part 'job_work_list_state.dart';
@@ -16,6 +17,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     on<JobWorkListWatchStarted>(_onWatchStarted);
     on<JobWorkListSearchChanged>(_onSearchChanged);
     on<JobWorkListStatusFilterChanged>(_onStatusFilterChanged);
+    on<JobWorkListStageFilterChanged>(_onStageFilterChanged);
     on<_JobWorkListUpdated>(_onListUpdated);
     on<_JobWorkListStreamFailed>(_onStreamFailed);
   }
@@ -50,6 +52,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           state.orders,
           query: event.query,
           showActiveOnly: state.showActiveOnly,
+          stageFilter: state.stageFilter,
         ),
       ),
     );
@@ -66,6 +69,24 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           state.orders,
           query: state.searchQuery,
           showActiveOnly: event.showActiveOnly,
+          stageFilter: state.stageFilter,
+        ),
+      ),
+    );
+  }
+
+  void _onStageFilterChanged(
+    JobWorkListStageFilterChanged event,
+    Emitter<JobWorkListState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        stageFilter: event.stageFilter,
+        visibleOrders: _applyFilters(
+          state.orders,
+          query: state.searchQuery,
+          showActiveOnly: state.showActiveOnly,
+          stageFilter: event.stageFilter,
         ),
       ),
     );
@@ -83,6 +104,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           event.orders,
           query: state.searchQuery,
           showActiveOnly: state.showActiveOnly,
+          stageFilter: state.stageFilter,
         ),
         errorMessage: null,
       ),
@@ -105,11 +127,14 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     List<JobWorkOrder> orders, {
     required String query,
     required bool showActiveOnly,
+    required JobWorkListStageFilter stageFilter,
   }) {
     final normalizedQuery = query.trim().toLowerCase();
+    final stageStatus = stageFilter.status;
 
     return orders.where((order) {
       if (showActiveOnly && !order.status.isActive) return false;
+      if (stageStatus != null && order.status != stageStatus) return false;
 
       if (normalizedQuery.isEmpty) return true;
 

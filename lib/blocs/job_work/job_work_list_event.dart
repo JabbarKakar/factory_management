@@ -34,6 +34,15 @@ final class JobWorkListStatusFilterChanged extends JobWorkListEvent {
   List<Object?> get props => [showActiveOnly];
 }
 
+final class JobWorkListStageFilterChanged extends JobWorkListEvent {
+  const JobWorkListStageFilterChanged(this.stageFilter);
+
+  final JobWorkListStageFilter stageFilter;
+
+  @override
+  List<Object?> get props => [stageFilter];
+}
+
 final class _JobWorkListUpdated extends JobWorkListEvent {
   const _JobWorkListUpdated(this.orders);
 

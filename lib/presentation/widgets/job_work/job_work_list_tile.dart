@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/job_work_order.dart';
 import 'job_work_status_badge.dart';
@@ -76,6 +77,17 @@ class JobWorkListTile extends StatelessWidget {
                   ),
                 ],
               ),
+              if (order.output?.isRecorded == true) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '${AppStrings.yieldPercent}: ${order.output!.yieldPercent(order.expectedOutputSqFt).toStringAsFixed(1)}% · '
+                  '${order.output!.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ],
             ],
           ),
         ),

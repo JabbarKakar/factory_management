@@ -42,3 +42,16 @@ final class JobWorkFormCancelRequested extends JobWorkFormEvent {
   @override
   List<Object?> get props => [jobWorkId];
 }
+
+final class JobWorkFormStatusAdvanceRequested extends JobWorkFormEvent {
+  const JobWorkFormStatusAdvanceRequested({
+    required this.jobWorkId,
+    required this.newStatus,
+  });
+
+  final String jobWorkId;
+  final JobWorkStatus newStatus;
+
+  @override
+  List<Object?> get props => [jobWorkId, newStatus];
+}
