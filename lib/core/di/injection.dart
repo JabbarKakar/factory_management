@@ -14,6 +14,10 @@ import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/finished_goods/finished_goods_detail_bloc.dart';
 import '../../blocs/finished_goods/finished_goods_list_bloc.dart';
 import '../../blocs/finished_goods/inventory_adjustment_bloc.dart';
+import '../../blocs/labour/daily_attendance_bloc.dart';
+import '../../blocs/labour/employee_detail_bloc.dart';
+import '../../blocs/labour/employee_form_bloc.dart';
+import '../../blocs/labour/employee_list_bloc.dart';
 import '../../blocs/pl/pl_report_bloc.dart';
 import '../../blocs/production/production_detail_bloc.dart';
 import '../../blocs/production/production_form_bloc.dart';
@@ -30,6 +34,8 @@ import '../../blocs/theme/theme_cubit.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/expense_repository.dart';
+import '../../data/repositories/attendance_repository.dart';
+import '../../data/repositories/employee_repository.dart';
 import '../../data/repositories/finished_goods_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
@@ -95,6 +101,8 @@ void setupDependencies() {
   getIt.registerLazySingleton<PlReportService>(PlReportService.new);
   getIt.registerLazySingleton<ExpenseRepository>(ExpenseRepository.new);
   getIt.registerLazySingleton<SupplierRepository>(SupplierRepository.new);
+  getIt.registerLazySingleton<EmployeeRepository>(EmployeeRepository.new);
+  getIt.registerLazySingleton<AttendanceRepository>(AttendanceRepository.new);
   getIt.registerLazySingleton<RawMaterialStockService>(
     RawMaterialStockService.new,
   );
@@ -231,5 +239,23 @@ void setupDependencies() {
   );
   getIt.registerFactory<InventoryAdjustmentBloc>(
     () => InventoryAdjustmentBloc(repository: getIt<FinishedGoodsRepository>()),
+  );
+  getIt.registerFactory<EmployeeListBloc>(
+    () => EmployeeListBloc(repository: getIt<EmployeeRepository>()),
+  );
+  getIt.registerFactory<EmployeeFormBloc>(
+    () => EmployeeFormBloc(repository: getIt<EmployeeRepository>()),
+  );
+  getIt.registerFactory<EmployeeDetailBloc>(
+    () => EmployeeDetailBloc(
+      employeeRepository: getIt<EmployeeRepository>(),
+      attendanceRepository: getIt<AttendanceRepository>(),
+    ),
+  );
+  getIt.registerFactory<DailyAttendanceBloc>(
+    () => DailyAttendanceBloc(
+      employeeRepository: getIt<EmployeeRepository>(),
+      attendanceRepository: getIt<AttendanceRepository>(),
+    ),
   );
 }

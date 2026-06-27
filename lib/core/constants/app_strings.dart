@@ -532,4 +532,51 @@ abstract final class AppStrings {
       'Required for empty stock; optional when adding to existing stock';
   static const String adjustmentUnitCostRequired =
       'Unit cost is required when stock is empty';
+
+  // Labour & attendance (Sprint 16)
+  static const String factoryWorkers = 'Factory Workers';
+  static const String factoryWorkersSubtitle =
+      'Employee profiles and wage rates';
+  static const String dailyAttendance = 'Daily Attendance';
+  static const String dailyAttendanceSubtitle =
+      'Mark present, absent, leave, and holidays';
+  static const String addEmployee = 'Add Worker';
+  static const String editEmployee = 'Edit Worker';
+  static const String employeeDetails = 'Worker Details';
+  static const String searchEmployees = 'Search name, ID, phone, role...';
+  static const String employeesLoadError = 'Could not load workers';
+  static const String noEmployeesYet = 'No workers added yet';
+  static const String noEmployeesFound = 'No workers match your filters';
+  static const String noEmployeesHint =
+      'Add factory workers to track attendance and wages';
+  static const String employeeNotFound = 'Worker not found';
+  static const String deleteEmployeeTitle = 'Delete worker?';
+  static const String deleteEmployeeMessage =
+      'This will permanently remove the worker profile. Attendance history will remain.';
+  static const String cnicNumber = 'CNIC (optional)';
+  static const String workerCategory = 'Job Category';
+  static const String employmentType = 'Employment Type';
+  static const String salaryType = 'Salary Type';
+  static const String rateAmount = 'Rate Amount (PKR)';
+  static const String employeeJoinDate = 'Date of Joining';
+  static const String employeeStatus = 'Status';
+  static const String saveEmployee = 'Save Worker';
+  static const String employeeSaved = 'Worker saved';
+  static const String employeeDeleted = 'Worker deleted';
+  static const String attendanceHistory = 'Attendance History';
+  static const String noAttendanceHistory = 'No attendance recorded yet';
+  static const String markAttendance = 'Mark Attendance';
+  static const String markAllPresent = 'Mark All Present';
+  static const String attendanceSummary = 'Today\'s Summary';
+  static const String attendancePresent = 'Present';
+  static const String attendanceAbsent = 'Absent';
+  static const String attendanceUnmarked = 'Not Marked';
+  static const String attendanceDate = 'Attendance Date';
+  static const String defaultShift = 'Default Shift';
+  static const String selectAttendanceStatus = 'Status';
+  static const String noActiveWorkersForAttendance =
+      'Add active workers before marking attendance';
+  static const String attendanceSaved = 'Attendance saved';
+  static const String allMarkedPresent = 'All active workers marked present';
+  static const String inactiveWorker = 'Inactive';
 }

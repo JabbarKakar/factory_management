@@ -16,6 +16,10 @@ import '../../blocs/pl/pl_report_bloc.dart';
 import '../../blocs/finished_goods/finished_goods_detail_bloc.dart';
 import '../../blocs/finished_goods/finished_goods_list_bloc.dart';
 import '../../blocs/finished_goods/inventory_adjustment_bloc.dart';
+import '../../blocs/labour/daily_attendance_bloc.dart';
+import '../../blocs/labour/employee_detail_bloc.dart';
+import '../../blocs/labour/employee_form_bloc.dart';
+import '../../blocs/labour/employee_list_bloc.dart';
 import '../../blocs/production/production_detail_bloc.dart';
 import '../../blocs/production/production_form_bloc.dart';
 import '../../blocs/production/production_list_bloc.dart';
@@ -61,6 +65,10 @@ import '../screens/raw_materials/record_stock_movement_screen.dart';
 import '../screens/finished_goods/finished_good_detail_screen.dart';
 import '../screens/finished_goods/finished_goods_screen.dart';
 import '../screens/finished_goods/record_inventory_adjustment_screen.dart';
+import '../screens/labour/add_edit_employee_screen.dart';
+import '../screens/labour/daily_attendance_screen.dart';
+import '../screens/labour/employee_detail_screen.dart';
+import '../screens/labour/employees_screen.dart';
 import '../screens/production/add_production_batch_screen.dart';
 import '../screens/production/production_batch_detail_screen.dart';
 import '../screens/production/production_batches_screen.dart';
@@ -71,6 +79,7 @@ import '../screens/more/more_screen.dart';
 import '../screens/notifications/notification_center_screen.dart';
 import '../screens/shell/main_shell.dart';
 import '../utils/auth_context.dart';
+import '../../core/utils/date_keys.dart';
 import 'go_router_refresh_stream.dart';
 import 'route_paths.dart';
 
@@ -589,6 +598,111 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: RoutePaths.employees,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<EmployeeListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(EmployeeListWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: const EmployeesScreen(),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'add',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<EmployeeFormBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(EmployeeFormInitialized(factoryId: factoryId));
+                  }
+                  return bloc;
+                },
+                child: const AddEditEmployeeScreen(),
+              );
+            },
+          ),
+          GoRoute(
+            path: ':employeeId',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final employeeId = state.pathParameters['employeeId']!;
+              final factoryId = readFactoryId(context);
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<EmployeeDetailBloc>();
+                  if (factoryId != null) {
+                    bloc.add(
+                      EmployeeDetailWatchStarted(
+                        factoryId: factoryId,
+                        employeeId: employeeId,
+                      ),
+                    );
+                  }
+                  return bloc;
+                },
+                child: EmployeeDetailScreen(employeeId: employeeId),
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'edit',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final employeeId = state.pathParameters['employeeId']!;
+                  return BlocProvider(
+                    create: (_) => getIt<EmployeeFormBloc>()
+                      ..add(EmployeeFormLoadRequested(employeeId)),
+                    child: AddEditEmployeeScreen(employeeId: employeeId),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: RoutePaths.attendance,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final dateParam = state.uri.queryParameters['date'];
+          DateTime? initialDate;
+          if (dateParam != null) {
+            try {
+              initialDate = DateKeys.toDate(dateParam);
+            } catch (_) {
+              initialDate = null;
+            }
+          }
+
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<DailyAttendanceBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(
+                  DailyAttendanceWatchStarted(
+                    factoryId: factoryId,
+                    initialDate: initialDate,
+                  ),
+                );
+              }
+              return bloc;
+            },
+            child: DailyAttendanceScreen(initialDate: initialDate),
+          );
+        },
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {

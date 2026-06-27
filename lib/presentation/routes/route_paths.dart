@@ -130,6 +130,20 @@ abstract final class RoutePaths {
   static String finishedGoodAdjustOut(String id) =>
       '/finished-goods/$id/adjust-out';
 
+  static const String employees = '/employees';
+  static const String employeesAdd = '/employees/add';
+  static const String attendance = '/attendance';
+
+  static String employeeDetail(String id) => '/employees/$id';
+
+  static String employeeEdit(String id) => '/employees/$id/edit';
+
+  static String attendanceForDate(DateTime date) {
+    final key =
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    return '$attendance?date=$key';
+  }
+
   static String notificationsWithFilter(NotificationFilter filter) =>
       '$notifications?filter=${filter.name}';
 }
