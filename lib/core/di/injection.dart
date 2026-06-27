@@ -12,6 +12,9 @@ import '../../blocs/notification/notification_bloc.dart';
 import '../../blocs/expense/expense_form_bloc.dart';
 import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/pl/pl_report_bloc.dart';
+import '../../blocs/production/production_detail_bloc.dart';
+import '../../blocs/production/production_form_bloc.dart';
+import '../../blocs/production/production_list_bloc.dart';
 import '../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
@@ -28,6 +31,7 @@ import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/payment_repository.dart';
+import '../../data/repositories/production_repository.dart';
 import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
@@ -91,6 +95,9 @@ void setupDependencies() {
   );
   getIt.registerLazySingleton<RawMaterialRepository>(
     () => RawMaterialRepository(stockService: getIt<RawMaterialStockService>()),
+  );
+  getIt.registerLazySingleton<ProductionRepository>(
+    () => ProductionRepository(stockService: getIt<RawMaterialStockService>()),
   );
   getIt.registerLazySingleton<JobWorkCleanupService>(
     () => JobWorkCleanupService(jobWorkRepository: getIt<JobWorkRepository>()),
@@ -190,5 +197,14 @@ void setupDependencies() {
   );
   getIt.registerFactory<StockMovementBloc>(
     () => StockMovementBloc(repository: getIt<RawMaterialRepository>()),
+  );
+  getIt.registerFactory<ProductionListBloc>(
+    () => ProductionListBloc(repository: getIt<ProductionRepository>()),
+  );
+  getIt.registerFactory<ProductionFormBloc>(
+    () => ProductionFormBloc(repository: getIt<ProductionRepository>()),
+  );
+  getIt.registerFactory<ProductionDetailBloc>(
+    () => ProductionDetailBloc(repository: getIt<ProductionRepository>()),
   );
 }

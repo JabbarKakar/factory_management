@@ -449,4 +449,45 @@ abstract final class AppStrings {
   static const String materialDetails = 'Material Details';
   static const String noStockMovementsFound = 'No movements match your filters';
   static const String selectMaterialForStockIn = 'Select material to receive';
+
+  // Production (Sprint 14)
+  static const String production = 'Production';
+  static const String productionBatches = 'Production Batches';
+  static const String productionBatchesSubtitle =
+      'Record own-stock cutting runs and output';
+  static const String recordProduction = 'Record Production';
+  static const String productionBatchDetails = 'Batch Details';
+  static const String productionBatchSaved = 'Production batch saved';
+  static const String productionBatchNotFound = 'Production batch not found';
+  static const String productionLoadError = 'Could not load production batches';
+  static const String searchProductionBatches = 'Search batch, product, variety...';
+  static const String noProductionBatchesYet = 'No production batches yet';
+  static const String noProductionBatchesFound = 'No batches match your filters';
+  static const String noProductionBatchesHint =
+      'Record a batch when you cut factory-owned stone into finished goods';
+  static const String productionThisMonth = 'Usable output this month';
+  static const String batchInformation = 'Batch Information';
+  static const String productionDate = 'Production Date';
+  static const String shift = 'Shift';
+  static const String rawMaterialConsumed = 'Raw Material Consumed';
+  static const String selectRawMaterial = 'Raw Material';
+  static const String selectMaterial = 'Select material';
+  static const String selectRawMaterialRequired = 'Select raw material consumed';
+  static const String noRawMaterialInStock =
+      'No materials in stock. Record stock in first.';
+  static const String quantityConsumed = 'Quantity Consumed';
+  static const String productionOutput = 'Production Output';
+  static const String size = 'Size';
+  static const String notSpecified = 'Not specified';
+  static const String wasteGeneratedTons = 'Waste Generated (tons, optional)';
+  static const String saveProductionBatch = 'Save Production Batch';
+  static const String materialType = 'Material Type';
+  static const String materialCost = 'Material Cost';
+  static const String productionStockLinked =
+      'Raw material stock was deducted when this batch was saved.';
+  static const String factoryNotLoaded = 'Factory not loaded';
+  static const String productionGradeA = 'Grade A';
+  static const String productionGradeB = 'Grade B';
+  static const String productionGradeC = 'Grade C';
+  static const String productionReject = 'Reject';
 }

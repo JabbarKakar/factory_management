@@ -1,4 +1,5 @@
 import '../../domain/enums/notification_enums.dart';
+import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
 
 abstract final class RoutePaths {
@@ -98,6 +99,18 @@ abstract final class RoutePaths {
 
   static String rawMaterialStockOut(String materialType) =>
       '/raw-materials/$materialType/stock-out';
+
+  static const String production = '/production';
+  static const String productionAdd = '/production/add';
+
+  static String productionDetail(String id) => '/production/$id';
+
+  static String productionList({ProductionListFilter? filter}) {
+    if (filter == null || filter == ProductionListFilter.all) {
+      return production;
+    }
+    return '$production?filter=${filter.name}';
+  }
 
   static String notificationsWithFilter(NotificationFilter filter) =>
       '$notifications?filter=${filter.name}';

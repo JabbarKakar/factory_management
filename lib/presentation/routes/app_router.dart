@@ -13,6 +13,9 @@ import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../blocs/expense/expense_form_bloc.dart';
 import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/pl/pl_report_bloc.dart';
+import '../../blocs/production/production_detail_bloc.dart';
+import '../../blocs/production/production_form_bloc.dart';
+import '../../blocs/production/production_list_bloc.dart';
 import '../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
@@ -22,6 +25,7 @@ import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
+import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/notification_enums.dart';
@@ -50,6 +54,9 @@ import '../screens/reports/pl_report_screen.dart';
 import '../screens/raw_materials/raw_material_detail_screen.dart';
 import '../screens/raw_materials/raw_materials_screen.dart';
 import '../screens/raw_materials/record_stock_movement_screen.dart';
+import '../screens/production/add_production_batch_screen.dart';
+import '../screens/production/production_batch_detail_screen.dart';
+import '../screens/production/production_batches_screen.dart';
 import '../screens/suppliers/add_edit_supplier_screen.dart';
 import '../screens/suppliers/supplier_detail_screen.dart';
 import '../screens/suppliers/suppliers_screen.dart';
@@ -363,6 +370,67 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                 },
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: RoutePaths.production,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final filterName = state.uri.queryParameters['filter'];
+          final initialFilter = filterName == null
+              ? null
+              : ProductionListFilter.values.firstWhere(
+                  (filter) => filter.name == filterName,
+                  orElse: () => ProductionListFilter.all,
+                );
+
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<ProductionListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(ProductionListWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: ProductionBatchesScreen(
+              initialFilter: filterName == null ? null : initialFilter,
+            ),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'add',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<ProductionFormBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(ProductionFormInitialized(factoryId: factoryId));
+                  }
+                  return bloc;
+                },
+                child: const AddProductionBatchScreen(),
+              );
+            },
+          ),
+          GoRoute(
+            path: ':batchId',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final batchId = state.pathParameters['batchId']!;
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<ProductionDetailBloc>();
+                  bloc.add(ProductionDetailWatchStarted(batchId));
+                  return bloc;
+                },
+                child: ProductionBatchDetailScreen(batchId: batchId),
+              );
+            },
           ),
         ],
       ),
