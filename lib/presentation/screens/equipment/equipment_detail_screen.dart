@@ -44,6 +44,27 @@ class EquipmentDetailScreen extends StatelessWidget {
         final dueSoon =
             !overdue && equipment.isMaintenanceDueSoon(today: today);
         final bookValue = equipment.bookValue();
+        final logs = state.maintenanceLogs;
+        final totalMaintenanceCost =
+            logs.fold<double>(0, (sum, log) => sum + log.cost);
+        final totalDowntimeHours = logs.fold<double>(
+          0,
+          (sum, log) => sum + (log.downtimeHours ?? 0),
+        );
+
+        final hasSpecs =
+            (equipment.brand?.isNotEmpty ?? false) ||
+            (equipment.model?.isNotEmpty ?? false) ||
+            (equipment.serialNumber?.isNotEmpty ?? false) ||
+            (equipment.location?.isNotEmpty ?? false);
+        final hasPurchaseInfo = equipment.purchaseDate != null ||
+            equipment.purchaseCost != null ||
+            (equipment.supplierName?.isNotEmpty ?? false) ||
+            bookValue != null;
+        final hasMaintenanceSchedule =
+            equipment.lastMaintenanceDate != null ||
+            equipment.nextMaintenanceDueDate != null ||
+            equipment.maintenanceIntervalDays != null;
 
         return Scaffold(
           appBar: AppBar(
@@ -131,120 +152,146 @@ class EquipmentDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              SettingsSection(
-                title: AppStrings.equipmentSpecs,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      if (equipment.brand != null && equipment.brand!.isNotEmpty)
-                        _Row(AppStrings.brand, equipment.brand!),
-                      if (equipment.model != null && equipment.model!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _Row(AppStrings.model, equipment.model!),
+              if (hasSpecs)
+                SettingsSection(
+                  title: AppStrings.equipmentSpecs,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        if (equipment.brand != null &&
+                            equipment.brand!.isNotEmpty)
+                          _Row(AppStrings.brand, equipment.brand!),
+                        if (equipment.model != null &&
+                            equipment.model!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _Row(AppStrings.model, equipment.model!),
+                        ],
+                        if (equipment.serialNumber != null &&
+                            equipment.serialNumber!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _Row(
+                            AppStrings.serialNumber,
+                            equipment.serialNumber!,
+                          ),
+                        ],
+                        if (equipment.location != null &&
+                            equipment.location!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _Row(
+                            AppStrings.equipmentLocation,
+                            equipment.location!,
+                          ),
+                        ],
                       ],
-                      if (equipment.serialNumber != null &&
-                          equipment.serialNumber!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _Row(AppStrings.serialNumber, equipment.serialNumber!),
-                      ],
-                      if (equipment.location != null &&
-                          equipment.location!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _Row(AppStrings.equipmentLocation, equipment.location!),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              SettingsSection(
-                title: AppStrings.purchaseInfo,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      if (equipment.purchaseDate != null) ...[
-                        _Row(
-                          AppStrings.purchaseDate,
-                          DateFormat.yMMMd().format(equipment.purchaseDate!),
-                        ),
-                        const SizedBox(height: 8),
+              if (hasPurchaseInfo)
+                SettingsSection(
+                  title: AppStrings.purchaseInfo,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        if (equipment.purchaseDate != null) ...[
+                          _Row(
+                            AppStrings.purchaseDate,
+                            DateFormat.yMMMd().format(equipment.purchaseDate!),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (equipment.purchaseCost != null) ...[
+                          _Row(
+                            AppStrings.purchaseCost,
+                            Formatters.currencyPkr(equipment.purchaseCost!),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (equipment.supplierName != null &&
+                            equipment.supplierName!.isNotEmpty) ...[
+                          _Row(
+                            AppStrings.supplierVendor,
+                            equipment.supplierName!,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (bookValue != null)
+                          _Row(
+                            AppStrings.bookValue,
+                            Formatters.currencyPkr(bookValue),
+                            bold: true,
+                          ),
                       ],
-                      if (equipment.purchaseCost != null) ...[
-                        _Row(
-                          AppStrings.purchaseCost,
-                          Formatters.currencyPkr(equipment.purchaseCost!),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      if (equipment.supplierName != null &&
-                          equipment.supplierName!.isNotEmpty) ...[
-                        _Row(AppStrings.supplierVendor, equipment.supplierName!),
-                        const SizedBox(height: 8),
-                      ],
-                      if (bookValue != null) ...[
-                        _Row(
-                          AppStrings.bookValue,
-                          Formatters.currencyPkr(bookValue),
-                          bold: true,
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-              SettingsSection(
-                title: AppStrings.maintenanceSchedule,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      if (equipment.lastMaintenanceDate != null) ...[
-                        _Row(
-                          AppStrings.lastMaintenanceDate,
-                          DateFormat.yMMMd()
-                              .format(equipment.lastMaintenanceDate!),
-                        ),
-                        const SizedBox(height: 8),
+              if (hasMaintenanceSchedule)
+                SettingsSection(
+                  title: AppStrings.maintenanceSchedule,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        if (equipment.lastMaintenanceDate != null) ...[
+                          _Row(
+                            AppStrings.lastMaintenanceDate,
+                            DateFormat.yMMMd()
+                                .format(equipment.lastMaintenanceDate!),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        if (equipment.nextMaintenanceDueDate != null)
+                          _Row(
+                            AppStrings.nextMaintenanceDue,
+                            DateFormat.yMMMd()
+                                .format(equipment.nextMaintenanceDueDate!),
+                            bold: overdue || dueSoon,
+                          ),
+                        if (equipment.maintenanceIntervalDays != null) ...[
+                          const SizedBox(height: 8),
+                          _Row(
+                            AppStrings.maintenanceIntervalDays,
+                            '${equipment.maintenanceIntervalDays} days',
+                          ),
+                        ],
                       ],
-                      if (equipment.nextMaintenanceDueDate != null)
-                        _Row(
-                          AppStrings.nextMaintenanceDue,
-                          DateFormat.yMMMd()
-                              .format(equipment.nextMaintenanceDueDate!),
-                          bold: overdue || dueSoon,
-                        ),
-                      if (equipment.maintenanceIntervalDays != null) ...[
-                        const SizedBox(height: 8),
-                        _Row(
-                          AppStrings.maintenanceIntervalDays,
-                          '${equipment.maintenanceIntervalDays} days',
-                        ),
-                      ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
               SettingsSection(
                 title: AppStrings.maintenanceHistory,
-                child: state.maintenanceLogs.isEmpty
+                child: logs.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(
                           AppStrings.noMaintenanceLogs,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
                         ),
                       )
                     : Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(
                           children: [
-                            for (final log in state.maintenanceLogs) ...[
+                            _Row(
+                              AppStrings.totalMaintenanceCost,
+                              Formatters.currencyPkr(totalMaintenanceCost),
+                              bold: true,
+                            ),
+                            if (totalDowntimeHours > 0) ...[
+                              const SizedBox(height: 8),
+                              _Row(
+                                AppStrings.totalDowntimeHours,
+                                '${totalDowntimeHours.toStringAsFixed(1)} h',
+                              ),
+                            ],
+                            const Divider(height: 24),
+                            for (final log in logs) ...[
                               MaintenanceLogTile(log: log),
-                              if (log != state.maintenanceLogs.last)
-                                const Divider(),
+                              if (log != logs.last) const Divider(),
                             ],
                           ],
                         ),

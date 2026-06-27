@@ -694,6 +694,8 @@ abstract final class AppStrings {
   static const String maintenanceDueSoonMessage =
       'Maintenance is due soon.';
   static const String maintenanceDueKpi = 'Maintenance Due';
+  static const String totalMaintenanceCost = 'Total Maintenance Cost';
+  static const String totalDowntimeHours = 'Total Downtime';
   static const String deleteEquipmentTitle = 'Delete equipment?';
   static const String deleteEquipmentMessage =
       'This will permanently delete the equipment and all maintenance logs.';

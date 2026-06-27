@@ -304,28 +304,26 @@ class _KpiGrid extends StatelessWidget {
           RoutePaths.deliveriesList(filter: DeliveryListFilter.active),
         ),
       ),
-      _KpiItem(
-        label: AppStrings.maintenanceDueKpi,
-        value: kpis.maintenanceOverdueCount > 0
-            ? '${kpis.maintenanceOverdueCount}'
-            : '${kpis.maintenanceDueSoonCount}',
-        subtitle: kpis.maintenanceOverdueCount > 0
-            ? AppStrings.maintenanceOverdue
-            : kpis.maintenanceDueSoonCount > 0
-                ? AppStrings.maintenanceDueSoon
-                : null,
-        icon: Icons.build_circle_outlined,
-        color: kpis.maintenanceOverdueCount > 0
-            ? AppColors.overdue
-            : kpis.maintenanceDueSoonCount > 0
-                ? AppColors.warning
-                : AppColors.accent,
-        onTap: () => context.go(
-          RoutePaths.equipmentList(
-            filter: EquipmentListFilter.maintenanceDue,
+      if (kpis.maintenanceOverdueCount > 0 ||
+          kpis.maintenanceDueSoonCount > 0)
+        _KpiItem(
+          label: AppStrings.maintenanceDueKpi,
+          value: kpis.maintenanceOverdueCount > 0
+              ? '${kpis.maintenanceOverdueCount}'
+              : '${kpis.maintenanceDueSoonCount}',
+          subtitle: kpis.maintenanceOverdueCount > 0
+              ? AppStrings.maintenanceOverdue
+              : AppStrings.maintenanceDueSoon,
+          icon: Icons.build_circle_outlined,
+          color: kpis.maintenanceOverdueCount > 0
+              ? AppColors.overdue
+              : AppColors.warning,
+          onTap: () => context.go(
+            RoutePaths.equipmentList(
+              filter: EquipmentListFilter.maintenanceDue,
+            ),
           ),
         ),
-      ),
       _KpiItem(
         label: AppStrings.presentLabourToday,
         value: kpis.activeLabourCount > 0
