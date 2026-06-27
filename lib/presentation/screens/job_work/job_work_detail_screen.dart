@@ -7,10 +7,12 @@ import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/job_work_enums.dart';
+import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
 import '../../widgets/job_work/job_work_status_badge.dart';
+import '../../widgets/quality/qc_reference_section.dart';
 import '../../widgets/settings_section.dart';
 
 class JobWorkDetailScreen extends StatelessWidget {
@@ -236,6 +238,23 @@ class JobWorkDetailScreen extends StatelessWidget {
                 ),
               ),
               JobWorkOutputSummary(order: order),
+              if (hasOutput)
+                QcReferenceSection(
+                  checks: state.qualityChecks,
+                  onRecordQc: () async {
+                    final saved = await context.push<bool>(
+                      RoutePaths.qualityChecksAddForReference(
+                        refType: QcReferenceType.jobWork,
+                        referenceId: order.id,
+                      ),
+                    );
+                    if (saved == true && context.mounted) {
+                      context
+                          .read<JobWorkFormBloc>()
+                          .add(JobWorkFormLoadRequested(jobWorkId));
+                    }
+                  },
+                ),
               SettingsSection(
                 title: AppStrings.pricingAgreement,
                 child: Padding(

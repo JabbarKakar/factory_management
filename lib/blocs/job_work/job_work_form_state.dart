@@ -15,6 +15,7 @@ class JobWorkFormState extends Equatable {
     this.status = JobWorkFormStatus.initial,
     this.order,
     this.eligibleCustomers = const [],
+    this.qualityChecks = const [],
     this.errorMessage,
     this.successMessage,
     this.isEditing = false,
@@ -23,6 +24,7 @@ class JobWorkFormState extends Equatable {
   final JobWorkFormStatus status;
   final JobWorkOrder? order;
   final List<Customer> eligibleCustomers;
+  final List<QualityCheck> qualityChecks;
   final String? errorMessage;
   final String? successMessage;
   final bool isEditing;
@@ -31,6 +33,7 @@ class JobWorkFormState extends Equatable {
     JobWorkFormStatus? status,
     JobWorkOrder? order,
     List<Customer>? eligibleCustomers,
+    List<QualityCheck>? qualityChecks,
     String? errorMessage,
     String? successMessage,
     bool clearMessages = false,
@@ -40,6 +43,7 @@ class JobWorkFormState extends Equatable {
       status: status ?? this.status,
       order: order ?? this.order,
       eligibleCustomers: eligibleCustomers ?? this.eligibleCustomers,
+      qualityChecks: qualityChecks ?? this.qualityChecks,
       errorMessage: clearMessages ? null : errorMessage,
       successMessage: clearMessages ? null : successMessage,
       isEditing: isEditing ?? this.isEditing,
@@ -51,6 +55,7 @@ class JobWorkFormState extends Equatable {
         status,
         order,
         eligibleCustomers,
+        qualityChecks,
         errorMessage,
         successMessage,
         isEditing,

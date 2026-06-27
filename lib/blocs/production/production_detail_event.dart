@@ -33,3 +33,12 @@ class _ProductionDetailStreamFailed extends ProductionDetailEvent {
   @override
   List<Object?> get props => [message];
 }
+
+class _ProductionDetailQcUpdated extends ProductionDetailEvent {
+  const _ProductionDetailQcUpdated(this.checks);
+
+  final List<QualityCheck> checks;
+
+  @override
+  List<Object?> get props => [checks];
+}

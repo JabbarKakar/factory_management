@@ -1,20 +1,28 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/marble_data.dart';
 import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/quality_check_repository.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/quality_check.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
+import '../../domain/enums/quality_enums.dart';
 
 part 'job_work_form_event.dart';
 part 'job_work_form_state.dart';
 
 class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
-  JobWorkFormBloc({required JobWorkRepository repository})
-      : _repository = repository,
+  JobWorkFormBloc({
+    required JobWorkRepository repository,
+    required QualityCheckRepository qualityCheckRepository,
+  })  : _repository = repository,
+        _qualityCheckRepository = qualityCheckRepository,
         super(const JobWorkFormState()) {
     on<JobWorkFormInitialized>(_onInitialized);
     on<JobWorkFormLoadRequested>(_onLoadRequested);
@@ -22,14 +30,19 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     on<JobWorkFormCancelRequested>(_onCancelRequested);
     on<JobWorkFormStatusAdvanceRequested>(_onStatusAdvanceRequested);
     on<JobWorkFormCompletionRequested>(_onCompletionRequested);
+    on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
   }
 
   final JobWorkRepository _repository;
+  final QualityCheckRepository _qualityCheckRepository;
+  StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
 
   Future<void> _onInitialized(
     JobWorkFormInitialized event,
     Emitter<JobWorkFormState> emit,
   ) async {
+    await _qualityChecksSubscription?.cancel();
+    _qualityChecksSubscription = null;
     emit(state.copyWith(status: JobWorkFormStatus.loading));
     try {
       final customers =
@@ -56,7 +69,16 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     JobWorkFormLoadRequested event,
     Emitter<JobWorkFormState> emit,
   ) async {
-    emit(state.copyWith(status: JobWorkFormStatus.loading, isEditing: true, clearMessages: true));
+    await _qualityChecksSubscription?.cancel();
+    _qualityChecksSubscription = null;
+    emit(
+      state.copyWith(
+        status: JobWorkFormStatus.loading,
+        isEditing: true,
+        clearMessages: true,
+        qualityChecks: const [],
+      ),
+    );
     try {
       final order = await _repository.getJobWorkOrder(event.jobWorkId);
       if (order == null) {
@@ -83,6 +105,15 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
           isEditing: true,
         ),
       );
+
+      _qualityChecksSubscription = _qualityCheckRepository
+          .watchQualityChecksForReference(
+            referenceType: QcReferenceType.jobWork,
+            referenceId: event.jobWorkId,
+          )
+          .listen(
+            (checks) => add(_JobWorkQualityChecksUpdated(checks)),
+          );
     } catch (_) {
       emit(
         state.copyWith(
@@ -91,6 +122,13 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         ),
       );
     }
+  }
+
+  void _onQualityChecksUpdated(
+    _JobWorkQualityChecksUpdated event,
+    Emitter<JobWorkFormState> emit,
+  ) {
+    emit(state.copyWith(qualityChecks: event.checks));
   }
 
   Future<void> _onSubmitted(
@@ -246,4 +284,19 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
       createdAt: DateTime.now(),
     );
   }
+
+  @override
+  Future<void> close() {
+    _qualityChecksSubscription?.cancel();
+    return super.close();
+  }
+}
+
+final class _JobWorkQualityChecksUpdated extends JobWorkFormEvent {
+  const _JobWorkQualityChecksUpdated(this.checks);
+
+  final List<QualityCheck> checks;
+
+  @override
+  List<Object?> get props => [checks];
 }

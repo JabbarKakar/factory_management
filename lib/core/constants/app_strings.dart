@@ -699,4 +699,41 @@ abstract final class AppStrings {
   static const String deleteEquipmentTitle = 'Delete equipment?';
   static const String deleteEquipmentMessage =
       'This will permanently delete the equipment and all maintenance logs.';
+
+  // Quality Control (Sprint 19)
+  static const String qualityControl = 'Quality Control';
+  static const String qualityControlSubtitle =
+      'Inspect production batches and job work output';
+  static const String qualityInspections = 'Quality Inspections';
+  static const String recordQcInspection = 'Record QC Inspection';
+  static const String saveQcInspection = 'Save QC Inspection';
+  static const String qcInspectionDetails = 'QC Inspection Details';
+  static const String qcSaved = 'Quality inspection saved';
+  static const String qcLoadError = 'Could not load quality inspections';
+  static const String qcNotFound = 'Quality inspection not found';
+  static const String qcReference = 'Inspection Reference';
+  static const String qcReferenceType = 'Reference Type';
+  static const String productionBatchLabel = 'Production Batch';
+  static const String jobWorkOrderLabel = 'Job Work Order';
+  static const String noQcEligibleProduction =
+      'No production batches with output are available for inspection.';
+  static const String noQcEligibleJobWork =
+      'No job work orders with recorded output are available for inspection.';
+  static const String noQualityChecksForReference =
+      'No quality inspections recorded yet for this reference.';
+  static const String inspectorName = 'Inspector Name';
+  static const String inspectionDate = 'Inspection Date';
+  static const String quantityInspected = 'Quantity Inspected (sq. ft)';
+  static const String defectsFound = 'Defects Found';
+  static const String qcDisposition = 'Disposition';
+  static const String passRate = 'pass rate';
+  static const String searchQualityChecks = 'Search quality inspections';
+  static const String noQualityChecksYet = 'No quality inspections yet';
+  static const String noQualityChecksFound =
+      'No quality inspections match your search';
+  static const String noQualityChecksHint =
+      'Record QC inspections for production batches or job work output';
+  static const String qcThisMonth = 'This Month';
+  static const String qcInspectionsThisMonth = 'inspections';
+  static const String avgPassRate = 'avg pass rate';
 }

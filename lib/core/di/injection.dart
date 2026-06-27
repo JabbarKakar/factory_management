@@ -30,6 +30,9 @@ import '../../blocs/pl/pl_report_bloc.dart';
 import '../../blocs/production/production_detail_bloc.dart';
 import '../../blocs/production/production_form_bloc.dart';
 import '../../blocs/production/production_list_bloc.dart';
+import '../../blocs/quality/qc_detail_bloc.dart';
+import '../../blocs/quality/qc_form_bloc.dart';
+import '../../blocs/quality/qc_list_bloc.dart';
 import '../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
@@ -52,6 +55,7 @@ import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/production_repository.dart';
+import '../../data/repositories/quality_check_repository.dart';
 import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
@@ -119,6 +123,12 @@ void setupDependencies() {
     ),
   );
   getIt.registerLazySingleton<EquipmentRepository>(EquipmentRepository.new);
+  getIt.registerLazySingleton<QualityCheckRepository>(
+    () => QualityCheckRepository(
+      productionRepository: getIt<ProductionRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+    ),
+  );
   getIt.registerLazySingleton<RawMaterialStockService>(
     RawMaterialStockService.new,
   );
@@ -187,7 +197,10 @@ void setupDependencies() {
     () => JobWorkListBloc(repository: getIt<JobWorkRepository>()),
   );
   getIt.registerFactory<JobWorkFormBloc>(
-    () => JobWorkFormBloc(repository: getIt<JobWorkRepository>()),
+    () => JobWorkFormBloc(
+      repository: getIt<JobWorkRepository>(),
+      qualityCheckRepository: getIt<QualityCheckRepository>(),
+    ),
   );
   getIt.registerFactory<JobWorkOutputBloc>(
     () => JobWorkOutputBloc(repository: getIt<JobWorkRepository>()),
@@ -252,7 +265,10 @@ void setupDependencies() {
     () => ProductionFormBloc(repository: getIt<ProductionRepository>()),
   );
   getIt.registerFactory<ProductionDetailBloc>(
-    () => ProductionDetailBloc(repository: getIt<ProductionRepository>()),
+    () => ProductionDetailBloc(
+      repository: getIt<ProductionRepository>(),
+      qualityCheckRepository: getIt<QualityCheckRepository>(),
+    ),
   );
   getIt.registerFactory<FinishedGoodsListBloc>(
     () => FinishedGoodsListBloc(repository: getIt<FinishedGoodsRepository>()),
@@ -307,5 +323,14 @@ void setupDependencies() {
   );
   getIt.registerFactory<MaintenanceFormBloc>(
     () => MaintenanceFormBloc(repository: getIt<EquipmentRepository>()),
+  );
+  getIt.registerFactory<QcListBloc>(
+    () => QcListBloc(repository: getIt<QualityCheckRepository>()),
+  );
+  getIt.registerFactory<QcFormBloc>(
+    () => QcFormBloc(repository: getIt<QualityCheckRepository>()),
+  );
+  getIt.registerFactory<QcDetailBloc>(
+    () => QcDetailBloc(repository: getIt<QualityCheckRepository>()),
   );
 }

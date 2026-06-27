@@ -3,6 +3,7 @@ import '../../domain/enums/equipment_enums.dart';
 import '../../domain/enums/inventory_enums.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../../domain/enums/production_enums.dart';
+import '../../domain/enums/quality_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
 
 abstract final class RoutePaths {
@@ -180,6 +181,24 @@ abstract final class RoutePaths {
       return equipment;
     }
     return '$equipment?filter=${filter.name}';
+  }
+
+  static const String qualityChecks = '/quality-checks';
+  static const String qualityChecksAdd = '/quality-checks/add';
+
+  static String qualityCheckDetail(String id) => '/quality-checks/$id';
+
+  static String qualityChecksAddForReference({
+    required QcReferenceType refType,
+    required String referenceId,
+  }) =>
+      '$qualityChecksAdd?refType=${refType.name}&referenceId=$referenceId';
+
+  static String qualityChecksList({QcListFilter? filter}) {
+    if (filter == null || filter == QcListFilter.all) {
+      return qualityChecks;
+    }
+    return '$qualityChecks?filter=${filter.name}';
   }
 
   static String notificationsWithFilter(NotificationFilter filter) =>

@@ -24,6 +24,9 @@ import '../../blocs/equipment/equipment_detail_bloc.dart';
 import '../../blocs/equipment/equipment_form_bloc.dart';
 import '../../blocs/equipment/equipment_list_bloc.dart';
 import '../../blocs/equipment/maintenance_form_bloc.dart';
+import '../../blocs/quality/qc_detail_bloc.dart';
+import '../../blocs/quality/qc_form_bloc.dart';
+import '../../blocs/quality/qc_list_bloc.dart';
 import '../../blocs/labour/daily_attendance_bloc.dart';
 import '../../blocs/labour/employee_detail_bloc.dart';
 import '../../blocs/labour/employee_form_bloc.dart';
@@ -42,6 +45,7 @@ import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
 import '../../domain/enums/delivery_enums.dart';
 import '../../domain/enums/equipment_enums.dart';
+import '../../domain/enums/quality_enums.dart';
 import '../../domain/enums/inventory_enums.dart';
 import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
@@ -84,6 +88,9 @@ import '../screens/equipment/add_edit_equipment_screen.dart';
 import '../screens/equipment/equipment_detail_screen.dart';
 import '../screens/equipment/equipment_screen.dart';
 import '../screens/equipment/record_maintenance_screen.dart';
+import '../screens/quality/qc_detail_screen.dart';
+import '../screens/quality/quality_checks_screen.dart';
+import '../screens/quality/record_qc_screen.dart';
 import '../screens/labour/add_edit_employee_screen.dart';
 import '../screens/labour/daily_attendance_screen.dart';
 import '../screens/labour/employee_detail_screen.dart';
@@ -903,6 +910,82 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                 },
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: RoutePaths.qualityChecks,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final filterName = state.uri.queryParameters['filter'];
+          final initialFilter = filterName == null
+              ? null
+              : QcListFilter.fromQuery(filterName);
+
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<QcListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(
+                  QcListWatchStarted(
+                    factoryId,
+                    initialFilter: initialFilter,
+                  ),
+                );
+              }
+              return bloc;
+            },
+            child: QualityChecksScreen(initialFilter: initialFilter),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'add',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final refTypeName = state.uri.queryParameters['refType'];
+              final referenceId = state.uri.queryParameters['referenceId'];
+              final referenceType = refTypeName == null
+                  ? null
+                  : QcReferenceType.fromString(refTypeName);
+
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<QcFormBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(
+                      QcFormInitialized(
+                        factoryId: factoryId,
+                        referenceType: referenceType,
+                        referenceId: referenceId,
+                      ),
+                    );
+                  }
+                  return bloc;
+                },
+                child: RecordQcScreen(
+                  referenceType: referenceType,
+                  referenceId: referenceId,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: ':qcId',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final qcId = state.pathParameters['qcId']!;
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<QcDetailBloc>();
+                  bloc.add(QcDetailWatchStarted(qcId));
+                  return bloc;
+                },
+                child: QcDetailScreen(qcId: qcId),
+              );
+            },
           ),
         ],
       ),

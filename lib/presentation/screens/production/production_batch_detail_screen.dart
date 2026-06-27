@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/production/production_detail_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/enums/quality_enums.dart';
+import '../../routes/route_paths.dart';
+import '../../widgets/quality/qc_reference_section.dart';
 import '../../widgets/settings_section.dart';
 
 class ProductionBatchDetailScreen extends StatelessWidget {
@@ -160,6 +164,16 @@ class ProductionBatchDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (batch.totalOutputSqFt > 0)
+                QcReferenceSection(
+                  checks: state.qualityChecks,
+                  onRecordQc: () => context.push(
+                    RoutePaths.qualityChecksAddForReference(
+                      refType: QcReferenceType.production,
+                      referenceId: batch.id,
+                    ),
+                  ),
+                ),
               if (batch.supervisorName != null || batch.notes != null)
                 SettingsSection(
                   title: AppStrings.optionalDetails,
