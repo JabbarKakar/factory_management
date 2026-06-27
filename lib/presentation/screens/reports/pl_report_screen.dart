@@ -51,18 +51,20 @@ class PlReportScreen extends StatelessWidget {
                     '${report.year}_${report.month.toString().padLeft(2, '0')}';
 
                 return ExportMenuButton(
-                  onExportPdf: () async {
+                  onExportPdf: (origin) async {
                     final doc = await pdfExporter.build(report: report);
                     await ExportActions.sharePdf(
                       document: doc,
                       filename: 'pl_report_$monthKey.pdf',
+                      sharePositionOrigin: origin,
                     );
                   },
-                  onExportExcel: () async {
+                  onExportExcel: (origin) async {
                     final bytes = excelExporter.build(report);
                     await ExportActions.shareExcel(
                       bytes: bytes,
                       filename: 'pl_report_$monthKey.xlsx',
+                      sharePositionOrigin: origin,
                     );
                   },
                   onPrint: () async {

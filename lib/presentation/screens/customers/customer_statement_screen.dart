@@ -123,18 +123,20 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
         actions: [
           if (canExport && statement != null)
             ExportMenuButton(
-              onExportPdf: () async {
+              onExportPdf: (origin) async {
                 final doc = await _pdfExporter.build(statement: statement);
                 await ExportActions.sharePdf(
                   document: doc,
                   filename: '${_filename(statement)}.pdf',
+                  sharePositionOrigin: origin,
                 );
               },
-              onExportExcel: () async {
+              onExportExcel: (origin) async {
                 final bytes = _excelExporter.build(statement);
                 await ExportActions.shareExcel(
                   bytes: bytes,
                   filename: '${_filename(statement)}.xlsx',
+                  sharePositionOrigin: origin,
                 );
               },
               onPrint: () async {

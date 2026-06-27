@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_strings.dart';
 import '../utils/export_actions.dart';
 
-enum ExportFormat { pdf, excel }
-
 class ExportMenuButton extends StatelessWidget {
   const ExportMenuButton({
     required this.onExportPdf,
@@ -13,9 +11,15 @@ class ExportMenuButton extends StatelessWidget {
     super.key,
   });
 
-  final Future<void> Function() onExportPdf;
-  final Future<void> Function()? onExportExcel;
+  final Future<void> Function(Rect? shareOrigin) onExportPdf;
+  final Future<void> Function(Rect? shareOrigin)? onExportExcel;
   final Future<void> Function()? onPrint;
+
+  Rect? _shareOrigin(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,18 +27,19 @@ class ExportMenuButton extends StatelessWidget {
       icon: const Icon(Icons.ios_share_outlined),
       tooltip: AppStrings.export,
       onSelected: (value) async {
+        final origin = _shareOrigin(context);
         try {
           switch (value) {
             case 'pdf':
-              await onExportPdf();
+              await onExportPdf(origin);
             case 'excel':
-              await onExportExcel?.call();
+              await onExportExcel?.call(origin);
             case 'print':
               await onPrint?.call();
           }
-        } catch (_) {
+        } catch (error) {
           if (context.mounted) {
-            ExportActions.showExportError(context);
+            ExportActions.showExportError(context, error);
           }
         }
       },

@@ -8,15 +8,15 @@ import '../../../domain/entities/customer_statement.dart';
 class CustomerStatementExcelExporter {
   List<int> build(CustomerStatement statement) {
     final excel = Excel.createExcel();
-    final defaultSheet = excel.getDefaultSheet();
-    if (defaultSheet != null) {
-      excel.delete(defaultSheet);
+    final sheetName = excel.getDefaultSheet();
+    if (sheetName == null) {
+      throw StateError('Excel workbook has no default sheet');
     }
-    final sheet = excel['Statement'];
+    final sheet = excel[sheetName];
 
     final dateFormat = DateFormat.yMMMd();
     final rangeLabel =
-        '${dateFormat.format(statement.fromDate)} – ${dateFormat.format(statement.toDate)}';
+        '${dateFormat.format(statement.fromDate)} - ${dateFormat.format(statement.toDate)}';
 
     void setCell(int row, int col, String value, {bool bold = false}) {
       final cell = sheet.cell(
@@ -30,7 +30,7 @@ class CustomerStatementExcelExporter {
 
     var row = 0;
     setCell(row++, 0, AppStrings.customerStatement, bold: true);
-    setCell(row++, 0, statement.customer.name, bold: true);
+    setCell(row++, 0, Formatters.textForExport(statement.customer.name), bold: true);
     setCell(row++, 0, rangeLabel);
     row++;
 
@@ -46,29 +46,32 @@ class CustomerStatementExcelExporter {
     }
     row++;
 
-    setCell(row, 0, '—');
+    setCell(row, 0, Formatters.exportEmpty);
     setCell(row, 1, AppStrings.openingBalance);
-    setCell(row, 3, Formatters.currencyPkr(statement.openingBalance));
+    setCell(row, 3, Formatters.currencyForExport(statement.openingBalance));
     row++;
 
     for (final line in statement.lines) {
       setCell(row, 0, dateFormat.format(line.date));
-      setCell(row, 1, line.description);
-      setCell(row, 2, line.reference);
+      setCell(row, 1, Formatters.textForExport(line.description));
+      setCell(row, 2, Formatters.textForExport(line.reference));
       if (line.debit > 0) {
-        setCell(row, 3, Formatters.currencyPkr(line.debit));
+        setCell(row, 3, Formatters.currencyForExport(line.debit));
       }
       if (line.credit > 0) {
-        setCell(row, 4, Formatters.currencyPkr(line.credit));
+        setCell(row, 4, Formatters.currencyForExport(line.credit));
       }
       row++;
     }
 
-    setCell(row, 0, '—');
+    setCell(row, 0, Formatters.exportEmpty);
     setCell(row, 1, AppStrings.closingBalance, bold: true);
-    setCell(row, 3, Formatters.currencyPkr(statement.closingBalance), bold: true);
+    setCell(row, 3, Formatters.currencyForExport(statement.closingBalance), bold: true);
 
     final encoded = excel.encode();
-    return encoded ?? [];
+    if (encoded == null || encoded.isEmpty) {
+      throw StateError('Excel encode failed');
+    }
+    return encoded;
   }
 }

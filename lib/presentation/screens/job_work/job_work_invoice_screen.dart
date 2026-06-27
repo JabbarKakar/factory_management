@@ -97,7 +97,7 @@ class JobWorkInvoiceScreen extends StatelessWidget {
             actions: [
               if (context.userCanExport(AppModule.jobWork))
                 ExportMenuButton(
-                  onExportPdf: () async {
+                  onExportPdf: (origin) async {
                     final exporter = getIt<InvoicePdfExporter>();
                     final doc = await exporter.buildJobWorkInvoicePdf(
                       invoice: invoice,
@@ -106,6 +106,7 @@ class JobWorkInvoiceScreen extends StatelessWidget {
                     await ExportActions.sharePdf(
                       document: doc,
                       filename: '${invoice.invoiceNumber}.pdf',
+                      sharePositionOrigin: origin,
                     );
                   },
                   onPrint: () async {
