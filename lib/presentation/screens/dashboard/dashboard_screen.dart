@@ -153,34 +153,42 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   if (user.canView(AppModule.production) ||
                       user.canView(AppModule.jobWork))
-                    DashboardProductionChartCard(
-                      points: state.analytics.productionLast7Days,
-                      monthlyOwnProductionSqFt:
-                          state.kpis.productionThisMonthSqFt,
+                    RepaintBoundary(
+                      child: DashboardProductionChartCard(
+                        points: state.analytics.productionLast7Days,
+                        monthlyOwnProductionSqFt:
+                            state.kpis.productionThisMonthSqFt,
+                      ),
                     ),
                   if (user.canView(AppModule.production) ||
                       user.canView(AppModule.jobWork))
                     const SizedBox(height: 12),
                   if (user.canView(AppModule.sales) ||
                       user.canView(AppModule.jobWork))
-                    DashboardRevenueChartCard(
-                      points: state.analytics.revenueLast30Days,
+                    RepaintBoundary(
+                      child: DashboardRevenueChartCard(
+                        points: state.analytics.revenueLast30Days,
+                      ),
                     ),
                   if (user.canView(AppModule.sales) ||
                       user.canView(AppModule.jobWork))
                     const SizedBox(height: 12),
                   if (user.canView(AppModule.sales) ||
                       user.canView(AppModule.jobWork))
-                    DashboardRevenueBreakdownCard(
-                      slices: state.analytics.revenueBreakdownThisMonth,
+                    RepaintBoundary(
+                      child: DashboardRevenueBreakdownCard(
+                        slices: state.analytics.revenueBreakdownThisMonth,
+                      ),
                     ),
                   if (user.canView(AppModule.sales) ||
                       user.canView(AppModule.jobWork))
                     const SizedBox(height: 12),
                   if (user.canView(AppModule.sales) ||
                       user.canView(AppModule.jobWork))
-                    DashboardRecentActivityCard(
-                      items: state.analytics.recentActivity,
+                    RepaintBoundary(
+                      child: DashboardRecentActivityCard(
+                        items: state.analytics.recentActivity,
+                      ),
                     ),
                 ],
                 const SizedBox(height: 16),

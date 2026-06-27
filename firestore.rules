@@ -145,6 +145,12 @@ service cloud.firestore {
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
+    match /paymentReminders/{reminderId} {
+      allow read: if canReadFactoryDoc() && canReadFinancial();
+      allow create: if canWriteFactoryDoc() && canReadFinancial();
+      allow update, delete: if isOwner() && sameFactoryExisting();
+    }
+
     match /notifications/{notifId} {
       allow read: if canReadFactoryDoc();
       allow create, update: if canWriteFactoryDoc();

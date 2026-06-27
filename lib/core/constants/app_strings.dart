@@ -257,6 +257,19 @@ abstract final class AppStrings {
   static const String scanNotificationsHint =
       'Scans payments, stock, finished goods, equipment, deliveries, and job work';
 
+  // Payment reminders / WhatsApp (Sprint 24)
+  static const String sendPaymentReminder = 'Send WhatsApp Reminder';
+  static const String paymentReminderSent = 'WhatsApp reminder opened';
+  static const String paymentReminderFailed = 'Could not send WhatsApp reminder';
+  static const String paymentOverdueSince = 'Overdue since';
+  static const String dearCustomer = 'Dear';
+  static const String paymentReminderBody =
+      'This is a friendly payment reminder for your outstanding invoice.';
+  static const String paymentReminderOverdueBody =
+      'This is a payment reminder for your overdue invoice.';
+  static const String paymentReminderClosing =
+      'Please arrange payment at your earliest convenience. Thank you.';
+
   // Dashboard (Sprint 7)
   static const String revenueToday = 'Revenue Today';
   static const String activeJobWork = 'Active Job Work';

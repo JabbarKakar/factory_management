@@ -11,11 +11,13 @@ import '../../../core/di/injection.dart';
 import '../../../data/services/export/invoice_excel_exporter.dart';
 import '../../../data/services/export/invoice_pdf_exporter.dart';
 import '../../../domain/enums/app_module_enums.dart';
+import '../../../domain/enums/invoice_enums.dart';
 import '../../utils/export_actions.dart';
 import '../../utils/export_factory_name.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/export_menu_button.dart';
 import '../../widgets/job_work/invoice_status_badge.dart';
+import '../../widgets/send_payment_reminder_button.dart';
 import '../../widgets/settings_section.dart';
 
 class JobWorkInvoiceScreen extends StatelessWidget {
@@ -139,6 +141,17 @@ class JobWorkInvoiceScreen extends StatelessWidget {
                       filename: '${invoice.invoiceNumber}.pdf',
                     );
                   },
+                ),
+              if (invoice.dueAmount > 0)
+                SendPaymentReminderButton(
+                  customerId: invoice.customerId,
+                  customerName: invoice.customerName,
+                  invoiceId: invoice.id,
+                  invoiceNumber: invoice.invoiceNumber,
+                  invoiceType: InvoiceType.jobWork,
+                  amountDue: invoice.dueAmount,
+                  dueDate: invoice.dueDate,
+                  isOverdue: invoice.status == InvoiceStatus.overdue,
                 ),
               if (invoice.dueAmount > 0)
                 IconButton(

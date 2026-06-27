@@ -1,6 +1,24 @@
-# factory_management
+# MFMS — Marble Factory Management System
 
-A new Flutter project.
+Flutter app for marble factory operations: job work, sales, inventory, labour, delivery, reports, and exports.
+
+## Release APK (factory devices)
+
+From the project root:
+
+```powershell
+.\scripts\build_release_apk.ps1
+```
+
+Or manually:
+
+```bash
+flutter build apk --release
+```
+
+Output: `build/app/outputs/flutter-apk/app-release.apk`
+
+> Release builds currently use the debug signing key so you can install immediately. Replace `signingConfig` in `android/app/build.gradle.kts` before Play Store upload.
 
 ## Getting Started
 

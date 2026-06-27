@@ -134,6 +134,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<QualityCheck> _qualityChecks = const [];
   List<ProductionBatch> _productionBatches = const [];
 
+  Timer? _recomputeDebounce;
+
   Future<void> _onWatchStarted(
     DashboardWatchStarted event,
     Emitter<DashboardState> emit,
@@ -316,6 +318,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _DashboardDataUpdated event,
     Emitter<DashboardState> emit,
   ) {
+    _recomputeDebounce?.cancel();
+    _recomputeDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (isClosed) return;
+      _recomputeAndEmit(emit);
+    });
+  }
+
+  void _recomputeAndEmit(Emitter<DashboardState> emit) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -550,6 +560,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   @override
   Future<void> close() {
+    _recomputeDebounce?.cancel();
     _cancelSubscriptions();
     return super.close();
   }

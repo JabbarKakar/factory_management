@@ -55,6 +55,7 @@ import '../../data/repositories/finished_goods_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
+import '../../data/repositories/payment_reminder_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/production_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
@@ -84,6 +85,9 @@ import '../../data/services/notification_engine_service.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
 import '../../data/services/dashboard_analytics_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
+import '../../data/services/payment_reminder_message_service.dart';
+import '../../data/services/payment_reminder_service.dart';
+import '../../data/services/whatsapp_launch_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -136,6 +140,22 @@ void setupDependencies() {
     () => NotificationEngineService(
       paymentDueScannerService: getIt<PaymentDueScannerService>(),
       operationalAlertScannerService: getIt<OperationalAlertScannerService>(),
+    ),
+  );
+  getIt.registerLazySingleton<PaymentReminderRepository>(
+    PaymentReminderRepository.new,
+  );
+  getIt.registerLazySingleton<PaymentReminderMessageService>(
+    PaymentReminderMessageService.new,
+  );
+  getIt.registerLazySingleton<WhatsAppLaunchService>(WhatsAppLaunchService.new);
+  getIt.registerLazySingleton<PaymentReminderService>(
+    () => PaymentReminderService(
+      customerRepository: getIt<CustomerRepository>(),
+      reminderRepository: getIt<PaymentReminderRepository>(),
+      messageService: getIt<PaymentReminderMessageService>(),
+      whatsAppLaunchService: getIt<WhatsAppLaunchService>(),
+      factoryDisplayService: getIt<FactoryDisplayService>(),
     ),
   );
   getIt.registerLazySingleton<PaymentRepository>(

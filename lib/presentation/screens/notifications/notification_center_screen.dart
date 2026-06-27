@@ -8,8 +8,10 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../domain/entities/app_notification.dart';
+import '../../../domain/enums/invoice_enums.dart';
 import '../../../domain/enums/notification_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/payment_reminder_actions.dart';
 
 class NotificationCenterScreen extends StatefulWidget {
   const NotificationCenterScreen({
@@ -156,6 +158,11 @@ class _NotificationCenterView extends StatelessWidget {
                 onDismissed: () => context.read<NotificationBloc>().add(
                       NotificationMarkReadRequested(notification.id),
                     ),
+                onSendReminder: notification.type.isPaymentType &&
+                        notification.invoiceId != null &&
+                        notification.customerId != null
+                    ? () => _sendPaymentReminder(context, notification)
+                    : null,
               ),
           ],
         ],
@@ -211,6 +218,49 @@ class _NotificationCenterView extends StatelessWidget {
     }
   }
 
+  Future<void> _sendPaymentReminder(
+    BuildContext context,
+    AppNotification notification,
+  ) async {
+    final invoiceId = notification.invoiceId;
+    final customerId = notification.customerId;
+    if (invoiceId == null || customerId == null) return;
+
+    final invoiceType = notification.invoiceType ??
+        (notification.isSalesInvoice
+            ? InvoiceType.sales
+            : InvoiceType.jobWork);
+    final amountDue = notification.amountDue ?? 0;
+    if (amountDue <= 0) return;
+
+    try {
+      await PaymentReminderActions.sendWhatsApp(
+        context: context,
+        customerId: customerId,
+        customerName: _customerNameFromTitle(notification.title),
+        invoiceId: invoiceId,
+        invoiceNumber: notification.invoiceNumber ?? invoiceId,
+        invoiceType: invoiceType,
+        amountDue: amountDue,
+        dueDate: notification.dueDate,
+        isOverdue: notification.type == NotificationType.paymentOverdue,
+      );
+    } catch (error) {
+      if (context.mounted) {
+        PaymentReminderActions.showError(context, error);
+      }
+    }
+  }
+
+  String _customerNameFromTitle(String title) {
+    final parts = title.split('—');
+    if (parts.length >= 2) {
+      final name = parts.last.trim();
+      if (name.isNotEmpty) return name;
+    }
+    return title;
+  }
+
   List<MapEntry<String, List<AppNotification>>> _groupNotifications(
     List<AppNotification> notifications,
   ) {
@@ -244,12 +294,14 @@ class _NotificationTile extends StatelessWidget {
     required this.userId,
     required this.onTap,
     required this.onDismissed,
+    this.onSendReminder,
   });
 
   final AppNotification notification;
   final String? userId;
   final VoidCallback onTap;
   final VoidCallback onDismissed;
+  final VoidCallback? onSendReminder;
 
   @override
   Widget build(BuildContext context) {
@@ -292,16 +344,26 @@ class _NotificationTile extends StatelessWidget {
           ],
         ),
         isThreeLine: true,
-        trailing: isUnread
-            ? Container(
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onSendReminder != null)
+              IconButton(
+                onPressed: onSendReminder,
+                icon: const Icon(Icons.chat_outlined),
+                tooltip: AppStrings.sendPaymentReminder,
+              ),
+            if (isUnread)
+              Container(
                 width: 8,
                 height: 8,
                 decoration: BoxDecoration(
                   color: accent,
                   shape: BoxShape.circle,
                 ),
-              )
-            : null,
+              ),
+          ],
+        ),
       ),
     );
   }
