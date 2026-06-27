@@ -1,14 +1,8 @@
+import '../../domain/enums/factory_role_enums.dart';
+
 abstract final class Formatters {
   static String roleLabel(String role) {
-    if (role.isEmpty) return 'User';
-    return role
-        .split(RegExp(r'[_\s-]+'))
-        .where((part) => part.isNotEmpty)
-        .map(
-          (part) =>
-              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
-        )
-        .join(' ');
+    return FactoryRole.fromString(role).label;
   }
 
   static String userInitials(String name) {

@@ -38,6 +38,7 @@ import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
 import '../../blocs/supplier/supplier_form_bloc.dart';
 import '../../blocs/supplier/supplier_list_bloc.dart';
+import '../../blocs/team/team_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
@@ -60,6 +61,7 @@ import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/repositories/supplier_repository.dart';
+import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/theme_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
 import '../../data/services/finished_goods_stock_service.dart';
@@ -89,6 +91,7 @@ void setupDependencies() {
       salesOrderRepository: getIt<SalesOrderRepository>(),
     ),
   );
+  getIt.registerLazySingleton<UserRepository>(UserRepository.new);
   getIt.registerLazySingleton<NotificationRepository>(NotificationRepository.new);
   getIt.registerLazySingleton<CustomerLedgerService>(
     () => CustomerLedgerService(
@@ -186,6 +189,9 @@ void setupDependencies() {
       repository: getIt<NotificationRepository>(),
       engineService: getIt<NotificationEngineService>(),
     ),
+  );
+  getIt.registerFactory<TeamBloc>(
+    () => TeamBloc(repository: getIt<UserRepository>()),
   );
   getIt.registerFactory<CustomerListBloc>(
     () => CustomerListBloc(repository: getIt<CustomerRepository>()),

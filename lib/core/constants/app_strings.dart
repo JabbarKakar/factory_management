@@ -298,6 +298,16 @@ abstract final class AppStrings {
   static const String recentActivitySubtitle = 'Latest payments received';
   static const String recentActivityEmpty = 'No payments recorded yet.';
   static const String revenueSplitToday = 'Sales + job work split';
+  static const String accessDeniedTitle = 'Access Denied';
+  static const String accessDeniedMessage =
+      'Your role does not have permission to open this screen.';
+  static const String backToDashboard = 'Go to Home';
+  static const String teamManagement = 'Team & Roles';
+  static const String teamManagementSubtitle =
+      'Assign factory roles to signed-in users';
+  static const String teamLoadError = 'Could not load team members.';
+  static const String teamEmpty = 'No users found for this factory.';
+  static const String role = 'Role';
 
   // Sales (Sprint 8)
   static const String newSalesOrder = 'New Sales Order';

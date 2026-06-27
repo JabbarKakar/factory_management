@@ -37,6 +37,7 @@ import '../../blocs/production/production_list_bloc.dart';
 import '../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
+import '../../blocs/team/team_bloc.dart';
 import '../../blocs/supplier/supplier_form_bloc.dart';
 import '../../blocs/supplier/supplier_list_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
@@ -101,12 +102,15 @@ import '../screens/production/production_batches_screen.dart';
 import '../screens/suppliers/add_edit_supplier_screen.dart';
 import '../screens/suppliers/supplier_detail_screen.dart';
 import '../screens/suppliers/suppliers_screen.dart';
+import '../screens/access_denied_screen.dart';
+import '../screens/settings/team_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/notifications/notification_center_screen.dart';
 import '../screens/shell/main_shell.dart';
 import '../utils/auth_context.dart';
 import '../../core/utils/date_keys.dart';
 import 'go_router_refresh_stream.dart';
+import 'permission_route_guard.dart';
 import 'route_paths.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -138,7 +142,18 @@ GoRouter createAppRouter(AuthBloc authBloc) {
       }
 
       if (isAuthenticated && isAuthRoute) {
-        return RoutePaths.dashboard;
+        return PermissionRouteGuard.homeLocationFor(
+          (authState as AuthAuthenticated).user,
+        );
+      }
+
+      if (isAuthenticated) {
+        final user = (authState as AuthAuthenticated).user;
+        final location = state.matchedLocation;
+        if (location != RoutePaths.accessDenied &&
+            !PermissionRouteGuard.canAccessLocation(user, location)) {
+          return RoutePaths.accessDenied;
+        }
       }
 
       return null;
@@ -155,6 +170,33 @@ GoRouter createAppRouter(AuthBloc authBloc) {
       GoRoute(
         path: RoutePaths.forgotPassword,
         builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.accessDenied,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AccessDeniedScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.team,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<TeamBloc>();
+              final authState = authBloc.state;
+              if (authState is AuthAuthenticated) {
+                bloc.add(
+                  TeamWatchStarted(
+                    factoryId: authState.user.factoryId,
+                    currentUserId: authState.user.id,
+                  ),
+                );
+              }
+              return bloc;
+            },
+            child: const TeamScreen(),
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.notifications,

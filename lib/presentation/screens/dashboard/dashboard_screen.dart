@@ -9,6 +9,9 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/dashboard_kpis.dart';
 import '../../../domain/enums/notification_enums.dart';
+import '../../../domain/entities/app_user.dart';
+import '../../../domain/enums/app_module_enums.dart';
+import '../../../domain/extensions/app_user_permissions.dart';
 import '../../../domain/enums/delivery_enums.dart';
 import '../../../domain/enums/equipment_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
@@ -29,7 +32,6 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
-    final user = authState is AuthAuthenticated ? authState.user : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -50,6 +52,8 @@ class DashboardScreen extends StatelessWidget {
           }
         },
         builder: (context, state) {
+          final user = authState is AuthAuthenticated ? authState.user : null;
+
           if (state.status == DashboardStatus.loading &&
               state.kpis == DashboardKpis.empty) {
             return const Center(child: CircularProgressIndicator());
@@ -163,74 +167,7 @@ class DashboardScreen extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.jobWorkAdd),
-                      icon: const Icon(Icons.content_cut_outlined, size: 18),
-                      label: const Text(AppStrings.newJobWorkOrder),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.salesAdd),
-                      icon: const Icon(Icons.shopping_bag_outlined, size: 18),
-                      label: const Text(AppStrings.newSalesOrder),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.expensesAdd),
-                      icon: const Icon(Icons.receipt_long_outlined, size: 18),
-                      label: const Text(AppStrings.addExpense),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.expenses),
-                      icon: const Icon(Icons.list_alt_outlined, size: 18),
-                      label: const Text(AppStrings.viewExpenses),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.plReport),
-                      icon: const Icon(Icons.assessment_outlined, size: 18),
-                      label: const Text(AppStrings.monthlyPlReport),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.productionAdd),
-                      icon: const Icon(
-                        Icons.precision_manufacturing_outlined,
-                        size: 18,
-                      ),
-                      label: const Text(AppStrings.recordProduction),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.finishedGoods),
-                      icon: const Icon(Icons.layers_outlined, size: 18),
-                      label: const Text(AppStrings.finishedGoodsInventory),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.attendance),
-                      icon: const Icon(Icons.fact_check_outlined, size: 18),
-                      label: const Text(AppStrings.markAttendance),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.deliveriesAdd),
-                      icon: const Icon(Icons.local_shipping_outlined, size: 18),
-                      label: const Text(AppStrings.scheduleDelivery),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.equipmentAdd),
-                      icon: const Icon(
-                        Icons.precision_manufacturing_outlined,
-                        size: 18,
-                      ),
-                      label: const Text(AppStrings.addEquipment),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.employeesAdd),
-                      icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                      label: const Text(AppStrings.addEmployee),
-                    ),
-                    FilledButton.tonalIcon(
-                      onPressed: () => context.push(RoutePaths.customersAdd),
-                      icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-                      label: const Text(AppStrings.addCustomer),
-                    ),
-                  ],
+                  children: _quickActions(context, user),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -248,6 +185,103 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+List<Widget> _quickActions(BuildContext context, AppUser? user) {
+  if (user == null) return const [];
+
+  final actions = <Widget>[];
+
+  void add({
+    required bool visible,
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+  }) {
+    if (!visible) return;
+    actions.add(
+      FilledButton.tonalIcon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+      ),
+    );
+  }
+
+  add(
+    visible: user.canCreate(AppModule.jobWork),
+    onPressed: () => context.push(RoutePaths.jobWorkAdd),
+    icon: Icons.content_cut_outlined,
+    label: AppStrings.newJobWorkOrder,
+  );
+  add(
+    visible: user.canCreate(AppModule.sales),
+    onPressed: () => context.push(RoutePaths.salesAdd),
+    icon: Icons.shopping_bag_outlined,
+    label: AppStrings.newSalesOrder,
+  );
+  add(
+    visible: user.canCreate(AppModule.expenses),
+    onPressed: () => context.push(RoutePaths.expensesAdd),
+    icon: Icons.receipt_long_outlined,
+    label: AppStrings.addExpense,
+  );
+  add(
+    visible: user.canView(AppModule.expenses),
+    onPressed: () => context.push(RoutePaths.expenses),
+    icon: Icons.list_alt_outlined,
+    label: AppStrings.viewExpenses,
+  );
+  add(
+    visible: user.canView(AppModule.plReport),
+    onPressed: () => context.push(RoutePaths.plReport),
+    icon: Icons.assessment_outlined,
+    label: AppStrings.monthlyPlReport,
+  );
+  add(
+    visible: user.canCreate(AppModule.production),
+    onPressed: () => context.push(RoutePaths.productionAdd),
+    icon: Icons.precision_manufacturing_outlined,
+    label: AppStrings.recordProduction,
+  );
+  add(
+    visible: user.canView(AppModule.finishedGoods),
+    onPressed: () => context.push(RoutePaths.finishedGoods),
+    icon: Icons.layers_outlined,
+    label: AppStrings.finishedGoodsInventory,
+  );
+  add(
+    visible: user.canCreate(AppModule.labour),
+    onPressed: () => context.push(RoutePaths.attendance),
+    icon: Icons.fact_check_outlined,
+    label: AppStrings.markAttendance,
+  );
+  add(
+    visible: user.canCreate(AppModule.delivery),
+    onPressed: () => context.push(RoutePaths.deliveriesAdd),
+    icon: Icons.local_shipping_outlined,
+    label: AppStrings.scheduleDelivery,
+  );
+  add(
+    visible: user.canCreate(AppModule.equipment),
+    onPressed: () => context.push(RoutePaths.equipmentAdd),
+    icon: Icons.precision_manufacturing_outlined,
+    label: AppStrings.addEquipment,
+  );
+  add(
+    visible: user.canCreate(AppModule.labour),
+    onPressed: () => context.push(RoutePaths.employeesAdd),
+    icon: Icons.person_add_alt_1_outlined,
+    label: AppStrings.addEmployee,
+  );
+  add(
+    visible: user.canCreate(AppModule.customers),
+    onPressed: () => context.push(RoutePaths.customersAdd),
+    icon: Icons.person_add_alt_1_outlined,
+    label: AppStrings.addCustomer,
+  );
+
+  return actions;
 }
 
 class _KpiGrid extends StatelessWidget {

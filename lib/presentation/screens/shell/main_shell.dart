@@ -1,54 +1,54 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/constants/app_strings.dart';
+import '../../../blocs/auth/auth_bloc.dart';
+import 'shell_navigation.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
 
-  void _onTap(int index) {
-    navigationShell.goBranch(
-      index,
-      initialLocation: index == navigationShell.currentIndex,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final authState = context.watch<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) {
+      return Scaffold(body: navigationShell);
+    }
+
+    final tabs = ShellNavigation.tabsFor(authState.user);
+    if (tabs.isEmpty) {
+      return Scaffold(body: navigationShell);
+    }
+
+    final selectedDisplayIndex = ShellNavigation.displayIndexForBranch(
+      tabs,
+      navigationShell.currentIndex,
+    );
+    final safeSelectedIndex =
+        selectedDisplayIndex >= 0 ? selectedDisplayIndex : 0;
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: _onTap,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: AppStrings.dashboard,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.content_cut_outlined),
-            selectedIcon: Icon(Icons.content_cut),
-            label: AppStrings.jobWork,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people),
-            label: AppStrings.customers,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.shopping_cart_outlined),
-            selectedIcon: Icon(Icons.shopping_cart),
-            label: AppStrings.sales,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.more_horiz),
-            selectedIcon: Icon(Icons.more_horiz),
-            label: AppStrings.more,
-          ),
-        ],
+        selectedIndex: safeSelectedIndex,
+        onDestinationSelected: (displayIndex) {
+          navigationShell.goBranch(
+            tabs[displayIndex].branchIndex,
+            initialLocation: tabs[displayIndex].branchIndex ==
+                navigationShell.currentIndex,
+          );
+        },
+        destinations: tabs
+            .map(
+              (tab) => NavigationDestination(
+                icon: Icon(tab.icon),
+                selectedIcon: Icon(tab.selectedIcon),
+                label: tab.label,
+              ),
+            )
+            .toList(),
       ),
     );
   }

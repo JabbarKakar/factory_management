@@ -11,9 +11,17 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) ||
+        (isSignedIn() &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+            resource.data.factoryId ==
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.factoryId);
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      allow update: if isOwner(userId) ||
+        (isSignedIn() &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
+            resource.data.factoryId ==
+                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.factoryId);
     }
 
     match /customers/{customerId} {

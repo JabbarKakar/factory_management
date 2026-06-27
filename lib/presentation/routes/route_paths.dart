@@ -55,6 +55,8 @@ abstract final class RoutePaths {
   static String salesRecordPayment(String invoiceId) =>
       '/sales/invoices/$invoiceId/payment';
   static const String more = '/more';
+  static const String accessDenied = '/access-denied';
+  static const String team = '/settings/team';
   static const String notifications = '/notifications';
   static const String expenses = '/expenses';
   static const String expensesAdd = '/expenses/add';
