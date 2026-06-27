@@ -84,6 +84,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<DashboardWatchStarted>(_onWatchStarted);
     on<DashboardWatchStopped>(_onWatchStopped);
     on<_DashboardDataUpdated>(_onDataUpdated);
+    on<_DashboardRecomputeRequested>(_onRecomputeRequested);
     on<_DashboardStreamFailed>(_onStreamFailed);
   }
 
@@ -311,6 +312,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     DashboardWatchStopped event,
     Emitter<DashboardState> emit,
   ) async {
+    _recomputeDebounce?.cancel();
     await _cancelSubscriptions();
   }
 
@@ -320,12 +322,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) {
     _recomputeDebounce?.cancel();
     _recomputeDebounce = Timer(const Duration(milliseconds: 250), () {
-      if (isClosed) return;
-      _recomputeAndEmit(emit);
+      if (!isClosed) {
+        add(const _DashboardRecomputeRequested());
+      }
     });
   }
 
-  void _recomputeAndEmit(Emitter<DashboardState> emit) {
+  void _onRecomputeRequested(
+    _DashboardRecomputeRequested event,
+    Emitter<DashboardState> emit,
+  ) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
@@ -568,6 +574,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
 final class _DashboardDataUpdated extends DashboardEvent {
   const _DashboardDataUpdated();
+}
+
+final class _DashboardRecomputeRequested extends DashboardEvent {
+  const _DashboardRecomputeRequested();
 }
 
 final class _DashboardStreamFailed extends DashboardEvent {

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../blocs/auth/auth_bloc.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/splash/animated_splash_content.dart';
 
@@ -18,14 +19,9 @@ class _SplashScreenState extends State<SplashScreen>
   static const _minSplashDuration = Duration(milliseconds: 2800);
 
   late final AnimationController _entryController;
-  late final AnimationController _pulseController;
 
   late final Animation<double> _logoScale;
   late final Animation<double> _logoOpacity;
-  late final Animation<double> _titleOpacity;
-  late final Animation<Offset> _titleSlide;
-  late final Animation<double> _taglineOpacity;
-  late final Animation<Offset> _taglineSlide;
 
   @override
   void initState() {
@@ -40,11 +36,6 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 1400),
     );
 
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat(reverse: true);
-
     _logoScale = Tween<double>(begin: 0.4, end: 1).animate(
       CurvedAnimation(
         parent: _entryController,
@@ -56,40 +47,6 @@ class _SplashScreenState extends State<SplashScreen>
       CurvedAnimation(
         parent: _entryController,
         curve: const Interval(0, 0.35, curve: Curves.easeOut),
-      ),
-    );
-
-    _titleOpacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _entryController,
-        curve: const Interval(0.35, 0.7, curve: Curves.easeOut),
-      ),
-    );
-
-    _titleSlide = Tween<Offset>(
-      begin: const Offset(0, 0.35),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _entryController,
-        curve: const Interval(0.35, 0.75, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    _taglineOpacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _entryController,
-        curve: const Interval(0.55, 0.9, curve: Curves.easeOut),
-      ),
-    );
-
-    _taglineSlide = Tween<Offset>(
-      begin: const Offset(0, 0.5),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _entryController,
-        curve: const Interval(0.55, 0.95, curve: Curves.easeOutCubic),
       ),
     );
   }
@@ -131,21 +88,16 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void dispose() {
     _entryController.dispose();
-    _pulseController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.primary,
       body: AnimatedSplashContent(
         logoScale: _logoScale,
         logoOpacity: _logoOpacity,
-        titleOpacity: _titleOpacity,
-        titleSlide: _titleSlide,
-        taglineOpacity: _taglineOpacity,
-        taglineSlide: _taglineSlide,
-        accentPulse: _pulseController,
       ),
     );
   }
