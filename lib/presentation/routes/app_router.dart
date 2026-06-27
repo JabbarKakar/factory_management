@@ -56,6 +56,7 @@ import '../../domain/enums/sales_enums.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
+import '../screens/customers/customer_statement_screen.dart';
 import '../screens/customers/add_edit_customer_screen.dart';
 import '../screens/customers/customer_detail_screen.dart';
 import '../screens/customers/customers_screen.dart';
@@ -74,6 +75,7 @@ import '../screens/sales/sales_order_list_screen.dart';
 import '../screens/expenses/add_edit_expense_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/reports/pl_report_screen.dart';
+import '../screens/reports/reports_hub_screen.dart';
 import '../screens/raw_materials/raw_material_detail_screen.dart';
 import '../screens/raw_materials/raw_materials_screen.dart';
 import '../screens/raw_materials/record_stock_movement_screen.dart';
@@ -267,19 +269,48 @@ GoRouter createAppRouter(AuthBloc authBloc) {
         ],
       ),
       GoRoute(
-        path: RoutePaths.plReport,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          return BlocProvider(
-            create: (context) {
-              final bloc = getIt<PlReportBloc>();
-              final factoryId = readFactoryId(context);
-              if (factoryId != null) {
-                bloc.add(PlReportWatchStarted(factoryId));
-              }
-              return bloc;
+        path: '/financial',
+        routes: [
+          GoRoute(
+            path: 'pl',
+            parentNavigatorKey: rootNavigatorKey,
+            pageBuilder: (context, state) {
+              return MaterialPage<void>(
+                key: state.pageKey,
+                child: BlocProvider(
+                  create: (context) {
+                    final bloc = getIt<PlReportBloc>();
+                    final factoryId = readFactoryId(context);
+                    if (factoryId != null) {
+                      bloc.add(PlReportWatchStarted(factoryId));
+                    }
+                    return bloc;
+                  },
+                  child: const PlReportScreen(),
+                ),
+              );
             },
-            child: const PlReportScreen(),
+          ),
+          GoRoute(
+            path: 'reports',
+            parentNavigatorKey: rootNavigatorKey,
+            pageBuilder: (context, state) {
+              return MaterialPage<void>(
+                key: state.pageKey,
+                child: const ReportsHubScreen(),
+              );
+            },
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/customer-statement/:customerId',
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final customerId = state.pathParameters['customerId']!;
+          return MaterialPage<void>(
+            key: state.pageKey,
+            child: CustomerStatementScreen(customerId: customerId),
           );
         },
       ),

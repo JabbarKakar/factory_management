@@ -22,6 +22,10 @@ class RolePermissions {
       return true;
     }
 
+    if (action == PermissionAction.export) {
+      return _canExport(role, module);
+    }
+
     return _canMutate(role, module, action);
   }
 
@@ -36,6 +40,9 @@ class RolePermissions {
 
   static bool canDelete(FactoryRole role, AppModule module) =>
       can(role, module, PermissionAction.delete);
+
+  static bool canExport(FactoryRole role, AppModule module) =>
+      can(role, module, PermissionAction.export);
 
   static Set<AppModule> modulesFor(FactoryRole role) => _grantsFor(role);
 
@@ -156,6 +163,38 @@ class RolePermissions {
       FactoryRole.driver => module == AppModule.delivery &&
           action == PermissionAction.edit,
       FactoryRole.viewer => false,
+      FactoryRole.owner => true,
+    };
+  }
+
+  static bool _canExport(FactoryRole role, AppModule module) {
+    return switch (role) {
+      FactoryRole.accountant => switch (module) {
+          AppModule.customers ||
+          AppModule.sales ||
+          AppModule.jobWork ||
+          AppModule.plReport ||
+          AppModule.expenses =>
+            true,
+          _ => false,
+        },
+      FactoryRole.factoryManager => switch (module) {
+          AppModule.customers || AppModule.sales || AppModule.jobWork => true,
+          _ => false,
+        },
+      FactoryRole.salesStaff => switch (module) {
+          AppModule.customers || AppModule.sales => true,
+          _ => false,
+        },
+      FactoryRole.jobWorkClerk => switch (module) {
+          AppModule.customers || AppModule.jobWork => true,
+          _ => false,
+        },
+      FactoryRole.supervisor ||
+      FactoryRole.storeKeeper ||
+      FactoryRole.driver ||
+      FactoryRole.viewer =>
+        false,
       FactoryRole.owner => true,
     };
   }

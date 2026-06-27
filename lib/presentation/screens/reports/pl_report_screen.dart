@@ -8,6 +8,13 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/monthly_pl_report.dart';
 import '../../utils/auth_context.dart';
+import '../../../core/di/injection.dart';
+import '../../../data/services/export/pl_report_excel_exporter.dart';
+import '../../../data/services/export/pl_report_pdf_exporter.dart';
+import '../../../domain/enums/app_module_enums.dart';
+import '../../utils/export_actions.dart';
+import '../../utils/user_permissions_context.dart';
+import '../../widgets/export_menu_button.dart';
 import '../../widgets/settings_section.dart';
 
 class PlReportScreen extends StatelessWidget {
@@ -24,9 +31,51 @@ class PlReportScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canExport = context.userCanExport(AppModule.plReport);
+    final pdfExporter = getIt<PlReportPdfExporter>();
+    final excelExporter = getIt<PlReportExcelExporter>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(AppStrings.monthlyPlReport),
+        actions: [
+          if (canExport)
+            BlocBuilder<PlReportBloc, PlReportState>(
+              builder: (context, state) {
+                if (state.status != PlReportStatus.loaded &&
+                    !state.report.hasData) {
+                  return const SizedBox.shrink();
+                }
+                final report = state.report;
+                final monthKey =
+                    '${report.year}_${report.month.toString().padLeft(2, '0')}';
+
+                return ExportMenuButton(
+                  onExportPdf: () async {
+                    final doc = await pdfExporter.build(report: report);
+                    await ExportActions.sharePdf(
+                      document: doc,
+                      filename: 'pl_report_$monthKey.pdf',
+                    );
+                  },
+                  onExportExcel: () async {
+                    final bytes = excelExporter.build(report);
+                    await ExportActions.shareExcel(
+                      bytes: bytes,
+                      filename: 'pl_report_$monthKey.xlsx',
+                    );
+                  },
+                  onPrint: () async {
+                    final doc = await pdfExporter.build(report: report);
+                    await ExportActions.printPdf(
+                      document: doc,
+                      filename: 'pl_report_$monthKey.pdf',
+                    );
+                  },
+                );
+              },
+            ),
+        ],
       ),
       body: BlocBuilder<PlReportBloc, PlReportState>(
         builder: (context, state) {

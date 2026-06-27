@@ -7,6 +7,15 @@ class PermissionRouteGuard {
   const PermissionRouteGuard._();
 
   static bool canAccessLocation(AppUser user, String location) {
+    if (location == RoutePaths.reportsHub) {
+      return user.canView(AppModule.plReport) ||
+          user.canExport(AppModule.customers);
+    }
+
+    if (location.startsWith('/customer-statement/')) {
+      return user.canView(AppModule.customers);
+    }
+
     final module = moduleForLocation(location);
     if (module == null) return true;
 
@@ -54,6 +63,9 @@ class PermissionRouteGuard {
     if (location.startsWith(RoutePaths.customers)) {
       return AppModule.customers;
     }
+    if (location.startsWith('/customer-statement/')) {
+      return AppModule.customers;
+    }
     if (location.startsWith(RoutePaths.sales)) {
       return AppModule.sales;
     }
@@ -61,6 +73,9 @@ class PermissionRouteGuard {
       return AppModule.expenses;
     }
     if (location.startsWith(RoutePaths.plReport)) {
+      return AppModule.plReport;
+    }
+    if (location.startsWith(RoutePaths.reportsHub)) {
       return AppModule.plReport;
     }
     if (location.startsWith(RoutePaths.suppliers)) {

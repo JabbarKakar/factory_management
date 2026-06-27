@@ -38,6 +38,8 @@ abstract final class RoutePaths {
   static String customerDetail(String id) => '/customers/$id';
 
   static String customerEdit(String id) => '/customers/$id/edit';
+
+  static String customerStatement(String id) => '/customer-statement/$id';
   static const String sales = '/sales';
   static const String salesAdd = '/sales/add';
 
@@ -73,7 +75,8 @@ abstract final class RoutePaths {
   }
 
   static String expenseEdit(String id) => '/expenses/$id/edit';
-  static const String plReport = '/reports/pl';
+  static const String plReport = '/financial/pl';
+  static const String reportsHub = '/financial/reports';
   static const String suppliers = '/suppliers';
   static const String suppliersAdd = '/suppliers/add';
 

@@ -96,6 +96,39 @@ void main() {
         isFalse,
       );
     });
+
+    test('accountant can export P&L and customer statements', () {
+      expect(
+        RolePermissions.canExport(FactoryRole.accountant, AppModule.plReport),
+        isTrue,
+      );
+      expect(
+        RolePermissions.canExport(FactoryRole.accountant, AppModule.customers),
+        isTrue,
+      );
+    });
+
+    test('viewer cannot export reports', () {
+      expect(
+        RolePermissions.canExport(FactoryRole.viewer, AppModule.plReport),
+        isFalse,
+      );
+      expect(
+        RolePermissions.canExport(FactoryRole.viewer, AppModule.customers),
+        isFalse,
+      );
+    });
+
+    test('sales staff can export sales invoices but not P&L', () {
+      expect(
+        RolePermissions.canExport(FactoryRole.salesStaff, AppModule.sales),
+        isTrue,
+      );
+      expect(
+        RolePermissions.canExport(FactoryRole.salesStaff, AppModule.plReport),
+        isFalse,
+      );
+    });
   });
 
   group('AppUserPermissions', () {

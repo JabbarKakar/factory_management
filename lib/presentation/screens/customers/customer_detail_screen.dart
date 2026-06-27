@@ -100,6 +100,17 @@ class CustomerDetailScreen extends StatelessWidget {
                 ),
               ),
               CustomerLedgerSection(customerId: customer.id),
+              if (context.userCanExport(AppModule.customers))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: FilledButton.icon(
+                    onPressed: () => context.push(
+                      RoutePaths.customerStatement(customer.id),
+                    ),
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text(AppStrings.generateStatement),
+                  ),
+                ),
               SettingsSection(
                 title: AppStrings.contactInformation,
                 child: _DetailList(

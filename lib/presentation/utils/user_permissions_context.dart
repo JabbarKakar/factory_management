@@ -27,6 +27,8 @@ extension UserPermissionContext on BuildContext {
   bool userCanEdit(AppModule module) => currentUser?.canEdit(module) ?? false;
 
   bool userCanDelete(AppModule module) => currentUser?.canDelete(module) ?? false;
+
+  bool userCanExport(AppModule module) => currentUser?.canExport(module) ?? false;
 }
 
 String? readDriverEmployeeId(BuildContext context) {

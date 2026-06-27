@@ -40,18 +40,16 @@ class MoreScreen extends StatelessWidget {
             title: AppStrings.appearance,
             child: const ThemeModeSelector(),
           ),
-          if (user != null && user.canView(AppModule.plReport))
+          if (user != null &&
+              (user.canView(AppModule.plReport) ||
+                  user.canExport(AppModule.customers)))
             SettingsSection(
               title: AppStrings.reports,
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.assessment_outlined),
-                    title: const Text(AppStrings.monthlyPlReport),
-                    subtitle: const Text(AppStrings.plReportSubtitle),
-                    onTap: () => context.push(RoutePaths.plReport),
-                  ),
-                ],
+              child: ListTile(
+                leading: const Icon(Icons.assessment_outlined),
+                title: const Text(AppStrings.reportsHub),
+                subtitle: const Text(AppStrings.reportsHubSubtitle),
+                onTap: () => context.push(RoutePaths.reportsHub),
               ),
             ),
           SettingsSection(

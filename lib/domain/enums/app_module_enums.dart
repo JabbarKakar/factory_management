@@ -41,4 +41,5 @@ enum PermissionAction {
   create,
   edit,
   delete,
+  export,
 }

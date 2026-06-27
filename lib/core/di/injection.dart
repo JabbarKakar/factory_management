@@ -64,6 +64,12 @@ import '../../data/repositories/supplier_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/theme_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
+import '../../data/services/customer_statement_service.dart';
+import '../../data/services/export/customer_statement_excel_exporter.dart';
+import '../../data/services/export/customer_statement_pdf_exporter.dart';
+import '../../data/services/export/invoice_pdf_exporter.dart';
+import '../../data/services/export/pl_report_excel_exporter.dart';
+import '../../data/services/export/pl_report_pdf_exporter.dart';
 import '../../data/services/finished_goods_stock_service.dart';
 import '../../data/services/pl_report_service.dart';
 import '../../data/services/raw_material_stock_service.dart';
@@ -138,6 +144,23 @@ void setupDependencies() {
     ),
   );
   getIt.registerLazySingleton<PlReportService>(PlReportService.new);
+  getIt.registerLazySingleton<CustomerStatementService>(
+    () => CustomerStatementService(
+      customerRepository: getIt<CustomerRepository>(),
+      jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
+      paymentRepository: getIt<PaymentRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<InvoicePdfExporter>(InvoicePdfExporter.new);
+  getIt.registerLazySingleton<PlReportPdfExporter>(PlReportPdfExporter.new);
+  getIt.registerLazySingleton<PlReportExcelExporter>(PlReportExcelExporter.new);
+  getIt.registerLazySingleton<CustomerStatementPdfExporter>(
+    CustomerStatementPdfExporter.new,
+  );
+  getIt.registerLazySingleton<CustomerStatementExcelExporter>(
+    CustomerStatementExcelExporter.new,
+  );
   getIt.registerLazySingleton<ExpenseRepository>(ExpenseRepository.new);
   getIt.registerLazySingleton<SupplierRepository>(SupplierRepository.new);
   getIt.registerLazySingleton<EmployeeRepository>(EmployeeRepository.new);

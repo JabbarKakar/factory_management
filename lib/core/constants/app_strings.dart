@@ -418,6 +418,38 @@ abstract final class AppStrings {
   static const String nextMonth = 'Next month';
   static const String reports = 'Reports';
 
+  // Reports & Exports (Sprint 23)
+  static const String reportsHub = 'Reports & Exports';
+  static const String reportsHubSubtitle =
+      'Export financial reports and customer statements';
+  static const String export = 'Export';
+  static const String exportPdf = 'Share PDF';
+  static const String exportExcel = 'Share Excel';
+  static const String print = 'Print';
+  static const String exportFailed = 'Could not export file';
+  static const String customerStatement = 'Customer Statement';
+  static const String customerStatementSubtitle =
+      'Printable account statement for any date range';
+  static const String generateStatement = 'Generate Statement';
+  static const String statementDateRange = 'Statement Period';
+  static const String fromDate = 'From';
+  static const String toDate = 'To';
+  static const String closingBalance = 'Closing Balance';
+  static const String totalDebits = 'Total Debits';
+  static const String totalCredits = 'Total Credits';
+  static const String reference = 'Reference';
+  static const String debit = 'Debit';
+  static const String credit = 'Credit';
+  static const String date = 'Date';
+  static const String amount = 'Amount';
+  static const String orderNumber = 'Order #';
+  static const String jobWorkNumber = 'Job Work #';
+  static const String noStatementActivity =
+      'No invoices or payments in this period';
+  static const String statementLoadError = 'Could not load statement';
+  static const String reportsComingSoon =
+      'More reports will be added in future updates';
+
   // Suppliers (Sprint 12)
   static const String suppliers = 'Suppliers';
   static const String addSupplier = 'Add Supplier';

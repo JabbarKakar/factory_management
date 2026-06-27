@@ -17,5 +17,7 @@ extension AppUserPermissions on AppUser {
 
   bool canDelete(AppModule module) => can(module, PermissionAction.delete);
 
+  bool canExport(AppModule module) => can(module, PermissionAction.export);
+
   bool get canManageTeam => factoryRole == FactoryRole.owner;
 }

@@ -7,6 +7,12 @@ import '../../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../routes/route_paths.dart';
+import '../../../core/di/injection.dart';
+import '../../../data/services/export/invoice_pdf_exporter.dart';
+import '../../../domain/enums/app_module_enums.dart';
+import '../../utils/export_actions.dart';
+import '../../utils/user_permissions_context.dart';
+import '../../widgets/export_menu_button.dart';
 import '../../widgets/job_work/invoice_status_badge.dart';
 import '../../widgets/settings_section.dart';
 
@@ -89,6 +95,31 @@ class JobWorkInvoiceScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text(AppStrings.jobWorkInvoice),
             actions: [
+              if (context.userCanExport(AppModule.jobWork))
+                ExportMenuButton(
+                  onExportPdf: () async {
+                    final exporter = getIt<InvoicePdfExporter>();
+                    final doc = await exporter.buildJobWorkInvoicePdf(
+                      invoice: invoice,
+                      payments: state.payments,
+                    );
+                    await ExportActions.sharePdf(
+                      document: doc,
+                      filename: '${invoice.invoiceNumber}.pdf',
+                    );
+                  },
+                  onPrint: () async {
+                    final exporter = getIt<InvoicePdfExporter>();
+                    final doc = await exporter.buildJobWorkInvoicePdf(
+                      invoice: invoice,
+                      payments: state.payments,
+                    );
+                    await ExportActions.printPdf(
+                      document: doc,
+                      filename: '${invoice.invoiceNumber}.pdf',
+                    );
+                  },
+                ),
               if (invoice.dueAmount > 0)
                 IconButton(
                   onPressed: isSaving
