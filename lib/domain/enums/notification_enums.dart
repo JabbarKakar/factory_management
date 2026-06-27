@@ -7,6 +7,7 @@ enum NotificationType {
   paymentOverdue,
   partialPaymentReceived,
   lowRawMaterialStock,
+  lowFinishedGoodsStock,
   equipmentMaintenanceDueSoon,
   equipmentMaintenanceOverdue,
   pendingDelivery,
@@ -42,7 +43,12 @@ enum NotificationType {
         _ => false,
       };
 
-  bool get isStockType => this == NotificationType.lowRawMaterialStock;
+  bool get isStockType => switch (this) {
+        NotificationType.lowRawMaterialStock ||
+        NotificationType.lowFinishedGoodsStock =>
+          true,
+        _ => false,
+      };
 
   bool get isOperationsType => switch (this) {
         NotificationType.equipmentMaintenanceDueSoon ||

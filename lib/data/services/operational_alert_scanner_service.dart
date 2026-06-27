@@ -4,6 +4,7 @@ import '../../core/utils/formatters.dart';
 import '../../domain/entities/app_notification.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/equipment.dart';
+import '../../domain/entities/finished_good.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/entities/raw_material.dart';
@@ -12,6 +13,7 @@ import '../../domain/enums/notification_enums.dart';
 import '../../domain/enums/quality_enums.dart';
 import '../repositories/delivery_repository.dart';
 import '../repositories/equipment_repository.dart';
+import '../repositories/finished_goods_repository.dart';
 import '../repositories/job_work_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/raw_material_repository.dart';
@@ -19,17 +21,20 @@ import '../repositories/raw_material_repository.dart';
 class OperationalAlertScannerService {
   OperationalAlertScannerService({
     required RawMaterialRepository rawMaterialRepository,
+    required FinishedGoodsRepository finishedGoodsRepository,
     required EquipmentRepository equipmentRepository,
     required DeliveryRepository deliveryRepository,
     required JobWorkRepository jobWorkRepository,
     required NotificationRepository notificationRepository,
   })  : _rawMaterialRepository = rawMaterialRepository,
+        _finishedGoodsRepository = finishedGoodsRepository,
         _equipmentRepository = equipmentRepository,
         _deliveryRepository = deliveryRepository,
         _jobWorkRepository = jobWorkRepository,
         _notificationRepository = notificationRepository;
 
   final RawMaterialRepository _rawMaterialRepository;
+  final FinishedGoodsRepository _finishedGoodsRepository;
   final EquipmentRepository _equipmentRepository;
   final DeliveryRepository _deliveryRepository;
   final JobWorkRepository _jobWorkRepository;
@@ -38,6 +43,8 @@ class OperationalAlertScannerService {
   Future<int> scan(String factoryId) async {
     final materials =
         await _rawMaterialRepository.watchMaterials(factoryId).first;
+    final finishedGoods =
+        await _finishedGoodsRepository.watchFinishedGoods(factoryId).first;
     final equipment =
         await _equipmentRepository.watchEquipment(factoryId).first;
     final deliveries =
@@ -53,6 +60,12 @@ class OperationalAlertScannerService {
     for (final material in materials) {
       created += await _createIfNew(
         _lowStockNotification(material, scanDate),
+      );
+    }
+
+    for (final item in finishedGoods) {
+      created += await _createIfNew(
+        _lowFinishedGoodsNotification(item, scanDate),
       );
     }
 
@@ -129,6 +142,12 @@ class OperationalAlertScannerService {
     );
   }
 
+  Future<void> notifyJobWorkReady(JobWorkOrder order) async {
+    if (order.status != JobWorkStatus.ready) return;
+
+    await _createIfNew(_jobWorkReadyNotification(order));
+  }
+
   Future<int> _createIfNew(AppNotification? notification) async {
     if (notification == null) return 0;
 
@@ -156,6 +175,26 @@ class OperationalAlertScannerService {
       rawMaterialType: material.materialType.firestoreValue,
       createdAt: DateTime.now(),
       dedupeKey: 'low_stock_${material.id}_$scanDate',
+    );
+  }
+
+  AppNotification? _lowFinishedGoodsNotification(
+    FinishedGood item,
+    String scanDate,
+  ) {
+    if (!item.isLowStock) return null;
+
+    return AppNotification(
+      id: '',
+      factoryId: item.factoryId,
+      type: NotificationType.lowFinishedGoodsStock,
+      priority: NotificationPriority.high,
+      title: 'Low finished goods — ${item.productType.label}',
+      body:
+          '${item.displaySubtitle}: ${Formatters.stockQuantity(item.currentQuantity, 'sq. ft')} on hand (reorder at ${Formatters.stockQuantity(item.reorderLevel, 'sq. ft')})',
+      finishedGoodId: item.id,
+      createdAt: DateTime.now(),
+      dedupeKey: 'low_fg_${item.id}_$scanDate',
     );
   }
 

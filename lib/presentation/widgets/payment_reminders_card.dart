@@ -7,6 +7,7 @@ import '../../core/di/injection.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
+import '../../data/services/notification_engine_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/sales_invoice.dart';
@@ -114,7 +115,7 @@ class PaymentRemindersCard extends StatelessWidget {
     BuildContext context,
     NotificationFilter filter,
   ) async {
-    await getIt<PaymentDueScannerService>().scan(factoryId);
+    await getIt<NotificationEngineService>().scan(factoryId);
     if (!context.mounted) return;
     await context.push(RoutePaths.notificationsWithFilter(filter));
   }

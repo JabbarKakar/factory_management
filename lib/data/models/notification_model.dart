@@ -28,6 +28,7 @@ class NotificationModel {
     this.deliveryId,
     this.qualityCheckId,
     this.rawMaterialType,
+    this.finishedGoodId,
     this.readBy = const [],
   });
 
@@ -51,6 +52,7 @@ class NotificationModel {
   final String? deliveryId;
   final String? qualityCheckId;
   final String? rawMaterialType;
+  final String? finishedGoodId;
   final List<String> readBy;
   final DateTime createdAt;
   final String dedupeKey;
@@ -82,6 +84,7 @@ class NotificationModel {
       deliveryId: data['deliveryId'] as String?,
       qualityCheckId: data['qualityCheckId'] as String?,
       rawMaterialType: data['rawMaterialType'] as String?,
+      finishedGoodId: data['finishedGoodId'] as String?,
       readBy: (data['readBy'] as List?)?.whereType<String>().toList() ?? const [],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       dedupeKey: data['dedupeKey'] as String? ?? id,
@@ -109,6 +112,7 @@ class NotificationModel {
       if (deliveryId != null) 'deliveryId': deliveryId,
       if (qualityCheckId != null) 'qualityCheckId': qualityCheckId,
       if (rawMaterialType != null) 'rawMaterialType': rawMaterialType,
+      if (finishedGoodId != null) 'finishedGoodId': finishedGoodId,
       'readBy': readBy,
       'dedupeKey': dedupeKey,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
@@ -137,6 +141,7 @@ class NotificationModel {
       deliveryId: deliveryId,
       qualityCheckId: qualityCheckId,
       rawMaterialType: rawMaterialType,
+      finishedGoodId: finishedGoodId,
       readBy: readBy,
       createdAt: createdAt,
       dedupeKey: dedupeKey,
@@ -165,6 +170,7 @@ class NotificationModel {
       deliveryId: notification.deliveryId,
       qualityCheckId: notification.qualityCheckId,
       rawMaterialType: notification.rawMaterialType,
+      finishedGoodId: notification.finishedGoodId,
       readBy: notification.readBy,
       createdAt: notification.createdAt,
       dedupeKey: notification.dedupeKey,

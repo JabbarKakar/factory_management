@@ -7,6 +7,14 @@
         { "fieldPath": "referenceId", "order": "ASCENDING" },
         { "fieldPath": "referenceType", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "dedupeKey", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

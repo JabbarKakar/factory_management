@@ -106,6 +106,7 @@ void setupDependencies() {
   getIt.registerLazySingleton<OperationalAlertScannerService>(
     () => OperationalAlertScannerService(
       rawMaterialRepository: getIt<RawMaterialRepository>(),
+      finishedGoodsRepository: getIt<FinishedGoodsRepository>(),
       equipmentRepository: getIt<EquipmentRepository>(),
       deliveryRepository: getIt<DeliveryRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
@@ -221,6 +222,7 @@ void setupDependencies() {
     () => JobWorkFormBloc(
       repository: getIt<JobWorkRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
+      operationalAlertScannerService: getIt<OperationalAlertScannerService>(),
     ),
   );
   getIt.registerFactory<JobWorkOutputBloc>(

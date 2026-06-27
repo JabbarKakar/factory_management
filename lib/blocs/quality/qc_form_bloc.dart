@@ -251,6 +251,10 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         jobWorkId,
         JobWorkStatus.ready,
       );
+      final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
+      if (order != null) {
+        await _operationalAlertScannerService.notifyJobWorkReady(order);
+      }
       emit(
         state.copyWith(
           clearPendingMarkReady: true,

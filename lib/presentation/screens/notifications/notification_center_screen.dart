@@ -185,6 +185,12 @@ class _NotificationCenterView extends StatelessWidget {
       );
       return;
     }
+    if (notification.finishedGoodId != null) {
+      context.push(
+        RoutePaths.finishedGoodDetail(notification.finishedGoodId!),
+      );
+      return;
+    }
     if (notification.invoiceId != null) {
       final paymentRoute = notification.isSalesInvoice
           ? RoutePaths.salesRecordPayment(notification.invoiceId!)
@@ -314,7 +320,9 @@ class _NotificationTile extends StatelessWidget {
     return switch (type) {
       NotificationType.partialPaymentReceived => Icons.payments_outlined,
       NotificationType.paymentOverdue => Icons.warning_amber_rounded,
-      NotificationType.lowRawMaterialStock => Icons.inventory_2_outlined,
+      NotificationType.lowRawMaterialStock ||
+      NotificationType.lowFinishedGoodsStock =>
+        Icons.inventory_2_outlined,
       NotificationType.equipmentMaintenanceDueSoon ||
       NotificationType.equipmentMaintenanceOverdue =>
         Icons.build_circle_outlined,

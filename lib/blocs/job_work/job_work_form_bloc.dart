@@ -7,6 +7,7 @@ import '../../core/constants/app_strings.dart';
 import '../../core/constants/marble_data.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
+import '../../data/services/operational_alert_scanner_service.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/quality_check.dart';
@@ -21,8 +22,10 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   JobWorkFormBloc({
     required JobWorkRepository repository,
     required QualityCheckRepository qualityCheckRepository,
+    required OperationalAlertScannerService operationalAlertScannerService,
   })  : _repository = repository,
         _qualityCheckRepository = qualityCheckRepository,
+        _operationalAlertScannerService = operationalAlertScannerService,
         super(const JobWorkFormState()) {
     on<JobWorkFormInitialized>(_onInitialized);
     on<JobWorkFormLoadRequested>(_onLoadRequested);
@@ -35,6 +38,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
 
   final JobWorkRepository _repository;
   final QualityCheckRepository _qualityCheckRepository;
+  final OperationalAlertScannerService _operationalAlertScannerService;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
 
   Future<void> _onInitialized(
@@ -206,6 +210,10 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
           order: order,
         ),
       );
+
+      if (event.newStatus == JobWorkStatus.ready) {
+        await _operationalAlertScannerService.notifyJobWorkReady(order);
+      }
     } catch (_) {
       emit(
         state.copyWith(

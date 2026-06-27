@@ -255,7 +255,7 @@ abstract final class AppStrings {
   static const String viewAllNotifications = 'View all notifications';
   static const String refreshNotifications = 'Refresh alerts';
   static const String scanNotificationsHint =
-      'Scans payments, stock, equipment, deliveries, and job work';
+      'Scans payments, stock, finished goods, equipment, deliveries, and job work';
 
   // Dashboard (Sprint 7)
   static const String revenueToday = 'Revenue Today';

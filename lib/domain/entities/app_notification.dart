@@ -27,6 +27,7 @@ class AppNotification extends Equatable {
     this.deliveryId,
     this.qualityCheckId,
     this.rawMaterialType,
+    this.finishedGoodId,
     this.readBy = const [],
   });
 
@@ -50,6 +51,7 @@ class AppNotification extends Equatable {
   final String? deliveryId;
   final String? qualityCheckId;
   final String? rawMaterialType;
+  final String? finishedGoodId;
   final List<String> readBy;
   final DateTime createdAt;
   final String dedupeKey;
@@ -81,6 +83,7 @@ class AppNotification extends Equatable {
     String? deliveryId,
     String? qualityCheckId,
     String? rawMaterialType,
+    String? finishedGoodId,
     List<String>? readBy,
     DateTime? createdAt,
     String? dedupeKey,
@@ -106,6 +109,7 @@ class AppNotification extends Equatable {
       deliveryId: deliveryId ?? this.deliveryId,
       qualityCheckId: qualityCheckId ?? this.qualityCheckId,
       rawMaterialType: rawMaterialType ?? this.rawMaterialType,
+      finishedGoodId: finishedGoodId ?? this.finishedGoodId,
       readBy: readBy ?? this.readBy,
       createdAt: createdAt ?? this.createdAt,
       dedupeKey: dedupeKey ?? this.dedupeKey,
@@ -134,6 +138,7 @@ class AppNotification extends Equatable {
         deliveryId,
         qualityCheckId,
         rawMaterialType,
+        finishedGoodId,
         readBy,
         createdAt,
         dedupeKey,
