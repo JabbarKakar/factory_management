@@ -42,28 +42,52 @@ class DashboardKpiGrid extends StatelessWidget {
           subtitle: 'Key metrics at a glance',
           icon: Icons.insights_rounded,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
-            const spacing = 12.0;
-            final tileWidth = (constraints.maxWidth - spacing) / 2;
+            final crossAxisCount =
+                _responsiveCrossAxisCount(constraints.maxWidth);
+            final tileHeight = _kpiTileHeight(context, items);
 
-            return Wrap(
-              spacing: spacing,
-              runSpacing: spacing,
-              children: items
-                  .map(
-                    (item) => SizedBox(
-                      width: tileWidth,
-                      child: _KpiTile(item: item),
-                    ),
-                  )
-                  .toList(),
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                mainAxisExtent: tileHeight,
+              ),
+              itemCount: items.length,
+              itemBuilder: (context, index) =>
+                  _KpiTile(item: items[index]),
             );
           },
         ),
       ],
     );
+  }
+
+  /// Mobile: 2 per row. Tablet/desktop: more columns from available width.
+  int _responsiveCrossAxisCount(double width) {
+    if (width < 600) return 2;
+    if (width < 900) return 3;
+    if (width < 1200) return 4;
+    if (width < 1600) return 5;
+
+    const spacing = 8.0;
+    const minTileWidth = 150.0;
+    final computed =
+        ((width + spacing) / (minTileWidth + spacing)).floor();
+    return computed.clamp(6, 10);
+  }
+
+  double _kpiTileHeight(BuildContext context, List<_KpiItem> items) {
+    final textScale =
+        MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.2);
+    final hasSubtitle = items.any((item) => item.subtitle != null);
+    final base = hasSubtitle ? 108.0 : 92.0;
+    return base * textScale;
   }
 
   List<_KpiItem> _buildItems(BuildContext context) {
@@ -308,7 +332,9 @@ class _KpiTile extends StatelessWidget {
     final theme = Theme.of(context);
 
     return DashboardSurfaceCard(
-      padding: const EdgeInsets.all(16),
+      compact: true,
+      borderRadius: 12,
+      padding: const EdgeInsets.all(8),
       onTap: item.onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,55 +342,59 @@ class _KpiTile extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 26,
+                height: 26,
                 decoration: BoxDecoration(
                   color: item.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(item.icon, size: 18, color: item.color),
+                child: Icon(item.icon, size: 14, color: item.color),
               ),
               const Spacer(),
               if (item.onTap != null)
                 Icon(
                   Icons.north_east_rounded,
-                  size: 16,
+                  size: 12,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 6),
           Text(
             item.value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge?.copyWith(
+            style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+              letterSpacing: -0.4,
+              fontSize: 14,
+              height: 1.1,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             item.label,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
+            style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w500,
+              fontSize: 10,
+              height: 1.1,
             ),
           ),
-          if (item.subtitle != null) ...[
-            const SizedBox(height: 6),
+          if (item.subtitle != null)
             Text(
               item.subtitle!,
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: item.color,
                 fontWeight: FontWeight.w600,
+                fontSize: 9,
+                height: 1.1,
               ),
             ),
-          ],
         ],
       ),
     );

@@ -8,6 +8,8 @@ class DashboardSurfaceCard extends StatelessWidget {
     this.margin,
     this.gradient,
     this.onTap,
+    this.borderRadius = 18,
+    this.compact = false,
     super.key,
   });
 
@@ -16,6 +18,8 @@ class DashboardSurfaceCard extends StatelessWidget {
   final EdgeInsetsGeometry? margin;
   final Gradient? gradient;
   final VoidCallback? onTap;
+  final double borderRadius;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -26,15 +30,15 @@ class DashboardSurfaceCard extends StatelessWidget {
     final decoration = BoxDecoration(
       gradient: gradient,
       color: gradient == null ? theme.colorScheme.surface : null,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(borderRadius),
       border: Border.all(color: outline),
-      boxShadow: isDark
+      boxShadow: isDark || compact
           ? null
           : [
               BoxShadow(
-                color: theme.colorScheme.primary.withValues(alpha: 0.06),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+                color: theme.colorScheme.primary.withValues(alpha: 0.05),
+                blurRadius: compact ? 8 : 20,
+                offset: Offset(0, compact ? 4 : 8),
               ),
             ],
     );
@@ -49,7 +53,7 @@ class DashboardSurfaceCard extends StatelessWidget {
             ? DecoratedBox(decoration: decoration, child: content)
             : InkWell(
                 onTap: onTap,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(borderRadius),
                 child: DecoratedBox(decoration: decoration, child: content),
               ),
       ),
