@@ -12,7 +12,7 @@ class PermissionRouteGuard {
           user.canExport(AppModule.customers);
     }
 
-    if (location.startsWith('/customer-statement/')) {
+    if (location.startsWith('${RoutePaths.customers}/statement/')) {
       return user.canView(AppModule.customers);
     }
 
@@ -63,7 +63,7 @@ class PermissionRouteGuard {
     if (location.startsWith(RoutePaths.customers)) {
       return AppModule.customers;
     }
-    if (location.startsWith('/customer-statement/')) {
+    if (location.startsWith('${RoutePaths.customers}/statement/')) {
       return AppModule.customers;
     }
     if (location.startsWith(RoutePaths.sales)) {

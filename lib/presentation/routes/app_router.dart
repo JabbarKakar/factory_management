@@ -269,48 +269,32 @@ GoRouter createAppRouter(AuthBloc authBloc) {
         ],
       ),
       GoRoute(
-        path: '/financial',
-        routes: [
-          GoRoute(
-            path: 'pl',
-            parentNavigatorKey: rootNavigatorKey,
-            pageBuilder: (context, state) {
-              return MaterialPage<void>(
-                key: state.pageKey,
-                child: BlocProvider(
-                  create: (context) {
-                    final bloc = getIt<PlReportBloc>();
-                    final factoryId = readFactoryId(context);
-                    if (factoryId != null) {
-                      bloc.add(PlReportWatchStarted(factoryId));
-                    }
-                    return bloc;
-                  },
-                  child: const PlReportScreen(),
-                ),
-              );
-            },
-          ),
-          GoRoute(
-            path: 'reports',
-            parentNavigatorKey: rootNavigatorKey,
-            pageBuilder: (context, state) {
-              return MaterialPage<void>(
-                key: state.pageKey,
-                child: const ReportsHubScreen(),
-              );
-            },
-          ),
-        ],
-      ),
-      GoRoute(
-        path: '/customer-statement/:customerId',
+        path: RoutePaths.plReport,
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) {
-          final customerId = state.pathParameters['customerId']!;
           return MaterialPage<void>(
             key: state.pageKey,
-            child: CustomerStatementScreen(customerId: customerId),
+            child: BlocProvider(
+              create: (context) {
+                final bloc = getIt<PlReportBloc>();
+                final factoryId = readFactoryId(context);
+                if (factoryId != null) {
+                  bloc.add(PlReportWatchStarted(factoryId));
+                }
+                return bloc;
+              },
+              child: const PlReportScreen(),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.reportsHub,
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) {
+          return MaterialPage<void>(
+            key: state.pageKey,
+            child: const ReportsHubScreen(),
           );
         },
       ),
@@ -1144,6 +1128,17 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                           return bloc;
                         },
                         child: const AddEditCustomerScreen(),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'statement/:customerId',
+                    parentNavigatorKey: rootNavigatorKey,
+                    pageBuilder: (context, state) {
+                      final customerId = state.pathParameters['customerId']!;
+                      return MaterialPage<void>(
+                        key: state.pageKey,
+                        child: CustomerStatementScreen(customerId: customerId),
                       );
                     },
                   ),

@@ -39,7 +39,7 @@ abstract final class RoutePaths {
 
   static String customerEdit(String id) => '/customers/$id/edit';
 
-  static String customerStatement(String id) => '/customer-statement/$id';
+  static String customerStatement(String id) => '/customers/statement/$id';
   static const String sales = '/sales';
   static const String salesAdd = '/sales/add';
 
