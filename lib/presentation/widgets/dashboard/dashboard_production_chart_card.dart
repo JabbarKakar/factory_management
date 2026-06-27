@@ -4,15 +4,18 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/dashboard_analytics.dart';
 
 class DashboardProductionChartCard extends StatelessWidget {
   const DashboardProductionChartCard({
     required this.points,
+    required this.monthlyOwnProductionSqFt,
     super.key,
   });
 
   final List<DailyProductionPoint> points;
+  final double monthlyOwnProductionSqFt;
 
   @override
   Widget build(BuildContext context) {
@@ -38,11 +41,20 @@ class DashboardProductionChartCard extends StatelessWidget {
             const SizedBox(height: 16),
             if (!points.any((point) => point.totalSqFt > 0))
               _EmptyChartHint(message: AppStrings.productionChartEmpty)
-            else ...[
+            else
               SizedBox(
                 height: 220,
                 child: BarChart(_buildChartData(context)),
               ),
+            const SizedBox(height: 12),
+            Text(
+              '${AppStrings.productionChartMonthOwn}: ${Formatters.stockQuantity(monthlyOwnProductionSqFt, 'sq. ft')}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            if (points.any((point) => point.totalSqFt > 0)) ...[
               const SizedBox(height: 12),
               Wrap(
                 spacing: 16,

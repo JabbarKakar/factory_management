@@ -39,11 +39,27 @@ class DashboardRevenueChartCard extends StatelessWidget {
             const SizedBox(height: 16),
             if (!points.any((point) => point.totalAmount > 0))
               _EmptyChartHint(message: AppStrings.revenueChartEmpty)
-            else
+            else ...[
               SizedBox(
                 height: 220,
                 child: LineChart(_buildChartData(context)),
               ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: const [
+                  _LegendDot(
+                    color: AppColors.primary,
+                    label: AppStrings.salesRevenueSeries,
+                  ),
+                  _LegendDot(
+                    color: AppColors.accent,
+                    label: AppStrings.jobWorkRevenueSeries,
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -51,9 +67,12 @@ class DashboardRevenueChartCard extends StatelessWidget {
   }
 
   LineChartData _buildChartData(BuildContext context) {
-    final spots = <FlSpot>[];
+    final salesSpots = <FlSpot>[];
+    final jobWorkSpots = <FlSpot>[];
     for (var index = 0; index < points.length; index++) {
-      spots.add(FlSpot(index.toDouble(), points[index].totalAmount));
+      final x = index.toDouble();
+      salesSpots.add(FlSpot(x, points[index].salesAmount));
+      jobWorkSpots.add(FlSpot(x, points[index].jobWorkAmount));
     }
 
     final maxY = points
@@ -121,9 +140,18 @@ class DashboardRevenueChartCard extends StatelessWidget {
               final index = spot.x.round();
               if (index < 0 || index >= points.length) return null;
               final point = points[index];
+              final isSales = spot.barIndex == 0;
+              final label = isSales
+                  ? AppStrings.salesRevenueSeries
+                  : AppStrings.jobWorkRevenueSeries;
+              final amount =
+                  isSales ? point.salesAmount : point.jobWorkAmount;
               return LineTooltipItem(
-                '${DateFormat.yMMMd().format(point.date)}\n${Formatters.currencyPkr(point.totalAmount)}',
-                const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                '${DateFormat.yMMMd().format(point.date)}\n$label: ${Formatters.currencyPkr(amount)}',
+                const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
               );
             }).toList();
           },
@@ -131,15 +159,18 @@ class DashboardRevenueChartCard extends StatelessWidget {
       ),
       lineBarsData: [
         LineChartBarData(
-          spots: spots,
+          spots: salesSpots,
           isCurved: true,
-          color: AppColors.success,
-          barWidth: 3,
+          color: AppColors.primary,
+          barWidth: 2.5,
           dotData: const FlDotData(show: false),
-          belowBarData: BarAreaData(
-            show: true,
-            color: AppColors.success.withValues(alpha: 0.12),
-          ),
+        ),
+        LineChartBarData(
+          spots: jobWorkSpots,
+          isCurved: true,
+          color: AppColors.accent,
+          barWidth: 2.5,
+          dotData: const FlDotData(show: false),
         ),
       ],
     );
@@ -153,6 +184,32 @@ class DashboardRevenueChartCard extends StatelessWidget {
       return '${(value / 1000).toStringAsFixed(0)}k';
     }
     return value.toStringAsFixed(0);
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  const _LegendDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 3,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+      ],
+    );
   }
 }
 

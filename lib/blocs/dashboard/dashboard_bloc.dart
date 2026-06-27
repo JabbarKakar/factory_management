@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/utils/date_keys.dart';
+import '../../core/utils/dashboard_job_work_metrics.dart';
 import '../../data/repositories/attendance_repository.dart';
 import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/delivery_repository.dart';
@@ -349,12 +350,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         .where((batch) => _isSameDay(batch.productionDate, today))
         .fold<double>(0, (sum, batch) => sum + batch.totalUsableSqFt);
 
-    final jobWorkOutputTodaySqFt = _orders.fold<double>(0, (sum, order) {
-      final shiftTotal = order.shiftLogs
-          .where((shift) => _isSameDay(shift.shiftDate, today))
-          .fold<double>(0, (inner, shift) => inner + shift.totalUsableSqFt);
-      return sum + shiftTotal;
-    });
+    final jobWorkOutputTodaySqFt = _orders.fold<double>(
+      0,
+      (sum, order) => sum + DashboardJobWorkMetrics.sqFtOnDay(order, today),
+    );
 
     final productionThisMonthSqFt = _productionBatches
         .where((batch) {

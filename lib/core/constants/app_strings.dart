@@ -277,12 +277,17 @@ abstract final class AppStrings {
   static const String paymentsReceivedThisMonth = 'Payments received';
   static const String productionChartTitle = 'Production Output';
   static const String productionChartSubtitle = 'Usable sq. ft — last 7 days';
+  static const String productionChartMonthOwn = 'Own production this month';
   static const String productionChartEmpty =
       'No production output recorded in the last 7 days.';
   static const String ownProductionSeries = 'Own Production';
   static const String jobWorkOutputSeries = 'Job Work';
   static const String revenueChartTitle = 'Revenue Trend';
-  static const String revenueChartSubtitle = 'Payments received — last 30 days';
+  static const String revenueChartSubtitle =
+      'Sales and job work payments — last 30 days';
+  static const String salesRevenueSeries = 'Sales';
+  static const String jobWorkRevenueSeries = 'Job Work';
+  static const String noDuesThisWeek = 'No invoices due this week';
   static const String revenueChartEmpty =
       'No payments recorded in the last 30 days.';
   static const String revenueBreakdownTitle = 'Revenue Mix';

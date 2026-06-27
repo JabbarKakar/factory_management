@@ -1,3 +1,4 @@
+import '../../core/utils/dashboard_job_work_metrics.dart';
 import '../../domain/entities/dashboard_analytics.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
@@ -58,10 +59,10 @@ class DashboardAnalyticsService {
     }
 
     for (final order in jobWorkOrders) {
-      for (final shift in order.shiftLogs) {
-        final day = _dateOnly(shift.shiftDate);
-        if (day.isBefore(startDate) || day.isAfter(endDate)) continue;
-        jobWorkByDay[day] = (jobWorkByDay[day] ?? 0) + shift.totalUsableSqFt;
+      for (var offset = 0; offset < dayCount; offset++) {
+        final day = startDate.add(Duration(days: offset));
+        jobWorkByDay[day] = (jobWorkByDay[day] ?? 0) +
+            DashboardJobWorkMetrics.sqFtOnDay(order, day);
       }
     }
 

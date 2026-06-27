@@ -138,6 +138,7 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 DashboardProductionChartCard(
                   points: state.analytics.productionLast7Days,
+                  monthlyOwnProductionSqFt: state.kpis.productionThisMonthSqFt,
                 ),
                 const SizedBox(height: 12),
                 DashboardRevenueChartCard(
@@ -275,27 +276,28 @@ class _KpiGrid extends StatelessWidget {
         color: AppColors.success,
         onTap: () => context.push(RoutePaths.plReport),
       ),
-      if (kpis.dueThisWeekCount > 0)
-        _KpiItem(
-          label: AppStrings.dueThisWeek,
-          value: Formatters.currencyPkr(kpis.dueThisWeekAmount),
-          subtitle: '${kpis.dueThisWeekCount} invoice(s)',
-          icon: Icons.schedule,
-          color: AppColors.dueSoon,
-          onTap: () => context.push(
-            RoutePaths.notificationsWithFilter(NotificationFilter.dueThisWeek),
-          ),
+      _KpiItem(
+        label: AppStrings.dueThisWeek,
+        value: Formatters.currencyPkr(kpis.dueThisWeekAmount),
+        subtitle: kpis.dueThisWeekCount > 0
+            ? '${kpis.dueThisWeekCount} invoice(s)'
+            : AppStrings.noDuesThisWeek,
+        icon: Icons.schedule,
+        color: AppColors.dueSoon,
+        onTap: () => context.push(
+          RoutePaths.notificationsWithFilter(NotificationFilter.dueThisWeek),
         ),
-      if (kpis.productionTodaySqFt > 0)
-        _KpiItem(
-          label: AppStrings.productionToday,
-          value: Formatters.stockQuantity(kpis.productionTodaySqFt, 'sq. ft'),
-          subtitle:
-              'Own ${Formatters.stockQuantity(kpis.ownProductionTodaySqFt, 'sq. ft')} · JW ${Formatters.stockQuantity(kpis.jobWorkOutputTodaySqFt, 'sq. ft')}',
-          icon: Icons.precision_manufacturing_outlined,
-          color: AppColors.primary,
-          onTap: () => context.push(RoutePaths.production),
-        ),
+      ),
+      _KpiItem(
+        label: AppStrings.productionToday,
+        value: Formatters.stockQuantity(kpis.productionTodaySqFt, 'sq. ft'),
+        subtitle: kpis.productionTodaySqFt > 0
+            ? 'Own ${Formatters.stockQuantity(kpis.ownProductionTodaySqFt, 'sq. ft')} · JW ${Formatters.stockQuantity(kpis.jobWorkOutputTodaySqFt, 'sq. ft')}'
+            : AppStrings.productionTodaySubtitle,
+        icon: Icons.precision_manufacturing_outlined,
+        color: AppColors.primary,
+        onTap: () => context.push(RoutePaths.production),
+      ),
       _KpiItem(
         label: AppStrings.activeJobWork,
         value: '${kpis.activeJobWorkCount}',
