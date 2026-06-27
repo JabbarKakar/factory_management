@@ -37,17 +37,17 @@ class MoreProfileBanner extends StatelessWidget {
     return DashboardSurfaceCard(
       padding: EdgeInsets.zero,
       gradient: gradient,
-      borderRadius: 14,
+      borderRadius: 12,
       compact: true,
       child: Stack(
         clipBehavior: Clip.hardEdge,
         children: [
           Positioned(
-            right: -24,
-            bottom: -24,
+            right: -18,
+            bottom: -18,
             child: Container(
-              width: 96,
-              height: 96,
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: onGradient.withValues(alpha: 0.06),
@@ -55,11 +55,11 @@ class MoreProfileBanner extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: -12,
-            top: -20,
+            left: -10,
+            top: -14,
             child: Container(
-              width: 64,
-              height: 64,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: onGradient.withValues(alpha: 0.04),
@@ -67,7 +67,7 @@ class MoreProfileBanner extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -75,51 +75,53 @@ class MoreProfileBanner extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: onGradient.withValues(alpha: 0.35),
-                      width: 2,
+                      color: onGradient.withValues(alpha: 0.3),
+                      width: 1.5,
                     ),
                   ),
                   child: UserAvatar(
                     name: user.name,
                     photoUrl: user.photoUrl,
-                    radius: 28,
+                    radius: 22,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 11),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         user.name,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: onGradient,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2,
-                          fontSize: 17,
+                          fontSize: 15,
+                          height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 2),
                       Text(
                         user.email,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: onGradientMuted,
-                          fontSize: 12,
+                          fontSize: 11,
+                          height: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
+                          horizontal: 7,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: onGradient.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: onGradient.withValues(alpha: 0.2),
                           ),
@@ -129,16 +131,17 @@ class MoreProfileBanner extends StatelessWidget {
                           children: [
                             Icon(
                               Icons.badge_outlined,
-                              size: 13,
+                              size: 11,
                               color: onGradientMuted,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 3),
                             Text(
                               Formatters.roleLabel(user.role),
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: onGradient,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 11,
+                                fontSize: 10,
+                                height: 1.1,
                               ),
                             ),
                           ],

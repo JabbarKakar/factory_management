@@ -55,7 +55,7 @@ class MoreScreen extends StatelessWidget {
         children: [
           if (user != null) ...[
             MoreProfileBanner(user: user),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
           ],
           _MoreSection(
             title: AppStrings.appearance,
