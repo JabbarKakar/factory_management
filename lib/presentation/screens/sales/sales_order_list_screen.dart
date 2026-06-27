@@ -7,6 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/sales_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../widgets/account_menu_button.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/sales/sales_order_list_tile.dart';
@@ -34,6 +35,7 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
         title: const Text(AppStrings.sales),
         actions: const [
           NotificationBell(),
+          AccountMenuButton(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

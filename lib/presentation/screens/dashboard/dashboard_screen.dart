@@ -22,6 +22,7 @@ import '../../widgets/dashboard/dashboard_production_chart_card.dart';
 import '../../widgets/dashboard/dashboard_recent_activity_card.dart';
 import '../../widgets/dashboard/dashboard_revenue_breakdown_card.dart';
 import '../../widgets/dashboard/dashboard_revenue_chart_card.dart';
+import '../../widgets/account_menu_button.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/payment_reminders_card.dart';
 import '../../widgets/pending_pickups_card.dart';
@@ -38,6 +39,7 @@ class DashboardScreen extends StatelessWidget {
         title: const Text(AppStrings.dashboard),
         actions: const [
           NotificationBell(),
+          AccountMenuButton(),
         ],
       ),
       body: BlocConsumer<DashboardBloc, DashboardState>(

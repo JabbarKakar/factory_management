@@ -8,7 +8,8 @@ import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
 import '../../routes/route_paths.dart';
-import '../../widgets/dialogs/app_confirm_dialog.dart';
+import '../../utils/auth_actions.dart';
+import '../../widgets/account_menu_button.dart';
 import '../../widgets/settings_section.dart';
 import '../../widgets/theme_mode_selector.dart';
 import '../../widgets/user_profile_card.dart';
@@ -17,18 +18,7 @@ class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
 
   Future<void> _confirmLogout(BuildContext context) async {
-    final confirmed = await AppConfirmDialog.show(
-      context,
-      title: AppStrings.logoutTitle,
-      message: AppStrings.logoutMessage,
-      confirmLabel: AppStrings.logout,
-      cancelLabel: AppStrings.cancel,
-      destructive: true,
-    );
-
-    if (!context.mounted || !confirmed) return;
-
-    context.read<AuthBloc>().add(const AuthLogoutRequested());
+    await AuthActions.confirmLogout(context);
   }
 
   @override
@@ -37,7 +27,12 @@ class MoreScreen extends StatelessWidget {
     final user = authState is AuthAuthenticated ? authState.user : null;
 
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.more)),
+      appBar: AppBar(
+        title: const Text(AppStrings.more),
+        actions: const [
+          AccountMenuButton(),
+        ],
+      ),
       body: ListView(
         children: [
           if (user != null) UserProfileCard(user: user),

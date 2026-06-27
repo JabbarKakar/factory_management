@@ -7,6 +7,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/customer_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../widgets/account_menu_button.dart';
 import '../../widgets/customers/customer_list_tile.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/notification_bell.dart';
@@ -34,6 +35,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
         title: const Text(AppStrings.customers),
         actions: const [
           NotificationBell(),
+          AccountMenuButton(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

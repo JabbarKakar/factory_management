@@ -20,6 +20,8 @@ class ShellTab {
 }
 
 abstract final class ShellNavigation {
+  static const int moreBranchIndex = 5;
+
   static List<ShellTab> tabsFor(AppUser user) {
     final tabs = <ShellTab>[];
 
@@ -70,28 +72,22 @@ abstract final class ShellNavigation {
       icon: Icons.shopping_cart_outlined,
       selectedIcon: Icons.shopping_cart,
     );
+    addTab(
+      branchIndex: 4,
+      module: AppModule.delivery,
+      label: AppStrings.deliveries,
+      icon: Icons.local_shipping_outlined,
+      selectedIcon: Icons.local_shipping,
+    );
 
-    if (user.canView(AppModule.dashboard) ||
-        user.canView(AppModule.expenses) ||
-        user.canView(AppModule.plReport) ||
-        user.canView(AppModule.team) ||
-        user.canView(AppModule.rawMaterials) ||
-        user.canView(AppModule.production) ||
-        user.canView(AppModule.labour) ||
-        user.canView(AppModule.equipment) ||
-        user.canView(AppModule.qualityControl) ||
-        user.canView(AppModule.delivery) ||
-        user.canView(AppModule.suppliers) ||
-        user.canView(AppModule.finishedGoods)) {
-      tabs.add(
-        const ShellTab(
-          branchIndex: 4,
-          label: AppStrings.more,
-          icon: Icons.more_horiz,
-          selectedIcon: Icons.more_horiz,
-        ),
-      );
-    }
+    tabs.add(
+      const ShellTab(
+        branchIndex: moreBranchIndex,
+        label: AppStrings.more,
+        icon: Icons.more_horiz,
+        selectedIcon: Icons.more_horiz,
+      ),
+    );
 
     return tabs;
   }

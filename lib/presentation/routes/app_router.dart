@@ -773,102 +773,6 @@ GoRouter createAppRouter(AuthBloc authBloc) {
         },
       ),
       GoRoute(
-        path: RoutePaths.deliveries,
-        parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) {
-          final filterName = state.uri.queryParameters['filter'];
-          final initialFilter = filterName == null
-              ? null
-              : DeliveryListFilter.fromQuery(filterName);
-
-          return BlocProvider(
-            create: (context) {
-              final bloc = getIt<DeliveryListBloc>();
-              final factoryId = readFactoryId(context);
-              if (factoryId != null) {
-                bloc.add(
-                  DeliveryListWatchStarted(
-                    factoryId,
-                    initialFilter: initialFilter,
-                  ),
-                );
-              }
-              return bloc;
-            },
-            child: DeliveriesScreen(initialFilter: initialFilter),
-          );
-        },
-        routes: [
-          GoRoute(
-            path: 'add',
-            parentNavigatorKey: rootNavigatorKey,
-            builder: (context, state) {
-              final salesOrderId = state.uri.queryParameters['salesOrderId'];
-              return BlocProvider(
-                create: (context) {
-                  final bloc = getIt<DeliveryFormBloc>();
-                  final factoryId = readFactoryId(context);
-                  if (factoryId != null) {
-                    bloc.add(
-                      DeliveryFormInitialized(
-                        factoryId: factoryId,
-                        salesOrderId: salesOrderId,
-                      ),
-                    );
-                  }
-                  return bloc;
-                },
-                child: CreateDeliveryScreen(salesOrderId: salesOrderId),
-              );
-            },
-          ),
-          GoRoute(
-            path: ':deliveryId',
-            parentNavigatorKey: rootNavigatorKey,
-            builder: (context, state) {
-              final deliveryId = state.pathParameters['deliveryId']!;
-              return BlocProvider(
-                create: (context) {
-                  final bloc = getIt<DeliveryDetailBloc>();
-                  bloc.add(DeliveryDetailWatchStarted(deliveryId));
-                  return bloc;
-                },
-                child: DeliveryDetailScreen(deliveryId: deliveryId),
-              );
-            },
-            routes: [
-              GoRoute(
-                path: 'challan',
-                parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) {
-                  final deliveryId = state.pathParameters['deliveryId']!;
-                  return BlocProvider(
-                    create: (context) {
-                      final bloc = getIt<DeliveryDetailBloc>();
-                      bloc.add(DeliveryDetailWatchStarted(deliveryId));
-                      return bloc;
-                    },
-                    child: DeliveryChallanScreen(deliveryId: deliveryId),
-                  );
-                },
-              ),
-              GoRoute(
-                path: 'confirm',
-                parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) {
-                  final deliveryId = state.pathParameters['deliveryId']!;
-                  return BlocProvider(
-                    create: (_) => getIt<DeliveryConfirmBloc>()
-                      ..add(DeliveryConfirmInitialized(deliveryId)),
-                    child: ConfirmDeliveryScreen(deliveryId: deliveryId),
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-      GoRoute(
         path: RoutePaths.equipment,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
@@ -1338,6 +1242,110 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                             create: (_) => getIt<SalesInvoiceBloc>()
                               ..add(SalesInvoiceLoadByOrder(salesOrderId)),
                             child: SalesInvoiceScreen(salesOrderId: salesOrderId),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: RoutePaths.deliveries,
+                builder: (context, state) {
+                  final filterName = state.uri.queryParameters['filter'];
+                  final initialFilter = filterName == null
+                      ? null
+                      : DeliveryListFilter.fromQuery(filterName);
+
+                  return BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<DeliveryListBloc>();
+                      final factoryId = readFactoryId(context);
+                      if (factoryId != null) {
+                        bloc.add(
+                          DeliveryListWatchStarted(
+                            factoryId,
+                            initialFilter: initialFilter,
+                          ),
+                        );
+                      }
+                      return bloc;
+                    },
+                    child: DeliveriesScreen(initialFilter: initialFilter),
+                  );
+                },
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final salesOrderId =
+                          state.uri.queryParameters['salesOrderId'];
+                      return BlocProvider(
+                        create: (context) {
+                          final bloc = getIt<DeliveryFormBloc>();
+                          final factoryId = readFactoryId(context);
+                          if (factoryId != null) {
+                            bloc.add(
+                              DeliveryFormInitialized(
+                                factoryId: factoryId,
+                                salesOrderId: salesOrderId,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                        child: CreateDeliveryScreen(salesOrderId: salesOrderId),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: ':deliveryId',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final deliveryId = state.pathParameters['deliveryId']!;
+                      return BlocProvider(
+                        create: (context) {
+                          final bloc = getIt<DeliveryDetailBloc>();
+                          bloc.add(DeliveryDetailWatchStarted(deliveryId));
+                          return bloc;
+                        },
+                        child: DeliveryDetailScreen(deliveryId: deliveryId),
+                      );
+                    },
+                    routes: [
+                      GoRoute(
+                        path: 'challan',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final deliveryId =
+                              state.pathParameters['deliveryId']!;
+                          return BlocProvider(
+                            create: (context) {
+                              final bloc = getIt<DeliveryDetailBloc>();
+                              bloc.add(
+                                DeliveryDetailWatchStarted(deliveryId),
+                              );
+                              return bloc;
+                            },
+                            child: DeliveryChallanScreen(deliveryId: deliveryId),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'confirm',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final deliveryId =
+                              state.pathParameters['deliveryId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<DeliveryConfirmBloc>()
+                              ..add(DeliveryConfirmInitialized(deliveryId)),
+                            child: ConfirmDeliveryScreen(deliveryId: deliveryId),
                           );
                         },
                       ),

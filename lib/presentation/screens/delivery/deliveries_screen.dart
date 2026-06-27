@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../blocs/auth/auth_bloc.dart';
 import '../../../blocs/delivery/delivery_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/delivery_enums.dart';
+import '../../../domain/extensions/app_user_permissions.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../widgets/account_menu_button.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/delivery/delivery_list_tile.dart';
+import '../../widgets/notification_bell.dart';
 
 class DeliveriesScreen extends StatefulWidget {
   const DeliveriesScreen({this.initialFilter, super.key});
@@ -42,14 +47,27 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.watch<AuthBloc>().state;
+    final user = authState is AuthAuthenticated ? authState.user : null;
+    final canScheduleDelivery =
+        user?.canCreate(AppModule.delivery) ?? false;
+
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.deliveries)),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-deliveries',
-        onPressed: () => context.push(RoutePaths.deliveriesAdd),
-        icon: const Icon(Icons.local_shipping_outlined),
-        label: const Text(AppStrings.scheduleDelivery),
+      appBar: AppBar(
+        title: const Text(AppStrings.deliveries),
+        actions: const [
+          NotificationBell(),
+          AccountMenuButton(),
+        ],
       ),
+      floatingActionButton: canScheduleDelivery
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-deliveries',
+              onPressed: () => context.push(RoutePaths.deliveriesAdd),
+              icon: const Icon(Icons.local_shipping_outlined),
+              label: const Text(AppStrings.scheduleDelivery),
+            )
+          : null,
       body: Column(
         children: [
           Padding(
@@ -118,7 +136,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                     subtitle: state.deliveries.isEmpty
                         ? AppStrings.noDeliveriesHint
                         : null,
-                    action: state.deliveries.isEmpty
+                    action: state.deliveries.isEmpty && canScheduleDelivery
                         ? FilledButton.icon(
                             onPressed: () =>
                                 context.push(RoutePaths.deliveriesAdd),

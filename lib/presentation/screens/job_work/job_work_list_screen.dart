@@ -10,6 +10,7 @@ import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_list_tile.dart';
+import '../../widgets/account_menu_button.dart';
 import '../../widgets/notification_bell.dart';
 
 class JobWorkListScreen extends StatefulWidget {
@@ -35,6 +36,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
         title: const Text(AppStrings.jobWork),
         actions: const [
           NotificationBell(),
+          AccountMenuButton(),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
