@@ -11,6 +11,7 @@ import '../../../data/services/export/customer_statement_pdf_exporter.dart';
 import '../../../domain/entities/customer_statement.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../utils/export_actions.dart';
+import '../../utils/export_factory_name.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/export_menu_button.dart';
 import '../../widgets/settings_section.dart';
@@ -124,7 +125,11 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
           if (canExport && statement != null)
             ExportMenuButton(
               onExportPdf: (origin) async {
-                final doc = await _pdfExporter.build(statement: statement);
+                final factoryName = await resolveExportFactoryName(context);
+                final doc = await _pdfExporter.build(
+                  statement: statement,
+                  factoryName: factoryName,
+                );
                 await ExportActions.sharePdf(
                   document: doc,
                   filename: '${_filename(statement)}.pdf',
@@ -140,7 +145,11 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
                 );
               },
               onPrint: () async {
-                final doc = await _pdfExporter.build(statement: statement);
+                final factoryName = await resolveExportFactoryName(context);
+                final doc = await _pdfExporter.build(
+                  statement: statement,
+                  factoryName: factoryName,
+                );
                 await ExportActions.printPdf(
                   document: doc,
                   filename: '${_filename(statement)}.pdf',

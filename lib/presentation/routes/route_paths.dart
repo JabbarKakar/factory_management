@@ -77,6 +77,7 @@ abstract final class RoutePaths {
   static String expenseEdit(String id) => '/expenses/$id/edit';
   static const String plReport = '/financial/pl';
   static const String reportsHub = '/financial/reports';
+  static const String expenseSummary = '/financial/expense-summary';
   static const String suppliers = '/suppliers';
   static const String suppliersAdd = '/suppliers/add';
 

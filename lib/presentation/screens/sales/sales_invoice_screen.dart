@@ -8,9 +8,11 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../routes/route_paths.dart';
 import '../../../core/di/injection.dart';
+import '../../../data/services/export/invoice_excel_exporter.dart';
 import '../../../data/services/export/invoice_pdf_exporter.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../utils/export_actions.dart';
+import '../../utils/export_factory_name.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/export_menu_button.dart';
 import '../../widgets/job_work/invoice_status_badge.dart';
@@ -98,10 +100,12 @@ class SalesInvoiceScreen extends StatelessWidget {
               if (context.userCanExport(AppModule.sales))
                 ExportMenuButton(
                   onExportPdf: (origin) async {
+                    final factoryName = await resolveExportFactoryName(context);
                     final exporter = getIt<InvoicePdfExporter>();
                     final doc = await exporter.buildSalesInvoicePdf(
                       invoice: invoice,
                       payments: state.payments,
+                      factoryName: factoryName,
                     );
                     await ExportActions.sharePdf(
                       document: doc,
@@ -109,11 +113,26 @@ class SalesInvoiceScreen extends StatelessWidget {
                       sharePositionOrigin: origin,
                     );
                   },
+                  onExportExcel: (origin) async {
+                    final factoryName = await resolveExportFactoryName(context);
+                    final bytes = getIt<InvoiceExcelExporter>().buildSalesInvoice(
+                      invoice: invoice,
+                      payments: state.payments,
+                      factoryName: factoryName,
+                    );
+                    await ExportActions.shareExcel(
+                      bytes: bytes,
+                      filename: '${invoice.invoiceNumber}.xlsx',
+                      sharePositionOrigin: origin,
+                    );
+                  },
                   onPrint: () async {
+                    final factoryName = await resolveExportFactoryName(context);
                     final exporter = getIt<InvoicePdfExporter>();
                     final doc = await exporter.buildSalesInvoicePdf(
                       invoice: invoice,
                       payments: state.payments,
+                      factoryName: factoryName,
                     );
                     await ExportActions.printPdf(
                       document: doc,

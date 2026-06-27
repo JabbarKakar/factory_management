@@ -427,6 +427,14 @@ abstract final class AppStrings {
   static const String exportExcel = 'Share Excel';
   static const String print = 'Print';
   static const String exportFailed = 'Could not export file';
+  static const String exportOpened = 'Export saved and opened';
+  static const String expenseSummaryReport = 'Expense Summary';
+  static const String expensesByCategory = 'Expenses by Category';
+  static const String expenseNumber = 'Expense #';
+  static const String expenseSummarySubtitle =
+      'Monthly expense breakdown with category totals';
+  static const String selectCustomerForStatement =
+      'Select customer for statement';
   static const String customerStatement = 'Customer Statement';
   static const String customerStatementSubtitle =
       'Printable account statement for any date range';

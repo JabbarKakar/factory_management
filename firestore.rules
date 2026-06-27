@@ -115,6 +115,12 @@ service cloud.firestore {
       );
     }
 
+    match /factories/{factoryId} {
+      allow read: if signedIn() && factoryId == myFactory();
+      allow create, update: if isOwner() && factoryId == myFactory();
+      allow delete: if false;
+    }
+
     match /customers/{customerId} {
       allow read: if canReadFactoryDoc() && canReadFinancial();
       allow create, update: if canWriteFactoryDoc() && canWriteFinancial();

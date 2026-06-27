@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -23,14 +24,28 @@ abstract final class ExportActions {
     final safeName = _safeFilename(filename);
     final bounds = sharePositionOrigin ?? _defaultShareOrigin();
 
-    final shared = await Printing.sharePdf(
+    var shared = await Printing.sharePdf(
       bytes: bytes,
       filename: safeName,
       bounds: bounds,
     );
 
     if (!shared) {
-      debugPrint('ExportActions: PDF share dismissed or unavailable');
+      final file = await _writeExportFile(
+        bytes: Uint8List.fromList(bytes),
+        filename: safeName,
+      );
+      shared = await _shareFile(
+        file: file,
+        sharePositionOrigin: bounds,
+      );
+    }
+
+    if (!shared) {
+      final opened = await _openExportFile(safeName);
+      if (!opened) {
+        throw StateError('PDF share unavailable');
+      }
     }
   }
 
@@ -54,34 +69,73 @@ abstract final class ExportActions {
     }
 
     final safeName = _safeFilename(filename);
-    final file = await _writeTempFile(
+    final file = await _writeExportFile(
       bytes: Uint8List.fromList(bytes),
       filename: safeName,
     );
 
-    final result = await SharePlus.instance.share(
-      ShareParams(
-        files: [XFile(file.path, mimeType: _excelMimeType, name: safeName)],
-        subject: safeName,
-        sharePositionOrigin: sharePositionOrigin ?? _defaultShareOrigin(),
-      ),
+    var shared = await _shareFile(
+      file: file,
+      sharePositionOrigin: sharePositionOrigin ?? _defaultShareOrigin(),
     );
 
-    if (result.status == ShareResultStatus.unavailable) {
-      debugPrint('ExportActions: Excel share unavailable');
-      throw StateError('Share is unavailable on this device');
-    }
-    if (result.status == ShareResultStatus.dismissed) {
-      debugPrint('ExportActions: Excel share dismissed');
+    if (!shared) {
+      final opened = await _openExportFile(safeName);
+      if (!opened) {
+        throw StateError('Excel share unavailable');
+      }
     }
   }
 
-  static Future<File> _writeTempFile({
+  static Future<bool> _shareFile({
+    required File file,
+    required Rect sharePositionOrigin,
+  }) async {
+    try {
+      final result = await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          sharePositionOrigin: sharePositionOrigin,
+        ),
+      );
+
+      if (result.status == ShareResultStatus.unavailable) {
+        return false;
+      }
+      if (result.status == ShareResultStatus.dismissed) {
+        debugPrint('ExportActions: share dismissed');
+        return true;
+      }
+      return true;
+    } catch (error) {
+      debugPrint('ExportActions: share failed: $error');
+      return false;
+    }
+  }
+
+  static Future<bool> _openExportFile(String filename) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final path = '${dir.path}/exports/$filename';
+      final result = await OpenFilex.open(path);
+      return result.type == ResultType.done;
+    } catch (error) {
+      debugPrint('ExportActions: open file failed: $error');
+      return false;
+    }
+  }
+
+  static Future<File> _writeExportFile({
     required Uint8List bytes,
     required String filename,
   }) async {
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/$filename');
+    final dir = await getApplicationDocumentsDirectory();
+    final exportDir = Directory('${dir.path}/exports');
+    if (!await exportDir.exists()) {
+      await exportDir.create(recursive: true);
+    }
+
+    final file = File('${exportDir.path}/$filename');
     await file.writeAsBytes(bytes, flush: true);
     if (!await file.exists() || await file.length() == 0) {
       throw StateError('Could not write export file');
@@ -97,15 +151,18 @@ abstract final class ExportActions {
     return trimmed.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
   }
 
-  static const _excelMimeType =
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
   static void showExportError(BuildContext context, [Object? error]) {
     if (kDebugMode && error != null) {
       debugPrint('Export failed: $error');
     }
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text(AppStrings.exportFailed)),
+    );
+  }
+
+  static void showExportOpened(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.exportOpened)),
     );
   }
 }

@@ -9,7 +9,8 @@ class PermissionRouteGuard {
   static bool canAccessLocation(AppUser user, String location) {
     if (location == RoutePaths.reportsHub) {
       return user.canView(AppModule.plReport) ||
-          user.canExport(AppModule.customers);
+          user.canExport(AppModule.customers) ||
+          user.canExport(AppModule.expenses);
     }
 
     if (location.startsWith('${RoutePaths.customers}/statement/')) {
@@ -74,6 +75,9 @@ class PermissionRouteGuard {
     }
     if (location.startsWith(RoutePaths.plReport)) {
       return AppModule.plReport;
+    }
+    if (location.startsWith(RoutePaths.expenseSummary)) {
+      return AppModule.expenses;
     }
     if (location.startsWith(RoutePaths.reportsHub)) {
       return AppModule.plReport;

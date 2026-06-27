@@ -75,6 +75,7 @@ import '../screens/sales/sales_order_list_screen.dart';
 import '../screens/expenses/add_edit_expense_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
 import '../screens/reports/pl_report_screen.dart';
+import '../screens/reports/expense_summary_screen.dart';
 import '../screens/reports/reports_hub_screen.dart';
 import '../screens/raw_materials/raw_material_detail_screen.dart';
 import '../screens/raw_materials/raw_materials_screen.dart';
@@ -295,6 +296,16 @@ GoRouter createAppRouter(AuthBloc authBloc) {
           return MaterialPage<void>(
             key: state.pageKey,
             child: const ReportsHubScreen(),
+          );
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.expenseSummary,
+        parentNavigatorKey: rootNavigatorKey,
+        pageBuilder: (context, state) {
+          return MaterialPage<void>(
+            key: state.pageKey,
+            child: const ExpenseSummaryScreen(),
           );
         },
       ),

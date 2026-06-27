@@ -13,6 +13,7 @@ import '../../../data/services/export/pl_report_excel_exporter.dart';
 import '../../../data/services/export/pl_report_pdf_exporter.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../utils/export_actions.dart';
+import '../../utils/export_factory_name.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/export_menu_button.dart';
 import '../../widgets/settings_section.dart';
@@ -52,7 +53,11 @@ class PlReportScreen extends StatelessWidget {
 
                 return ExportMenuButton(
                   onExportPdf: (origin) async {
-                    final doc = await pdfExporter.build(report: report);
+                    final factoryName = await resolveExportFactoryName(context);
+                    final doc = await pdfExporter.build(
+                      report: report,
+                      factoryName: factoryName,
+                    );
                     await ExportActions.sharePdf(
                       document: doc,
                       filename: 'pl_report_$monthKey.pdf',
@@ -68,7 +73,11 @@ class PlReportScreen extends StatelessWidget {
                     );
                   },
                   onPrint: () async {
-                    final doc = await pdfExporter.build(report: report);
+                    final factoryName = await resolveExportFactoryName(context);
+                    final doc = await pdfExporter.build(
+                      report: report,
+                      factoryName: factoryName,
+                    );
                     await ExportActions.printPdf(
                       document: doc,
                       filename: 'pl_report_$monthKey.pdf',
