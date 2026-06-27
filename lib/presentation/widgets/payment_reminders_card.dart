@@ -13,6 +13,7 @@ import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../routes/route_paths.dart';
+import 'dashboard/dashboard_surface.dart';
 
 class PaymentRemindersCard extends StatelessWidget {
   const PaymentRemindersCard({required this.factoryId, super.key});
@@ -37,72 +38,102 @@ class PaymentRemindersCard extends StatelessWidget {
             );
 
             if (!summary.hasAlerts) {
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_outline,
-                        color: Theme.of(context).colorScheme.primary,
+              return DashboardSurfaceCard(
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'No payment dues or overdues this week.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
+                      child: const Icon(
+                        Icons.verified_rounded,
+                        color: AppColors.success,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'All clear',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'No payment dues or overdues this week.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             }
 
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppStrings.paymentReminders,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
+            return DashboardSurfaceCard(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DashboardSectionHeader(
+                    title: AppStrings.paymentReminders,
+                    subtitle: 'Invoices needing attention',
+                    icon: Icons.account_balance_wallet_outlined,
+                    trailing: DashboardTextLink(
+                      label: 'View all',
+                      onPressed: () => _openNotifications(
+                        context,
+                        NotificationFilter.all,
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SummaryTile(
-                            label: AppStrings.dueThisWeek,
-                            count: summary.dueThisWeekCount,
-                            amount: summary.dueThisWeekAmount,
-                            color: AppColors.dueSoon,
-                            onTap: () => _openNotifications(
-                              context,
-                              NotificationFilter.dueThisWeek,
-                            ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PaymentMetricCard(
+                          label: AppStrings.dueThisWeek,
+                          count: summary.dueThisWeekCount,
+                          amount: summary.dueThisWeekAmount,
+                          color: AppColors.dueSoon,
+                          icon: Icons.event_rounded,
+                          onTap: () => _openNotifications(
+                            context,
+                            NotificationFilter.dueThisWeek,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _SummaryTile(
-                            label: AppStrings.overduePayments,
-                            count: summary.overdueCount,
-                            amount: summary.overdueAmount,
-                            color: AppColors.overdue,
-                            onTap: () => _openNotifications(
-                              context,
-                              NotificationFilter.overdue,
-                            ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _PaymentMetricCard(
+                          label: AppStrings.overduePayments,
+                          count: summary.overdueCount,
+                          amount: summary.overdueAmount,
+                          color: AppColors.overdue,
+                          icon: Icons.error_outline_rounded,
+                          onTap: () => _openNotifications(
+                            context,
+                            NotificationFilter.overdue,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             );
           },
@@ -121,12 +152,13 @@ class PaymentRemindersCard extends StatelessWidget {
   }
 }
 
-class _SummaryTile extends StatelessWidget {
-  const _SummaryTile({
+class _PaymentMetricCard extends StatelessWidget {
+  const _PaymentMetricCard({
     required this.label,
     required this.count,
     required this.amount,
     required this.color,
+    required this.icon,
     required this.onTap,
   });
 
@@ -134,51 +166,71 @@ class _SummaryTile extends StatelessWidget {
   final int count;
   final double amount;
   final Color color;
+  final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Material(
-      color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(12),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(12),
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: color.withValues(alpha: 0.25)),
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                color.withValues(alpha: 0.14),
+                color.withValues(alpha: 0.05),
+              ],
+            ),
+            border: Border.all(color: color.withValues(alpha: 0.28)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: color,
-                            fontWeight: FontWeight.w600,
-                          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 18, color: color),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '$count',
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
                   ),
-                  Icon(Icons.chevron_right, size: 18, color: color),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$count',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-              Text(
-                Formatters.currencyPkr(amount),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  Formatters.currencyPkr(amount),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
