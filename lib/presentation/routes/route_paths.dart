@@ -1,3 +1,4 @@
+import '../../domain/enums/inventory_enums.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
@@ -111,6 +112,23 @@ abstract final class RoutePaths {
     }
     return '$production?filter=${filter.name}';
   }
+
+  static const String finishedGoods = '/finished-goods';
+
+  static String finishedGoodsList({FinishedGoodsListFilter? filter}) {
+    if (filter == null || filter == FinishedGoodsListFilter.all) {
+      return finishedGoods;
+    }
+    return '$finishedGoods?filter=${filter.name}';
+  }
+
+  static String finishedGoodDetail(String id) => '/finished-goods/$id';
+
+  static String finishedGoodAdjustIn(String id) =>
+      '/finished-goods/$id/adjust-in';
+
+  static String finishedGoodAdjustOut(String id) =>
+      '/finished-goods/$id/adjust-out';
 
   static String notificationsWithFilter(NotificationFilter filter) =>
       '$notifications?filter=${filter.name}';

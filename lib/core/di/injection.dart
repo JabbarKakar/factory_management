@@ -11,6 +11,9 @@ import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/notification/notification_bloc.dart';
 import '../../blocs/expense/expense_form_bloc.dart';
 import '../../blocs/expense/expense_list_bloc.dart';
+import '../../blocs/finished_goods/finished_goods_detail_bloc.dart';
+import '../../blocs/finished_goods/finished_goods_list_bloc.dart';
+import '../../blocs/finished_goods/inventory_adjustment_bloc.dart';
 import '../../blocs/pl/pl_report_bloc.dart';
 import '../../blocs/production/production_detail_bloc.dart';
 import '../../blocs/production/production_form_bloc.dart';
@@ -27,6 +30,7 @@ import '../../blocs/theme/theme_cubit.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/expense_repository.dart';
+import '../../data/repositories/finished_goods_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
@@ -38,6 +42,7 @@ import '../../data/repositories/sales_order_repository.dart';
 import '../../data/repositories/supplier_repository.dart';
 import '../../data/repositories/theme_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
+import '../../data/services/finished_goods_stock_service.dart';
 import '../../data/services/pl_report_service.dart';
 import '../../data/services/raw_material_stock_service.dart';
 import '../../data/services/job_work_cleanup_service.dart';
@@ -93,11 +98,22 @@ void setupDependencies() {
   getIt.registerLazySingleton<RawMaterialStockService>(
     RawMaterialStockService.new,
   );
+  getIt.registerLazySingleton<FinishedGoodsStockService>(
+    FinishedGoodsStockService.new,
+  );
+  getIt.registerLazySingleton<FinishedGoodsRepository>(
+    () => FinishedGoodsRepository(
+      stockService: getIt<FinishedGoodsStockService>(),
+    ),
+  );
   getIt.registerLazySingleton<RawMaterialRepository>(
     () => RawMaterialRepository(stockService: getIt<RawMaterialStockService>()),
   );
   getIt.registerLazySingleton<ProductionRepository>(
-    () => ProductionRepository(stockService: getIt<RawMaterialStockService>()),
+    () => ProductionRepository(
+      stockService: getIt<RawMaterialStockService>(),
+      finishedGoodsRepository: getIt<FinishedGoodsRepository>(),
+    ),
   );
   getIt.registerLazySingleton<JobWorkCleanupService>(
     () => JobWorkCleanupService(jobWorkRepository: getIt<JobWorkRepository>()),
@@ -206,5 +222,14 @@ void setupDependencies() {
   );
   getIt.registerFactory<ProductionDetailBloc>(
     () => ProductionDetailBloc(repository: getIt<ProductionRepository>()),
+  );
+  getIt.registerFactory<FinishedGoodsListBloc>(
+    () => FinishedGoodsListBloc(repository: getIt<FinishedGoodsRepository>()),
+  );
+  getIt.registerFactory<FinishedGoodsDetailBloc>(
+    () => FinishedGoodsDetailBloc(repository: getIt<FinishedGoodsRepository>()),
+  );
+  getIt.registerFactory<InventoryAdjustmentBloc>(
+    () => InventoryAdjustmentBloc(repository: getIt<FinishedGoodsRepository>()),
   );
 }

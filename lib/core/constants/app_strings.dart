@@ -496,4 +496,35 @@ abstract final class AppStrings {
   static const String productionOutputRequired =
       'Enter output in at least one grade or reject';
   static const String quantityExceedsStock = 'Cannot exceed available stock';
+
+  // Finished goods inventory (Sprint 15)
+  static const String finishedGoodsInventory = 'Finished Goods';
+  static const String finishedGoodsSubtitle =
+      'Slabs and tiles ready to sell';
+  static const String searchFinishedGoods = 'Search product, variety, grade...';
+  static const String finishedGoodsLoadError =
+      'Could not load finished goods inventory';
+  static const String noFinishedGoodsYet = 'No finished goods in stock yet';
+  static const String noFinishedGoodsFound =
+      'No items match your filters';
+  static const String noFinishedGoodsHint =
+      'Stock is added automatically when you record production batches';
+  static const String totalInventoryValue = 'Total Inventory Value';
+  static const String lowStockFinishedGoods = 'Low Stock SKUs';
+  static const String stockItemDetails = 'Stock Details';
+  static const String stockItemNotFound = 'Stock item not found';
+  static const String currentQuantity = 'Current Quantity';
+  static const String storageLocation = 'Storage Location';
+  static const String setStorageLocation = 'Set Storage Location';
+  static const String locationUpdated = 'Location updated';
+  static const String inventoryHistory = 'Inventory History';
+  static const String noInventoryHistory = 'No inventory movements yet';
+  static const String adjustStockIn = 'Add Stock';
+  static const String adjustStockOut = 'Remove Stock';
+  static const String recordStockAdjustment = 'Record Adjustment';
+  static const String adjustmentReason = 'Reason';
+  static const String adjustmentReasonRequired = 'Reason is required';
+  static const String stockAdjustmentRecorded = 'Stock adjustment saved';
+  static const String viewProductionBatch = 'View production batch';
+  static const String fromProductionBatch = 'From production batch';
 }

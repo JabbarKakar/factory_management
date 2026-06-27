@@ -13,6 +13,9 @@ import '../../blocs/dashboard/dashboard_bloc.dart';
 import '../../blocs/expense/expense_form_bloc.dart';
 import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/pl/pl_report_bloc.dart';
+import '../../blocs/finished_goods/finished_goods_detail_bloc.dart';
+import '../../blocs/finished_goods/finished_goods_list_bloc.dart';
+import '../../blocs/finished_goods/inventory_adjustment_bloc.dart';
 import '../../blocs/production/production_detail_bloc.dart';
 import '../../blocs/production/production_form_bloc.dart';
 import '../../blocs/production/production_list_bloc.dart';
@@ -25,6 +28,7 @@ import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
+import '../../domain/enums/inventory_enums.dart';
 import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
@@ -54,6 +58,9 @@ import '../screens/reports/pl_report_screen.dart';
 import '../screens/raw_materials/raw_material_detail_screen.dart';
 import '../screens/raw_materials/raw_materials_screen.dart';
 import '../screens/raw_materials/record_stock_movement_screen.dart';
+import '../screens/finished_goods/finished_good_detail_screen.dart';
+import '../screens/finished_goods/finished_goods_screen.dart';
+import '../screens/finished_goods/record_inventory_adjustment_screen.dart';
 import '../screens/production/add_production_batch_screen.dart';
 import '../screens/production/production_batch_detail_screen.dart';
 import '../screens/production/production_batches_screen.dart';
@@ -431,6 +438,155 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                 child: ProductionBatchDetailScreen(batchId: batchId),
               );
             },
+          ),
+        ],
+      ),
+      GoRoute(
+        path: RoutePaths.finishedGoods,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final filterName = state.uri.queryParameters['filter'];
+          final initialFilter = filterName == null
+              ? null
+              : FinishedGoodsListFilter.values.firstWhere(
+                  (filter) => filter.name == filterName,
+                  orElse: () => FinishedGoodsListFilter.all,
+                );
+
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<FinishedGoodsListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(FinishedGoodsListWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: FinishedGoodsScreen(
+              initialFilter: filterName == null ? null : initialFilter,
+            ),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: ':finishedGoodId',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final finishedGoodId = state.pathParameters['finishedGoodId']!;
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<FinishedGoodsDetailBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(
+                      FinishedGoodsDetailWatchStarted(
+                        factoryId: factoryId,
+                        finishedGoodId: finishedGoodId,
+                      ),
+                    );
+                  }
+                  return bloc;
+                },
+                child: FinishedGoodDetailScreen(
+                  finishedGoodId: finishedGoodId,
+                ),
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'adjust-in',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final finishedGoodId = state.pathParameters['finishedGoodId']!;
+                  final factoryId = readFactoryId(context);
+                  return MultiBlocProvider(
+                    providers: [
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = getIt<FinishedGoodsDetailBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              FinishedGoodsDetailWatchStarted(
+                                factoryId: factoryId,
+                                finishedGoodId: finishedGoodId,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                      ),
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = getIt<InventoryAdjustmentBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              InventoryAdjustmentInitialized(
+                                factoryId: factoryId,
+                                finishedGoodId: finishedGoodId,
+                                movementType: InventoryMovementType.adjustmentIn,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                      ),
+                    ],
+                    child: RecordInventoryAdjustmentScreen(
+                      finishedGoodId: finishedGoodId,
+                      movementTypeName:
+                          InventoryMovementType.adjustmentIn.name,
+                    ),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'adjust-out',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final finishedGoodId = state.pathParameters['finishedGoodId']!;
+                  final factoryId = readFactoryId(context);
+                  return MultiBlocProvider(
+                    providers: [
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = getIt<FinishedGoodsDetailBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              FinishedGoodsDetailWatchStarted(
+                                factoryId: factoryId,
+                                finishedGoodId: finishedGoodId,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                      ),
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = getIt<InventoryAdjustmentBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              InventoryAdjustmentInitialized(
+                                factoryId: factoryId,
+                                finishedGoodId: finishedGoodId,
+                                movementType:
+                                    InventoryMovementType.adjustmentOut,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                      ),
+                    ],
+                    child: RecordInventoryAdjustmentScreen(
+                      finishedGoodId: finishedGoodId,
+                      movementTypeName:
+                          InventoryMovementType.adjustmentOut.name,
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),

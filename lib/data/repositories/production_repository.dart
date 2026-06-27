@@ -7,6 +7,7 @@ import '../../domain/enums/raw_material_enums.dart';
 import '../models/production_batch_model.dart';
 import '../models/raw_material_model.dart';
 import '../models/stock_transaction_model.dart';
+import '../repositories/finished_goods_repository.dart';
 import '../services/raw_material_stock_service.dart';
 
 class ProductionBatchException implements Exception {
@@ -22,11 +23,14 @@ class ProductionRepository {
   ProductionRepository({
     FirebaseFirestore? firestore,
     RawMaterialStockService? stockService,
+    FinishedGoodsRepository? finishedGoodsRepository,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _stockService = stockService ?? RawMaterialStockService();
+        _stockService = stockService ?? RawMaterialStockService(),
+        _finishedGoodsRepository = finishedGoodsRepository;
 
   final FirebaseFirestore _firestore;
   final RawMaterialStockService _stockService;
+  final FinishedGoodsRepository? _finishedGoodsRepository;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _batchesCollection =>
@@ -190,6 +194,14 @@ class ProductionRepository {
       _batchesCollection.doc(batchId),
       ProductionBatchModel.fromEntity(batch).toFirestore(isCreate: true),
     );
+
+    if (_finishedGoodsRepository != null) {
+      await _finishedGoodsRepository.receiveFromProductionBatch(
+        writeBatch: writeBatch,
+        batch: batch,
+      );
+    }
+
     await writeBatch.commit();
 
     return batch;
