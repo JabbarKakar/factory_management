@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/supplier/supplier_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/supplier_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/suppliers/supplier_list_tile.dart';
 
@@ -32,12 +34,14 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
       appBar: AppBar(
         title: const Text(AppStrings.suppliers),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-suppliers',
-        onPressed: () => context.push(RoutePaths.suppliersAdd),
-        icon: const Icon(Icons.add),
-        label: const Text(AppStrings.addSupplier),
-      ),
+      floatingActionButton: context.userCanCreate(AppModule.suppliers)
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-suppliers',
+              onPressed: () => context.push(RoutePaths.suppliersAdd),
+              icon: const Icon(Icons.add),
+              label: const Text(AppStrings.addSupplier),
+            )
+          : null,
       body: Column(
         children: [
           Padding(

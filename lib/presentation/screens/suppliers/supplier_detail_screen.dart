@@ -6,7 +6,9 @@ import '../../../blocs/supplier/supplier_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/raw_material_enums.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/settings_section.dart';
 import '../../widgets/suppliers/supplier_purchases_section.dart';
 import '../../widgets/suppliers/supplier_type_chip.dart';
@@ -43,39 +45,49 @@ class SupplierDetailScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text(AppStrings.supplierDetails),
             actions: [
-              IconButton(
-                onPressed: () => context.push(
-                  RoutePaths.supplierEdit(supplier.id),
-                ),
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: AppStrings.editSupplier,
-              ),
-            ],
-          ),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              FloatingActionButton.extended(
-                heroTag: 'fab-supplier-purchase',
-                onPressed: () => context.push(
-                  RoutePaths.expensesAddForSupplier(
-                    supplierId: supplier.id,
-                    payeeName: supplier.name,
+              if (context.userCanEdit(AppModule.suppliers))
+                IconButton(
+                  onPressed: () => context.push(
+                    RoutePaths.supplierEdit(supplier.id),
                   ),
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editSupplier,
                 ),
-                icon: const Icon(Icons.add_shopping_cart_outlined),
-                label: const Text(AppStrings.recordPurchase),
-              ),
-              const SizedBox(height: 12),
-              FloatingActionButton.extended(
-                heroTag: 'fab-supplier-stock-in',
-                onPressed: () => _showMaterialPicker(context, supplier),
-                icon: const Icon(Icons.inventory_2_outlined),
-                label: const Text(AppStrings.stockIn),
-              ),
             ],
           ),
+          floatingActionButton:
+              (context.userCanCreate(AppModule.expenses) ||
+                      context.userCanCreate(AppModule.rawMaterials))
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (context.userCanCreate(AppModule.expenses))
+                          FloatingActionButton.extended(
+                            heroTag: 'fab-supplier-purchase',
+                            onPressed: () => context.push(
+                              RoutePaths.expensesAddForSupplier(
+                                supplierId: supplier.id,
+                                payeeName: supplier.name,
+                              ),
+                            ),
+                            icon: const Icon(Icons.add_shopping_cart_outlined),
+                            label: const Text(AppStrings.recordPurchase),
+                          ),
+                        if (context.userCanCreate(AppModule.expenses) &&
+                            context.userCanCreate(AppModule.rawMaterials))
+                          const SizedBox(height: 12),
+                        if (context.userCanCreate(AppModule.rawMaterials))
+                          FloatingActionButton.extended(
+                            heroTag: 'fab-supplier-stock-in',
+                            onPressed: () =>
+                                _showMaterialPicker(context, supplier),
+                            icon: const Icon(Icons.inventory_2_outlined),
+                            label: const Text(AppStrings.stockIn),
+                          ),
+                      ],
+                    )
+                  : null,
           body: ListView(
             padding: const EdgeInsets.only(bottom: 140),
             children: [

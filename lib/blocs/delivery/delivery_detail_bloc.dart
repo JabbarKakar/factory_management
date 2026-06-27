@@ -24,11 +24,13 @@ class DeliveryDetailBloc extends Bloc<DeliveryDetailEvent, DeliveryDetailState> 
 
   final DeliveryRepository _repository;
   StreamSubscription<Delivery?>? _subscription;
+  String? _driverEmployeeId;
 
   Future<void> _onWatchStarted(
     DeliveryDetailWatchStarted event,
     Emitter<DeliveryDetailState> emit,
   ) async {
+    _driverEmployeeId = event.driverEmployeeId;
     emit(state.copyWith(status: DeliveryDetailStatus.loading, clearMessages: true));
     await _subscription?.cancel();
     _subscription = _repository.watchDelivery(event.deliveryId).listen(
@@ -57,10 +59,24 @@ class DeliveryDetailBloc extends Bloc<DeliveryDetailEvent, DeliveryDetailState> 
     _DeliveryDetailUpdated event,
     Emitter<DeliveryDetailState> emit,
   ) {
+    final delivery = event.delivery;
+    if (_driverEmployeeId != null &&
+        _driverEmployeeId!.isNotEmpty &&
+        delivery.driverEmployeeId != _driverEmployeeId) {
+      emit(
+        state.copyWith(
+          status: DeliveryDetailStatus.failure,
+          delivery: null,
+          errorMessage: 'You can only view deliveries assigned to you.',
+        ),
+      );
+      return;
+    }
+
     emit(
       state.copyWith(
         status: DeliveryDetailStatus.loaded,
-        delivery: event.delivery,
+        delivery: delivery,
         errorMessage: null,
       ),
     );

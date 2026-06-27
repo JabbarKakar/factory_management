@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/labour/employee_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/labour_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/labour/employee_list_tile.dart';
 
@@ -32,19 +34,22 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       appBar: AppBar(
         title: const Text(AppStrings.factoryWorkers),
         actions: [
-          IconButton(
-            onPressed: () => context.push(RoutePaths.attendance),
-            icon: const Icon(Icons.fact_check_outlined),
-            tooltip: AppStrings.dailyAttendance,
-          ),
+          if (context.userCanView(AppModule.labour))
+            IconButton(
+              onPressed: () => context.push(RoutePaths.attendance),
+              icon: const Icon(Icons.fact_check_outlined),
+              tooltip: AppStrings.dailyAttendance,
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-employees',
-        onPressed: () => context.push(RoutePaths.employeesAdd),
-        icon: const Icon(Icons.person_add_alt_1_outlined),
-        label: const Text(AppStrings.addEmployee),
-      ),
+      floatingActionButton: context.userCanCreate(AppModule.labour)
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-employees',
+              onPressed: () => context.push(RoutePaths.employeesAdd),
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              label: const Text(AppStrings.addEmployee),
+            )
+          : null,
       body: Column(
         children: [
           Padding(

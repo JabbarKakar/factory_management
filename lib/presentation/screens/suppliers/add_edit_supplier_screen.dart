@@ -7,7 +7,9 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/validators.dart';
 import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/customer_enums.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/supplier_enums.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/settings_section.dart';
 
@@ -182,7 +184,9 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
               _isEditing ? AppStrings.editSupplier : AppStrings.addSupplier,
             ),
             actions: [
-              if (_isEditing && widget.supplierId != null)
+              if (_isEditing &&
+                  widget.supplierId != null &&
+                  context.userCanDelete(AppModule.suppliers))
                 IconButton(
                   onPressed: isSaving
                       ? null

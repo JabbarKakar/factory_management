@@ -11,6 +11,7 @@ class TeamState extends Equatable {
   const TeamState({
     this.status = TeamStatus.initial,
     this.users = const [],
+    this.employees = const [],
     this.factoryId,
     this.currentUserId,
     this.isSaving = false,
@@ -20,6 +21,7 @@ class TeamState extends Equatable {
 
   final TeamStatus status;
   final List<AppUser> users;
+  final List<Employee> employees;
   final String? factoryId;
   final String? currentUserId;
   final bool isSaving;
@@ -29,6 +31,7 @@ class TeamState extends Equatable {
   TeamState copyWith({
     TeamStatus? status,
     List<AppUser>? users,
+    List<Employee>? employees,
     String? factoryId,
     String? currentUserId,
     bool? isSaving,
@@ -39,6 +42,7 @@ class TeamState extends Equatable {
     return TeamState(
       status: status ?? this.status,
       users: users ?? this.users,
+      employees: employees ?? this.employees,
       factoryId: factoryId ?? this.factoryId,
       currentUserId: currentUserId ?? this.currentUserId,
       isSaving: isSaving ?? this.isSaving,
@@ -52,6 +56,7 @@ class TeamState extends Equatable {
   List<Object?> get props => [
         status,
         users,
+        employees,
         factoryId,
         currentUserId,
         isSaving,

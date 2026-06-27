@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/job_work/job_work_list_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_list_tile.dart';
 import '../../widgets/account_menu_button.dart';
@@ -39,12 +41,14 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
           AccountMenuButton(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-job-work',
-        onPressed: () => context.push(RoutePaths.jobWorkAdd),
-        icon: const Icon(Icons.add),
-        label: const Text(AppStrings.newJobWorkOrder),
-      ),
+      floatingActionButton: context.userCanCreate(AppModule.jobWork)
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-job-work',
+              onPressed: () => context.push(RoutePaths.jobWorkAdd),
+              icon: const Icon(Icons.add),
+              label: const Text(AppStrings.newJobWorkOrder),
+            )
+          : null,
       body: Column(
         children: [
           Padding(

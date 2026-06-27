@@ -13,6 +13,17 @@ class UserRepository {
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('users');
 
+  Stream<AppUser?> watchUser(String userId, {String? authPhotoUrl}) {
+    return _collection.doc(userId).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return UserModel.fromFirestore(
+        doc.id,
+        doc.data()!,
+        authPhotoUrl: authPhotoUrl,
+      ).toEntity();
+    });
+  }
+
   Stream<List<AppUser>> watchFactoryUsers(String factoryId) {
     return _collection
         .where('factoryId', isEqualTo: factoryId)
@@ -32,8 +43,28 @@ class UserRepository {
     required String userId,
     required FactoryRole role,
   }) async {
-    await _collection.doc(userId).update({
+    final updates = <String, dynamic>{
       'role': role.firestoreValue,
+    };
+    if (role != FactoryRole.driver) {
+      updates['employeeId'] = FieldValue.delete();
+    }
+    await _collection.doc(userId).update(updates);
+  }
+
+  Future<void> updateUserEmployeeLink({
+    required String userId,
+    String? employeeId,
+  }) async {
+    if (employeeId == null || employeeId.isEmpty) {
+      await _collection.doc(userId).update({
+        'employeeId': FieldValue.delete(),
+      });
+      return;
+    }
+
+    await _collection.doc(userId).update({
+      'employeeId': employeeId,
     });
   }
 }

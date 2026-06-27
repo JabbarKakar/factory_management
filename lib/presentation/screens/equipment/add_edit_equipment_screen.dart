@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import '../../../blocs/equipment/equipment_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/equipment.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/equipment_enums.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/settings_section.dart';
 
@@ -221,7 +223,9 @@ class _AddEditEquipmentScreenState extends State<AddEditEquipmentScreen> {
               _isEditing ? AppStrings.editEquipment : AppStrings.addEquipment,
             ),
             actions: [
-              if (_isEditing && widget.equipmentId != null)
+              if (_isEditing &&
+                  widget.equipmentId != null &&
+                  context.userCanDelete(AppModule.equipment))
                 IconButton(
                   onPressed: isSaving
                       ? null

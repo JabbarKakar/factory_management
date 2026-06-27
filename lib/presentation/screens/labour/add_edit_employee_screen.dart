@@ -7,7 +7,9 @@ import '../../../blocs/labour/employee_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/validators.dart';
 import '../../../domain/entities/employee.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/labour_enums.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/settings_section.dart';
 
@@ -172,7 +174,9 @@ class _AddEditEmployeeScreenState extends State<AddEditEmployeeScreen> {
               _isEditing ? AppStrings.editEmployee : AppStrings.addEmployee,
             ),
             actions: [
-              if (_isEditing && widget.employeeId != null)
+              if (_isEditing &&
+                  widget.employeeId != null &&
+                  context.userCanDelete(AppModule.labour))
                 IconButton(
                   onPressed: isSaving
                       ? null

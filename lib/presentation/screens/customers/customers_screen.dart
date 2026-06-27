@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/customer/customer_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/customer_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/customers/customer_list_tile.dart';
 import '../../widgets/empty_state_view.dart';
@@ -38,12 +40,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
           AccountMenuButton(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-customers',
-        onPressed: () => context.push(RoutePaths.customersAdd),
-        icon: const Icon(Icons.person_add_alt_1_outlined),
-        label: const Text(AppStrings.addCustomer),
-      ),
+      floatingActionButton: context.userCanCreate(AppModule.customers)
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-customers',
+              onPressed: () => context.push(RoutePaths.customersAdd),
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              label: const Text(AppStrings.addCustomer),
+            )
+          : null,
       body: Column(
         children: [
           Padding(

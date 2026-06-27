@@ -7,7 +7,9 @@ import '../../../blocs/customer/customer_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/customer.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/customers/customer_balance_indicator.dart';
 import '../../widgets/customers/customer_ledger_section.dart';
 import '../../widgets/customers/service_type_chip.dart';
@@ -45,13 +47,14 @@ class CustomerDetailScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text(AppStrings.customerDetails),
             actions: [
-              IconButton(
-                onPressed: () => context.push(
-                  RoutePaths.customerEdit(customer.id),
+              if (context.userCanEdit(AppModule.customers))
+                IconButton(
+                  onPressed: () => context.push(
+                    RoutePaths.customerEdit(customer.id),
+                  ),
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editCustomer,
                 ),
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: AppStrings.editCustomer,
-              ),
             ],
           ),
           body: ListView(

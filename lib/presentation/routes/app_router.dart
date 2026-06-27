@@ -108,6 +108,7 @@ import '../screens/more/more_screen.dart';
 import '../screens/notifications/notification_center_screen.dart';
 import '../screens/shell/main_shell.dart';
 import '../utils/auth_context.dart';
+import '../utils/user_permissions_context.dart';
 import '../../core/utils/date_keys.dart';
 import 'go_router_refresh_stream.dart';
 import 'permission_route_guard.dart';
@@ -1270,6 +1271,7 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                           DeliveryListWatchStarted(
                             factoryId,
                             initialFilter: initialFilter,
+                            driverEmployeeId: readDriverEmployeeId(context),
                           ),
                         );
                       }
@@ -1311,7 +1313,12 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                       return BlocProvider(
                         create: (context) {
                           final bloc = getIt<DeliveryDetailBloc>();
-                          bloc.add(DeliveryDetailWatchStarted(deliveryId));
+                          bloc.add(
+                            DeliveryDetailWatchStarted(
+                              deliveryId,
+                              driverEmployeeId: readDriverEmployeeId(context),
+                            ),
+                          );
                           return bloc;
                         },
                         child: DeliveryDetailScreen(deliveryId: deliveryId),
@@ -1328,7 +1335,11 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                             create: (context) {
                               final bloc = getIt<DeliveryDetailBloc>();
                               bloc.add(
-                                DeliveryDetailWatchStarted(deliveryId),
+                                DeliveryDetailWatchStarted(
+                                  deliveryId,
+                                  driverEmployeeId:
+                                      readDriverEmployeeId(context),
+                                ),
                               );
                               return bloc;
                             },

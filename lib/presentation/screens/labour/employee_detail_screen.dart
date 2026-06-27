@@ -7,7 +7,9 @@ import '../../../blocs/labour/employee_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/attendance_record.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/labour/employee_status_badge.dart';
 import '../../widgets/settings_section.dart';
 
@@ -43,16 +45,18 @@ class EmployeeDetailScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text(AppStrings.employeeDetails),
             actions: [
-              IconButton(
-                onPressed: () => context.push(
-                  RoutePaths.employeeEdit(employee.id),
+              if (context.userCanEdit(AppModule.labour))
+                IconButton(
+                  onPressed: () => context.push(
+                    RoutePaths.employeeEdit(employee.id),
+                  ),
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editEmployee,
                 ),
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: AppStrings.editEmployee,
-              ),
             ],
           ),
-          floatingActionButton: employee.isActive
+          floatingActionButton: employee.isActive &&
+                  context.userCanCreate(AppModule.labour)
               ? FloatingActionButton.extended(
                   heroTag: 'fab-employee-attendance',
                   onPressed: () => context.push(RoutePaths.attendance),

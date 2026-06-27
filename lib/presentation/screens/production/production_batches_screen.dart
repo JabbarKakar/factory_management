@@ -6,9 +6,11 @@ import '../../../blocs/production/production_list_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/production_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/production/production_batch_list_tile.dart';
 
@@ -51,12 +53,14 @@ class _ProductionBatchesScreenState extends State<ProductionBatchesScreen> {
       appBar: AppBar(
         title: const Text(AppStrings.productionBatches),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-production-batch',
-        onPressed: () => context.push(RoutePaths.productionAdd),
-        icon: const Icon(Icons.add),
-        label: const Text(AppStrings.recordProduction),
-      ),
+      floatingActionButton: context.userCanCreate(AppModule.production)
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-production-batch',
+              onPressed: () => context.push(RoutePaths.productionAdd),
+              icon: const Icon(Icons.add),
+              label: const Text(AppStrings.recordProduction),
+            )
+          : null,
       body: Column(
         children: [
           BlocBuilder<ProductionListBloc, ProductionListState>(

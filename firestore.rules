@@ -2,111 +2,243 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function myFactory() {
+      return me().factoryId;
+    }
+
+    function myRole() {
+      return me().role;
+    }
+
+    function myEmployeeId() {
+      return me().get('employeeId', '');
+    }
+
+    function isOwner() {
+      return myRole() == 'owner';
+    }
+
+    function isViewer() {
+      return myRole() == 'viewer';
+    }
+
+    function isDriver() {
+      return myRole() == 'driver';
+    }
+
+    function sameFactoryExisting() {
+      return resource.data.factoryId == myFactory();
+    }
+
+    function sameFactoryIncoming() {
+      return request.resource.data.factoryId == myFactory();
+    }
+
+    function canReadFactoryDoc() {
+      return signedIn() && sameFactoryExisting();
+    }
+
+    function canWriteFactoryDoc() {
+      return signedIn() && !isViewer() && sameFactoryIncoming();
+    }
+
+    function canReadFinancial() {
+      return myRole() in ['owner', 'accountant', 'factoryManager', 'salesStaff', 'jobWorkClerk'];
+    }
+
+    function canWriteFinancial() {
+      return myRole() in ['owner', 'accountant', 'salesStaff'];
+    }
+
+    function canReadOperations() {
+      return myRole() in [
+        'owner', 'factoryManager', 'supervisor', 'storeKeeper',
+        'jobWorkClerk', 'salesStaff', 'accountant'
+      ];
+    }
+
+    function canWriteOperations() {
+      return myRole() in ['owner', 'factoryManager', 'supervisor', 'storeKeeper', 'jobWorkClerk'];
+    }
+
+    function canReadProduction() {
+      return myRole() in ['owner', 'factoryManager', 'supervisor', 'storeKeeper', 'jobWorkClerk', 'accountant'];
+    }
+
+    function canWriteProduction() {
+      return myRole() in ['owner', 'factoryManager', 'supervisor'];
+    }
+
+    function canReadLabour() {
+      return myRole() in ['owner', 'factoryManager', 'supervisor', 'accountant'];
+    }
+
+    function canWriteLabour() {
+      return myRole() in ['owner', 'factoryManager', 'supervisor'];
+    }
+
+    function canReadDelivery() {
+      return signedIn() && sameFactoryExisting() && (
+        !isDriver() || resource.data.driverEmployeeId == myEmployeeId()
+      );
+    }
+
+    function canWriteDelivery() {
+      return signedIn() && sameFactoryIncoming() && !isViewer() && (
+        isOwner() ||
+        myRole() in ['factoryManager', 'salesStaff'] ||
+        (isDriver() &&
+          resource.data.driverEmployeeId == myEmployeeId() &&
+          request.resource.data.driverEmployeeId == myEmployeeId())
+      );
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) ||
-        (isSignedIn() &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
-            resource.data.factoryId ==
-                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.factoryId);
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) ||
-        (isSignedIn() &&
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' &&
-            resource.data.factoryId ==
-                get(/databases/$(database)/documents/users/$(request.auth.uid)).data.factoryId);
+      allow read: if signedIn() && (
+        request.auth.uid == userId ||
+        (isOwner() && resource.data.factoryId == myFactory())
+      );
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn() && (
+        request.auth.uid == userId ||
+        (isOwner() &&
+          resource.data.factoryId == myFactory() &&
+          request.resource.data.factoryId == myFactory())
+      );
     }
 
     match /customers/{customerId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadFinancial();
+      allow create, update: if canWriteFactoryDoc() && canWriteFinancial();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /jobWorkOrders/{jobWorkId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && canWriteOperations();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /jobWorkInvoices/{invoiceId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadFinancial();
+      allow create, update: if canWriteFactoryDoc() && canWriteFinancial();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /payments/{paymentId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadFinancial();
+      allow create, update: if canWriteFactoryDoc() && canWriteFinancial();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /notifications/{notifId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc();
+      allow create, update: if canWriteFactoryDoc();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /salesOrders/{salesOrderId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadFinancial();
+      allow create, update: if canWriteFactoryDoc() && canWriteFinancial();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /salesInvoices/{invoiceId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadFinancial();
+      allow create, update: if canWriteFactoryDoc() && canWriteFinancial();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /expenses/{expenseId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && myRole() in ['owner', 'accountant', 'factoryManager'];
+      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'accountant'];
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /suppliers/{supplierId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && canWriteOperations();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /rawMaterials/{materialId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /stockTransactions/{transactionId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /productionBatches/{batchId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadProduction();
+      allow create, update: if canWriteFactoryDoc() && canWriteProduction();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /finishedGoods/{finishedGoodId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /inventoryTransactions/{transactionId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /employees/{employeeId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadLabour();
+      allow create, update: if canWriteFactoryDoc() && canWriteLabour();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /attendanceRecords/{recordId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadLabour();
+      allow create, update: if canWriteFactoryDoc() && canWriteLabour();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /deliveries/{deliveryId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadDelivery();
+      allow create: if signedIn() && sameFactoryIncoming() && !isViewer() && !isDriver() &&
+        myRole() in ['owner', 'factoryManager', 'salesStaff'];
+      allow update: if canWriteDelivery();
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /equipment/{equipmentId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'supervisor'];
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /maintenanceLogs/{logId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'supervisor'];
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /qualityChecks/{qcId} {
-      allow read, write: if isSignedIn();
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'supervisor', 'jobWorkClerk'];
+      allow delete: if isOwner() && sameFactoryExisting();
     }
 
-    // Tighten these rules as modules are implemented in later sprints.
     match /{document=**} {
-      allow read, write: if isSignedIn();
+      allow read, write: if false;
     }
   }
 }

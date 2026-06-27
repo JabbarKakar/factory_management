@@ -8,13 +8,18 @@ sealed class DeliveryListEvent extends Equatable {
 }
 
 final class DeliveryListWatchStarted extends DeliveryListEvent {
-  const DeliveryListWatchStarted(this.factoryId, {this.initialFilter});
+  const DeliveryListWatchStarted(
+    this.factoryId, {
+    this.initialFilter,
+    this.driverEmployeeId,
+  });
 
   final String factoryId;
   final DeliveryListFilter? initialFilter;
+  final String? driverEmployeeId;
 
   @override
-  List<Object?> get props => [factoryId, initialFilter];
+  List<Object?> get props => [factoryId, initialFilter, driverEmployeeId];
 }
 
 final class DeliveryListWatchStopped extends DeliveryListEvent {

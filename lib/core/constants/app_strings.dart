@@ -308,6 +308,10 @@ abstract final class AppStrings {
   static const String teamLoadError = 'Could not load team members.';
   static const String teamEmpty = 'No users found for this factory.';
   static const String role = 'Role';
+  static const String linkedEmployee = 'Linked Employee';
+  static const String noEmployeeLinked = 'Not linked';
+  static const String driverEmployeeLinkHint =
+      'Link this driver to an employee record to show only their deliveries.';
 
   // Sales (Sprint 8)
   static const String newSalesOrder = 'New Sales Order';

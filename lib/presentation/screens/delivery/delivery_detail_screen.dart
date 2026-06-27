@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/delivery/delivery_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/delivery_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/delivery/delivery_status_badge.dart';
 import '../../widgets/settings_section.dart';
@@ -77,6 +79,7 @@ class DeliveryDetailScreen extends StatelessWidget {
 
         final nextStatus = delivery.status.nextStatus;
         final isSaving = state.status == DeliveryDetailStatus.saving;
+        final canEditDelivery = context.userCanEdit(AppModule.delivery);
 
         return Scaffold(
           appBar: AppBar(
@@ -125,7 +128,7 @@ class DeliveryDetailScreen extends StatelessWidget {
                         delivery.salesOrderNumber,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      if (nextStatus != null) ...[
+                      if (nextStatus != null && canEditDelivery) ...[
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
@@ -137,7 +140,8 @@ class DeliveryDetailScreen extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (delivery.status.canConfirmDelivery) ...[
+                      if (delivery.status.canConfirmDelivery &&
+                          canEditDelivery) ...[
                         const SizedBox(height: 8),
                         SizedBox(
                           width: double.infinity,
@@ -152,7 +156,7 @@ class DeliveryDetailScreen extends StatelessWidget {
                           ),
                         ),
                       ],
-                      if (delivery.status.isActive) ...[
+                      if (delivery.status.isActive && canEditDelivery) ...[
                         const SizedBox(height: 8),
                         SizedBox(
                           width: double.infinity,

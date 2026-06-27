@@ -122,42 +122,67 @@ class DashboardScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (user != null) ...[
+                if (user != null &&
+                    (user.canView(AppModule.sales) ||
+                        user.canView(AppModule.jobWork))) ...[
                   const SizedBox(height: 16),
                   PaymentRemindersCard(factoryId: user.factoryId),
                 ],
-                if (state.pendingPickups.isNotEmpty ||
-                    state.kpis.pendingPickupCount > 0) ...[
+                if (user != null &&
+                    user.canView(AppModule.jobWork) &&
+                    (state.pendingPickups.isNotEmpty ||
+                        state.kpis.pendingPickupCount > 0)) ...[
                   const SizedBox(height: 16),
                   PendingPickupsCard(
                     pendingPickups: state.pendingPickups,
                     totalCount: state.kpis.pendingPickupCount,
                   ),
                 ],
-                const SizedBox(height: 16),
-                Text(
-                  AppStrings.analyticsSection,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                DashboardProductionChartCard(
-                  points: state.analytics.productionLast7Days,
-                  monthlyOwnProductionSqFt: state.kpis.productionThisMonthSqFt,
-                ),
-                const SizedBox(height: 12),
-                DashboardRevenueChartCard(
-                  points: state.analytics.revenueLast30Days,
-                ),
-                const SizedBox(height: 12),
-                DashboardRevenueBreakdownCard(
-                  slices: state.analytics.revenueBreakdownThisMonth,
-                ),
-                const SizedBox(height: 12),
-                DashboardRecentActivityCard(
-                  items: state.analytics.recentActivity,
-                ),
+                if (user != null &&
+                    (user.canView(AppModule.production) ||
+                        user.canView(AppModule.jobWork) ||
+                        user.canView(AppModule.sales) ||
+                        user.canView(AppModule.plReport))) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    AppStrings.analyticsSection,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (user.canView(AppModule.production) ||
+                      user.canView(AppModule.jobWork))
+                    DashboardProductionChartCard(
+                      points: state.analytics.productionLast7Days,
+                      monthlyOwnProductionSqFt:
+                          state.kpis.productionThisMonthSqFt,
+                    ),
+                  if (user.canView(AppModule.production) ||
+                      user.canView(AppModule.jobWork))
+                    const SizedBox(height: 12),
+                  if (user.canView(AppModule.sales) ||
+                      user.canView(AppModule.jobWork))
+                    DashboardRevenueChartCard(
+                      points: state.analytics.revenueLast30Days,
+                    ),
+                  if (user.canView(AppModule.sales) ||
+                      user.canView(AppModule.jobWork))
+                    const SizedBox(height: 12),
+                  if (user.canView(AppModule.sales) ||
+                      user.canView(AppModule.jobWork))
+                    DashboardRevenueBreakdownCard(
+                      slices: state.analytics.revenueBreakdownThisMonth,
+                    ),
+                  if (user.canView(AppModule.sales) ||
+                      user.canView(AppModule.jobWork))
+                    const SizedBox(height: 12),
+                  if (user.canView(AppModule.sales) ||
+                      user.canView(AppModule.jobWork))
+                    DashboardRecentActivityCard(
+                      items: state.analytics.recentActivity,
+                    ),
+                ],
                 const SizedBox(height: 16),
                 Text(
                   AppStrings.quickActions,
@@ -179,7 +204,7 @@ class DashboardScreen extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(height: 12),
-                _KpiGrid(kpis: state.kpis),
+                _KpiGrid(kpis: state.kpis, user: user),
               ],
             ),
           );
@@ -287,127 +312,173 @@ List<Widget> _quickActions(BuildContext context, AppUser? user) {
 }
 
 class _KpiGrid extends StatelessWidget {
-  const _KpiGrid({required this.kpis});
+  const _KpiGrid({required this.kpis, required this.user});
 
   final DashboardKpis kpis;
+  final AppUser? user;
+
+  bool _canView(AppModule module) => user?.canView(module) ?? false;
+
+  VoidCallback? _tap(VoidCallback action, AppModule module) {
+    return _canView(module) ? action : null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      _KpiItem(
-        label: AppStrings.revenueToday,
-        value: Formatters.currencyPkr(kpis.revenueToday),
-        subtitle: kpis.revenueToday > 0
-            ? 'Sales ${Formatters.currencyPkr(kpis.salesRevenueToday)} · JW ${Formatters.currencyPkr(kpis.jobWorkRevenueToday)}'
-            : AppStrings.paymentsReceivedToday,
-        icon: Icons.payments_outlined,
-        color: AppColors.success,
-        onTap: () => context.push(RoutePaths.notifications),
-      ),
-      _KpiItem(
-        label: AppStrings.revenueThisMonth,
-        value: Formatters.currencyPkr(kpis.revenueThisMonth),
-        subtitle: AppStrings.paymentsReceivedThisMonth,
-        icon: Icons.trending_up,
-        color: AppColors.success,
-        onTap: () => context.push(RoutePaths.plReport),
-      ),
-      _KpiItem(
-        label: AppStrings.dueThisWeek,
-        value: Formatters.currencyPkr(kpis.dueThisWeekAmount),
-        subtitle: kpis.dueThisWeekCount > 0
-            ? '${kpis.dueThisWeekCount} invoice(s)'
-            : AppStrings.noDuesThisWeek,
-        icon: Icons.schedule,
-        color: AppColors.dueSoon,
-        onTap: () => context.push(
-          RoutePaths.notificationsWithFilter(NotificationFilter.dueThisWeek),
+    final items = <_KpiItem>[
+      if (_canView(AppModule.sales) || _canView(AppModule.jobWork))
+        _KpiItem(
+          label: AppStrings.revenueToday,
+          value: Formatters.currencyPkr(kpis.revenueToday),
+          subtitle: kpis.revenueToday > 0
+              ? 'Sales ${Formatters.currencyPkr(kpis.salesRevenueToday)} · JW ${Formatters.currencyPkr(kpis.jobWorkRevenueToday)}'
+              : AppStrings.paymentsReceivedToday,
+          icon: Icons.payments_outlined,
+          color: AppColors.success,
+          onTap: _tap(
+            () => context.push(RoutePaths.notifications),
+            AppModule.notifications,
+          ),
         ),
-      ),
-      _KpiItem(
-        label: AppStrings.productionToday,
-        value: Formatters.stockQuantity(kpis.productionTodaySqFt, 'sq. ft'),
-        subtitle: kpis.productionTodaySqFt > 0
-            ? 'Own ${Formatters.stockQuantity(kpis.ownProductionTodaySqFt, 'sq. ft')} · JW ${Formatters.stockQuantity(kpis.jobWorkOutputTodaySqFt, 'sq. ft')}'
-            : AppStrings.productionTodaySubtitle,
-        icon: Icons.precision_manufacturing_outlined,
-        color: AppColors.primary,
-        onTap: () => context.push(RoutePaths.production),
-      ),
-      _KpiItem(
-        label: AppStrings.activeJobWork,
-        value: '${kpis.activeJobWorkCount}',
-        icon: Icons.content_cut,
-        color: AppColors.primary,
-        onTap: () => context.go(
-          RoutePaths.jobWorkList(filter: JobWorkListStageFilter.inProgress),
+      if (_canView(AppModule.plReport))
+        _KpiItem(
+          label: AppStrings.revenueThisMonth,
+          value: Formatters.currencyPkr(kpis.revenueThisMonth),
+          subtitle: AppStrings.paymentsReceivedThisMonth,
+          icon: Icons.trending_up,
+          color: AppColors.success,
+          onTap: _tap(() => context.push(RoutePaths.plReport), AppModule.plReport),
         ),
-      ),
-      _KpiItem(
-        label: AppStrings.activeSales,
-        value: '${kpis.activeSalesCount}',
-        subtitle: AppStrings.activeSalesOrders,
-        icon: Icons.shopping_bag_outlined,
-        color: AppColors.primary,
-        onTap: () => context.go(RoutePaths.salesList(filter: 'inProgress')),
-      ),
-      _KpiItem(
-        label: AppStrings.pendingPickups,
-        value: '${kpis.pendingPickupCount}',
-        subtitle: AppStrings.awaitingCustomerPickup,
-        icon: Icons.inventory_2_outlined,
-        color: AppColors.accent,
-        onTap: () => context.go(
-          RoutePaths.jobWorkList(filter: JobWorkListStageFilter.pendingPickup),
+      if (_canView(AppModule.notifications))
+        _KpiItem(
+          label: AppStrings.dueThisWeek,
+          value: Formatters.currencyPkr(kpis.dueThisWeekAmount),
+          subtitle: kpis.dueThisWeekCount > 0
+              ? '${kpis.dueThisWeekCount} invoice(s)'
+              : AppStrings.noDuesThisWeek,
+          icon: Icons.schedule,
+          color: AppColors.dueSoon,
+          onTap: _tap(
+            () => context.push(
+              RoutePaths.notificationsWithFilter(NotificationFilter.dueThisWeek),
+            ),
+            AppModule.notifications,
+          ),
         ),
-      ),
-      _KpiItem(
-        label: AppStrings.overdueTotal,
-        value: Formatters.currencyPkr(kpis.overdueAmount),
-        subtitle:
-            kpis.overdueCount > 0 ? '${kpis.overdueCount} invoice(s)' : null,
-        icon: Icons.warning_amber_rounded,
-        color: AppColors.overdue,
-        onTap: () => context.push(
-          RoutePaths.notificationsWithFilter(NotificationFilter.overdue),
+      if (_canView(AppModule.production) || _canView(AppModule.jobWork))
+        _KpiItem(
+          label: AppStrings.productionToday,
+          value: Formatters.stockQuantity(kpis.productionTodaySqFt, 'sq. ft'),
+          subtitle: kpis.productionTodaySqFt > 0
+              ? 'Own ${Formatters.stockQuantity(kpis.ownProductionTodaySqFt, 'sq. ft')} · JW ${Formatters.stockQuantity(kpis.jobWorkOutputTodaySqFt, 'sq. ft')}'
+              : AppStrings.productionTodaySubtitle,
+          icon: Icons.precision_manufacturing_outlined,
+          color: AppColors.primary,
+          onTap: _tap(
+            () => context.push(RoutePaths.production),
+            AppModule.production,
+          ),
         ),
-      ),
-      _KpiItem(
-        label: AppStrings.factoryExpenses,
-        value: Formatters.currencyPkr(kpis.expensesThisMonth),
-        subtitle: kpis.expenseCountThisMonth > 0
-            ? '${kpis.expenseCountThisMonth} ${AppStrings.expenseEntriesThisMonth}'
-            : AppStrings.expensesThisMonth,
-        icon: Icons.receipt_long_outlined,
-        color: AppColors.warning,
-        onTap: () => context.push(RoutePaths.expenses),
-      ),
-      _KpiItem(
-        label: AppStrings.lowStockMaterials,
-        value: '${kpis.lowStockCount}',
-        subtitle: kpis.lowStockCount > 0
-            ? AppStrings.lowStock
-            : AppStrings.rawMaterialStock,
-        icon: Icons.inventory_2_outlined,
-        color: kpis.lowStockCount > 0 ? AppColors.warning : AppColors.accent,
-        onTap: () => context.push(
-          RoutePaths.rawMaterialsList(filter: RawMaterialListFilter.lowStock),
+      if (_canView(AppModule.jobWork))
+        _KpiItem(
+          label: AppStrings.activeJobWork,
+          value: '${kpis.activeJobWorkCount}',
+          icon: Icons.content_cut,
+          color: AppColors.primary,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.jobWorkList(filter: JobWorkListStageFilter.inProgress),
+            ),
+            AppModule.jobWork,
+          ),
         ),
-      ),
-      _KpiItem(
-        label: AppStrings.pendingDeliveries,
-        value: '${kpis.activeDeliveriesCount}',
-        subtitle: kpis.scheduledDeliveriesToday > 0
-            ? '${kpis.scheduledDeliveriesToday} ${AppStrings.scheduledDeliveriesToday}'
-            : null,
-        icon: Icons.local_shipping_outlined,
-        color: AppColors.primary,
-        onTap: () => context.go(
-          RoutePaths.deliveriesList(filter: DeliveryListFilter.active),
+      if (_canView(AppModule.sales))
+        _KpiItem(
+          label: AppStrings.activeSales,
+          value: '${kpis.activeSalesCount}',
+          subtitle: AppStrings.activeSalesOrders,
+          icon: Icons.shopping_bag_outlined,
+          color: AppColors.primary,
+          onTap: _tap(
+            () => context.go(RoutePaths.salesList(filter: 'inProgress')),
+            AppModule.sales,
+          ),
         ),
-      ),
-      if (kpis.maintenanceOverdueCount > 0 ||
-          kpis.maintenanceDueSoonCount > 0)
+      if (_canView(AppModule.jobWork))
+        _KpiItem(
+          label: AppStrings.pendingPickups,
+          value: '${kpis.pendingPickupCount}',
+          subtitle: AppStrings.awaitingCustomerPickup,
+          icon: Icons.inventory_2_outlined,
+          color: AppColors.accent,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.jobWorkList(filter: JobWorkListStageFilter.pendingPickup),
+            ),
+            AppModule.jobWork,
+          ),
+        ),
+      if (_canView(AppModule.notifications))
+        _KpiItem(
+          label: AppStrings.overdueTotal,
+          value: Formatters.currencyPkr(kpis.overdueAmount),
+          subtitle:
+              kpis.overdueCount > 0 ? '${kpis.overdueCount} invoice(s)' : null,
+          icon: Icons.warning_amber_rounded,
+          color: AppColors.overdue,
+          onTap: _tap(
+            () => context.push(
+              RoutePaths.notificationsWithFilter(NotificationFilter.overdue),
+            ),
+            AppModule.notifications,
+          ),
+        ),
+      if (_canView(AppModule.expenses))
+        _KpiItem(
+          label: AppStrings.factoryExpenses,
+          value: Formatters.currencyPkr(kpis.expensesThisMonth),
+          subtitle: kpis.expenseCountThisMonth > 0
+              ? '${kpis.expenseCountThisMonth} ${AppStrings.expenseEntriesThisMonth}'
+              : AppStrings.expensesThisMonth,
+          icon: Icons.receipt_long_outlined,
+          color: AppColors.warning,
+          onTap: _tap(() => context.push(RoutePaths.expenses), AppModule.expenses),
+        ),
+      if (_canView(AppModule.rawMaterials))
+        _KpiItem(
+          label: AppStrings.lowStockMaterials,
+          value: '${kpis.lowStockCount}',
+          subtitle: kpis.lowStockCount > 0
+              ? AppStrings.lowStock
+              : AppStrings.rawMaterialStock,
+          icon: Icons.inventory_2_outlined,
+          color: kpis.lowStockCount > 0 ? AppColors.warning : AppColors.accent,
+          onTap: _tap(
+            () => context.push(
+              RoutePaths.rawMaterialsList(filter: RawMaterialListFilter.lowStock),
+            ),
+            AppModule.rawMaterials,
+          ),
+        ),
+      if (_canView(AppModule.delivery))
+        _KpiItem(
+          label: AppStrings.pendingDeliveries,
+          value: '${kpis.activeDeliveriesCount}',
+          subtitle: kpis.scheduledDeliveriesToday > 0
+              ? '${kpis.scheduledDeliveriesToday} ${AppStrings.scheduledDeliveriesToday}'
+              : null,
+          icon: Icons.local_shipping_outlined,
+          color: AppColors.primary,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.deliveriesList(filter: DeliveryListFilter.active),
+            ),
+            AppModule.delivery,
+          ),
+        ),
+      if (_canView(AppModule.equipment) &&
+          (kpis.maintenanceOverdueCount > 0 ||
+              kpis.maintenanceDueSoonCount > 0))
         _KpiItem(
           label: AppStrings.maintenanceDueKpi,
           value: kpis.maintenanceOverdueCount > 0
@@ -420,13 +491,17 @@ class _KpiGrid extends StatelessWidget {
           color: kpis.maintenanceOverdueCount > 0
               ? AppColors.overdue
               : AppColors.warning,
-          onTap: () => context.go(
-            RoutePaths.equipmentList(
-              filter: EquipmentListFilter.maintenanceDue,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.equipmentList(
+                filter: EquipmentListFilter.maintenanceDue,
+              ),
             ),
+            AppModule.equipment,
           ),
         ),
-      if (kpis.jobWorkPendingQcCount > 0 || kpis.qcRejectsThisMonth > 0)
+      if (_canView(AppModule.qualityControl) &&
+          (kpis.jobWorkPendingQcCount > 0 || kpis.qcRejectsThisMonth > 0))
         _KpiItem(
           label: AppStrings.qcAttentionKpi,
           value: kpis.jobWorkPendingQcCount > 0
@@ -439,39 +514,44 @@ class _KpiGrid extends StatelessWidget {
           color: kpis.jobWorkPendingQcCount > 0
               ? AppColors.warning
               : AppColors.overdue,
-          onTap: () {
-            if (kpis.jobWorkPendingQcCount > 0) {
-              context.go(
-                RoutePaths.jobWorkList(filter: JobWorkListStageFilter.atQc),
-              );
-            } else {
-              context.push(
-                RoutePaths.qualityChecksList(filter: QcListFilter.reject),
-              );
-            }
-          },
+          onTap: _tap(
+            () {
+              if (kpis.jobWorkPendingQcCount > 0) {
+                context.go(
+                  RoutePaths.jobWorkList(filter: JobWorkListStageFilter.atQc),
+                );
+              } else {
+                context.push(
+                  RoutePaths.qualityChecksList(filter: QcListFilter.reject),
+                );
+              }
+            },
+            AppModule.qualityControl,
+          ),
         ),
-      _KpiItem(
-        label: AppStrings.presentLabourToday,
-        value: kpis.activeLabourCount > 0
-            ? '${kpis.presentLabourToday} / ${kpis.activeLabourCount}'
-            : '0',
-        subtitle: kpis.unmarkedAttendanceToday > 0
-            ? '${kpis.unmarkedAttendanceToday} ${AppStrings.attendanceUnmarked.toLowerCase()}'
-            : AppStrings.labourAttendanceToday,
-        icon: Icons.groups_outlined,
-        color: kpis.unmarkedAttendanceToday > 0
-            ? AppColors.warning
-            : AppColors.success,
-        onTap: () => context.push(RoutePaths.attendance),
-      ),
-      _KpiItem(
-        label: AppStrings.customerCount,
-        value: '${kpis.customerCount}',
-        icon: Icons.people_outline,
-        color: AppColors.accent,
-        onTap: () => context.go(RoutePaths.customers),
-      ),
+      if (_canView(AppModule.labour))
+        _KpiItem(
+          label: AppStrings.presentLabourToday,
+          value: kpis.activeLabourCount > 0
+              ? '${kpis.presentLabourToday} / ${kpis.activeLabourCount}'
+              : '0',
+          subtitle: kpis.unmarkedAttendanceToday > 0
+              ? '${kpis.unmarkedAttendanceToday} ${AppStrings.attendanceUnmarked.toLowerCase()}'
+              : AppStrings.labourAttendanceToday,
+          icon: Icons.groups_outlined,
+          color: kpis.unmarkedAttendanceToday > 0
+              ? AppColors.warning
+              : AppColors.success,
+          onTap: _tap(() => context.push(RoutePaths.attendance), AppModule.labour),
+        ),
+      if (_canView(AppModule.customers))
+        _KpiItem(
+          label: AppStrings.customerCount,
+          value: '${kpis.customerCount}',
+          icon: Icons.people_outline,
+          color: AppColors.accent,
+          onTap: _tap(() => context.go(RoutePaths.customers), AppModule.customers),
+        ),
     ];
 
     return GridView.count(
@@ -485,58 +565,67 @@ class _KpiGrid extends StatelessWidget {
           .map(
             (item) => Card(
               clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: item.onTap,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Icon(item.icon, color: item.color, size: 22),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              item.value,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          Text(
-                            item.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(color: AppColors.textSecondary),
-                          ),
-                          if (item.subtitle != null)
-                            Text(
-                              item.subtitle!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(color: item.color),
-                            ),
-                        ],
+              child: item.onTap == null
+                  ? Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: _kpiContent(context, item),
+                    )
+                  : InkWell(
+                      onTap: item.onTap,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: _kpiContent(context, item),
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                    ),
             ),
           )
           .toList(),
+    );
+  }
+
+  Widget _kpiContent(BuildContext context, _KpiItem item) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Icon(item.icon, color: item.color, size: 22),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                item.value,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: AppColors.textSecondary),
+            ),
+            if (item.subtitle != null)
+              Text(
+                item.subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: item.color),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -547,8 +636,8 @@ class _KpiItem {
     required this.value,
     required this.icon,
     required this.color,
-    required this.onTap,
     this.subtitle,
+    this.onTap,
   });
 
   final String label;
@@ -556,5 +645,5 @@ class _KpiItem {
   final String? subtitle;
   final IconData icon;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 }

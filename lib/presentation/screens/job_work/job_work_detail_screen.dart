@@ -6,9 +6,11 @@ import 'package:intl/intl.dart';
 import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
 import '../../widgets/job_work/job_work_status_badge.dart';
@@ -125,9 +127,11 @@ class JobWorkDetailScreen extends StatelessWidget {
           );
         }
 
-        final canEditIntake = order.status == JobWorkStatus.agreed ||
-            order.status == JobWorkStatus.received;
-        final canRecordOutput = order.status.canRecordOutput;
+        final canEditIntake = (order.status == JobWorkStatus.agreed ||
+                order.status == JobWorkStatus.received) &&
+            context.userCanEdit(AppModule.jobWork);
+        final canRecordOutput =
+            order.status.canRecordOutput && context.userCanEdit(AppModule.jobWork);
         final nextStatus = order.status.nextOperationalStatus;
         final nextCompletionStatus = order.status.nextCompletionStatus;
         final isSaving = state.status == JobWorkFormStatus.saving;

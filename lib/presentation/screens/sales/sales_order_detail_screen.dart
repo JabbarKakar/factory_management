@@ -7,7 +7,9 @@ import '../../../blocs/sales/sales_order_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/sales_enums.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/delivery/delivery_status_badge.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/sales/sales_order_status_badge.dart';
@@ -123,7 +125,8 @@ class SalesOrderDetailScreen extends StatelessWidget {
           );
         }
 
-        final canEdit = order.status == SalesOrderStatus.received;
+        final canEdit = order.status == SalesOrderStatus.received &&
+            context.userCanEdit(AppModule.sales);
         final nextStatus = order.status.nextStatus;
         final isSaving = state.status == SalesOrderFormStatus.saving;
         final canInvoice = order.status == SalesOrderStatus.ready ||

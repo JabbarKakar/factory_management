@@ -11,7 +11,9 @@ import '../../../core/utils/validators.dart';
 import '../../../data/repositories/supplier_repository.dart';
 import '../../../domain/entities/expense.dart';
 import '../../../domain/entities/supplier.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/expense_enums.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../../domain/enums/invoice_enums.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/settings_section.dart';
@@ -203,7 +205,9 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
               _isEditing ? AppStrings.editExpense : AppStrings.addExpense,
             ),
             actions: [
-              if (_isEditing && widget.expenseId != null)
+              if (_isEditing &&
+                  widget.expenseId != null &&
+                  context.userCanDelete(AppModule.expenses))
                 IconButton(
                   onPressed: isSaving
                       ? null

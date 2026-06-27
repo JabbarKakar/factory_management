@@ -7,7 +7,9 @@ import '../../../blocs/equipment/equipment_detail_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/equipment/equipment_status_badge.dart';
 import '../../widgets/equipment/maintenance_log_tile.dart';
 import '../../widgets/settings_section.dart';
@@ -70,30 +72,33 @@ class EquipmentDetailScreen extends StatelessWidget {
           appBar: AppBar(
             title: const Text(AppStrings.equipmentDetails),
             actions: [
-              IconButton(
-                onPressed: () async {
-                  final updated = await context.push<bool>(
-                    RoutePaths.equipmentEdit(equipment.id),
-                  );
-                  if (updated == true && context.mounted) {
-                    context.read<EquipmentDetailBloc>().add(
-                          EquipmentDetailWatchStarted(equipmentId),
-                        );
-                  }
-                },
-                icon: const Icon(Icons.edit_outlined),
-                tooltip: AppStrings.editEquipment,
-              ),
+              if (context.userCanEdit(AppModule.equipment))
+                IconButton(
+                  onPressed: () async {
+                    final updated = await context.push<bool>(
+                      RoutePaths.equipmentEdit(equipment.id),
+                    );
+                    if (updated == true && context.mounted) {
+                      context.read<EquipmentDetailBloc>().add(
+                            EquipmentDetailWatchStarted(equipmentId),
+                          );
+                    }
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editEquipment,
+                ),
             ],
           ),
-          floatingActionButton: FloatingActionButton.extended(
-            heroTag: 'fab-record-maintenance-$equipmentId',
-            onPressed: () => context.push(
-              RoutePaths.equipmentRecordMaintenance(equipment.id),
-            ),
-            icon: const Icon(Icons.build_circle_outlined),
-            label: const Text(AppStrings.recordMaintenance),
-          ),
+          floatingActionButton: context.userCanCreate(AppModule.equipment)
+              ? FloatingActionButton.extended(
+                  heroTag: 'fab-record-maintenance-$equipmentId',
+                  onPressed: () => context.push(
+                    RoutePaths.equipmentRecordMaintenance(equipment.id),
+                  ),
+                  icon: const Icon(Icons.build_circle_outlined),
+                  label: const Text(AppStrings.recordMaintenance),
+                )
+              : null,
           body: ListView(
             padding: const EdgeInsets.only(bottom: 88),
             children: [

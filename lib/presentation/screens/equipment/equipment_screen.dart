@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/equipment/equipment_list_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/equipment_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/equipment/equipment_list_tile.dart';
 
@@ -45,12 +47,14 @@ class _EquipmentScreenState extends State<EquipmentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.factoryEquipment)),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-equipment',
-        onPressed: () => context.push(RoutePaths.equipmentAdd),
-        icon: const Icon(Icons.add_circle_outline),
-        label: const Text(AppStrings.addEquipment),
-      ),
+      floatingActionButton: context.userCanCreate(AppModule.equipment)
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-equipment',
+              onPressed: () => context.push(RoutePaths.equipmentAdd),
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text(AppStrings.addEquipment),
+            )
+          : null,
       body: Column(
         children: [
           BlocBuilder<EquipmentListBloc, EquipmentListState>(

@@ -8,12 +8,16 @@ sealed class DeliveryDetailEvent extends Equatable {
 }
 
 final class DeliveryDetailWatchStarted extends DeliveryDetailEvent {
-  const DeliveryDetailWatchStarted(this.deliveryId);
+  const DeliveryDetailWatchStarted(
+    this.deliveryId, {
+    this.driverEmployeeId,
+  });
 
   final String deliveryId;
+  final String? driverEmployeeId;
 
   @override
-  List<Object?> get props => [deliveryId];
+  List<Object?> get props => [deliveryId, driverEmployeeId];
 }
 
 final class DeliveryDetailWatchStopped extends DeliveryDetailEvent {

@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/quality/qc_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/quality/qc_list_tile.dart';
 
@@ -44,12 +46,14 @@ class _QualityChecksScreenState extends State<QualityChecksScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.qualityControl)),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-quality-checks',
-        onPressed: () => context.push(RoutePaths.qualityChecksAdd),
-        icon: const Icon(Icons.fact_check_outlined),
-        label: const Text(AppStrings.recordQcInspection),
-      ),
+      floatingActionButton: context.userCanCreate(AppModule.qualityControl)
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-quality-checks',
+              onPressed: () => context.push(RoutePaths.qualityChecksAdd),
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const Text(AppStrings.recordQcInspection),
+            )
+          : null,
       body: Column(
         children: [
           BlocBuilder<QcListBloc, QcListState>(

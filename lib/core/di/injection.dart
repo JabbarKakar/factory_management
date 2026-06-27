@@ -191,7 +191,10 @@ void setupDependencies() {
     ),
   );
   getIt.registerFactory<TeamBloc>(
-    () => TeamBloc(repository: getIt<UserRepository>()),
+    () => TeamBloc(
+      repository: getIt<UserRepository>(),
+      employeeRepository: getIt<EmployeeRepository>(),
+    ),
   );
   getIt.registerFactory<CustomerListBloc>(
     () => CustomerListBloc(repository: getIt<CustomerRepository>()),

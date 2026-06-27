@@ -14,14 +14,32 @@ class AuthRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
-  Stream<AppUser?> get authStateChanges async* {
-    await for (final user in _auth.authStateChanges()) {
+  Stream<AppUser?> get authStateChanges {
+    return _auth.authStateChanges().asyncExpand((user) {
       if (user == null) {
-        yield null;
-        continue;
+        return Stream<AppUser?>.value(null);
       }
-      yield await _fetchUserProfile(user);
-    }
+
+      return _firestore.collection('users').doc(user.uid).snapshots().map((doc) {
+        if (!doc.exists || doc.data() == null) {
+          return UserModel(
+            id: user.uid,
+            email: user.email ?? '',
+            name: user.displayName ?? user.email?.split('@').first ?? 'User',
+            role: 'viewer',
+            factoryId: 'default',
+            createdAt: DateTime.now(),
+            photoUrl: user.photoURL,
+          ).toEntity();
+        }
+
+        return UserModel.fromFirestore(
+          user.uid,
+          doc.data()!,
+          authPhotoUrl: user.photoURL,
+        ).toEntity();
+      });
+    });
   }
 
   Future<AppUser> signIn({
@@ -48,18 +66,6 @@ class AuthRepository {
     return _auth.sendPasswordResetEmail(email: email.trim());
   }
 
-  Future<AppUser> _fetchUserProfile(User user) async {
-    final doc = await _firestore.collection('users').doc(user.uid).get();
-    if (doc.exists && doc.data() != null) {
-      return UserModel.fromFirestore(
-        user.uid,
-        doc.data()!,
-        authPhotoUrl: user.photoURL,
-      ).toEntity();
-    }
-    return _ensureUserProfile(user);
-  }
-
   Future<AppUser> _ensureUserProfile(User user) async {
     final docRef = _firestore.collection('users').doc(user.uid);
     final doc = await docRef.get();
@@ -76,7 +82,7 @@ class AuthRepository {
       id: user.uid,
       email: user.email ?? '',
       name: user.displayName ?? user.email?.split('@').first ?? 'User',
-      role: 'owner',
+      role: 'viewer',
       factoryId: 'default',
       createdAt: DateTime.now(),
       photoUrl: user.photoURL,

@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/sales/sales_order_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/sales_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/notification_bell.dart';
@@ -38,12 +40,14 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
           AccountMenuButton(),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-sales',
-        onPressed: () => context.push(RoutePaths.salesAdd),
-        icon: const Icon(Icons.add),
-        label: const Text(AppStrings.newSalesOrder),
-      ),
+      floatingActionButton: context.userCanCreate(AppModule.sales)
+          ? FloatingActionButton.extended(
+              heroTag: 'fab-sales',
+              onPressed: () => context.push(RoutePaths.salesAdd),
+              icon: const Icon(Icons.add),
+              label: const Text(AppStrings.newSalesOrder),
+            )
+          : null,
       body: Column(
         children: [
           Padding(

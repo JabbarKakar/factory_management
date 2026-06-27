@@ -24,12 +24,14 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
 
   final DeliveryRepository _repository;
   StreamSubscription<List<Delivery>>? _subscription;
+  String? _driverEmployeeId;
 
   Future<void> _onWatchStarted(
     DeliveryListWatchStarted event,
     Emitter<DeliveryListState> emit,
   ) async {
     final filter = event.initialFilter ?? state.filter;
+    _driverEmployeeId = event.driverEmployeeId;
     emit(
       state.copyWith(
         status: DeliveryListStatus.loading,
@@ -66,6 +68,7 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
           state.deliveries,
           query: event.query,
           filter: state.filter,
+          driverEmployeeId: _driverEmployeeId,
         ),
       ),
     );
@@ -82,6 +85,7 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
           state.deliveries,
           query: state.searchQuery,
           filter: event.filter,
+          driverEmployeeId: _driverEmployeeId,
         ),
       ),
     );
@@ -99,6 +103,7 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
           event.deliveries,
           query: state.searchQuery,
           filter: state.filter,
+          driverEmployeeId: _driverEmployeeId,
         ),
         errorMessage: null,
       ),
@@ -121,10 +126,16 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
     List<Delivery> deliveries, {
     required String query,
     required DeliveryListFilter filter,
+    String? driverEmployeeId,
   }) {
     final normalizedQuery = query.trim().toLowerCase();
 
     return deliveries.where((delivery) {
+      if (driverEmployeeId != null &&
+          driverEmployeeId.isNotEmpty &&
+          delivery.driverEmployeeId != driverEmployeeId) {
+        return false;
+      }
       if (!filter.matches(delivery.status)) return false;
       if (normalizedQuery.isEmpty) return true;
 

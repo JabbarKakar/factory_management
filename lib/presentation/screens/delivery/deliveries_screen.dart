@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../blocs/auth/auth_bloc.dart';
 import '../../../blocs/delivery/delivery_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/app_module_enums.dart';
@@ -10,6 +9,7 @@ import '../../../domain/enums/delivery_enums.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/delivery/delivery_list_tile.dart';
@@ -47,10 +47,8 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = context.watch<AuthBloc>().state;
-    final user = authState is AuthAuthenticated ? authState.user : null;
-    final canScheduleDelivery =
-        user?.canCreate(AppModule.delivery) ?? false;
+    final user = watchCurrentUser(context);
+    final canScheduleDelivery = user?.canCreate(AppModule.delivery) ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -152,7 +150,10 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                     final factoryId = readFactoryId(context);
                     if (factoryId != null) {
                       context.read<DeliveryListBloc>().add(
-                            DeliveryListWatchStarted(factoryId),
+                            DeliveryListWatchStarted(
+                              factoryId,
+                              driverEmployeeId: readDriverEmployeeId(context),
+                            ),
                           );
                     }
                   },

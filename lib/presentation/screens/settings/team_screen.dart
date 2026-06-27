@@ -51,46 +51,108 @@ class TeamScreen extends StatelessWidget {
       itemBuilder: (context, index) {
         final member = state.users[index];
         final isSelf = member.id == state.currentUserId;
+        final isDriver = member.factoryRole == FactoryRole.driver;
 
         return Card(
-          child: ListTile(
-            leading: CircleAvatar(
-              child: Text(
-                member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
-              ),
-            ),
-            title: Text(member.name),
-            subtitle: Text(member.email),
-            trailing: SizedBox(
-              width: 180,
-              child: DropdownButtonFormField<FactoryRole>(
-                isExpanded: true,
-                value: member.factoryRole,
-                decoration: InputDecoration(
-                  labelText: AppStrings.role,
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                ),
-                items: FactoryRole.values
-                    .map(
-                      (role) => DropdownMenuItem(
-                        value: role,
-                        child: Text(role.label),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      child: Text(
+                        member.name.isNotEmpty
+                            ? member.name[0].toUpperCase()
+                            : '?',
                       ),
-                    )
-                    .toList(),
-                onChanged: state.isSaving || isSelf
-                    ? null
-                    : (role) {
-                        if (role == null) return;
-                        context.read<TeamBloc>().add(
-                              TeamRoleChangeRequested(
-                                userId: member.id,
-                                role: role,
-                              ),
-                            );
-                      },
-              ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            member.name,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          Text(member.email),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<FactoryRole>(
+                  isExpanded: true,
+                  initialValue: member.factoryRole,
+                  decoration: InputDecoration(
+                    labelText: AppStrings.role,
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: FactoryRole.values
+                      .map(
+                        (role) => DropdownMenuItem(
+                          value: role,
+                          child: Text(role.label),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: state.isSaving || isSelf
+                      ? null
+                      : (role) {
+                          if (role == null) return;
+                          context.read<TeamBloc>().add(
+                                TeamRoleChangeRequested(
+                                  userId: member.id,
+                                  role: role,
+                                ),
+                              );
+                        },
+                ),
+                if (isDriver) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    isExpanded: true,
+                    initialValue: member.employeeId,
+                    decoration: InputDecoration(
+                      labelText: AppStrings.linkedEmployee,
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text(AppStrings.noEmployeeLinked),
+                      ),
+                      ...state.employees.map(
+                        (employee) => DropdownMenuItem<String?>(
+                          value: employee.id,
+                          child: Text(employee.fullName),
+                        ),
+                      ),
+                    ],
+                    onChanged: state.isSaving || isSelf
+                        ? null
+                        : (employeeId) {
+                            context.read<TeamBloc>().add(
+                                  TeamEmployeeLinkRequested(
+                                    userId: member.id,
+                                    employeeId: employeeId,
+                                  ),
+                                );
+                          },
+                  ),
+                  if (member.employeeId == null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        AppStrings.driverEmployeeLinkHint,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                ],
+              ],
             ),
           ),
         );

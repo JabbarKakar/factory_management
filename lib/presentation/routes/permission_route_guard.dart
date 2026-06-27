@@ -20,6 +20,10 @@ class PermissionRouteGuard {
       return false;
     }
 
+    if (_isDeleteRoute(location) && !user.canDelete(module)) {
+      return false;
+    }
+
     return true;
   }
 
@@ -107,4 +111,6 @@ class PermissionRouteGuard {
       location.contains('/payment') ||
       location.contains('/adjust') ||
       location.contains('/confirm');
+
+  static bool _isDeleteRoute(String location) => false;
 }
