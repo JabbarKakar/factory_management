@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/app_user.dart';
 import '../user_avatar.dart';
 import 'dashboard_surface.dart';
@@ -23,7 +22,7 @@ class DashboardWelcomeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final dateLabel = DateFormat('EEEE, d MMMM').format(DateTime.now());
+    final dateLabel = DateFormat('EEE, d MMM').format(DateTime.now());
 
     final gradient = LinearGradient(
       begin: Alignment.topLeft,
@@ -43,38 +42,33 @@ class DashboardWelcomeBanner extends StatelessWidget {
     final onGradientMuted =
         onGradient.withValues(alpha: isDark ? 0.72 : 0.82);
 
+    final firstName = user?.name.split(' ').first;
+    final greetingLine = user != null
+        ? '${_greeting()}, $firstName'
+        : _greeting();
+
     return DashboardSurfaceCard(
       padding: EdgeInsets.zero,
       gradient: gradient,
+      borderRadius: 14,
+      compact: true,
       child: Stack(
-        clipBehavior: Clip.none,
+        clipBehavior: Clip.hardEdge,
         children: [
           Positioned(
-            right: -24,
-            top: -24,
+            right: -18,
+            top: -18,
             child: Container(
-              width: 120,
-              height: 120,
+              width: 72,
+              height: 72,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: onGradient.withValues(alpha: 0.06),
               ),
             ),
           ),
-          Positioned(
-            right: 32,
-            bottom: -16,
-            child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: onGradient.withValues(alpha: 0.04),
-              ),
-            ),
-          ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -84,49 +78,41 @@ class DashboardWelcomeBanner extends StatelessWidget {
                     children: [
                       Text(
                         dateLabel,
-                        style: theme.textTheme.labelMedium?.copyWith(
+                        style: theme.textTheme.labelSmall?.copyWith(
                           color: onGradientMuted,
                           fontWeight: FontWeight.w500,
-                          letterSpacing: 0.2,
+                          fontSize: 11,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
-                        user != null
-                            ? '${_greeting()},\n${user!.name.split(' ').first}'
-                            : _greeting(),
-                        style: theme.textTheme.headlineSmall?.copyWith(
+                        greetingLine,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
                           color: onGradient,
                           fontWeight: FontWeight.w700,
-                          height: 1.2,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        AppStrings.dashboardMvpReady,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: onGradientMuted,
-                          height: 1.4,
+                          letterSpacing: -0.3,
+                          fontSize: 17,
                         ),
                       ),
                     ],
                   ),
                 ),
                 if (user != null) ...[
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   DecoratedBox(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: onGradient.withValues(alpha: 0.35),
-                        width: 2,
+                        color: onGradient.withValues(alpha: 0.3),
+                        width: 1.5,
                       ),
                     ),
                     child: UserAvatar(
                       name: user!.name,
                       photoUrl: user!.photoUrl,
-                      radius: 30,
+                      radius: 22,
                     ),
                   ),
                 ],
