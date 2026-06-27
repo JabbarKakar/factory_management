@@ -11,6 +11,8 @@ import '../../../domain/entities/dashboard_kpis.dart';
 import '../../../domain/enums/notification_enums.dart';
 import '../../../domain/enums/delivery_enums.dart';
 import '../../../domain/enums/equipment_enums.dart';
+import '../../../domain/enums/job_work_enums.dart';
+import '../../../domain/enums/quality_enums.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/notification_bell.dart';
@@ -241,7 +243,9 @@ class _KpiGrid extends StatelessWidget {
         value: '${kpis.activeJobWorkCount}',
         icon: Icons.content_cut,
         color: AppColors.primary,
-        onTap: () => context.go(RoutePaths.jobWorkList(filter: 'inProgress')),
+        onTap: () => context.go(
+          RoutePaths.jobWorkList(filter: JobWorkListStageFilter.inProgress),
+        ),
       ),
       _KpiItem(
         label: AppStrings.activeSales,
@@ -257,7 +261,9 @@ class _KpiGrid extends StatelessWidget {
         subtitle: AppStrings.awaitingCustomerPickup,
         icon: Icons.inventory_2_outlined,
         color: AppColors.accent,
-        onTap: () => context.go(RoutePaths.jobWorkList(filter: 'pendingPickup')),
+        onTap: () => context.go(
+          RoutePaths.jobWorkList(filter: JobWorkListStageFilter.pendingPickup),
+        ),
       ),
       _KpiItem(
         label: AppStrings.overdueTotal,
@@ -323,6 +329,31 @@ class _KpiGrid extends StatelessWidget {
               filter: EquipmentListFilter.maintenanceDue,
             ),
           ),
+        ),
+      if (kpis.jobWorkPendingQcCount > 0 || kpis.qcRejectsThisMonth > 0)
+        _KpiItem(
+          label: AppStrings.qcAttentionKpi,
+          value: kpis.jobWorkPendingQcCount > 0
+              ? '${kpis.jobWorkPendingQcCount}'
+              : '${kpis.qcRejectsThisMonth}',
+          subtitle: kpis.jobWorkPendingQcCount > 0
+              ? AppStrings.jobWorkAwaitingQc
+              : AppStrings.qcRejectsThisMonth,
+          icon: Icons.verified_outlined,
+          color: kpis.jobWorkPendingQcCount > 0
+              ? AppColors.warning
+              : AppColors.overdue,
+          onTap: () {
+            if (kpis.jobWorkPendingQcCount > 0) {
+              context.go(
+                RoutePaths.jobWorkList(filter: JobWorkListStageFilter.atQc),
+              );
+            } else {
+              context.push(
+                RoutePaths.qualityChecksList(filter: QcListFilter.reject),
+              );
+            }
+          },
         ),
       _KpiItem(
         label: AppStrings.presentLabourToday,

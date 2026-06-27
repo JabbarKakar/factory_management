@@ -1,6 +1,7 @@
 import '../../domain/enums/delivery_enums.dart';
 import '../../domain/enums/equipment_enums.dart';
 import '../../domain/enums/inventory_enums.dart';
+import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/quality_enums.dart';
@@ -14,9 +15,11 @@ abstract final class RoutePaths {
   static const String jobWork = '/job-work';
   static const String jobWorkAdd = '/job-work/add';
 
-  static String jobWorkList({String? filter}) {
-    if (filter == null || filter.isEmpty) return jobWork;
-    return '$jobWork?filter=$filter';
+  static String jobWorkList({JobWorkListStageFilter? filter}) {
+    if (filter == null || filter == JobWorkListStageFilter.all) {
+      return jobWork;
+    }
+    return '$jobWork?filter=${filter.name}';
   }
 
   static String jobWorkDetail(String id) => '/job-work/$id';

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../blocs/job_work/job_work_list_bloc.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../routes/route_paths.dart';
@@ -99,6 +100,38 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
               },
             ),
           ),
+          BlocBuilder<JobWorkListBloc, JobWorkListState>(
+            buildWhen: (prev, curr) => prev.awaitingQcCount != curr.awaitingQcCount,
+            builder: (context, state) {
+              if (state.awaitingQcCount == 0) {
+                return const SizedBox.shrink();
+              }
+
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Card(
+                  color: AppColors.warning.withValues(alpha: 0.08),
+                  child: ListTile(
+                    leading: const Icon(
+                      Icons.fact_check_outlined,
+                      color: AppColors.warning,
+                    ),
+                    title: Text(
+                      '${state.awaitingQcCount} ${AppStrings.jobWorkAwaitingQc}',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      context.read<JobWorkListBloc>().add(
+                            const JobWorkListStageFilterChanged(
+                              JobWorkListStageFilter.atQc,
+                            ),
+                          );
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
           Expanded(
             child: BlocBuilder<JobWorkListBloc, JobWorkListState>(
               builder: (context, state) {
@@ -162,6 +195,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                       final order = state.visibleOrders[index];
                       return JobWorkListTile(
                         order: order,
+                        awaitingQcInspection: state.isAwaitingQcInspection(order),
                         onTap: () => context.push(
                           RoutePaths.jobWorkDetail(order.id),
                         ),

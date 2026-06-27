@@ -1,32 +1,39 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/production_batch.dart';
 import '../../domain/entities/quality_check.dart';
+import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/quality_enums.dart';
 
 part 'qc_form_event.dart';
 part 'qc_form_state.dart';
 
 class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
-  QcFormBloc({required QualityCheckRepository repository})
-      : _repository = repository,
+  QcFormBloc({
+    required QualityCheckRepository repository,
+    required JobWorkRepository jobWorkRepository,
+  })  : _repository = repository,
+        _jobWorkRepository = jobWorkRepository,
         super(const QcFormState()) {
     on<QcFormInitialized>(_onInitialized);
     on<QcFormReferenceTypeChanged>(_onReferenceTypeChanged);
     on<QcFormReferenceSelected>(_onReferenceSelected);
     on<QcFormSubmitted>(_onSubmitted);
+    on<QcFormMarkReadyConfirmed>(_onMarkReadyConfirmed);
   }
 
   final QualityCheckRepository _repository;
+  final JobWorkRepository _jobWorkRepository;
 
   Future<void> _onInitialized(
     QcFormInitialized event,
     Emitter<QcFormState> emit,
   ) async {
-    emit(state.copyWith(status: QcFormStatus.loading));
+    emit(state.copyWith(status: QcFormStatus.loading, clearWorkflow: true));
     try {
       final productionBatches =
           await _repository.fetchEligibleProductionBatches(event.factoryId);
@@ -86,6 +93,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         clearSelectedBatch: true,
         clearSelectedOrder: true,
         prefill: const QcFormPrefill(),
+        clearWorkflow: true,
       ),
     );
   }
@@ -118,6 +126,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
       clearSelectedBatch: batch == null,
       selectedOrder: order,
       clearSelectedOrder: order == null,
+      clearWorkflow: true,
     );
     emit(nextState);
 
@@ -152,15 +161,14 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
     final order = current.selectedOrder;
     if (order != null) {
       final output = order.output!;
-      final sizeLabel =
-          order.sizes.isEmpty ? null : order.sizes.join(', ');
+      final sizeLabel = order.sizes.isEmpty ? null : order.sizes.join(', ');
       return current.copyWith(
         prefill: QcFormPrefill(
           productLabel: order.targetProduct.label,
           marbleVariety: order.marbleVariety,
           sizeThickness: sizeLabel == null
               ? order.thickness
-              : '${sizeLabel} · ${order.thickness}',
+              : '$sizeLabel · ${order.thickness}',
           quantityInspected: output.totalOutputSqFt,
           gradeASqFt: output.gradeASqFt,
           gradeBSqFt: output.gradeBSqFt,
@@ -177,10 +185,38 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
     QcFormSubmitted event,
     Emitter<QcFormState> emit,
   ) async {
-    emit(state.copyWith(status: QcFormStatus.saving));
+    emit(state.copyWith(status: QcFormStatus.saving, clearWorkflow: true));
     try {
       await _repository.createQualityCheck(event.check);
-      emit(state.copyWith(status: QcFormStatus.saved));
+
+      String? pendingMarkReadyJobWorkId;
+      var advancedToQc = false;
+
+      if (event.check.referenceType == QcReferenceType.jobWork &&
+          event.check.disposition == QcDisposition.pass) {
+        final order =
+            await _jobWorkRepository.getJobWorkOrder(event.check.referenceId);
+        if (order != null) {
+          if (order.status == JobWorkStatus.qc) {
+            pendingMarkReadyJobWorkId = order.id;
+          } else if (order.status == JobWorkStatus.inCutting ||
+              order.status == JobWorkStatus.agreed) {
+            await _jobWorkRepository.advanceJobWorkStatus(
+              order.id,
+              JobWorkStatus.qc,
+            );
+            advancedToQc = true;
+          }
+        }
+      }
+
+      emit(
+        state.copyWith(
+          status: QcFormStatus.saved,
+          pendingMarkReadyJobWorkId: pendingMarkReadyJobWorkId,
+          advancedToQc: advancedToQc,
+        ),
+      );
     } on QualityCheckException catch (error) {
       emit(
         state.copyWith(
@@ -193,6 +229,35 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         state.copyWith(
           status: QcFormStatus.failure,
           errorMessage: 'Could not save quality check.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onMarkReadyConfirmed(
+    QcFormMarkReadyConfirmed event,
+    Emitter<QcFormState> emit,
+  ) async {
+    final jobWorkId = state.pendingMarkReadyJobWorkId;
+    if (jobWorkId == null) return;
+
+    try {
+      await _jobWorkRepository.advanceJobWorkStatus(
+        jobWorkId,
+        JobWorkStatus.ready,
+      );
+      emit(
+        state.copyWith(
+          clearPendingMarkReady: true,
+          markedReady: true,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: QcFormStatus.failure,
+          errorMessage: 'Could not mark job work order as ready.',
+          clearPendingMarkReady: true,
         ),
       );
     }

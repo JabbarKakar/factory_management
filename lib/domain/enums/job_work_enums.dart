@@ -145,6 +145,7 @@ enum JobWorkStatus {
 enum JobWorkListStageFilter {
   all,
   inProgress,
+  atQc,
   ready,
   invoiced,
   paid,
@@ -155,6 +156,7 @@ enum JobWorkListStageFilter {
   String get label => switch (this) {
         JobWorkListStageFilter.all => 'All',
         JobWorkListStageFilter.inProgress => 'In Progress',
+        JobWorkListStageFilter.atQc => 'At QC',
         JobWorkListStageFilter.ready => 'Ready',
         JobWorkListStageFilter.invoiced => 'Invoiced',
         JobWorkListStageFilter.paid => 'Paid',
@@ -174,6 +176,7 @@ enum JobWorkListStageFilter {
   bool matches(JobWorkStatus status) => switch (this) {
         JobWorkListStageFilter.all => true,
         JobWorkListStageFilter.inProgress => status.isInProduction,
+        JobWorkListStageFilter.atQc => status == JobWorkStatus.qc,
         JobWorkListStageFilter.ready => status == JobWorkStatus.ready,
         JobWorkListStageFilter.invoiced => status == JobWorkStatus.invoiced,
         JobWorkListStageFilter.paid => status == JobWorkStatus.paid,

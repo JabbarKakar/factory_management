@@ -736,4 +736,15 @@ abstract final class AppStrings {
   static const String qcThisMonth = 'This Month';
   static const String qcInspectionsThisMonth = 'inspections';
   static const String avgPassRate = 'avg pass rate';
+  static const String viewJobWorkOrder = 'View Job Work Order';
+  static const String qcAttentionKpi = 'QC Attention';
+  static const String jobWorkAwaitingQc = 'awaiting QC inspection';
+  static const String qcRejectsThisMonth = 'rejects this month';
+  static const String awaitingQcInspection = 'Awaiting QC inspection';
+  static const String markReady = 'Mark Ready';
+  static const String markReadyAfterQcTitle = 'Mark order as ready?';
+  static const String markReadyAfterQcMessage =
+      'QC passed. Mark this job work order as ready for customer pickup?';
+  static const String jobWorkMarkedReady = 'Job work order marked as ready';
+  static const String jobWorkAdvancedToQc = 'Job work order moved to QC';
 }

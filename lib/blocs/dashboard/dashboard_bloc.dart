@@ -13,11 +13,14 @@ import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
+import '../../data/repositories/quality_check_repository.dart';
 import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/services/payment_due_scanner_service.dart';
+import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/labour_enums.dart';
+import '../../domain/enums/quality_enums.dart';
 import '../../domain/enums/delivery_enums.dart';
 import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
@@ -29,6 +32,7 @@ import '../../domain/entities/expense.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
+import '../../domain/entities/quality_check.dart';
 import '../../domain/entities/raw_material.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
@@ -50,6 +54,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required AttendanceRepository attendanceRepository,
     required DeliveryRepository deliveryRepository,
     required EquipmentRepository equipmentRepository,
+    required QualityCheckRepository qualityCheckRepository,
     required PaymentDueScannerService scannerService,
   })  : _paymentRepository = paymentRepository,
         _jobWorkRepository = jobWorkRepository,
@@ -63,6 +68,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _attendanceRepository = attendanceRepository,
         _deliveryRepository = deliveryRepository,
         _equipmentRepository = equipmentRepository,
+        _qualityCheckRepository = qualityCheckRepository,
         _scannerService = scannerService,
         super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted);
@@ -83,6 +89,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final AttendanceRepository _attendanceRepository;
   final DeliveryRepository _deliveryRepository;
   final EquipmentRepository _equipmentRepository;
+  final QualityCheckRepository _qualityCheckRepository;
   final PaymentDueScannerService _scannerService;
 
   StreamSubscription<List<Payment>>? _paymentsSub;
@@ -97,6 +104,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<AttendanceRecord>>? _attendanceSub;
   StreamSubscription<List<Delivery>>? _deliveriesSub;
   StreamSubscription<List<Equipment>>? _equipmentSub;
+  StreamSubscription<List<QualityCheck>>? _qualityChecksSub;
 
   List<Payment> _payments = const [];
   List<JobWorkOrder> _orders = const [];
@@ -110,6 +118,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<AttendanceRecord> _attendanceToday = const [];
   List<Delivery> _deliveries = const [];
   List<Equipment> _equipment = const [];
+  List<QualityCheck> _qualityChecks = const [];
 
   Future<void> _onWatchStarted(
     DashboardWatchStarted event,
@@ -258,6 +267,17 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             const _DashboardStreamFailed('Could not load dashboard data.'),
           ),
         );
+
+    _qualityChecksSub =
+        _qualityCheckRepository.watchQualityChecks(event.factoryId).listen(
+              (checks) {
+                _qualityChecks = checks;
+                add(const _DashboardDataUpdated());
+              },
+              onError: (_) => add(
+                const _DashboardStreamFailed('Could not load dashboard data.'),
+              ),
+            );
   }
 
   Future<void> _onWatchStopped(
@@ -352,6 +372,25 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         )
         .length;
 
+    final qcThisMonth = _qualityChecks.where((check) {
+      final date = check.inspectionDate;
+      return date.year == now.year && date.month == now.month;
+    }).toList();
+    final qcRejectsThisMonth = qcThisMonth
+        .where((check) => check.disposition == QcDisposition.reject)
+        .length;
+    final jobWorkIdsWithQc = _qualityChecks
+        .where((check) => check.referenceType == QcReferenceType.jobWork)
+        .map((check) => check.referenceId)
+        .toSet();
+    final jobWorkPendingQcCount = _orders
+        .where(
+          (order) =>
+              order.status == JobWorkStatus.qc &&
+              !jobWorkIdsWithQc.contains(order.id),
+        )
+        .length;
+
     emit(
       state.copyWith(
         status: DashboardStatus.loaded,
@@ -373,6 +412,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           scheduledDeliveriesToday: scheduledDeliveriesToday,
           maintenanceOverdueCount: maintenanceOverdueCount,
           maintenanceDueSoonCount: maintenanceDueSoonCount,
+          qcRejectsThisMonth: qcRejectsThisMonth,
+          jobWorkPendingQcCount: jobWorkPendingQcCount,
         ),
         pendingPickups: pendingPickups.take(5).toList(),
         errorMessage: null,
@@ -409,6 +450,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _attendanceSub?.cancel();
     await _deliveriesSub?.cancel();
     await _equipmentSub?.cancel();
+    await _qualityChecksSub?.cancel();
     _paymentsSub = null;
     _jobWorkSub = null;
     _salesSub = null;
@@ -421,6 +463,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _attendanceSub = null;
     _deliveriesSub = null;
     _equipmentSub = null;
+    _qualityChecksSub = null;
   }
 
   @override

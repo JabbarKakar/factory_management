@@ -46,6 +46,9 @@ class QcFormState extends Equatable {
     this.selectedOrder,
     this.prefill = const QcFormPrefill(),
     this.errorMessage,
+    this.pendingMarkReadyJobWorkId,
+    this.advancedToQc = false,
+    this.markedReady = false,
   });
 
   final QcFormStatus status;
@@ -56,6 +59,9 @@ class QcFormState extends Equatable {
   final JobWorkOrder? selectedOrder;
   final QcFormPrefill prefill;
   final String? errorMessage;
+  final String? pendingMarkReadyJobWorkId;
+  final bool advancedToQc;
+  final bool markedReady;
 
   bool get hasSelectedReference =>
       selectedBatch != null || selectedOrder != null;
@@ -71,6 +77,11 @@ class QcFormState extends Equatable {
     bool clearSelectedOrder = false,
     QcFormPrefill? prefill,
     String? errorMessage,
+    String? pendingMarkReadyJobWorkId,
+    bool clearPendingMarkReady = false,
+    bool? advancedToQc,
+    bool? markedReady,
+    bool clearWorkflow = false,
   }) {
     return QcFormState(
       status: status ?? this.status,
@@ -83,6 +94,12 @@ class QcFormState extends Equatable {
           clearSelectedOrder ? null : (selectedOrder ?? this.selectedOrder),
       prefill: prefill ?? this.prefill,
       errorMessage: errorMessage,
+      pendingMarkReadyJobWorkId: clearWorkflow || clearPendingMarkReady
+          ? null
+          : (pendingMarkReadyJobWorkId ?? this.pendingMarkReadyJobWorkId),
+      advancedToQc:
+          clearWorkflow ? false : (advancedToQc ?? this.advancedToQc),
+      markedReady: clearWorkflow ? false : (markedReady ?? this.markedReady),
     );
   }
 
@@ -96,5 +113,8 @@ class QcFormState extends Equatable {
         selectedOrder,
         prefill,
         errorMessage,
+        pendingMarkReadyJobWorkId,
+        advancedToQc,
+        markedReady,
       ];
 }

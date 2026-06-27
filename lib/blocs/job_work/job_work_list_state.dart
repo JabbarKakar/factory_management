@@ -7,6 +7,9 @@ class JobWorkListState extends Equatable {
     this.status = JobWorkListStatus.initial,
     this.orders = const [],
     this.visibleOrders = const [],
+    this.qualityChecks = const [],
+    this.jobWorkIdsWithQc = const {},
+    this.awaitingQcCount = 0,
     this.searchQuery = '',
     this.stageFilter = JobWorkListStageFilter.all,
     this.errorMessage,
@@ -15,14 +18,25 @@ class JobWorkListState extends Equatable {
   final JobWorkListStatus status;
   final List<JobWorkOrder> orders;
   final List<JobWorkOrder> visibleOrders;
+  final List<QualityCheck> qualityChecks;
+  final Set<String> jobWorkIdsWithQc;
+  final int awaitingQcCount;
   final String searchQuery;
   final JobWorkListStageFilter stageFilter;
   final String? errorMessage;
+
+  bool isAwaitingQcInspection(JobWorkOrder order) {
+    return order.status == JobWorkStatus.qc &&
+        !jobWorkIdsWithQc.contains(order.id);
+  }
 
   JobWorkListState copyWith({
     JobWorkListStatus? status,
     List<JobWorkOrder>? orders,
     List<JobWorkOrder>? visibleOrders,
+    List<QualityCheck>? qualityChecks,
+    Set<String>? jobWorkIdsWithQc,
+    int? awaitingQcCount,
     String? searchQuery,
     JobWorkListStageFilter? stageFilter,
     String? errorMessage,
@@ -31,6 +45,9 @@ class JobWorkListState extends Equatable {
       status: status ?? this.status,
       orders: orders ?? this.orders,
       visibleOrders: visibleOrders ?? this.visibleOrders,
+      qualityChecks: qualityChecks ?? this.qualityChecks,
+      jobWorkIdsWithQc: jobWorkIdsWithQc ?? this.jobWorkIdsWithQc,
+      awaitingQcCount: awaitingQcCount ?? this.awaitingQcCount,
       searchQuery: searchQuery ?? this.searchQuery,
       stageFilter: stageFilter ?? this.stageFilter,
       errorMessage: errorMessage,
@@ -42,6 +59,9 @@ class JobWorkListState extends Equatable {
         status,
         orders,
         visibleOrders,
+        qualityChecks,
+        jobWorkIdsWithQc,
+        awaitingQcCount,
         searchQuery,
         stageFilter,
         errorMessage,

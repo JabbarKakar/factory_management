@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/enums/job_work_enums.dart';
 import '../routes/route_paths.dart';
 import '../widgets/job_work/job_work_status_badge.dart';
 
@@ -44,7 +45,9 @@ class PendingPickupsCard extends StatelessWidget {
                 ),
                 TextButton(
                   onPressed: () => context.go(
-                    RoutePaths.jobWorkList(filter: 'pendingPickup'),
+                    RoutePaths.jobWorkList(
+                      filter: JobWorkListStageFilter.pendingPickup,
+                    ),
                   ),
                   child: const Text(AppStrings.viewAll),
                 ),

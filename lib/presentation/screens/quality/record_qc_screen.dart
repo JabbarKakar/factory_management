@@ -8,6 +8,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/quality_check.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../utils/auth_context.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/settings_section.dart';
 
 class RecordQcScreen extends StatefulWidget {
@@ -240,12 +241,48 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<QcFormBloc, QcFormState>(
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state.status == QcFormStatus.saved) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text(AppStrings.qcSaved)),
           );
-          context.pop(true);
+          if (state.advancedToQc) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text(AppStrings.jobWorkAdvancedToQc)),
+            );
+          }
+          if (state.pendingMarkReadyJobWorkId != null) {
+            final confirmed = await AppConfirmDialog.show(
+              context,
+              title: AppStrings.markReadyAfterQcTitle,
+              message: AppStrings.markReadyAfterQcMessage,
+              confirmLabel: AppStrings.markReady,
+            );
+            if (confirmed && context.mounted) {
+              final bloc = context.read<QcFormBloc>();
+              bloc.add(const QcFormMarkReadyConfirmed());
+              final latest = await bloc.stream.firstWhere(
+                (s) =>
+                    s.markedReady ||
+                    (s.status == QcFormStatus.failure &&
+                        s.errorMessage != null),
+              );
+              if (!context.mounted) return;
+              if (latest.markedReady) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text(AppStrings.jobWorkMarkedReady)),
+                );
+              } else if (latest.errorMessage != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(latest.errorMessage!)),
+                );
+              }
+            }
+          }
+          if (context.mounted) {
+            context.pop(true);
+          }
+          return;
         }
         if (state.status == QcFormStatus.failure &&
             state.errorMessage != null) {

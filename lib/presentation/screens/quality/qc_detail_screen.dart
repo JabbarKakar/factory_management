@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/quality/qc_detail_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/enums/quality_enums.dart';
+import '../../routes/route_paths.dart';
 import '../../widgets/quality/qc_disposition_badge.dart';
 import '../../widgets/settings_section.dart';
 
@@ -79,6 +82,30 @@ class QcDetailScreen extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                               color: AppColors.success,
                             ),
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          if (check.referenceType == QcReferenceType.production) {
+                            context.push(
+                              RoutePaths.productionDetail(check.referenceId),
+                            );
+                          } else {
+                            context.push(
+                              RoutePaths.jobWorkDetail(check.referenceId),
+                            );
+                          }
+                        },
+                        icon: Icon(
+                          check.referenceType == QcReferenceType.production
+                              ? Icons.precision_manufacturing_outlined
+                              : Icons.content_cut_outlined,
+                        ),
+                        label: Text(
+                          check.referenceType == QcReferenceType.production
+                              ? AppStrings.viewProductionBatch
+                              : AppStrings.viewJobWorkOrder,
+                        ),
                       ),
                     ],
                   ),

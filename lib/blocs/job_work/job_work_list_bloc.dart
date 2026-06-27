@@ -4,25 +4,34 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/quality_check_repository.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/quality_check.dart';
 import '../../domain/enums/job_work_enums.dart';
+import '../../domain/enums/quality_enums.dart';
 
 part 'job_work_list_event.dart';
 part 'job_work_list_state.dart';
 
 class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
-  JobWorkListBloc({required JobWorkRepository repository})
-      : _repository = repository,
+  JobWorkListBloc({
+    required JobWorkRepository repository,
+    required QualityCheckRepository qualityCheckRepository,
+  })  : _repository = repository,
+        _qualityCheckRepository = qualityCheckRepository,
         super(const JobWorkListState()) {
     on<JobWorkListWatchStarted>(_onWatchStarted);
     on<JobWorkListSearchChanged>(_onSearchChanged);
     on<JobWorkListStageFilterChanged>(_onStageFilterChanged);
     on<_JobWorkListUpdated>(_onListUpdated);
+    on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
     on<_JobWorkListStreamFailed>(_onStreamFailed);
   }
 
   final JobWorkRepository _repository;
+  final QualityCheckRepository _qualityCheckRepository;
   StreamSubscription<List<JobWorkOrder>>? _subscription;
+  StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
 
   Future<void> _onWatchStarted(
     JobWorkListWatchStarted event,
@@ -35,6 +44,8 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
       ),
     );
     await _subscription?.cancel();
+    await _qualityChecksSubscription?.cancel();
+
     _subscription = _repository.watchJobWorkOrders(event.factoryId).listen(
           (orders) => add(_JobWorkListUpdated(orders)),
           onError: (_) => add(
@@ -42,6 +53,13 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
               'Could not load job work orders. Please try again.',
             ),
           ),
+        );
+
+    _qualityChecksSubscription = _qualityCheckRepository
+        .watchQualityChecks(event.factoryId)
+        .listen(
+          (checks) => add(_JobWorkQualityChecksUpdated(checks)),
+          onError: (_) {},
         );
   }
 
@@ -81,10 +99,13 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     _JobWorkListUpdated event,
     Emitter<JobWorkListState> emit,
   ) {
+    final jobWorkIdsWithQc = _jobWorkIdsWithQc(state.qualityChecks);
     emit(
       state.copyWith(
         status: JobWorkListStatus.loaded,
         orders: event.orders,
+        jobWorkIdsWithQc: jobWorkIdsWithQc,
+        awaitingQcCount: _awaitingQcCount(event.orders, jobWorkIdsWithQc),
         visibleOrders: _applyFilters(
           event.orders,
           query: state.searchQuery,
@@ -93,6 +114,45 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         errorMessage: null,
       ),
     );
+  }
+
+  void _onQualityChecksUpdated(
+    _JobWorkQualityChecksUpdated event,
+    Emitter<JobWorkListState> emit,
+  ) {
+    final jobWorkIdsWithQc = _jobWorkIdsWithQc(event.checks);
+    emit(
+      state.copyWith(
+        qualityChecks: event.checks,
+        jobWorkIdsWithQc: jobWorkIdsWithQc,
+        awaitingQcCount: _awaitingQcCount(state.orders, jobWorkIdsWithQc),
+        visibleOrders: _applyFilters(
+          state.orders,
+          query: state.searchQuery,
+          stageFilter: state.stageFilter,
+        ),
+        status: state.orders.isNotEmpty
+            ? JobWorkListStatus.loaded
+            : state.status,
+      ),
+    );
+  }
+
+  Set<String> _jobWorkIdsWithQc(List<QualityCheck> checks) {
+    return checks
+        .where((check) => check.referenceType == QcReferenceType.jobWork)
+        .map((check) => check.referenceId)
+        .toSet();
+  }
+
+  int _awaitingQcCount(List<JobWorkOrder> orders, Set<String> jobWorkIdsWithQc) {
+    return orders
+        .where(
+          (order) =>
+              order.status == JobWorkStatus.qc &&
+              !jobWorkIdsWithQc.contains(order.id),
+        )
+        .length;
   }
 
   void _onStreamFailed(
@@ -140,6 +200,16 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
   @override
   Future<void> close() {
     _subscription?.cancel();
+    _qualityChecksSubscription?.cancel();
     return super.close();
   }
+}
+
+final class _JobWorkQualityChecksUpdated extends JobWorkListEvent {
+  const _JobWorkQualityChecksUpdated(this.checks);
+
+  final List<QualityCheck> checks;
+
+  @override
+  List<Object?> get props => [checks];
 }

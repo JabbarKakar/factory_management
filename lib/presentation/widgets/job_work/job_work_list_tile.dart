@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/job_work_order.dart';
@@ -9,11 +10,13 @@ class JobWorkListTile extends StatelessWidget {
   const JobWorkListTile({
     required this.order,
     required this.onTap,
+    this.awaitingQcInspection = false,
     super.key,
   });
 
   final JobWorkOrder order;
   final VoidCallback onTap;
+  final bool awaitingQcInspection;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +95,28 @@ class JobWorkListTile extends StatelessWidget {
                         color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w600,
                       ),
+                ),
+              ],
+              if (awaitingQcInspection) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.fact_check_outlined,
+                      size: 16,
+                      color: AppColors.warning,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        AppStrings.awaitingQcInspection,
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: AppColors.warning,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],

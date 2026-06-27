@@ -48,3 +48,7 @@ final class QcFormSubmitted extends QcFormEvent {
   @override
   List<Object?> get props => [check];
 }
+
+final class QcFormMarkReadyConfirmed extends QcFormEvent {
+  const QcFormMarkReadyConfirmed();
+}

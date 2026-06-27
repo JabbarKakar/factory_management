@@ -19,6 +19,8 @@ class DashboardKpis extends Equatable {
     required this.scheduledDeliveriesToday,
     required this.maintenanceOverdueCount,
     required this.maintenanceDueSoonCount,
+    required this.qcRejectsThisMonth,
+    required this.jobWorkPendingQcCount,
   });
 
   static const empty = DashboardKpis(
@@ -39,6 +41,8 @@ class DashboardKpis extends Equatable {
     scheduledDeliveriesToday: 0,
     maintenanceOverdueCount: 0,
     maintenanceDueSoonCount: 0,
+    qcRejectsThisMonth: 0,
+    jobWorkPendingQcCount: 0,
   );
 
   final double revenueToday;
@@ -58,6 +62,8 @@ class DashboardKpis extends Equatable {
   final int scheduledDeliveriesToday;
   final int maintenanceOverdueCount;
   final int maintenanceDueSoonCount;
+  final int qcRejectsThisMonth;
+  final int jobWorkPendingQcCount;
 
   @override
   List<Object?> get props => [
@@ -78,5 +84,7 @@ class DashboardKpis extends Equatable {
         scheduledDeliveriesToday,
         maintenanceOverdueCount,
         maintenanceDueSoonCount,
+        qcRejectsThisMonth,
+        jobWorkPendingQcCount,
       ];
 }

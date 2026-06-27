@@ -182,6 +182,7 @@ void setupDependencies() {
       attendanceRepository: getIt<AttendanceRepository>(),
       deliveryRepository: getIt<DeliveryRepository>(),
       equipmentRepository: getIt<EquipmentRepository>(),
+      qualityCheckRepository: getIt<QualityCheckRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
     ),
   );
@@ -194,7 +195,10 @@ void setupDependencies() {
     ),
   );
   getIt.registerFactory<JobWorkListBloc>(
-    () => JobWorkListBloc(repository: getIt<JobWorkRepository>()),
+    () => JobWorkListBloc(
+      repository: getIt<JobWorkRepository>(),
+      qualityCheckRepository: getIt<QualityCheckRepository>(),
+    ),
   );
   getIt.registerFactory<JobWorkFormBloc>(
     () => JobWorkFormBloc(
@@ -328,7 +332,10 @@ void setupDependencies() {
     () => QcListBloc(repository: getIt<QualityCheckRepository>()),
   );
   getIt.registerFactory<QcFormBloc>(
-    () => QcFormBloc(repository: getIt<QualityCheckRepository>()),
+    () => QcFormBloc(
+      repository: getIt<QualityCheckRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+    ),
   );
   getIt.registerFactory<QcDetailBloc>(
     () => QcDetailBloc(repository: getIt<QualityCheckRepository>()),
