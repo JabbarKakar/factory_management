@@ -23,6 +23,10 @@ class AppNotification extends Equatable {
     this.dueDate,
     this.daysOverdue,
     this.daysUntilDue,
+    this.equipmentId,
+    this.deliveryId,
+    this.qualityCheckId,
+    this.rawMaterialType,
     this.readBy = const [],
   });
 
@@ -42,6 +46,10 @@ class AppNotification extends Equatable {
   final DateTime? dueDate;
   final int? daysOverdue;
   final int? daysUntilDue;
+  final String? equipmentId;
+  final String? deliveryId;
+  final String? qualityCheckId;
+  final String? rawMaterialType;
   final List<String> readBy;
   final DateTime createdAt;
   final String dedupeKey;
@@ -69,6 +77,10 @@ class AppNotification extends Equatable {
     DateTime? dueDate,
     int? daysOverdue,
     int? daysUntilDue,
+    String? equipmentId,
+    String? deliveryId,
+    String? qualityCheckId,
+    String? rawMaterialType,
     List<String>? readBy,
     DateTime? createdAt,
     String? dedupeKey,
@@ -90,6 +102,10 @@ class AppNotification extends Equatable {
       dueDate: dueDate ?? this.dueDate,
       daysOverdue: daysOverdue ?? this.daysOverdue,
       daysUntilDue: daysUntilDue ?? this.daysUntilDue,
+      equipmentId: equipmentId ?? this.equipmentId,
+      deliveryId: deliveryId ?? this.deliveryId,
+      qualityCheckId: qualityCheckId ?? this.qualityCheckId,
+      rawMaterialType: rawMaterialType ?? this.rawMaterialType,
       readBy: readBy ?? this.readBy,
       createdAt: createdAt ?? this.createdAt,
       dedupeKey: dedupeKey ?? this.dedupeKey,
@@ -114,6 +130,10 @@ class AppNotification extends Equatable {
         dueDate,
         daysOverdue,
         daysUntilDue,
+        equipmentId,
+        deliveryId,
+        qualityCheckId,
+        rawMaterialType,
         readBy,
         createdAt,
         dedupeKey,

@@ -8,8 +8,8 @@ import 'blocs/theme/theme_cubit.dart';
 import 'core/constants/app_strings.dart';
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
+import 'data/services/notification_engine_service.dart';
 import 'data/services/job_work_cleanup_service.dart';
-import 'data/services/payment_due_scanner_service.dart';
 import 'presentation/routes/app_router.dart';
 
 class FactoryManagementApp extends StatefulWidget {
@@ -40,7 +40,7 @@ class _FactoryManagementAppState extends State<FactoryManagementApp> {
       getIt<JobWorkCleanupService>()
           .runIfNeeded(state.user.factoryId)
           .ignore();
-      getIt<PaymentDueScannerService>()
+      getIt<NotificationEngineService>()
           .runIfNeeded(state.user.factoryId)
           .ignore();
       _notificationBloc.add(

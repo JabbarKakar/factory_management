@@ -24,6 +24,10 @@ class NotificationModel {
     this.dueDate,
     this.daysOverdue,
     this.daysUntilDue,
+    this.equipmentId,
+    this.deliveryId,
+    this.qualityCheckId,
+    this.rawMaterialType,
     this.readBy = const [],
   });
 
@@ -43,6 +47,10 @@ class NotificationModel {
   final DateTime? dueDate;
   final int? daysOverdue;
   final int? daysUntilDue;
+  final String? equipmentId;
+  final String? deliveryId;
+  final String? qualityCheckId;
+  final String? rawMaterialType;
   final List<String> readBy;
   final DateTime createdAt;
   final String dedupeKey;
@@ -70,6 +78,10 @@ class NotificationModel {
       dueDate: (data['dueDate'] as Timestamp?)?.toDate(),
       daysOverdue: data['daysOverdue'] as int?,
       daysUntilDue: data['daysUntilDue'] as int?,
+      equipmentId: data['equipmentId'] as String?,
+      deliveryId: data['deliveryId'] as String?,
+      qualityCheckId: data['qualityCheckId'] as String?,
+      rawMaterialType: data['rawMaterialType'] as String?,
       readBy: (data['readBy'] as List?)?.whereType<String>().toList() ?? const [],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       dedupeKey: data['dedupeKey'] as String? ?? id,
@@ -93,6 +105,10 @@ class NotificationModel {
       if (dueDate != null) 'dueDate': Timestamp.fromDate(dueDate!),
       if (daysOverdue != null) 'daysOverdue': daysOverdue,
       if (daysUntilDue != null) 'daysUntilDue': daysUntilDue,
+      if (equipmentId != null) 'equipmentId': equipmentId,
+      if (deliveryId != null) 'deliveryId': deliveryId,
+      if (qualityCheckId != null) 'qualityCheckId': qualityCheckId,
+      if (rawMaterialType != null) 'rawMaterialType': rawMaterialType,
       'readBy': readBy,
       'dedupeKey': dedupeKey,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
@@ -117,6 +133,10 @@ class NotificationModel {
       dueDate: dueDate,
       daysOverdue: daysOverdue,
       daysUntilDue: daysUntilDue,
+      equipmentId: equipmentId,
+      deliveryId: deliveryId,
+      qualityCheckId: qualityCheckId,
+      rawMaterialType: rawMaterialType,
       readBy: readBy,
       createdAt: createdAt,
       dedupeKey: dedupeKey,
@@ -141,6 +161,10 @@ class NotificationModel {
       dueDate: notification.dueDate,
       daysOverdue: notification.daysOverdue,
       daysUntilDue: notification.daysUntilDue,
+      equipmentId: notification.equipmentId,
+      deliveryId: notification.deliveryId,
+      qualityCheckId: notification.qualityCheckId,
+      rawMaterialType: notification.rawMaterialType,
       readBy: notification.readBy,
       createdAt: notification.createdAt,
       dedupeKey: notification.dedupeKey,

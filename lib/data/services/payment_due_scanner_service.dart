@@ -142,6 +142,19 @@ class PaymentDueScannerService {
     final scanDate = DateFormat('yyyy-MM-dd').format(today);
     final amountLabel = Formatters.currencyPkr(invoice.dueAmount);
 
+    if (daysUntilDue == 15) {
+      return _buildNotification(
+        invoice: invoice,
+        type: NotificationType.paymentDueIn15Days,
+        priority: NotificationPriority.low,
+        title: 'Payment due in 15 days — ${invoice.customerName}',
+        body:
+            '${invoice.invoiceNumber}: $amountLabel due on ${DateFormat.yMMMd().format(dueDay)}',
+        daysUntilDue: 15,
+        dedupeKey: 'due_15_${invoice.id}_$scanDate',
+      );
+    }
+
     if (daysUntilDue == 7) {
       return _buildNotification(
         invoice: invoice,

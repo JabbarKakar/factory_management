@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
+import '../../data/services/operational_alert_scanner_service.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/production_batch.dart';
 import '../../domain/entities/quality_check.dart';
@@ -16,8 +17,10 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
   QcFormBloc({
     required QualityCheckRepository repository,
     required JobWorkRepository jobWorkRepository,
+    required OperationalAlertScannerService operationalAlertScannerService,
   })  : _repository = repository,
         _jobWorkRepository = jobWorkRepository,
+        _operationalAlertScannerService = operationalAlertScannerService,
         super(const QcFormState()) {
     on<QcFormInitialized>(_onInitialized);
     on<QcFormReferenceTypeChanged>(_onReferenceTypeChanged);
@@ -28,6 +31,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
 
   final QualityCheckRepository _repository;
   final JobWorkRepository _jobWorkRepository;
+  final OperationalAlertScannerService _operationalAlertScannerService;
 
   Future<void> _onInitialized(
     QcFormInitialized event,
@@ -187,7 +191,8 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
   ) async {
     emit(state.copyWith(status: QcFormStatus.saving, clearWorkflow: true));
     try {
-      await _repository.createQualityCheck(event.check);
+      final created = await _repository.createQualityCheck(event.check);
+      await _operationalAlertScannerService.notifyQcReject(created);
 
       String? pendingMarkReadyJobWorkId;
       var advancedToQc = false;

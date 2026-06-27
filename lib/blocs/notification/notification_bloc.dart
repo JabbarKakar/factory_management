@@ -4,7 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/notification_repository.dart';
-import '../../data/services/payment_due_scanner_service.dart';
+import '../../data/services/notification_engine_service.dart';
 import '../../domain/entities/app_notification.dart';
 import '../../domain/enums/notification_enums.dart';
 
@@ -14,9 +14,9 @@ part 'notification_state.dart';
 class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   NotificationBloc({
     required NotificationRepository repository,
-    required PaymentDueScannerService scannerService,
+    required NotificationEngineService engineService,
   })  : _repository = repository,
-        _scannerService = scannerService,
+        _engineService = engineService,
         super(const NotificationState()) {
     on<NotificationWatchStarted>(_onWatchStarted);
     on<NotificationWatchStopped>(_onWatchStopped);
@@ -29,7 +29,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   }
 
   final NotificationRepository _repository;
-  final PaymentDueScannerService _scannerService;
+  final NotificationEngineService _engineService;
   StreamSubscription<List<AppNotification>>? _subscription;
   String? _userId;
 
@@ -56,7 +56,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
           ),
         );
 
-    await _scannerService.runIfNeeded(event.factoryId);
+    await _engineService.runIfNeeded(event.factoryId);
   }
 
   Future<void> _onWatchStopped(
@@ -106,7 +106,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     if (factoryId == null) return;
     emit(state.copyWith(isScanning: true));
     try {
-      await _scannerService.scan(factoryId);
+      await _engineService.scan(factoryId);
     } finally {
       emit(state.copyWith(isScanning: false));
     }
@@ -154,6 +154,12 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
       NotificationFilter.all => notifications,
       NotificationFilter.payments =>
         notifications.where((n) => n.type.isPaymentType).toList(),
+      NotificationFilter.jobWork =>
+        notifications.where((n) => n.type.isJobWorkType).toList(),
+      NotificationFilter.stock =>
+        notifications.where((n) => n.type.isStockType).toList(),
+      NotificationFilter.operations =>
+        notifications.where((n) => n.type.isOperationsType).toList(),
       NotificationFilter.dueThisWeek => notifications.where((n) {
           if (n.type == NotificationType.paymentOverdue ||
               n.type == NotificationType.partialPaymentReceived) {

@@ -77,7 +77,7 @@ class _NotificationCenterView extends StatelessWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.refresh),
-                tooltip: AppStrings.refreshNotifications,
+                tooltip: AppStrings.scanNotificationsHint,
               ),
             ],
           ),
@@ -167,6 +167,24 @@ class _NotificationCenterView extends StatelessWidget {
     final bloc = context.read<NotificationBloc>();
     bloc.add(NotificationMarkReadRequested(notification.id));
 
+    if (notification.qualityCheckId != null) {
+      context.push(RoutePaths.qualityCheckDetail(notification.qualityCheckId!));
+      return;
+    }
+    if (notification.deliveryId != null) {
+      context.push(RoutePaths.deliveryDetail(notification.deliveryId!));
+      return;
+    }
+    if (notification.equipmentId != null) {
+      context.push(RoutePaths.equipmentDetail(notification.equipmentId!));
+      return;
+    }
+    if (notification.rawMaterialType != null) {
+      context.push(
+        RoutePaths.rawMaterialDetail(notification.rawMaterialType!),
+      );
+      return;
+    }
     if (notification.invoiceId != null) {
       final paymentRoute = notification.isSalesInvoice
           ? RoutePaths.salesRecordPayment(notification.invoiceId!)
@@ -296,6 +314,15 @@ class _NotificationTile extends StatelessWidget {
     return switch (type) {
       NotificationType.partialPaymentReceived => Icons.payments_outlined,
       NotificationType.paymentOverdue => Icons.warning_amber_rounded,
+      NotificationType.lowRawMaterialStock => Icons.inventory_2_outlined,
+      NotificationType.equipmentMaintenanceDueSoon ||
+      NotificationType.equipmentMaintenanceOverdue =>
+        Icons.build_circle_outlined,
+      NotificationType.pendingDelivery => Icons.local_shipping_outlined,
+      NotificationType.qcReject => Icons.cancel_outlined,
+      NotificationType.jobWorkReadyForPickup ||
+      NotificationType.jobWorkNotCollected =>
+        Icons.content_cut_outlined,
       _ => Icons.schedule,
     };
   }

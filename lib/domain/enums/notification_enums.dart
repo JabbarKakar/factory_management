@@ -1,10 +1,18 @@
 enum NotificationType {
+  paymentDueIn15Days,
   paymentDueIn7Days,
   paymentDueIn3Days,
   paymentDueTomorrow,
   paymentDueToday,
   paymentOverdue,
-  partialPaymentReceived;
+  partialPaymentReceived,
+  lowRawMaterialStock,
+  equipmentMaintenanceDueSoon,
+  equipmentMaintenanceOverdue,
+  pendingDelivery,
+  qcReject,
+  jobWorkReadyForPickup,
+  jobWorkNotCollected;
 
   String get firestoreValue => name;
 
@@ -16,6 +24,7 @@ enum NotificationType {
   }
 
   bool get isPaymentType => switch (this) {
+        NotificationType.paymentDueIn15Days ||
         NotificationType.paymentDueIn7Days ||
         NotificationType.paymentDueIn3Days ||
         NotificationType.paymentDueTomorrow ||
@@ -23,6 +32,25 @@ enum NotificationType {
         NotificationType.paymentOverdue ||
         NotificationType.partialPaymentReceived =>
           true,
+        _ => false,
+      };
+
+  bool get isJobWorkType => switch (this) {
+        NotificationType.jobWorkReadyForPickup ||
+        NotificationType.jobWorkNotCollected =>
+          true,
+        _ => false,
+      };
+
+  bool get isStockType => this == NotificationType.lowRawMaterialStock;
+
+  bool get isOperationsType => switch (this) {
+        NotificationType.equipmentMaintenanceDueSoon ||
+        NotificationType.equipmentMaintenanceOverdue ||
+        NotificationType.pendingDelivery ||
+        NotificationType.qcReject =>
+          true,
+        _ => false,
       };
 }
 
@@ -47,14 +75,29 @@ enum NotificationFilter {
   all,
   payments,
   dueThisWeek,
-  overdue;
+  overdue,
+  jobWork,
+  stock,
+  operations;
 
   String get label => switch (this) {
         NotificationFilter.all => 'All',
         NotificationFilter.payments => 'Payments',
         NotificationFilter.dueThisWeek => 'Due Soon',
         NotificationFilter.overdue => 'Overdue',
+        NotificationFilter.jobWork => 'Job Work',
+        NotificationFilter.stock => 'Stock',
+        NotificationFilter.operations => 'Operations',
       };
 
-  bool get isQuickFilter => this == dueThisWeek || this == overdue;
+  bool get isQuickFilter =>
+      this == dueThisWeek || this == overdue || this == operations;
+
+  static NotificationFilter fromQuery(String? value) {
+    if (value == null || value.isEmpty) return NotificationFilter.all;
+    return NotificationFilter.values.firstWhere(
+      (filter) => filter.name == value,
+      orElse: () => NotificationFilter.all,
+    );
+  }
 }

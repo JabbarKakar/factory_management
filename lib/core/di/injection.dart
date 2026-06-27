@@ -66,6 +66,8 @@ import '../../data/services/finished_goods_stock_service.dart';
 import '../../data/services/pl_report_service.dart';
 import '../../data/services/raw_material_stock_service.dart';
 import '../../data/services/job_work_cleanup_service.dart';
+import '../../data/services/notification_engine_service.dart';
+import '../../data/services/operational_alert_scanner_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 
 final getIt = GetIt.instance;
@@ -99,6 +101,21 @@ void setupDependencies() {
       jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
       notificationRepository: getIt<NotificationRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<OperationalAlertScannerService>(
+    () => OperationalAlertScannerService(
+      rawMaterialRepository: getIt<RawMaterialRepository>(),
+      equipmentRepository: getIt<EquipmentRepository>(),
+      deliveryRepository: getIt<DeliveryRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+      notificationRepository: getIt<NotificationRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<NotificationEngineService>(
+    () => NotificationEngineService(
+      paymentDueScannerService: getIt<PaymentDueScannerService>(),
+      operationalAlertScannerService: getIt<OperationalAlertScannerService>(),
     ),
   );
   getIt.registerLazySingleton<PaymentRepository>(
@@ -162,7 +179,7 @@ void setupDependencies() {
   getIt.registerLazySingleton<NotificationBloc>(
     () => NotificationBloc(
       repository: getIt<NotificationRepository>(),
-      scannerService: getIt<PaymentDueScannerService>(),
+      engineService: getIt<NotificationEngineService>(),
     ),
   );
   getIt.registerFactory<CustomerListBloc>(
@@ -335,6 +352,7 @@ void setupDependencies() {
     () => QcFormBloc(
       repository: getIt<QualityCheckRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      operationalAlertScannerService: getIt<OperationalAlertScannerService>(),
     ),
   );
   getIt.registerFactory<QcDetailBloc>(
