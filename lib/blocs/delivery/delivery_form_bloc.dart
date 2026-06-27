@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/employee_repository.dart';
+import '../../data/services/delivery_quantity_helper.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/entities/sales_order.dart';
@@ -45,15 +46,19 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
         selected = matches.isEmpty ? null : matches.first;
       }
 
-      emit(
-        state.copyWith(
-          status: DeliveryFormStatus.ready,
-          eligibleOrders: orders,
-          employees: activeEmployees,
-          selectedOrder: selected,
-          errorMessage: null,
-        ),
+      var nextState = state.copyWith(
+        status: DeliveryFormStatus.ready,
+        eligibleOrders: orders,
+        employees: activeEmployees,
+        selectedOrder: selected,
+        errorMessage: null,
       );
+      emit(nextState);
+
+      if (selected != null) {
+        nextState = await _loadRemainingForOrder(selected, nextState);
+        emit(nextState);
+      }
     } catch (_) {
       emit(
         state.copyWith(
@@ -64,10 +69,10 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
     }
   }
 
-  void _onSalesOrderSelected(
+  Future<void> _onSalesOrderSelected(
     DeliveryFormSalesOrderSelected event,
     Emitter<DeliveryFormState> emit,
-  ) {
+  ) async {
     SalesOrder? order;
     for (final item in state.eligibleOrders) {
       if (item.id == event.salesOrderId) {
@@ -75,7 +80,32 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
         break;
       }
     }
-    emit(state.copyWith(selectedOrder: order, clearSelectedOrder: order == null));
+
+    var nextState = state.copyWith(
+      selectedOrder: order,
+      clearSelectedOrder: order == null,
+      existingDeliveries: const [],
+      remainingLines: const [],
+    );
+    emit(nextState);
+
+    if (order != null) {
+      nextState = await _loadRemainingForOrder(order, nextState);
+      emit(nextState);
+    }
+  }
+
+  Future<DeliveryFormState> _loadRemainingForOrder(
+    SalesOrder order,
+    DeliveryFormState current,
+  ) async {
+    final deliveries =
+        await _deliveryRepository.fetchDeliveriesForSalesOrder(order.id);
+    final remaining = DeliveryQuantityHelper.remainingLines(order, deliveries);
+    return current.copyWith(
+      existingDeliveries: deliveries,
+      remainingLines: remaining,
+    );
   }
 
   Future<void> _onSubmitted(

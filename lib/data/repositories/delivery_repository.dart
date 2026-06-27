@@ -6,6 +6,7 @@ import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/delivery_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/delivery_model.dart';
+import '../services/delivery_quantity_helper.dart';
 import 'sales_order_repository.dart';
 
 class DeliveryException implements Exception {
@@ -74,6 +75,17 @@ class DeliveryRepository {
     );
   }
 
+  Future<List<Delivery>> fetchDeliveriesForSalesOrder(String salesOrderId) async {
+    final snapshot =
+        await _collection.where('salesOrderId', isEqualTo: salesOrderId).get();
+    final deliveries = snapshot.docs
+        .map((doc) => DeliveryModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    deliveries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return deliveries;
+  }
+
   Future<List<SalesOrder>> fetchDeliveryEligibleOrders(String factoryId) async {
     final orders = await _salesOrderRepository
         .watchSalesOrders(factoryId)
@@ -129,6 +141,28 @@ class DeliveryRepository {
     }
     if (delivery.deliveryAddress.trim().isEmpty) {
       throw const DeliveryException('Delivery address is required.');
+    }
+
+    final existingDeliveries =
+        await fetchDeliveriesForSalesOrder(delivery.salesOrderId);
+    for (final item in delivery.lineItems) {
+      final orderLine = order.lineItems.where(
+        (line) => DeliveryQuantityHelper.matchesOrderLine(
+          item,
+          line,
+        ),
+      );
+      if (orderLine.isEmpty) continue;
+      final remaining = DeliveryQuantityHelper.remainingForOrderLine(
+        orderLine.first,
+        existingDeliveries,
+      );
+      if (item.quantity > remaining) {
+        throw DeliveryException(
+          'Quantity for ${item.displayLabel} exceeds remaining '
+          '(${remaining.toStringAsFixed(1)} ${item.quantityUnit.label}).',
+        );
+      }
     }
 
     final id = delivery.id.isEmpty ? _uuid.v4() : delivery.id;

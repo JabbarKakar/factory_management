@@ -627,4 +627,11 @@ abstract final class AppStrings {
   static const String linkedSalesOrder = 'Sales Order';
   static const String deliveryStatusUpdated = 'Delivery status updated';
   static const String saveDelivery = 'Schedule Delivery';
+  static const String orderDeliveries = 'Deliveries';
+  static const String noOrderDeliveries = 'No deliveries scheduled for this order';
+  static const String remainingQuantityHint = 'remaining on order';
+  static const String noRemainingQuantity =
+      'All order quantities are already scheduled or delivered';
+  static const String pendingDeliveries = 'Pending Deliveries';
+  static const String scheduledDeliveriesToday = 'scheduled today';
 }

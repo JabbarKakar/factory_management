@@ -9,6 +9,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/dashboard_kpis.dart';
 import '../../../domain/enums/notification_enums.dart';
+import '../../../domain/enums/delivery_enums.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/notification_bell.dart';
@@ -280,6 +281,18 @@ class _KpiGrid extends StatelessWidget {
         color: kpis.lowStockCount > 0 ? AppColors.warning : AppColors.accent,
         onTap: () => context.push(
           RoutePaths.rawMaterialsList(filter: RawMaterialListFilter.lowStock),
+        ),
+      ),
+      _KpiItem(
+        label: AppStrings.pendingDeliveries,
+        value: '${kpis.activeDeliveriesCount}',
+        subtitle: kpis.scheduledDeliveriesToday > 0
+            ? '${kpis.scheduledDeliveriesToday} ${AppStrings.scheduledDeliveriesToday}'
+            : null,
+        icon: Icons.local_shipping_outlined,
+        color: AppColors.primary,
+        onTap: () => context.go(
+          RoutePaths.deliveriesList(filter: DeliveryListFilter.active),
         ),
       ),
       _KpiItem(

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/delivery/delivery_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../data/services/delivery_quantity_helper.dart';
 import '../../../domain/entities/delivery.dart';
 import '../../../domain/entities/employee.dart';
 import '../../../domain/entities/sales_order.dart';
@@ -32,6 +33,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
   DateTime _scheduledDate = DateTime.now();
   String? _selectedOrderId;
   String? _selectedDriverId;
+  String? _syncSignature;
   final List<_LineItemFields> _lineItems = [];
 
   @override
@@ -47,37 +49,38 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     super.dispose();
   }
 
-  void _syncFromOrder(SalesOrder? order) {
+  void _syncFromRemaining(SalesOrder order, List<DeliveryRemainingLine> lines) {
     for (final item in _lineItems) {
       item.dispose();
     }
     _lineItems.clear();
 
-    if (order == null) {
-      _selectedOrderId = null;
-      _addressController.clear();
-      _scheduledDate = DateTime.now();
-      return;
-    }
-
     _selectedOrderId = order.id;
     _addressController.text = order.deliveryAddress ?? '';
     _scheduledDate = order.expectedDeliveryDate ?? DateTime.now();
 
-    for (final item in order.lineItems) {
+    for (final line in lines) {
+      if (line.remainingQuantity <= 0) continue;
       _lineItems.add(
         _LineItemFields(
-          item: DeliveryLineItem(
-            productType: item.productType,
-            marbleVariety: item.marbleVariety,
-            sizeThickness: item.sizeThickness,
-            quantity: item.quantity,
-            quantityUnit: item.quantityUnit,
-          ),
-          initialQuantity: item.quantity,
+          item: line.lineItem.copyWith(quantity: line.remainingQuantity),
+          initialQuantity: line.remainingQuantity,
+          maxRemaining: line.remainingQuantity,
+          orderedQuantity: line.orderedQuantity,
         ),
       );
     }
+  }
+
+  void _maybeSyncFromState(DeliveryFormState state) {
+    final order = state.selectedOrder;
+    if (order == null) return;
+
+    final signature =
+        '${order.id}:${state.remainingLines.map((line) => line.remainingQuantity).join(',')}';
+    if (_syncSignature == signature) return;
+    _syncSignature = signature;
+    _syncFromRemaining(order, state.remainingLines);
   }
 
   void _onDriverSelected(String? employeeId, List<Employee> employees) {
@@ -162,9 +165,8 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
           );
         }
         if (state.status == DeliveryFormStatus.ready &&
-            state.selectedOrder != null &&
-            _selectedOrderId != state.selectedOrder!.id) {
-          _syncFromOrder(state.selectedOrder);
+            state.selectedOrder != null) {
+          _maybeSyncFromState(state);
           setState(() {});
         }
       },
@@ -194,11 +196,12 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         }
 
         final isSaving = state.status == DeliveryFormStatus.saving;
+        final hasRemaining = state.hasRemainingQuantity;
 
         if (widget.salesOrderId != null &&
-            _selectedOrderId == null &&
-            state.selectedOrder != null) {
-          _syncFromOrder(state.selectedOrder);
+            state.selectedOrder != null &&
+            _syncSignature == null) {
+          _maybeSyncFromState(state);
         }
 
         return Scaffold(
@@ -332,80 +335,123 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
-                        children: _lineItems.map((fields) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  fields.item.displayLabel,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  controller: fields.quantityController,
-                                  decoration: InputDecoration(
-                                    labelText:
-                                        '${AppStrings.scheduledQuantity} (${fields.item.quantityUnit.label})',
-                                  ),
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                                  validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Quantity is required';
-                                    }
-                                    final qty = double.tryParse(value.trim());
-                                    if (qty == null || qty <= 0) {
-                                      return 'Enter a valid quantity';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ],
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!hasRemaining)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                AppStrings.noRemainingQuantity,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .error,
+                                    ),
+                              ),
                             ),
-                          );
-                        }).toList(),
+                          ..._lineItems.map((fields) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    fields.item.displayLabel,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${fields.maxRemaining.toStringAsFixed(1)} of '
+                                    '${fields.orderedQuantity.toStringAsFixed(1)} '
+                                    '${fields.item.quantityUnit.label} '
+                                    '${AppStrings.remainingQuantityHint}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextFormField(
+                                    controller: fields.quantityController,
+                                    decoration: InputDecoration(
+                                      labelText:
+                                          '${AppStrings.scheduledQuantity} (${fields.item.quantityUnit.label})',
+                                    ),
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Quantity is required';
+                                      }
+                                      final qty =
+                                          double.tryParse(value.trim());
+                                      if (qty == null || qty <= 0) {
+                                        return 'Enter a valid quantity';
+                                      }
+                                      if (qty > fields.maxRemaining) {
+                                        return 'Cannot exceed '
+                                            '${fields.maxRemaining.toStringAsFixed(1)} '
+                                            '${fields.item.quantityUnit.label}';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
                       ),
                     ),
                   ),
-                  SettingsSection(
-                    title: AppStrings.notes,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: AppStrings.notes,
+                  if (hasRemaining)
+                    SettingsSection(
+                      title: AppStrings.notes,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: TextFormField(
+                          controller: _notesController,
+                          decoration: const InputDecoration(
+                            labelText: AppStrings.notes,
+                          ),
+                          maxLines: 3,
                         ),
-                        maxLines: 3,
                       ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: FilledButton(
-                      onPressed: isSaving
-                          ? null
-                          : () {
-                              final factoryId = readFactoryId(context);
-                              if (factoryId == null) return;
-                              _submit(context, factoryId);
-                            },
-                      child: isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text(AppStrings.saveDelivery),
+                  if (hasRemaining)
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: FilledButton(
+                        onPressed: isSaving
+                            ? null
+                            : () {
+                                final factoryId = readFactoryId(context);
+                                if (factoryId == null) return;
+                                _submit(context, factoryId);
+                              },
+                        child: isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text(AppStrings.saveDelivery),
+                      ),
                     ),
-                  ),
                 ],
               ],
             ),
@@ -420,10 +466,14 @@ class _LineItemFields {
   _LineItemFields({
     required this.item,
     required double initialQuantity,
+    required this.maxRemaining,
+    required this.orderedQuantity,
   }) : quantityController =
             TextEditingController(text: initialQuantity.toString());
 
   final DeliveryLineItem item;
+  final double maxRemaining;
+  final double orderedQuantity;
   final TextEditingController quantityController;
 
   void dispose() => quantityController.dispose();

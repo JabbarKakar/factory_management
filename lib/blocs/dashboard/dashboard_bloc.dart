@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import '../../core/utils/date_keys.dart';
 import '../../data/repositories/attendance_repository.dart';
 import '../../data/repositories/customer_repository.dart';
+import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/employee_repository.dart';
 import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
@@ -16,9 +17,11 @@ import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/enums/labour_enums.dart';
+import '../../domain/enums/delivery_enums.dart';
 import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_kpis.dart';
+import '../../domain/entities/delivery.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/job_work_invoice.dart';
@@ -43,6 +46,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required RawMaterialRepository rawMaterialRepository,
     required EmployeeRepository employeeRepository,
     required AttendanceRepository attendanceRepository,
+    required DeliveryRepository deliveryRepository,
     required PaymentDueScannerService scannerService,
   })  : _paymentRepository = paymentRepository,
         _jobWorkRepository = jobWorkRepository,
@@ -54,6 +58,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _rawMaterialRepository = rawMaterialRepository,
         _employeeRepository = employeeRepository,
         _attendanceRepository = attendanceRepository,
+        _deliveryRepository = deliveryRepository,
         _scannerService = scannerService,
         super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted);
@@ -72,6 +77,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final RawMaterialRepository _rawMaterialRepository;
   final EmployeeRepository _employeeRepository;
   final AttendanceRepository _attendanceRepository;
+  final DeliveryRepository _deliveryRepository;
   final PaymentDueScannerService _scannerService;
 
   StreamSubscription<List<Payment>>? _paymentsSub;
@@ -84,6 +90,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<RawMaterial>>? _rawMaterialsSub;
   StreamSubscription<List<Employee>>? _employeesSub;
   StreamSubscription<List<AttendanceRecord>>? _attendanceSub;
+  StreamSubscription<List<Delivery>>? _deliveriesSub;
 
   List<Payment> _payments = const [];
   List<JobWorkOrder> _orders = const [];
@@ -95,6 +102,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<RawMaterial> _rawMaterials = const [];
   List<Employee> _employees = const [];
   List<AttendanceRecord> _attendanceToday = const [];
+  List<Delivery> _deliveries = const [];
 
   Future<void> _onWatchStarted(
     DashboardWatchStarted event,
@@ -221,6 +229,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             const _DashboardStreamFailed('Could not load dashboard data.'),
           ),
         );
+
+    _deliveriesSub = _deliveryRepository
+        .watchDeliveries(event.factoryId)
+        .listen(
+          (deliveries) {
+            _deliveries = deliveries;
+            add(const _DashboardDataUpdated());
+          },
+          onError: (_) => add(
+            const _DashboardStreamFailed('Could not load dashboard data.'),
+          ),
+        );
   }
 
   Future<void> _onWatchStopped(
@@ -294,6 +314,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         .where((employee) => !attendanceByEmployee.containsKey(employee.id))
         .length;
 
+    final activeDeliveriesCount =
+        _deliveries.where((delivery) => delivery.status.isActive).length;
+    final scheduledDeliveriesToday = _deliveries.where((delivery) {
+      if (delivery.status != DeliveryStatus.scheduled) return false;
+      final scheduled = delivery.scheduledDate;
+      return scheduled.year == today.year &&
+          scheduled.month == today.month &&
+          scheduled.day == today.day;
+    }).length;
+
     emit(
       state.copyWith(
         status: DashboardStatus.loaded,
@@ -311,6 +341,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           activeLabourCount: activeLabourCount,
           presentLabourToday: presentLabourToday,
           unmarkedAttendanceToday: unmarkedAttendanceToday,
+          activeDeliveriesCount: activeDeliveriesCount,
+          scheduledDeliveriesToday: scheduledDeliveriesToday,
         ),
         pendingPickups: pendingPickups.take(5).toList(),
         errorMessage: null,
@@ -345,6 +377,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _rawMaterialsSub?.cancel();
     await _employeesSub?.cancel();
     await _attendanceSub?.cancel();
+    await _deliveriesSub?.cancel();
     _paymentsSub = null;
     _jobWorkSub = null;
     _salesSub = null;
@@ -355,6 +388,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _rawMaterialsSub = null;
     _employeesSub = null;
     _attendanceSub = null;
+    _deliveriesSub = null;
   }
 
   @override

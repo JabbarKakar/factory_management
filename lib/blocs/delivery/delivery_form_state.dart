@@ -8,6 +8,8 @@ class DeliveryFormState extends Equatable {
     this.eligibleOrders = const [],
     this.employees = const [],
     this.selectedOrder,
+    this.existingDeliveries = const [],
+    this.remainingLines = const [],
     this.errorMessage,
   });
 
@@ -15,7 +17,12 @@ class DeliveryFormState extends Equatable {
   final List<SalesOrder> eligibleOrders;
   final List<Employee> employees;
   final SalesOrder? selectedOrder;
+  final List<Delivery> existingDeliveries;
+  final List<DeliveryRemainingLine> remainingLines;
   final String? errorMessage;
+
+  bool get hasRemainingQuantity =>
+      remainingLines.any((line) => line.remainingQuantity > 0);
 
   DeliveryFormState copyWith({
     DeliveryFormStatus? status,
@@ -23,6 +30,8 @@ class DeliveryFormState extends Equatable {
     List<Employee>? employees,
     SalesOrder? selectedOrder,
     bool clearSelectedOrder = false,
+    List<Delivery>? existingDeliveries,
+    List<DeliveryRemainingLine>? remainingLines,
     String? errorMessage,
   }) {
     return DeliveryFormState(
@@ -31,6 +40,8 @@ class DeliveryFormState extends Equatable {
       employees: employees ?? this.employees,
       selectedOrder:
           clearSelectedOrder ? null : (selectedOrder ?? this.selectedOrder),
+      existingDeliveries: existingDeliveries ?? this.existingDeliveries,
+      remainingLines: remainingLines ?? this.remainingLines,
       errorMessage: errorMessage,
     );
   }
@@ -41,6 +52,8 @@ class DeliveryFormState extends Equatable {
         eligibleOrders,
         employees,
         selectedOrder,
+        existingDeliveries,
+        remainingLines,
         errorMessage,
       ];
 }

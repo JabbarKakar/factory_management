@@ -164,6 +164,7 @@ void setupDependencies() {
       rawMaterialRepository: getIt<RawMaterialRepository>(),
       employeeRepository: getIt<EmployeeRepository>(),
       attendanceRepository: getIt<AttendanceRepository>(),
+      deliveryRepository: getIt<DeliveryRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
     ),
   );
@@ -196,7 +197,10 @@ void setupDependencies() {
     () => SalesOrderListBloc(repository: getIt<SalesOrderRepository>()),
   );
   getIt.registerFactory<SalesOrderFormBloc>(
-    () => SalesOrderFormBloc(repository: getIt<SalesOrderRepository>()),
+    () => SalesOrderFormBloc(
+      repository: getIt<SalesOrderRepository>(),
+      deliveryRepository: getIt<DeliveryRepository>(),
+    ),
   );
   getIt.registerFactory<SalesInvoiceBloc>(
     () => SalesInvoiceBloc(

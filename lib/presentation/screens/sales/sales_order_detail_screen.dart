@@ -8,6 +8,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/sales_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/delivery/delivery_status_badge.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/sales/sales_order_status_badge.dart';
 import '../../widgets/settings_section.dart';
@@ -271,6 +272,45 @@ class SalesOrderDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (state.deliveries.isNotEmpty ||
+                  (canInvoice && order.status != SalesOrderStatus.closed))
+                SettingsSection(
+                  title: AppStrings.orderDeliveries,
+                  child: state.deliveries.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            AppStrings.noOrderDeliveries,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            for (final delivery in state.deliveries)
+                              ListTile(
+                                title: Text(delivery.deliveryNumber),
+                                subtitle: Text(
+                                  DateFormat.yMMMd()
+                                      .format(delivery.scheduledDate),
+                                ),
+                                trailing: DeliveryStatusBadge(
+                                  status: delivery.status,
+                                ),
+                                onTap: isSaving
+                                    ? null
+                                    : () => context.push(
+                                          RoutePaths.deliveryDetail(
+                                            delivery.id,
+                                          ),
+                                        ),
+                              ),
+                          ],
+                        ),
+                ),
               SettingsSection(
                 title: AppStrings.pricingAgreement,
                 child: Padding(
