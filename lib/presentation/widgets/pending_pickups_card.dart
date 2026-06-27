@@ -20,16 +20,114 @@ class PendingPickupsCard extends StatelessWidget {
   final List<JobWorkOrder> pendingPickups;
   final int totalCount;
 
+  static const double _wideBreakpoint = 900;
+  static const double _mobileBreakpoint = 600;
+  static const double _gridBreakpoint = 1100;
+
   @override
   Widget build(BuildContext context) {
     if (totalCount == 0) return const SizedBox.shrink();
 
-    final theme = Theme.of(context);
     final remaining = totalCount - pendingPickups.length;
 
-    return DashboardSurfaceCard(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-      child: Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isWide = width >= _wideBreakpoint;
+        final isMobile = width < _mobileBreakpoint;
+        final useGrid = width >= _gridBreakpoint && pendingPickups.length > 1;
+
+        final header = _PendingPickupsHeader(
+          totalCount: totalCount,
+          isMobile: isMobile,
+          onViewAll: () => context.go(
+            RoutePaths.jobWorkList(
+              filter: JobWorkListStageFilter.pendingPickup,
+            ),
+          ),
+        );
+
+        final pickupList = _PickupList(
+          orders: pendingPickups,
+          dense: isMobile,
+          useGrid: useGrid,
+        );
+
+        final footer = remaining > 0
+            ? Padding(
+                padding: EdgeInsets.only(top: isMobile ? 6 : 8),
+                child: Center(
+                  child: Text(
+                    '+ $remaining more orders',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                          fontSize: isMobile ? 10 : 11,
+                        ),
+                  ),
+                ),
+              )
+            : null;
+
+        return DashboardSurfaceCard(
+          compact: true,
+          borderRadius: 14,
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 10 : (isWide ? 16 : 12),
+            isMobile ? 10 : (isWide ? 16 : 12),
+            isMobile ? 10 : (isWide ? 16 : 12),
+            isMobile ? 8 : 10,
+          ),
+          child: isWide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 4, child: header),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        children: [
+                          pickupList,
+                          if (footer != null) footer,
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    header,
+                    SizedBox(height: isMobile ? 8 : 10),
+                    pickupList,
+                    if (footer != null) footer,
+                  ],
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _PendingPickupsHeader extends StatelessWidget {
+  const _PendingPickupsHeader({
+    required this.totalCount,
+    required this.isMobile,
+    required this.onViewAll,
+  });
+
+  final int totalCount;
+  final bool isMobile;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final countLabel = '$totalCount awaiting pickup';
+
+    if (!isMobile) {
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardSectionHeader(
@@ -38,50 +136,136 @@ class PendingPickupsCard extends StatelessWidget {
             icon: Icons.inventory_2_outlined,
             trailing: DashboardTextLink(
               label: AppStrings.viewAll,
-              onPressed: () => context.go(
-                RoutePaths.jobWorkList(
-                  filter: JobWorkListStageFilter.pendingPickup,
-                ),
-              ),
+              onPressed: onViewAll,
             ),
           ),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '$totalCount awaiting pickup',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...pendingPickups.map(
-            (order) => _PickupRow(
-              order: order,
-              onTap: () => context.push(RoutePaths.jobWorkDetail(order.id)),
-            ),
-          ),
-          if (remaining > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 4),
-              child: Center(
-                child: Text(
-                  '+ $remaining more orders',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
+          const SizedBox(height: 8),
+          _CountChip(label: countLabel),
         ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.inventory_2_outlined,
+            size: 15,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      AppStrings.pendingPickups,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  DashboardTextLink(
+                    label: AppStrings.viewAll,
+                    onPressed: onViewAll,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              _CountChip(label: countLabel, dense: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CountChip extends StatelessWidget {
+  const _CountChip({required this.label, this.dense = false});
+
+  final String label;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: dense ? 8 : 10,
+        vertical: dense ? 3 : 5,
       ),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.accent,
+              fontWeight: FontWeight.w700,
+              fontSize: dense ? 9 : 10,
+            ),
+      ),
+    );
+  }
+}
+
+class _PickupList extends StatelessWidget {
+  const _PickupList({
+    required this.orders,
+    required this.dense,
+    required this.useGrid,
+  });
+
+  final List<JobWorkOrder> orders;
+  final bool dense;
+  final bool useGrid;
+
+  @override
+  Widget build(BuildContext context) {
+    if (useGrid) {
+      return GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          mainAxisExtent: 56,
+        ),
+        itemCount: orders.length,
+        itemBuilder: (context, index) {
+          final order = orders[index];
+          return _PickupRow(
+            order: order,
+            dense: true,
+            onTap: () => context.push(RoutePaths.jobWorkDetail(order.id)),
+          );
+        },
+      );
+    }
+
+    return Column(
+      children: [
+        for (var i = 0; i < orders.length; i++)
+          _PickupRow(
+            order: orders[i],
+            dense: dense,
+            onTap: () => context.push(RoutePaths.jobWorkDetail(orders[i].id)),
+          ),
+      ],
     );
   }
 }
@@ -90,84 +274,100 @@ class _PickupRow extends StatelessWidget {
   const _PickupRow({
     required this.order,
     required this.onTap,
+    this.dense = false,
   });
 
   final JobWorkOrder order;
   final VoidCallback onTap;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final initials = Formatters.userInitials(order.customerName);
+    final avatarRadius = dense ? 14.0 : 18.0;
+    final barHeight = dense ? 34.0 : 40.0;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: dense ? 6 : 8),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(dense ? 10 : 12),
           child: Ink(
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest
                   .withValues(alpha: 0.45),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(dense ? 10 : 12),
               border: Border.all(
                 color: theme.colorScheme.outline.withValues(alpha: 0.25),
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                horizontal: dense ? 8 : 10,
+                vertical: dense ? 7 : 9,
+              ),
               child: Row(
                 children: [
                   Container(
-                    width: 4,
-                    height: 44,
+                    width: 3,
+                    height: barHeight,
                     decoration: BoxDecoration(
                       color: AppColors.accent,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(3),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: dense ? 8 : 10),
                   CircleAvatar(
-                    radius: 20,
+                    radius: avatarRadius,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                     child: Text(
                       initials,
-                      style: theme.textTheme.labelMedium?.copyWith(
+                      style: theme.textTheme.labelSmall?.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w700,
+                        fontSize: dense ? 10 : 11,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: dense ? 8 : 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           order.jobWorkNumber,
-                          style: theme.textTheme.titleSmall?.copyWith(
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.w700,
+                            fontSize: dense ? 12 : 13,
+                            height: 1.1,
                           ),
                         ),
-                        const SizedBox(height: 2),
                         Text(
                           order.customerName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: dense ? 10 : 11,
+                            height: 1.1,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  JobWorkStatusBadge(status: order.status, compact: true),
-                  const SizedBox(width: 4),
+                  if (!dense) ...[
+                    const SizedBox(width: 6),
+                    JobWorkStatusBadge(status: order.status, compact: true),
+                  ],
+                  const SizedBox(width: 2),
                   Icon(
                     Icons.chevron_right_rounded,
+                    size: dense ? 16 : 18,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ],
