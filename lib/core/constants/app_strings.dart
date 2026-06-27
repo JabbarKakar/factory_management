@@ -490,4 +490,10 @@ abstract final class AppStrings {
   static const String productionGradeB = 'Grade B';
   static const String productionGradeC = 'Grade C';
   static const String productionReject = 'Reject';
+  static const String availableInStock = 'Available in stock';
+  static const String customMarbleVarietyName = 'Custom variety name';
+  static const String customVarietyRequired = 'Enter the custom variety name';
+  static const String productionOutputRequired =
+      'Enter output in at least one grade or reject';
+  static const String quantityExceedsStock = 'Cannot exceed available stock';
 }

@@ -31,6 +31,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
   ProductionProductType _productType = ProductionProductType.marbleTiles;
   String _marbleVariety = MarbleData.varieties.first;
 
+  final _customVarietyController = TextEditingController();
   final _materialConsumedController = TextEditingController();
   final _gradeAController = TextEditingController();
   final _gradeBController = TextEditingController();
@@ -42,9 +43,39 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
 
   String? _thickness;
   String? _size;
+  double? _availableStock;
+
+  bool get _isCustomVariety => _marbleVariety == 'Custom';
+
+  String get _resolvedMarbleVariety {
+    if (!_isCustomVariety) return _marbleVariety;
+    return _customVarietyController.text.trim();
+  }
+
+  double get _totalOutput =>
+      _parse(_gradeAController.text) +
+      _parse(_gradeBController.text) +
+      _parse(_gradeCController.text) +
+      _parse(_rejectController.text);
+
+  RawMaterial? _materialForType(List<RawMaterial> materials) {
+    final type = _rawMaterialType;
+    if (type == null) return null;
+    for (final material in materials) {
+      if (material.materialType == type) return material;
+    }
+    return null;
+  }
+
+  String _formatQuantity(double quantity) {
+    return quantity.toStringAsFixed(
+      quantity == quantity.roundToDouble() ? 0 : 2,
+    );
+  }
 
   @override
   void dispose() {
+    _customVarietyController.dispose();
     _materialConsumedController.dispose();
     _gradeAController.dispose();
     _gradeBController.dispose();
@@ -86,6 +117,20 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
       return;
     }
 
+    if (_isCustomVariety && _resolvedMarbleVariety.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.customVarietyRequired)),
+      );
+      return;
+    }
+
+    if (_totalOutput <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.productionOutputRequired)),
+      );
+      return;
+    }
+
     context.read<ProductionFormBloc>().add(
           ProductionFormSubmitted(
             productionDate: _productionDate,
@@ -93,7 +138,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
             rawMaterialType: materialType,
             materialConsumed: _parse(_materialConsumedController.text),
             productType: _productType,
-            marbleVariety: _marbleVariety,
+            marbleVariety: _resolvedMarbleVariety,
             thickness: _thickness,
             size: _size,
             gradeASqFt: _parse(_gradeAController.text),
@@ -202,6 +247,13 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                               final materials = (snapshot.data ?? const [])
                                   .where((material) => material.currentStock > 0)
                                   .toList();
+                              final selectedMaterial =
+                                  _materialForType(materials);
+                              final availableStock =
+                                  selectedMaterial?.currentStock ??
+                                      _availableStock;
+                              final stockUnit = selectedMaterial?.unit ??
+                                  _rawMaterialType?.unit;
 
                               return Column(
                                 children: [
@@ -221,7 +273,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                                           value: material.materialType,
                                           child: Text(
                                             '${material.materialType.label} '
-                                            '(${material.currentStock.toStringAsFixed(material.currentStock == material.currentStock.roundToDouble() ? 0 : 2)} '
+                                            '(${_formatQuantity(material.currentStock)} '
                                             '${material.unit.label})',
                                           ),
                                         ),
@@ -229,9 +281,22 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                                     ],
                                     onChanged: isSaving
                                         ? null
-                                        : (value) => setState(
-                                              () => _rawMaterialType = value,
-                                            ),
+                                        : (value) {
+                                            RawMaterial? material;
+                                            if (value != null) {
+                                              for (final item in materials) {
+                                                if (item.materialType == value) {
+                                                  material = item;
+                                                  break;
+                                                }
+                                              }
+                                            }
+                                            setState(() {
+                                              _rawMaterialType = value;
+                                              _availableStock =
+                                                  material?.currentStock;
+                                            });
+                                          },
                                     validator: (_) {
                                       if (_rawMaterialType == null) {
                                         return AppStrings.selectRawMaterialRequired;
@@ -256,6 +321,12 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                                           ? AppStrings.quantityConsumed
                                           : '${AppStrings.quantityConsumed} '
                                               '(${_rawMaterialType!.unit.label})',
+                                      helperText: availableStock != null &&
+                                              stockUnit != null
+                                          ? '${AppStrings.availableInStock}: '
+                                              '${_formatQuantity(availableStock)} '
+                                              '${stockUnit.label}'
+                                          : null,
                                     ),
                                     keyboardType:
                                         const TextInputType.numberWithOptions(
@@ -270,6 +341,10 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                                           double.tryParse(value.trim());
                                       if (quantity == null || quantity <= 0) {
                                         return 'Enter a valid quantity';
+                                      }
+                                      if (availableStock != null &&
+                                          quantity > availableStock) {
+                                        return AppStrings.quantityExceedsStock;
                                       }
                                       return null;
                                     },
@@ -325,10 +400,32 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                               ? null
                               : (value) {
                                   if (value != null) {
-                                    setState(() => _marbleVariety = value);
+                                    setState(() {
+                                      _marbleVariety = value;
+                                      if (!_isCustomVariety) {
+                                        _customVarietyController.clear();
+                                      }
+                                    });
                                   }
                                 },
                         ),
+                        if (_isCustomVariety) ...[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _customVarietyController,
+                            decoration: const InputDecoration(
+                              labelText: AppStrings.customMarbleVarietyName,
+                            ),
+                            textCapitalization: TextCapitalization.words,
+                            validator: (value) {
+                              if (!_isCustomVariety) return null;
+                              if (value == null || value.trim().isEmpty) {
+                                return AppStrings.customVarietyRequired;
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String?>(
                           initialValue: _size,
@@ -406,6 +503,18 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                           enabled: !isSaving,
                           onChanged: (_) => setState(() {}),
                         ),
+                        if (_totalOutput <= 0) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            AppStrings.productionOutputRequired,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                          ),
+                        ],
                         if (_totalUsable > 0) ...[
                           const SizedBox(height: 12),
                           ListTile(
