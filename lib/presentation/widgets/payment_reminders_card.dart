@@ -20,6 +20,9 @@ class PaymentRemindersCard extends StatelessWidget {
 
   final String factoryId;
 
+  static const double _wideBreakpoint = 900;
+  static const double _mobileBreakpoint = 600;
+
   @override
   Widget build(BuildContext context) {
     final jobWorkInvoiceRepository = getIt<JobWorkInvoiceRepository>();
@@ -37,104 +40,91 @@ class PaymentRemindersCard extends StatelessWidget {
               salesInvoices: salesSnapshot.data ?? const [],
             );
 
-            if (!summary.hasAlerts) {
-              return DashboardSurfaceCard(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.verified_rounded,
-                        color: AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'All clear',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'No payment dues or overdues this week.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color:
-                                      Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final isWide = width >= _wideBreakpoint;
+                final isMobile = width < _mobileBreakpoint;
 
-            return DashboardSurfaceCard(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DashboardSectionHeader(
-                    title: AppStrings.paymentReminders,
-                    subtitle: 'Invoices needing attention',
-                    icon: Icons.account_balance_wallet_outlined,
-                    trailing: DashboardTextLink(
-                      label: 'View all',
-                      onPressed: () => _openNotifications(
-                        context,
-                        NotificationFilter.all,
-                      ),
-                    ),
+                if (!summary.hasAlerts) {
+                  return _AllClearState(isMobile: isMobile);
+                }
+
+                final dueCard = _PaymentMetricCard(
+                  label: AppStrings.dueThisWeek,
+                  count: summary.dueThisWeekCount,
+                  amount: summary.dueThisWeekAmount,
+                  color: AppColors.dueSoon,
+                  icon: Icons.event_rounded,
+                  dense: isMobile,
+                  horizontal: isWide,
+                  onTap: () => _openNotifications(
+                    context,
+                    NotificationFilter.dueThisWeek,
                   ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PaymentMetricCard(
-                          label: AppStrings.dueThisWeek,
-                          count: summary.dueThisWeekCount,
-                          amount: summary.dueThisWeekAmount,
-                          color: AppColors.dueSoon,
-                          icon: Icons.event_rounded,
-                          onTap: () => _openNotifications(
-                            context,
-                            NotificationFilter.dueThisWeek,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _PaymentMetricCard(
-                          label: AppStrings.overduePayments,
-                          count: summary.overdueCount,
-                          amount: summary.overdueAmount,
-                          color: AppColors.overdue,
-                          icon: Icons.error_outline_rounded,
-                          onTap: () => _openNotifications(
-                            context,
-                            NotificationFilter.overdue,
-                          ),
-                        ),
-                      ),
-                    ],
+                );
+
+                final overdueCard = _PaymentMetricCard(
+                  label: AppStrings.overduePayments,
+                  count: summary.overdueCount,
+                  amount: summary.overdueAmount,
+                  color: AppColors.overdue,
+                  icon: Icons.error_outline_rounded,
+                  dense: isMobile,
+                  horizontal: isWide,
+                  onTap: () => _openNotifications(
+                    context,
+                    NotificationFilter.overdue,
                   ),
-                ],
-              ),
+                );
+
+                final metrics = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: dueCard),
+                    SizedBox(width: isMobile ? 6 : 8),
+                    Expanded(child: overdueCard),
+                  ],
+                );
+
+                return DashboardSurfaceCard(
+                  compact: true,
+                  borderRadius: 14,
+                  padding: EdgeInsets.all(isMobile ? 10 : (isWide ? 16 : 12)),
+                  child: isWide
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: _PaymentRemindersHeader(
+                                isMobile: false,
+                                onViewAll: () => _openNotifications(
+                                  context,
+                                  NotificationFilter.all,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(flex: 6, child: metrics),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _PaymentRemindersHeader(
+                              isMobile: isMobile,
+                              onViewAll: () => _openNotifications(
+                                context,
+                                NotificationFilter.all,
+                              ),
+                            ),
+                            SizedBox(height: isMobile ? 8 : 10),
+                            metrics,
+                          ],
+                        ),
+                );
+              },
             );
           },
         );
@@ -152,6 +142,120 @@ class PaymentRemindersCard extends StatelessWidget {
   }
 }
 
+class _PaymentRemindersHeader extends StatelessWidget {
+  const _PaymentRemindersHeader({
+    required this.isMobile,
+    required this.onViewAll,
+  });
+
+  final bool isMobile;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isMobile) {
+      return DashboardSectionHeader(
+        title: AppStrings.paymentReminders,
+        subtitle: 'Invoices needing attention',
+        icon: Icons.account_balance_wallet_outlined,
+        trailing: DashboardTextLink(
+          label: 'View all',
+          onPressed: onViewAll,
+        ),
+      );
+    }
+
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.account_balance_wallet_outlined,
+            size: 15,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            AppStrings.paymentReminders,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        DashboardTextLink(label: 'View all', onPressed: onViewAll),
+      ],
+    );
+  }
+}
+
+class _AllClearState extends StatelessWidget {
+  const _AllClearState({required this.isMobile});
+
+  final bool isMobile;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const iconSize = 32.0;
+
+    return DashboardSurfaceCard(
+      compact: true,
+      borderRadius: 14,
+      padding: EdgeInsets.all(isMobile ? 10 : 12),
+      child: Row(
+        children: [
+          Container(
+            width: iconSize,
+            height: iconSize,
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.verified_rounded,
+              color: AppColors.success,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'All clear',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  'No payment dues or overdues this week.',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 10,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PaymentMetricCard extends StatelessWidget {
   const _PaymentMetricCard({
     required this.label,
@@ -160,6 +264,8 @@ class _PaymentMetricCard extends StatelessWidget {
     required this.color,
     required this.icon,
     required this.onTap,
+    this.dense = false,
+    this.horizontal = false,
   });
 
   final String label;
@@ -168,19 +274,60 @@ class _PaymentMetricCard extends StatelessWidget {
   final Color color;
   final IconData icon;
   final VoidCallback onTap;
+  final bool dense;
+  final bool horizontal;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labelSize = horizontal ? 11.0 : (dense ? 9.0 : 10.0);
+    final countSize = horizontal ? 20.0 : (dense ? 15.0 : 17.0);
+    final amountSize = horizontal ? 11.0 : (dense ? 9.0 : 10.0);
+    final padding = horizontal ? 12.0 : (dense ? 7.0 : 9.0);
+    final iconSize = horizontal ? 16.0 : (dense ? 13.0 : 14.0);
+
+    final labelWidget = Text(
+      label,
+      maxLines: dense ? 1 : 2,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: color,
+        fontWeight: FontWeight.w700,
+        fontSize: labelSize,
+        height: 1.1,
+      ),
+    );
+
+    final countWidget = Text(
+      '$count',
+      style: theme.textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w800,
+        letterSpacing: -0.3,
+        fontSize: countSize,
+        height: 1,
+      ),
+    );
+
+    final amountWidget = Text(
+      Formatters.currencyPkr(amount),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: theme.textTheme.labelSmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+        fontWeight: FontWeight.w500,
+        fontSize: amountSize,
+        height: 1.1,
+      ),
+    );
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(10),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -192,45 +339,38 @@ class _PaymentMetricCard extends StatelessWidget {
             border: Border.all(color: color.withValues(alpha: 0.28)),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, size: 18, color: color),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        label,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: color,
-                          fontWeight: FontWeight.w700,
-                        ),
+            padding: EdgeInsets.all(padding),
+            child: horizontal
+                ? Row(
+                    children: [
+                      Icon(icon, size: iconSize, color: color),
+                      const SizedBox(width: 8),
+                      Expanded(child: labelWidget),
+                      const SizedBox(width: 6),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          countWidget,
+                          amountWidget,
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '$count',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(icon, size: iconSize, color: color),
+                          const SizedBox(width: 4),
+                          Expanded(child: labelWidget),
+                        ],
+                      ),
+                      SizedBox(height: dense ? 4 : 6),
+                      countWidget,
+                      amountWidget,
+                    ],
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  Formatters.currencyPkr(amount),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
