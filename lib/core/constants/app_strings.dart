@@ -634,4 +634,67 @@ abstract final class AppStrings {
       'All order quantities are already scheduled or delivered';
   static const String pendingDeliveries = 'Pending Deliveries';
   static const String scheduledDeliveriesToday = 'scheduled today';
+
+  // Equipment & maintenance (Sprint 18)
+  static const String factoryEquipment = 'Factory Equipment';
+  static const String factoryEquipmentSubtitle =
+      'Machinery register and maintenance';
+  static const String addEquipment = 'Add Equipment';
+  static const String editEquipment = 'Edit Equipment';
+  static const String saveEquipment = 'Save Equipment';
+  static const String equipmentSaved = 'Equipment saved';
+  static const String equipmentUpdated = 'Equipment updated';
+  static const String equipmentDeleted = 'Equipment deleted';
+  static const String equipmentDetails = 'Equipment Details';
+  static const String equipmentNotFound = 'Equipment not found';
+  static const String equipmentLoadError = 'Could not load equipment';
+  static const String searchEquipment = 'Search equipment';
+  static const String noEquipmentYet = 'No equipment registered yet';
+  static const String noEquipmentFound = 'No equipment matches your search';
+  static const String noEquipmentHint =
+      'Register factory machines to track status and maintenance';
+  static const String equipmentName = 'Equipment Name';
+  static const String equipmentCategory = 'Category';
+  static const String equipmentStatus = 'Status';
+  static const String equipmentLocation = 'Location in Factory';
+  static const String equipmentSpecs = 'Specifications';
+  static const String brand = 'Brand';
+  static const String model = 'Model';
+  static const String serialNumber = 'Serial Number';
+  static const String purchaseInfo = 'Purchase Info';
+  static const String purchaseDate = 'Purchase Date';
+  static const String purchaseCost = 'Purchase Cost (PKR)';
+  static const String supplierVendor = 'Supplier / Vendor';
+  static const String depreciationRate = 'Depreciation Rate (% per year)';
+  static const String bookValue = 'Current Book Value';
+  static const String maintenanceSchedule = 'Maintenance Schedule';
+  static const String lastMaintenanceDate = 'Last Maintenance';
+  static const String nextMaintenanceDue = 'Next Maintenance Due';
+  static const String maintenanceIntervalDays =
+      'Maintenance Interval (days)';
+  static const String maintenanceHistory = 'Maintenance History';
+  static const String noMaintenanceLogs = 'No maintenance recorded yet';
+  static const String recordMaintenance = 'Record Maintenance';
+  static const String maintenanceDetails = 'Maintenance Details';
+  static const String maintenanceDate = 'Maintenance Date';
+  static const String maintenanceType = 'Maintenance Type';
+  static const String maintenanceDescription = 'Work Description';
+  static const String maintenanceCost = 'Maintenance Cost (PKR)';
+  static const String performedBy = 'Performed By';
+  static const String performedByName = 'Technician / Vendor Name';
+  static const String downtimeHours = 'Downtime (hours)';
+  static const String statusAfterMaintenance = 'Status After Maintenance';
+  static const String keepCurrentStatus = 'Keep current status';
+  static const String saveMaintenance = 'Save Maintenance Log';
+  static const String maintenanceSaved = 'Maintenance log saved';
+  static const String maintenanceOverdue = 'overdue maintenance';
+  static const String maintenanceDueSoon = 'due for maintenance soon';
+  static const String maintenanceOverdueMessage =
+      'Maintenance is overdue. Schedule service soon.';
+  static const String maintenanceDueSoonMessage =
+      'Maintenance is due soon.';
+  static const String maintenanceDueKpi = 'Maintenance Due';
+  static const String deleteEquipmentTitle = 'Delete equipment?';
+  static const String deleteEquipmentMessage =
+      'This will permanently delete the equipment and all maintenance logs.';
 }

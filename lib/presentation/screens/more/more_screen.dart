@@ -110,6 +110,13 @@ class MoreScreen extends StatelessWidget {
                 ),
                 const Divider(height: 1),
                 ListTile(
+                  leading: const Icon(Icons.precision_manufacturing_outlined),
+                  title: const Text(AppStrings.factoryEquipment),
+                  subtitle: const Text(AppStrings.factoryEquipmentSubtitle),
+                  onTap: () => context.push(RoutePaths.equipment),
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.local_shipping_outlined),
                   title: const Text(AppStrings.deliveries),
                   subtitle: const Text(AppStrings.deliveriesSubtitle),

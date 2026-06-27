@@ -8,6 +8,7 @@ import '../../data/repositories/attendance_repository.dart';
 import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/employee_repository.dart';
+import '../../data/repositories/equipment_repository.dart';
 import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
@@ -23,6 +24,7 @@ import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_kpis.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/employee.dart';
+import '../../domain/entities/equipment.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -47,6 +49,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required EmployeeRepository employeeRepository,
     required AttendanceRepository attendanceRepository,
     required DeliveryRepository deliveryRepository,
+    required EquipmentRepository equipmentRepository,
     required PaymentDueScannerService scannerService,
   })  : _paymentRepository = paymentRepository,
         _jobWorkRepository = jobWorkRepository,
@@ -59,6 +62,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _employeeRepository = employeeRepository,
         _attendanceRepository = attendanceRepository,
         _deliveryRepository = deliveryRepository,
+        _equipmentRepository = equipmentRepository,
         _scannerService = scannerService,
         super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted);
@@ -78,6 +82,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final EmployeeRepository _employeeRepository;
   final AttendanceRepository _attendanceRepository;
   final DeliveryRepository _deliveryRepository;
+  final EquipmentRepository _equipmentRepository;
   final PaymentDueScannerService _scannerService;
 
   StreamSubscription<List<Payment>>? _paymentsSub;
@@ -91,6 +96,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<Employee>>? _employeesSub;
   StreamSubscription<List<AttendanceRecord>>? _attendanceSub;
   StreamSubscription<List<Delivery>>? _deliveriesSub;
+  StreamSubscription<List<Equipment>>? _equipmentSub;
 
   List<Payment> _payments = const [];
   List<JobWorkOrder> _orders = const [];
@@ -103,6 +109,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<Employee> _employees = const [];
   List<AttendanceRecord> _attendanceToday = const [];
   List<Delivery> _deliveries = const [];
+  List<Equipment> _equipment = const [];
 
   Future<void> _onWatchStarted(
     DashboardWatchStarted event,
@@ -241,6 +248,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             const _DashboardStreamFailed('Could not load dashboard data.'),
           ),
         );
+
+    _equipmentSub = _equipmentRepository.watchEquipment(event.factoryId).listen(
+          (equipment) {
+            _equipment = equipment;
+            add(const _DashboardDataUpdated());
+          },
+          onError: (_) => add(
+            const _DashboardStreamFailed('Could not load dashboard data.'),
+          ),
+        );
   }
 
   Future<void> _onWatchStopped(
@@ -324,6 +341,17 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           scheduled.day == today.day;
     }).length;
 
+    final maintenanceOverdueCount = _equipment
+        .where((item) => item.isMaintenanceOverdue(today: today))
+        .length;
+    final maintenanceDueSoonCount = _equipment
+        .where(
+          (item) =>
+              !item.isMaintenanceOverdue(today: today) &&
+              item.isMaintenanceDueSoon(today: today),
+        )
+        .length;
+
     emit(
       state.copyWith(
         status: DashboardStatus.loaded,
@@ -343,6 +371,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           unmarkedAttendanceToday: unmarkedAttendanceToday,
           activeDeliveriesCount: activeDeliveriesCount,
           scheduledDeliveriesToday: scheduledDeliveriesToday,
+          maintenanceOverdueCount: maintenanceOverdueCount,
+          maintenanceDueSoonCount: maintenanceDueSoonCount,
         ),
         pendingPickups: pendingPickups.take(5).toList(),
         errorMessage: null,
@@ -378,6 +408,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _employeesSub?.cancel();
     await _attendanceSub?.cancel();
     await _deliveriesSub?.cancel();
+    await _equipmentSub?.cancel();
     _paymentsSub = null;
     _jobWorkSub = null;
     _salesSub = null;
@@ -389,6 +420,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _employeesSub = null;
     _attendanceSub = null;
     _deliveriesSub = null;
+    _equipmentSub = null;
   }
 
   @override

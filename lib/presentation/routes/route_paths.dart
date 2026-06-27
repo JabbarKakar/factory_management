@@ -1,4 +1,5 @@
 import '../../domain/enums/delivery_enums.dart';
+import '../../domain/enums/equipment_enums.dart';
 import '../../domain/enums/inventory_enums.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../../domain/enums/production_enums.dart';
@@ -162,6 +163,23 @@ abstract final class RoutePaths {
       return deliveries;
     }
     return '$deliveries?filter=${filter.name}';
+  }
+
+  static const String equipment = '/equipment';
+  static const String equipmentAdd = '/equipment/add';
+
+  static String equipmentDetail(String id) => '/equipment/$id';
+
+  static String equipmentEdit(String id) => '/equipment/$id/edit';
+
+  static String equipmentRecordMaintenance(String id) =>
+      '/equipment/$id/maintenance';
+
+  static String equipmentList({EquipmentListFilter? filter}) {
+    if (filter == null || filter == EquipmentListFilter.all) {
+      return equipment;
+    }
+    return '$equipment?filter=${filter.name}';
   }
 
   static String notificationsWithFilter(NotificationFilter filter) =>

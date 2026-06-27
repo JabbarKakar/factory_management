@@ -20,6 +20,10 @@ import '../../blocs/delivery/delivery_confirm_bloc.dart';
 import '../../blocs/delivery/delivery_detail_bloc.dart';
 import '../../blocs/delivery/delivery_form_bloc.dart';
 import '../../blocs/delivery/delivery_list_bloc.dart';
+import '../../blocs/equipment/equipment_detail_bloc.dart';
+import '../../blocs/equipment/equipment_form_bloc.dart';
+import '../../blocs/equipment/equipment_list_bloc.dart';
+import '../../blocs/equipment/maintenance_form_bloc.dart';
 import '../../blocs/labour/daily_attendance_bloc.dart';
 import '../../blocs/labour/employee_detail_bloc.dart';
 import '../../blocs/labour/employee_form_bloc.dart';
@@ -37,6 +41,7 @@ import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
 import '../../domain/enums/delivery_enums.dart';
+import '../../domain/enums/equipment_enums.dart';
 import '../../domain/enums/inventory_enums.dart';
 import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
@@ -75,6 +80,10 @@ import '../screens/delivery/create_delivery_screen.dart';
 import '../screens/delivery/deliveries_screen.dart';
 import '../screens/delivery/delivery_challan_screen.dart';
 import '../screens/delivery/delivery_detail_screen.dart';
+import '../screens/equipment/add_edit_equipment_screen.dart';
+import '../screens/equipment/equipment_detail_screen.dart';
+import '../screens/equipment/equipment_screen.dart';
+import '../screens/equipment/record_maintenance_screen.dart';
 import '../screens/labour/add_edit_employee_screen.dart';
 import '../screens/labour/daily_attendance_screen.dart';
 import '../screens/labour/employee_detail_screen.dart';
@@ -803,6 +812,93 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     create: (_) => getIt<DeliveryConfirmBloc>()
                       ..add(DeliveryConfirmInitialized(deliveryId)),
                     child: ConfirmDeliveryScreen(deliveryId: deliveryId),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+      GoRoute(
+        path: RoutePaths.equipment,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final filterName = state.uri.queryParameters['filter'];
+          final initialFilter = filterName == null
+              ? null
+              : EquipmentListFilter.fromQuery(filterName);
+
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<EquipmentListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(
+                  EquipmentListWatchStarted(
+                    factoryId,
+                    initialFilter: initialFilter,
+                  ),
+                );
+              }
+              return bloc;
+            },
+            child: EquipmentScreen(initialFilter: initialFilter),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'add',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<EquipmentFormBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(EquipmentFormInitialized(factoryId: factoryId));
+                  }
+                  return bloc;
+                },
+                child: const AddEditEquipmentScreen(),
+              );
+            },
+          ),
+          GoRoute(
+            path: ':equipmentId',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final equipmentId = state.pathParameters['equipmentId']!;
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<EquipmentDetailBloc>();
+                  bloc.add(EquipmentDetailWatchStarted(equipmentId));
+                  return bloc;
+                },
+                child: EquipmentDetailScreen(equipmentId: equipmentId),
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'edit',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final equipmentId = state.pathParameters['equipmentId']!;
+                  return BlocProvider(
+                    create: (_) => getIt<EquipmentFormBloc>()
+                      ..add(EquipmentFormLoadRequested(equipmentId)),
+                    child: AddEditEquipmentScreen(equipmentId: equipmentId),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'maintenance',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final equipmentId = state.pathParameters['equipmentId']!;
+                  return BlocProvider(
+                    create: (_) => getIt<MaintenanceFormBloc>()
+                      ..add(MaintenanceFormInitialized(equipmentId)),
+                    child: RecordMaintenanceScreen(equipmentId: equipmentId),
                   );
                 },
               ),

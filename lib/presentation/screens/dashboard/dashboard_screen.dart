@@ -10,6 +10,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/dashboard_kpis.dart';
 import '../../../domain/enums/notification_enums.dart';
 import '../../../domain/enums/delivery_enums.dart';
+import '../../../domain/enums/equipment_enums.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/notification_bell.dart';
@@ -182,6 +183,14 @@ class DashboardScreen extends StatelessWidget {
                       label: const Text(AppStrings.scheduleDelivery),
                     ),
                     FilledButton.tonalIcon(
+                      onPressed: () => context.push(RoutePaths.equipmentAdd),
+                      icon: const Icon(
+                        Icons.precision_manufacturing_outlined,
+                        size: 18,
+                      ),
+                      label: const Text(AppStrings.addEquipment),
+                    ),
+                    FilledButton.tonalIcon(
                       onPressed: () => context.push(RoutePaths.employeesAdd),
                       icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
                       label: const Text(AppStrings.addEmployee),
@@ -293,6 +302,28 @@ class _KpiGrid extends StatelessWidget {
         color: AppColors.primary,
         onTap: () => context.go(
           RoutePaths.deliveriesList(filter: DeliveryListFilter.active),
+        ),
+      ),
+      _KpiItem(
+        label: AppStrings.maintenanceDueKpi,
+        value: kpis.maintenanceOverdueCount > 0
+            ? '${kpis.maintenanceOverdueCount}'
+            : '${kpis.maintenanceDueSoonCount}',
+        subtitle: kpis.maintenanceOverdueCount > 0
+            ? AppStrings.maintenanceOverdue
+            : kpis.maintenanceDueSoonCount > 0
+                ? AppStrings.maintenanceDueSoon
+                : null,
+        icon: Icons.build_circle_outlined,
+        color: kpis.maintenanceOverdueCount > 0
+            ? AppColors.overdue
+            : kpis.maintenanceDueSoonCount > 0
+                ? AppColors.warning
+                : AppColors.accent,
+        onTap: () => context.go(
+          RoutePaths.equipmentList(
+            filter: EquipmentListFilter.maintenanceDue,
+          ),
         ),
       ),
       _KpiItem(
