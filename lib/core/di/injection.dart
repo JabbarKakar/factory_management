@@ -68,6 +68,7 @@ import '../../data/services/raw_material_stock_service.dart';
 import '../../data/services/job_work_cleanup_service.dart';
 import '../../data/services/notification_engine_service.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
+import '../../data/services/dashboard_analytics_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 
 final getIt = GetIt.instance;
@@ -95,6 +96,9 @@ void setupDependencies() {
       jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
     ),
+  );
+  getIt.registerLazySingleton<DashboardAnalyticsService>(
+    () => DashboardAnalyticsService(),
   );
   getIt.registerLazySingleton<PaymentDueScannerService>(
     () => PaymentDueScannerService(
@@ -201,7 +205,9 @@ void setupDependencies() {
       deliveryRepository: getIt<DeliveryRepository>(),
       equipmentRepository: getIt<EquipmentRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
+      productionRepository: getIt<ProductionRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
+      analyticsService: getIt<DashboardAnalyticsService>(),
     ),
   );
   getIt.registerFactory<CustomerFormBloc>(

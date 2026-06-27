@@ -11,6 +11,7 @@ class DashboardState extends Equatable {
   const DashboardState({
     this.status = DashboardStatus.initial,
     this.kpis = DashboardKpis.empty,
+    this.analytics = DashboardAnalytics.empty,
     this.pendingPickups = const [],
     this.factoryId,
     this.errorMessage,
@@ -18,6 +19,7 @@ class DashboardState extends Equatable {
 
   final DashboardStatus status;
   final DashboardKpis kpis;
+  final DashboardAnalytics analytics;
   final List<JobWorkOrder> pendingPickups;
   final String? factoryId;
   final String? errorMessage;
@@ -25,6 +27,7 @@ class DashboardState extends Equatable {
   DashboardState copyWith({
     DashboardStatus? status,
     DashboardKpis? kpis,
+    DashboardAnalytics? analytics,
     List<JobWorkOrder>? pendingPickups,
     String? factoryId,
     String? errorMessage,
@@ -32,6 +35,7 @@ class DashboardState extends Equatable {
     return DashboardState(
       status: status ?? this.status,
       kpis: kpis ?? this.kpis,
+      analytics: analytics ?? this.analytics,
       pendingPickups: pendingPickups ?? this.pendingPickups,
       factoryId: factoryId ?? this.factoryId,
       errorMessage: errorMessage,
@@ -39,5 +43,6 @@ class DashboardState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [status, kpis, pendingPickups, factoryId, errorMessage];
+  List<Object?> get props =>
+      [status, kpis, analytics, pendingPickups, factoryId, errorMessage];
 }

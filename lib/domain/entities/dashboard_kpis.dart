@@ -21,6 +21,14 @@ class DashboardKpis extends Equatable {
     required this.maintenanceDueSoonCount,
     required this.qcRejectsThisMonth,
     required this.jobWorkPendingQcCount,
+    required this.salesRevenueToday,
+    required this.jobWorkRevenueToday,
+    required this.revenueThisMonth,
+    required this.dueThisWeekCount,
+    required this.dueThisWeekAmount,
+    required this.ownProductionTodaySqFt,
+    required this.jobWorkOutputTodaySqFt,
+    required this.productionThisMonthSqFt,
   });
 
   static const empty = DashboardKpis(
@@ -43,6 +51,14 @@ class DashboardKpis extends Equatable {
     maintenanceDueSoonCount: 0,
     qcRejectsThisMonth: 0,
     jobWorkPendingQcCount: 0,
+    salesRevenueToday: 0,
+    jobWorkRevenueToday: 0,
+    revenueThisMonth: 0,
+    dueThisWeekCount: 0,
+    dueThisWeekAmount: 0,
+    ownProductionTodaySqFt: 0,
+    jobWorkOutputTodaySqFt: 0,
+    productionThisMonthSqFt: 0,
   );
 
   final double revenueToday;
@@ -64,6 +80,17 @@ class DashboardKpis extends Equatable {
   final int maintenanceDueSoonCount;
   final int qcRejectsThisMonth;
   final int jobWorkPendingQcCount;
+  final double salesRevenueToday;
+  final double jobWorkRevenueToday;
+  final double revenueThisMonth;
+  final int dueThisWeekCount;
+  final double dueThisWeekAmount;
+  final double ownProductionTodaySqFt;
+  final double jobWorkOutputTodaySqFt;
+  final double productionThisMonthSqFt;
+
+  double get productionTodaySqFt =>
+      ownProductionTodaySqFt + jobWorkOutputTodaySqFt;
 
   @override
   List<Object?> get props => [
@@ -86,5 +113,13 @@ class DashboardKpis extends Equatable {
         maintenanceDueSoonCount,
         qcRejectsThisMonth,
         jobWorkPendingQcCount,
+        salesRevenueToday,
+        jobWorkRevenueToday,
+        revenueThisMonth,
+        dueThisWeekCount,
+        dueThisWeekAmount,
+        ownProductionTodaySqFt,
+        jobWorkOutputTodaySqFt,
+        productionThisMonthSqFt,
       ];
 }

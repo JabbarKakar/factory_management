@@ -270,6 +270,29 @@ abstract final class AppStrings {
   static const String paymentsReceivedToday = 'Payments received today';
   static const String dashboardLoadError =
       'Could not load dashboard data. Pull down to retry.';
+  static const String analyticsSection = 'Analytics';
+  static const String productionToday = 'Production Today';
+  static const String productionTodaySubtitle = 'Own + job work output';
+  static const String revenueThisMonth = 'Revenue This Month';
+  static const String paymentsReceivedThisMonth = 'Payments received';
+  static const String productionChartTitle = 'Production Output';
+  static const String productionChartSubtitle = 'Usable sq. ft — last 7 days';
+  static const String productionChartEmpty =
+      'No production output recorded in the last 7 days.';
+  static const String ownProductionSeries = 'Own Production';
+  static const String jobWorkOutputSeries = 'Job Work';
+  static const String revenueChartTitle = 'Revenue Trend';
+  static const String revenueChartSubtitle = 'Payments received — last 30 days';
+  static const String revenueChartEmpty =
+      'No payments recorded in the last 30 days.';
+  static const String revenueBreakdownTitle = 'Revenue Mix';
+  static const String revenueBreakdownSubtitle = 'Sales vs job work — this month';
+  static const String revenueBreakdownEmpty =
+      'No payments recorded this month yet.';
+  static const String recentActivityTitle = 'Recent Activity';
+  static const String recentActivitySubtitle = 'Latest payments received';
+  static const String recentActivityEmpty = 'No payments recorded yet.';
+  static const String revenueSplitToday = 'Sales + job work split';
 
   // Sales (Sprint 8)
   static const String newSalesOrder = 'New Sales Order';

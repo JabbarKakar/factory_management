@@ -13,17 +13,21 @@ import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
+import '../../data/repositories/production_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
+import '../../data/services/dashboard_analytics_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
+import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/labour_enums.dart';
 import '../../domain/enums/quality_enums.dart';
 import '../../domain/enums/delivery_enums.dart';
 import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
+import '../../domain/entities/dashboard_analytics.dart';
 import '../../domain/entities/dashboard_kpis.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/employee.dart';
@@ -32,6 +36,7 @@ import '../../domain/entities/expense.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
+import '../../domain/entities/production_batch.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/entities/raw_material.dart';
 import '../../domain/entities/sales_invoice.dart';
@@ -55,7 +60,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required DeliveryRepository deliveryRepository,
     required EquipmentRepository equipmentRepository,
     required QualityCheckRepository qualityCheckRepository,
+    required ProductionRepository productionRepository,
     required PaymentDueScannerService scannerService,
+    required DashboardAnalyticsService analyticsService,
   })  : _paymentRepository = paymentRepository,
         _jobWorkRepository = jobWorkRepository,
         _salesOrderRepository = salesOrderRepository,
@@ -69,7 +76,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _deliveryRepository = deliveryRepository,
         _equipmentRepository = equipmentRepository,
         _qualityCheckRepository = qualityCheckRepository,
+        _productionRepository = productionRepository,
         _scannerService = scannerService,
+        _analyticsService = analyticsService,
         super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted);
     on<DashboardWatchStopped>(_onWatchStopped);
@@ -90,7 +99,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final DeliveryRepository _deliveryRepository;
   final EquipmentRepository _equipmentRepository;
   final QualityCheckRepository _qualityCheckRepository;
+  final ProductionRepository _productionRepository;
   final PaymentDueScannerService _scannerService;
+  final DashboardAnalyticsService _analyticsService;
 
   StreamSubscription<List<Payment>>? _paymentsSub;
   StreamSubscription<List<JobWorkOrder>>? _jobWorkSub;
@@ -105,6 +116,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<Delivery>>? _deliveriesSub;
   StreamSubscription<List<Equipment>>? _equipmentSub;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSub;
+  StreamSubscription<List<ProductionBatch>>? _productionBatchesSub;
 
   List<Payment> _payments = const [];
   List<JobWorkOrder> _orders = const [];
@@ -119,6 +131,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<Delivery> _deliveries = const [];
   List<Equipment> _equipment = const [];
   List<QualityCheck> _qualityChecks = const [];
+  List<ProductionBatch> _productionBatches = const [];
 
   Future<void> _onWatchStarted(
     DashboardWatchStarted event,
@@ -278,6 +291,17 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
                 const _DashboardStreamFailed('Could not load dashboard data.'),
               ),
             );
+
+    _productionBatchesSub =
+        _productionRepository.watchBatches(event.factoryId).listen(
+              (batches) {
+                _productionBatches = batches;
+                add(const _DashboardDataUpdated());
+              },
+              onError: (_) => add(
+                const _DashboardStreamFailed('Could not load dashboard data.'),
+              ),
+            );
   }
 
   Future<void> _onWatchStopped(
@@ -297,6 +321,47 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     final revenueToday = _payments
         .where((payment) => _isSameDay(payment.paymentDate, today))
         .fold<double>(0, (sum, payment) => sum + payment.amount);
+
+    final salesRevenueToday = _payments
+        .where(
+          (payment) =>
+              _isSameDay(payment.paymentDate, today) &&
+              payment.invoiceType == InvoiceType.sales,
+        )
+        .fold<double>(0, (sum, payment) => sum + payment.amount);
+
+    final jobWorkRevenueToday = _payments
+        .where(
+          (payment) =>
+              _isSameDay(payment.paymentDate, today) &&
+              payment.invoiceType == InvoiceType.jobWork,
+        )
+        .fold<double>(0, (sum, payment) => sum + payment.amount);
+
+    final revenueThisMonth = _payments
+        .where((payment) {
+          final date = payment.paymentDate;
+          return date.year == now.year && date.month == now.month;
+        })
+        .fold<double>(0, (sum, payment) => sum + payment.amount);
+
+    final ownProductionTodaySqFt = _productionBatches
+        .where((batch) => _isSameDay(batch.productionDate, today))
+        .fold<double>(0, (sum, batch) => sum + batch.totalUsableSqFt);
+
+    final jobWorkOutputTodaySqFt = _orders.fold<double>(0, (sum, order) {
+      final shiftTotal = order.shiftLogs
+          .where((shift) => _isSameDay(shift.shiftDate, today))
+          .fold<double>(0, (inner, shift) => inner + shift.totalUsableSqFt);
+      return sum + shiftTotal;
+    });
+
+    final productionThisMonthSqFt = _productionBatches
+        .where((batch) {
+          final date = batch.productionDate;
+          return date.year == now.year && date.month == now.month;
+        })
+        .fold<double>(0, (sum, batch) => sum + batch.totalUsableSqFt);
 
     final activeJobWorkCount =
         _orders.where((order) => order.status.isActive).length;
@@ -391,6 +456,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         )
         .length;
 
+    final analytics = _analyticsService.build(
+      payments: _payments,
+      productionBatches: _productionBatches,
+      jobWorkOrders: _orders,
+      now: now,
+    );
+
     emit(
       state.copyWith(
         status: DashboardStatus.loaded,
@@ -414,7 +486,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           maintenanceDueSoonCount: maintenanceDueSoonCount,
           qcRejectsThisMonth: qcRejectsThisMonth,
           jobWorkPendingQcCount: jobWorkPendingQcCount,
+          salesRevenueToday: salesRevenueToday,
+          jobWorkRevenueToday: jobWorkRevenueToday,
+          revenueThisMonth: revenueThisMonth,
+          dueThisWeekCount: overdueSummary.dueThisWeekCount,
+          dueThisWeekAmount: overdueSummary.dueThisWeekAmount,
+          ownProductionTodaySqFt: ownProductionTodaySqFt,
+          jobWorkOutputTodaySqFt: jobWorkOutputTodaySqFt,
+          productionThisMonthSqFt: productionThisMonthSqFt,
         ),
+        analytics: analytics,
         pendingPickups: pendingPickups.take(5).toList(),
         errorMessage: null,
       ),
@@ -451,6 +532,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _deliveriesSub?.cancel();
     await _equipmentSub?.cancel();
     await _qualityChecksSub?.cancel();
+    await _productionBatchesSub?.cancel();
     _paymentsSub = null;
     _jobWorkSub = null;
     _salesSub = null;
@@ -464,6 +546,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _deliveriesSub = null;
     _equipmentSub = null;
     _qualityChecksSub = null;
+    _productionBatchesSub = null;
   }
 
   @override

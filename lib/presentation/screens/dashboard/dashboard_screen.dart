@@ -15,6 +15,10 @@ import '../../../domain/enums/job_work_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/dashboard/dashboard_production_chart_card.dart';
+import '../../widgets/dashboard/dashboard_recent_activity_card.dart';
+import '../../widgets/dashboard/dashboard_revenue_breakdown_card.dart';
+import '../../widgets/dashboard/dashboard_revenue_chart_card.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/payment_reminders_card.dart';
 import '../../widgets/pending_pickups_card.dart';
@@ -126,6 +130,29 @@ class DashboardScreen extends StatelessWidget {
                 ],
                 const SizedBox(height: 16),
                 Text(
+                  AppStrings.analyticsSection,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                DashboardProductionChartCard(
+                  points: state.analytics.productionLast7Days,
+                ),
+                const SizedBox(height: 12),
+                DashboardRevenueChartCard(
+                  points: state.analytics.revenueLast30Days,
+                ),
+                const SizedBox(height: 12),
+                DashboardRevenueBreakdownCard(
+                  slices: state.analytics.revenueBreakdownThisMonth,
+                ),
+                const SizedBox(height: 12),
+                DashboardRecentActivityCard(
+                  items: state.analytics.recentActivity,
+                ),
+                const SizedBox(height: 16),
+                Text(
                   AppStrings.quickActions,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
@@ -233,11 +260,42 @@ class _KpiGrid extends StatelessWidget {
       _KpiItem(
         label: AppStrings.revenueToday,
         value: Formatters.currencyPkr(kpis.revenueToday),
-        subtitle: AppStrings.paymentsReceivedToday,
+        subtitle: kpis.revenueToday > 0
+            ? 'Sales ${Formatters.currencyPkr(kpis.salesRevenueToday)} · JW ${Formatters.currencyPkr(kpis.jobWorkRevenueToday)}'
+            : AppStrings.paymentsReceivedToday,
         icon: Icons.payments_outlined,
         color: AppColors.success,
         onTap: () => context.push(RoutePaths.notifications),
       ),
+      _KpiItem(
+        label: AppStrings.revenueThisMonth,
+        value: Formatters.currencyPkr(kpis.revenueThisMonth),
+        subtitle: AppStrings.paymentsReceivedThisMonth,
+        icon: Icons.trending_up,
+        color: AppColors.success,
+        onTap: () => context.push(RoutePaths.plReport),
+      ),
+      if (kpis.dueThisWeekCount > 0)
+        _KpiItem(
+          label: AppStrings.dueThisWeek,
+          value: Formatters.currencyPkr(kpis.dueThisWeekAmount),
+          subtitle: '${kpis.dueThisWeekCount} invoice(s)',
+          icon: Icons.schedule,
+          color: AppColors.dueSoon,
+          onTap: () => context.push(
+            RoutePaths.notificationsWithFilter(NotificationFilter.dueThisWeek),
+          ),
+        ),
+      if (kpis.productionTodaySqFt > 0)
+        _KpiItem(
+          label: AppStrings.productionToday,
+          value: Formatters.stockQuantity(kpis.productionTodaySqFt, 'sq. ft'),
+          subtitle:
+              'Own ${Formatters.stockQuantity(kpis.ownProductionTodaySqFt, 'sq. ft')} · JW ${Formatters.stockQuantity(kpis.jobWorkOutputTodaySqFt, 'sq. ft')}',
+          icon: Icons.precision_manufacturing_outlined,
+          color: AppColors.primary,
+          onTap: () => context.push(RoutePaths.production),
+        ),
       _KpiItem(
         label: AppStrings.activeJobWork,
         value: '${kpis.activeJobWorkCount}',
