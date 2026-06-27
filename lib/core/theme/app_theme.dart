@@ -131,12 +131,14 @@ abstract final class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: surface,
+        height: 72,
         indicatorColor: primary.withValues(alpha: isDark ? 0.2 : 0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
           return textTheme.labelSmall?.copyWith(
             color: selected ? primary : textSecondary,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            fontSize: 11,
           );
         }),
         iconTheme: WidgetStateProperty.resolveWith((states) {

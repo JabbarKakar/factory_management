@@ -10,6 +10,8 @@ class MainShell extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
+  static const double _compactNavBreakpoint = 600;
+
   @override
   Widget build(BuildContext context) {
     final authState = context.watch<AuthBloc>().state;
@@ -29,10 +31,17 @@ class MainShell extends StatelessWidget {
     final safeSelectedIndex =
         selectedDisplayIndex >= 0 ? selectedDisplayIndex : 0;
 
+    final isCompactNav =
+        MediaQuery.sizeOf(context).width < _compactNavBreakpoint;
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: safeSelectedIndex,
+        height: isCompactNav ? 60 : 72,
+        labelBehavior: isCompactNav
+            ? NavigationDestinationLabelBehavior.alwaysHide
+            : NavigationDestinationLabelBehavior.alwaysShow,
         onDestinationSelected: (displayIndex) {
           navigationShell.goBranch(
             tabs[displayIndex].branchIndex,
@@ -43,9 +52,10 @@ class MainShell extends StatelessWidget {
         destinations: tabs
             .map(
               (tab) => NavigationDestination(
-                icon: Icon(tab.icon),
-                selectedIcon: Icon(tab.selectedIcon),
+                icon: Icon(tab.icon, size: isCompactNav ? 22 : 24),
+                selectedIcon: Icon(tab.selectedIcon, size: isCompactNav ? 22 : 24),
                 label: tab.label,
+                tooltip: tab.label,
               ),
             )
             .toList(),
