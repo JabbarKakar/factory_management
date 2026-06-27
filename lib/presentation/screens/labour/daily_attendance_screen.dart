@@ -8,13 +8,27 @@ import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/labour_enums.dart';
 import '../../../domain/enums/production_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/labour/attendance_status_selector.dart';
 
-class DailyAttendanceScreen extends StatelessWidget {
+class DailyAttendanceScreen extends StatefulWidget {
   const DailyAttendanceScreen({this.initialDate, super.key});
 
   final DateTime? initialDate;
+
+  @override
+  State<DailyAttendanceScreen> createState() => _DailyAttendanceScreenState();
+}
+
+class _DailyAttendanceScreenState extends State<DailyAttendanceScreen> {
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickDate(BuildContext context, DateTime current) async {
     final picked = await showDatePicker(
@@ -26,6 +40,25 @@ class DailyAttendanceScreen extends StatelessWidget {
     if (picked != null && context.mounted) {
       context.read<DailyAttendanceBloc>().add(DailyAttendanceDateChanged(picked));
     }
+  }
+
+  Future<void> _handleMarkAllPresent(
+    BuildContext context,
+    DailyAttendanceState state,
+  ) async {
+    if (state.nonPresentMarkedCount > 0) {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: AppStrings.markAllPresentConfirmTitle,
+        message: AppStrings.markAllPresentConfirmMessage,
+        confirmLabel: AppStrings.markAllPresent,
+      );
+      if (!context.mounted || !confirmed) return;
+    }
+
+    context.read<DailyAttendanceBloc>().add(
+          const DailyAttendanceMarkAllPresentRequested(),
+        );
   }
 
   @override
@@ -58,11 +91,7 @@ class DailyAttendanceScreen extends StatelessWidget {
               TextButton.icon(
                 onPressed: isSaving || state.entries.isEmpty
                     ? null
-                    : () {
-                        context.read<DailyAttendanceBloc>().add(
-                              const DailyAttendanceMarkAllPresentRequested(),
-                            );
-                      },
+                    : () => _handleMarkAllPresent(context, state),
                 icon: const Icon(Icons.done_all_outlined),
                 label: const Text(AppStrings.markAllPresent),
               ),
@@ -197,6 +226,37 @@ class DailyAttendanceScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (state.entries.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: AppStrings.searchAttendance,
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                context.read<DailyAttendanceBloc>().add(
+                                      const DailyAttendanceSearchChanged(''),
+                                    );
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (value) {
+                      context.read<DailyAttendanceBloc>().add(
+                            DailyAttendanceSearchChanged(value),
+                          );
+                      setState(() {});
+                    },
+                  ),
+                ),
+              ],
               Expanded(
                 child: _buildBody(context, state, isSaving),
               ),
@@ -230,12 +290,19 @@ class DailyAttendanceScreen extends StatelessWidget {
       );
     }
 
+    if (state.visibleEntries.isEmpty) {
+      return EmptyStateView(
+        icon: Icons.search_off_outlined,
+        title: AppStrings.noAttendanceMatches,
+      );
+    }
+
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
-      itemCount: state.entries.length,
+      itemCount: state.visibleEntries.length,
       separatorBuilder: (_, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final entry = state.entries[index];
+        final entry = state.visibleEntries[index];
         return Card(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),

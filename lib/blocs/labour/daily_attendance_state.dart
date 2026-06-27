@@ -36,6 +36,7 @@ class DailyAttendanceState extends Equatable {
     required this.selectedDate,
     this.defaultShift = AttendanceShift.morning,
     this.entries = const [],
+    this.searchQuery = '',
     this.errorMessage,
     this.actionMessage,
   });
@@ -44,6 +45,7 @@ class DailyAttendanceState extends Equatable {
   final DateTime selectedDate;
   final AttendanceShift defaultShift;
   final List<DailyAttendanceEntry> entries;
+  final String searchQuery;
   final String? errorMessage;
   final String? actionMessage;
 
@@ -61,11 +63,34 @@ class DailyAttendanceState extends Equatable {
 
   int get unmarkedCount => entries.where((entry) => !entry.isMarked).length;
 
+  int get nonPresentMarkedCount => entries
+      .where(
+        (entry) =>
+            entry.isMarked && entry.status != AttendanceStatus.present,
+      )
+      .length;
+
+  List<DailyAttendanceEntry> get visibleEntries {
+    final normalizedQuery = searchQuery.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) return entries;
+
+    return entries.where((entry) {
+      final haystack = [
+        entry.employee.fullName,
+        entry.employee.employeeNumber,
+        entry.employee.phone,
+        entry.employee.workerCategory.label,
+      ].join(' ').toLowerCase();
+      return haystack.contains(normalizedQuery);
+    }).toList();
+  }
+
   DailyAttendanceState copyWith({
     DailyAttendanceStatus? status,
     DateTime? selectedDate,
     AttendanceShift? defaultShift,
     List<DailyAttendanceEntry>? entries,
+    String? searchQuery,
     String? errorMessage,
     String? actionMessage,
     bool clearActionMessage = false,
@@ -76,6 +101,7 @@ class DailyAttendanceState extends Equatable {
       selectedDate: selectedDate ?? this.selectedDate,
       defaultShift: defaultShift ?? this.defaultShift,
       entries: entries ?? this.entries,
+      searchQuery: searchQuery ?? this.searchQuery,
       errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
       actionMessage:
           clearActionMessage ? null : (actionMessage ?? this.actionMessage),
@@ -88,6 +114,7 @@ class DailyAttendanceState extends Equatable {
         selectedDate,
         defaultShift,
         entries,
+        searchQuery,
         errorMessage,
         actionMessage,
       ];

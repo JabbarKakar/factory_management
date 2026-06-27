@@ -278,6 +278,20 @@ class _KpiGrid extends StatelessWidget {
         ),
       ),
       _KpiItem(
+        label: AppStrings.presentLabourToday,
+        value: kpis.activeLabourCount > 0
+            ? '${kpis.presentLabourToday} / ${kpis.activeLabourCount}'
+            : '0',
+        subtitle: kpis.unmarkedAttendanceToday > 0
+            ? '${kpis.unmarkedAttendanceToday} ${AppStrings.attendanceUnmarked.toLowerCase()}'
+            : AppStrings.labourAttendanceToday,
+        icon: Icons.groups_outlined,
+        color: kpis.unmarkedAttendanceToday > 0
+            ? AppColors.warning
+            : AppColors.success,
+        onTap: () => context.push(RoutePaths.attendance),
+      ),
+      _KpiItem(
         label: AppStrings.customerCount,
         value: '${kpis.customerCount}',
         icon: Icons.people_outline,

@@ -579,4 +579,11 @@ abstract final class AppStrings {
   static const String attendanceSaved = 'Attendance saved';
   static const String allMarkedPresent = 'All active workers marked present';
   static const String inactiveWorker = 'Inactive';
+  static const String presentLabourToday = 'Present Today';
+  static const String labourAttendanceToday = 'Today\'s attendance';
+  static const String searchAttendance = 'Search worker name, ID, role...';
+  static const String markAllPresentConfirmTitle = 'Overwrite attendance?';
+  static const String markAllPresentConfirmMessage =
+      'Some workers already have a different status. Marking all present will overwrite those entries.';
+  static const String noAttendanceMatches = 'No workers match your search';
 }

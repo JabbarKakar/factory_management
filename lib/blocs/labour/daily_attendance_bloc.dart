@@ -31,6 +31,7 @@ class DailyAttendanceBloc extends Bloc<DailyAttendanceEvent, DailyAttendanceStat
     on<DailyAttendanceShiftChanged>(_onShiftChanged);
     on<DailyAttendanceStatusChanged>(_onStatusChanged);
     on<DailyAttendanceMarkAllPresentRequested>(_onMarkAllPresent);
+    on<DailyAttendanceSearchChanged>(_onSearchChanged);
     on<_DailyAttendanceEmployeesUpdated>(_onEmployeesUpdated);
     on<_DailyAttendanceRecordsUpdated>(_onRecordsUpdated);
     on<_DailyAttendanceStreamFailed>(_onStreamFailed);
@@ -106,6 +107,13 @@ class DailyAttendanceBloc extends Bloc<DailyAttendanceEvent, DailyAttendanceStat
     Emitter<DailyAttendanceState> emit,
   ) {
     emit(state.copyWith(defaultShift: event.shift));
+  }
+
+  void _onSearchChanged(
+    DailyAttendanceSearchChanged event,
+    Emitter<DailyAttendanceState> emit,
+  ) {
+    emit(state.copyWith(searchQuery: event.query));
   }
 
   Future<void> _onStatusChanged(

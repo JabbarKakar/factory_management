@@ -3,7 +3,10 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/utils/date_keys.dart';
+import '../../data/repositories/attendance_repository.dart';
 import '../../data/repositories/customer_repository.dart';
+import '../../data/repositories/employee_repository.dart';
 import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
@@ -12,8 +15,11 @@ import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/services/payment_due_scanner_service.dart';
+import '../../domain/enums/labour_enums.dart';
+import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_kpis.dart';
+import '../../domain/entities/employee.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -35,6 +41,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required SalesInvoiceRepository salesInvoiceRepository,
     required ExpenseRepository expenseRepository,
     required RawMaterialRepository rawMaterialRepository,
+    required EmployeeRepository employeeRepository,
+    required AttendanceRepository attendanceRepository,
     required PaymentDueScannerService scannerService,
   })  : _paymentRepository = paymentRepository,
         _jobWorkRepository = jobWorkRepository,
@@ -44,6 +52,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _salesInvoiceRepository = salesInvoiceRepository,
         _expenseRepository = expenseRepository,
         _rawMaterialRepository = rawMaterialRepository,
+        _employeeRepository = employeeRepository,
+        _attendanceRepository = attendanceRepository,
         _scannerService = scannerService,
         super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted);
@@ -60,6 +70,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final SalesInvoiceRepository _salesInvoiceRepository;
   final ExpenseRepository _expenseRepository;
   final RawMaterialRepository _rawMaterialRepository;
+  final EmployeeRepository _employeeRepository;
+  final AttendanceRepository _attendanceRepository;
   final PaymentDueScannerService _scannerService;
 
   StreamSubscription<List<Payment>>? _paymentsSub;
@@ -70,6 +82,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<SalesInvoice>>? _salesInvoicesSub;
   StreamSubscription<List<Expense>>? _expensesSub;
   StreamSubscription<List<RawMaterial>>? _rawMaterialsSub;
+  StreamSubscription<List<Employee>>? _employeesSub;
+  StreamSubscription<List<AttendanceRecord>>? _attendanceSub;
 
   List<Payment> _payments = const [];
   List<JobWorkOrder> _orders = const [];
@@ -79,6 +93,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<SalesInvoice> _salesInvoices = const [];
   List<Expense> _expenses = const [];
   List<RawMaterial> _rawMaterials = const [];
+  List<Employee> _employees = const [];
+  List<AttendanceRecord> _attendanceToday = const [];
 
   Future<void> _onWatchStarted(
     DashboardWatchStarted event,
@@ -182,6 +198,29 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             const _DashboardStreamFailed('Could not load dashboard data.'),
           ),
         );
+
+    _employeesSub = _employeeRepository.watchEmployees(event.factoryId).listen(
+          (employees) {
+            _employees = employees;
+            add(const _DashboardDataUpdated());
+          },
+          onError: (_) => add(
+            const _DashboardStreamFailed('Could not load dashboard data.'),
+          ),
+        );
+
+    final today = DateKeys.dateOnly(DateTime.now());
+    _attendanceSub = _attendanceRepository
+        .watchForDate(factoryId: event.factoryId, date: today)
+        .listen(
+          (records) {
+            _attendanceToday = records;
+            add(const _DashboardDataUpdated());
+          },
+          onError: (_) => add(
+            const _DashboardStreamFailed('Could not load dashboard data.'),
+          ),
+        );
   }
 
   Future<void> _onWatchStopped(
@@ -238,6 +277,23 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     final lowStockCount =
         _rawMaterials.where((material) => material.isLowStock).length;
 
+    final activeEmployees =
+        _employees.where((employee) => employee.isActive).toList();
+    final activeLabourCount = activeEmployees.length;
+    final attendanceByEmployee = {
+      for (final record in _attendanceToday) record.employeeId: record,
+    };
+    final presentLabourToday = activeEmployees
+        .where(
+          (employee) =>
+              attendanceByEmployee[employee.id]?.status ==
+              AttendanceStatus.present,
+        )
+        .length;
+    final unmarkedAttendanceToday = activeEmployees
+        .where((employee) => !attendanceByEmployee.containsKey(employee.id))
+        .length;
+
     emit(
       state.copyWith(
         status: DashboardStatus.loaded,
@@ -252,6 +308,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           overdueAmount: overdueSummary.overdueAmount,
           overdueCount: overdueSummary.overdueCount,
           customerCount: _customers.length,
+          activeLabourCount: activeLabourCount,
+          presentLabourToday: presentLabourToday,
+          unmarkedAttendanceToday: unmarkedAttendanceToday,
         ),
         pendingPickups: pendingPickups.take(5).toList(),
         errorMessage: null,
@@ -284,6 +343,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _salesInvoicesSub?.cancel();
     await _expensesSub?.cancel();
     await _rawMaterialsSub?.cancel();
+    await _employeesSub?.cancel();
+    await _attendanceSub?.cancel();
     _paymentsSub = null;
     _jobWorkSub = null;
     _salesSub = null;
@@ -292,6 +353,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _salesInvoicesSub = null;
     _expensesSub = null;
     _rawMaterialsSub = null;
+    _employeesSub = null;
+    _attendanceSub = null;
   }
 
   @override

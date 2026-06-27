@@ -152,6 +152,8 @@ void setupDependencies() {
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
       expenseRepository: getIt<ExpenseRepository>(),
       rawMaterialRepository: getIt<RawMaterialRepository>(),
+      employeeRepository: getIt<EmployeeRepository>(),
+      attendanceRepository: getIt<AttendanceRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
     ),
   );

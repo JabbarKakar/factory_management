@@ -58,3 +58,12 @@ final class DailyAttendanceStatusChanged extends DailyAttendanceEvent {
 final class DailyAttendanceMarkAllPresentRequested extends DailyAttendanceEvent {
   const DailyAttendanceMarkAllPresentRequested();
 }
+
+final class DailyAttendanceSearchChanged extends DailyAttendanceEvent {
+  const DailyAttendanceSearchChanged(this.query);
+
+  final String query;
+
+  @override
+  List<Object?> get props => [query];
+}
