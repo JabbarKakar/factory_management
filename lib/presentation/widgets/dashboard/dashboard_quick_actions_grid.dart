@@ -127,30 +127,20 @@ List<_QuickAction> _actionsFor(BuildContext context, AppUser? user) {
   if (user == null) return const [];
 
   final actions = <_QuickAction>[];
-  final palette = [
-    AppColors.primary,
-    AppColors.accent,
-    AppColors.success,
-    const Color(0xFF6366F1),
-    const Color(0xFF0EA5E9),
-    AppColors.warning,
-  ];
-  var colorIndex = 0;
-
-  Color nextColor() => palette[colorIndex++ % palette.length];
 
   void add({
     required bool visible,
     required VoidCallback onTap,
     required IconData icon,
     required String label,
+    required Color color,
   }) {
     if (!visible) return;
     actions.add(
       _QuickAction(
         label: label,
         icon: icon,
-        color: nextColor(),
+        color: color,
         onTap: onTap,
       ),
     );
@@ -161,72 +151,21 @@ List<_QuickAction> _actionsFor(BuildContext context, AppUser? user) {
     onTap: () => context.push(RoutePaths.jobWorkAdd),
     icon: Icons.content_cut_rounded,
     label: AppStrings.newJobWorkOrder,
+    color: AppColors.primary,
   );
   add(
     visible: user.canCreate(AppModule.sales),
     onTap: () => context.push(RoutePaths.salesAdd),
     icon: Icons.shopping_bag_outlined,
     label: AppStrings.newSalesOrder,
-  );
-  add(
-    visible: user.canCreate(AppModule.expenses),
-    onTap: () => context.push(RoutePaths.expensesAdd),
-    icon: Icons.receipt_long_outlined,
-    label: AppStrings.addExpense,
-  );
-  add(
-    visible: user.canView(AppModule.expenses),
-    onTap: () => context.push(RoutePaths.expenses),
-    icon: Icons.list_alt_rounded,
-    label: AppStrings.viewExpenses,
-  );
-  add(
-    visible: user.canView(AppModule.plReport),
-    onTap: () => context.push(RoutePaths.plReport),
-    icon: Icons.assessment_outlined,
-    label: AppStrings.monthlyPlReport,
-  );
-  add(
-    visible: user.canCreate(AppModule.production),
-    onTap: () => context.push(RoutePaths.productionAdd),
-    icon: Icons.precision_manufacturing_outlined,
-    label: AppStrings.recordProduction,
-  );
-  add(
-    visible: user.canView(AppModule.finishedGoods),
-    onTap: () => context.push(RoutePaths.finishedGoods),
-    icon: Icons.layers_outlined,
-    label: AppStrings.finishedGoodsInventory,
-  );
-  add(
-    visible: user.canCreate(AppModule.labour),
-    onTap: () => context.push(RoutePaths.attendance),
-    icon: Icons.fact_check_outlined,
-    label: AppStrings.markAttendance,
-  );
-  add(
-    visible: user.canCreate(AppModule.delivery),
-    onTap: () => context.push(RoutePaths.deliveriesAdd),
-    icon: Icons.local_shipping_outlined,
-    label: AppStrings.scheduleDelivery,
-  );
-  add(
-    visible: user.canCreate(AppModule.equipment),
-    onTap: () => context.push(RoutePaths.equipmentAdd),
-    icon: Icons.build_circle_outlined,
-    label: AppStrings.addEquipment,
-  );
-  add(
-    visible: user.canCreate(AppModule.labour),
-    onTap: () => context.push(RoutePaths.employeesAdd),
-    icon: Icons.person_add_alt_1_outlined,
-    label: AppStrings.addEmployee,
+    color: AppColors.accent,
   );
   add(
     visible: user.canCreate(AppModule.customers),
     onTap: () => context.push(RoutePaths.customersAdd),
     icon: Icons.person_add_outlined,
     label: AppStrings.addCustomer,
+    color: AppColors.success,
   );
 
   return actions;

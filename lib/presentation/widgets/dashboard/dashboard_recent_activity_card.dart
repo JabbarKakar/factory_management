@@ -24,55 +24,88 @@ class DashboardRecentActivityCard extends StatelessWidget {
     return DateFormat.MMMd().format(timestamp);
   }
 
+  String _collapsedSubtitle() {
+    if (items.isEmpty) return AppStrings.recentActivityEmpty;
+    if (items.length == 1) return '1 recent payment';
+    return '${items.length} recent payments';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return DashboardSurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const DashboardSectionHeader(
-            title: AppStrings.recentActivityTitle,
-            subtitle: AppStrings.recentActivitySubtitle,
-            icon: Icons.history_rounded,
+      padding: EdgeInsets.zero,
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+          childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          shape: const RoundedRectangleBorder(),
+          collapsedShape: const RoundedRectangleBorder(),
+          leading: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.history_rounded,
+              size: 20,
+              color: theme.colorScheme.primary,
+            ),
           ),
-          const SizedBox(height: 20),
-          if (items.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Column(
+          title: Text(
+            AppStrings.recentActivityTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+          subtitle: Text(
+            _collapsedSubtitle(),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          children: [
+            if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
                   children: [
                     Icon(
                       Icons.receipt_long_outlined,
-                      size: 40,
+                      size: 32,
                       color: theme.colorScheme.onSurfaceVariant
                           .withValues(alpha: 0.45),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      AppStrings.recentActivityEmpty,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        AppStrings.recentActivityEmpty,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            )
-          else
-            ...List.generate(items.length, (index) {
-              final item = items[index];
-              final isLast = index == items.length - 1;
+              )
+            else
+              ...List.generate(items.length, (index) {
+                final item = items[index];
+                final isLast = index == items.length - 1;
 
-              return _ActivityTimelineRow(
-                item: item,
-                isLast: isLast,
-                relativeTime: _relativeTime(item.timestamp),
-              );
-            }),
-        ],
+                return _ActivityTimelineRow(
+                  item: item,
+                  isLast: isLast,
+                  relativeTime: _relativeTime(item.timestamp),
+                );
+              }),
+          ],
+        ),
       ),
     );
   }
