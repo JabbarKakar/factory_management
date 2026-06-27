@@ -98,6 +98,11 @@ class FinishedGoodsListBloc
       if (activeFilter == FinishedGoodsListFilter.lowStock && !item.isLowStock) {
         return false;
       }
+      if (activeFilter == FinishedGoodsListFilter.all &&
+          !item.hasStock &&
+          normalizedQuery.isEmpty) {
+        return false;
+      }
       if (normalizedQuery.isEmpty) return true;
 
       final haystack = [

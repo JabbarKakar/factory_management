@@ -527,4 +527,9 @@ abstract final class AppStrings {
   static const String stockAdjustmentRecorded = 'Stock adjustment saved';
   static const String viewProductionBatch = 'View production batch';
   static const String fromProductionBatch = 'From production batch';
+  static const String unitCostPerSqFt = 'Unit Cost (PKR / sq. ft)';
+  static const String adjustmentUnitCostHint =
+      'Required for empty stock; optional when adding to existing stock';
+  static const String adjustmentUnitCostRequired =
+      'Unit cost is required when stock is empty';
 }

@@ -231,6 +231,7 @@ class FinishedGoodsRepository {
     required DateTime transactionDate,
     required String reason,
     String? notes,
+    double? unitCost,
   }) async {
     if (movementType == InventoryMovementType.productionIn) {
       throw const FinishedGoodsStockException('Invalid adjustment type.');
@@ -259,8 +260,30 @@ class FinishedGoodsRepository {
         : -quantity;
     final newQuantity = existing.currentQuantity + delta;
 
+    final double effectiveUnitCost;
+    double newAverageCost = existing.averageCost;
+
+    if (movementType == InventoryMovementType.adjustmentIn) {
+      if (existing.currentQuantity <= 0 && unitCost == null) {
+        throw const FinishedGoodsStockException(
+          'Unit cost is required when adding stock to an empty SKU.',
+        );
+      }
+
+      effectiveUnitCost = unitCost ?? existing.averageCost;
+      newAverageCost = _stockService.calculateWeightedAverageCost(
+        currentQuantity: existing.currentQuantity,
+        currentAverageCost: existing.averageCost,
+        incomingQuantity: quantity,
+        incomingUnitCost: effectiveUnitCost,
+      );
+    } else {
+      effectiveUnitCost = existing.averageCost;
+    }
+
     final item = existing.copyWith(
       currentQuantity: newQuantity,
+      averageCost: newAverageCost,
       lastReceiptDate: movementType == InventoryMovementType.adjustmentIn
           ? transactionDate
           : existing.lastReceiptDate,
@@ -279,8 +302,8 @@ class FinishedGoodsRepository {
       finishedGoodId: finishedGoodId,
       movementType: movementType,
       quantity: quantity,
-      unitCost: existing.averageCost,
-      totalCost: existing.averageCost * quantity,
+      unitCost: effectiveUnitCost,
+      totalCost: effectiveUnitCost * quantity,
       transactionDate: transactionDate,
       reason: reason.trim(),
       notes: notes?.trim().isEmpty ?? true ? null : notes?.trim(),

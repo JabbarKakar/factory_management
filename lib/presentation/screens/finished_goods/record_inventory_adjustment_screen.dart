@@ -35,12 +35,14 @@ class _RecordInventoryAdjustmentScreenState
 
   DateTime _transactionDate = DateTime.now();
   final _quantityController = TextEditingController();
+  final _unitCostController = TextEditingController();
   final _reasonController = TextEditingController();
   final _notesController = TextEditingController();
 
   @override
   void dispose() {
     _quantityController.dispose();
+    _unitCostController.dispose();
     _reasonController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -61,11 +63,17 @@ class _RecordInventoryAdjustmentScreenState
   void _submit(BuildContext context) {
     if (!_formKey.currentState!.validate()) return;
 
+    final unitCostText = _unitCostController.text.trim();
+    final unitCost = unitCostText.isEmpty
+        ? null
+        : double.tryParse(unitCostText);
+
     context.read<InventoryAdjustmentBloc>().add(
           InventoryAdjustmentSubmitted(
             quantity: double.parse(_quantityController.text.trim()),
             transactionDate: _transactionDate,
             reason: _reasonController.text.trim(),
+            unitCost: unitCost,
             notes: _notesController.text.trim(),
           ),
         );
@@ -76,6 +84,7 @@ class _RecordInventoryAdjustmentScreenState
     final isStockIn = widget.isStockIn;
     final detailState = context.watch<FinishedGoodsDetailBloc>().state;
     final item = detailState.item;
+    final requiresUnitCost = isStockIn && (item == null || !item.hasStock);
 
     return BlocConsumer<InventoryAdjustmentBloc, InventoryAdjustmentState>(
       listener: (context, state) {
@@ -167,6 +176,34 @@ class _RecordInventoryAdjustmentScreenState
                             return null;
                           },
                         ),
+                        if (isStockIn) ...[
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _unitCostController,
+                            decoration: InputDecoration(
+                              labelText: AppStrings.unitCostPerSqFt,
+                              helperText: AppStrings.adjustmentUnitCostHint,
+                            ),
+                            keyboardType:
+                                const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            validator: (value) {
+                              if (!requiresUnitCost &&
+                                  (value == null || value.trim().isEmpty)) {
+                                return null;
+                              }
+                              if (value == null || value.trim().isEmpty) {
+                                return AppStrings.adjustmentUnitCostRequired;
+                              }
+                              final cost = double.tryParse(value.trim());
+                              if (cost == null || cost < 0) {
+                                return 'Enter a valid unit cost';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _reasonController,

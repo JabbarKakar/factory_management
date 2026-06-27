@@ -58,6 +58,7 @@ class InventoryAdjustmentBloc
         transactionDate: event.transactionDate,
         reason: event.reason,
         notes: event.notes,
+        unitCost: event.unitCost,
       );
       emit(state.copyWith(status: InventoryAdjustmentStatus.saved));
     } on FinishedGoodsStockException catch (error) {
