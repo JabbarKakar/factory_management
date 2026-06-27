@@ -27,10 +27,10 @@ class DashboardQuickActionsGrid extends StatelessWidget {
           subtitle: 'Shortcuts to common tasks',
           icon: Icons.bolt_rounded,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         LayoutBuilder(
           builder: (context, constraints) {
-            const spacing = 10.0;
+            const spacing = 6.0;
             const columns = 3;
             final tileWidth =
                 (constraints.maxWidth - spacing * (columns - 1)) / columns;
@@ -81,37 +81,39 @@ class _QuickActionTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: action.onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         child: Ink(
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.4),
+              color: theme.colorScheme.outline.withValues(alpha: 0.35),
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
                     color: action.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(action.icon, color: action.color, size: 22),
+                  child: Icon(action.icon, color: action.color, size: 15),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 4),
                 Text(
                   action.label,
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
+                  style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w600,
-                    height: 1.25,
+                    height: 1.15,
+                    fontSize: 10,
                   ),
                 ),
               ],
