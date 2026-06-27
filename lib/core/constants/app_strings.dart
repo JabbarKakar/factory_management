@@ -269,6 +269,13 @@ abstract final class AppStrings {
       'This is a payment reminder for your overdue invoice.';
   static const String paymentReminderClosing =
       'Please arrange payment at your earliest convenience. Thank you.';
+  static const String reminderHistory = 'Reminder History';
+  static const String noRemindersYet = 'No WhatsApp reminders sent yet';
+  static const String reminderViaWhatsApp = 'WhatsApp';
+  static const String reminderViaSms = 'SMS';
+  static const String reminderViaInApp = 'In-app';
+  static const String remindOnWhatsApp = 'Remind on WhatsApp';
+  static const String lastRemindedOn = 'Last reminded';
 
   // Dashboard (Sprint 7)
   static const String revenueToday = 'Revenue Today';

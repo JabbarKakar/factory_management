@@ -16,6 +16,7 @@ import '../../utils/export_actions.dart';
 import '../../utils/export_factory_name.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/export_menu_button.dart';
+import '../../widgets/invoice_reminder_history_section.dart';
 import '../../widgets/job_work/invoice_status_badge.dart';
 import '../../widgets/send_payment_reminder_button.dart';
 import '../../widgets/settings_section.dart';
@@ -276,6 +277,7 @@ class JobWorkInvoiceScreen extends StatelessWidget {
                         ),
                 ),
               ),
+              InvoiceReminderHistorySection(invoiceId: invoice.id),
               if (invoice.dueAmount > 0)
                 Padding(
                   padding: const EdgeInsets.all(16),

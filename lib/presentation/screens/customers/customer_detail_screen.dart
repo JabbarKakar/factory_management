@@ -99,7 +99,10 @@ class CustomerDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              CustomerLedgerSection(customerId: customer.id),
+              CustomerLedgerSection(
+                customerId: customer.id,
+                customerName: customer.name,
+              ),
               if (context.userCanExport(AppModule.customers))
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
