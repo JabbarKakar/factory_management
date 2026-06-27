@@ -1,3 +1,4 @@
+import '../../domain/enums/delivery_enums.dart';
 import '../../domain/enums/inventory_enums.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../../domain/enums/production_enums.dart';
@@ -142,6 +143,25 @@ abstract final class RoutePaths {
     final key =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
     return '$attendance?date=$key';
+  }
+
+  static const String deliveries = '/deliveries';
+  static const String deliveriesAdd = '/deliveries/add';
+
+  static String deliveriesAddForOrder(String salesOrderId) =>
+      '$deliveriesAdd?salesOrderId=$salesOrderId';
+
+  static String deliveryDetail(String id) => '/deliveries/$id';
+
+  static String deliveryChallan(String id) => '/deliveries/$id/challan';
+
+  static String deliveryConfirm(String id) => '/deliveries/$id/confirm';
+
+  static String deliveriesList({DeliveryListFilter? filter}) {
+    if (filter == null || filter == DeliveryListFilter.all) {
+      return deliveries;
+    }
+    return '$deliveries?filter=${filter.name}';
   }
 
   static String notificationsWithFilter(NotificationFilter filter) =>

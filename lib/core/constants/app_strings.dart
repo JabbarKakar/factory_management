@@ -586,4 +586,45 @@ abstract final class AppStrings {
   static const String markAllPresentConfirmMessage =
       'Some workers already have a different status. Marking all present will overwrite those entries.';
   static const String noAttendanceMatches = 'No workers match your search';
+
+  // Delivery & challan (Sprint 17)
+  static const String deliveries = 'Deliveries';
+  static const String deliveriesSubtitle = 'Dispatch sales orders to customers';
+  static const String scheduleDelivery = 'Schedule Delivery';
+  static const String newDelivery = 'New Delivery';
+  static const String searchDeliveries =
+      'Search delivery #, order, customer...';
+  static const String deliveriesLoadError = 'Could not load deliveries';
+  static const String noDeliveriesYet = 'No deliveries scheduled yet';
+  static const String noDeliveriesFound = 'No deliveries match your filters';
+  static const String noDeliveriesHint =
+      'Schedule a delivery when a sales order is ready to dispatch';
+  static const String deliveryNotFound = 'Delivery not found';
+  static const String deliverySaved = 'Delivery scheduled';
+  static const String deliveryChallan = 'Delivery Challan';
+  static const String viewChallan = 'View Challan';
+  static const String confirmDelivery = 'Confirm Delivery';
+  static const String deliveryConfirmed = 'Delivery confirmed';
+  static const String markDeliveryFailed = 'Mark Failed';
+  static const String markDeliveryFailedTitle = 'Mark delivery as failed?';
+  static const String markDeliveryFailedMessage =
+      'This delivery will be marked as failed. You can schedule a new delivery for the order.';
+  static const String deliveryFailed = 'Delivery marked as failed';
+  static const String selectSalesOrder = 'Sales Order';
+  static const String noDeliveryEligibleOrders =
+      'No ready sales orders available for delivery';
+  static const String scheduledDeliveryDate = 'Scheduled Delivery Date';
+  static const String deliveryVehicleNumber = 'Vehicle Number';
+  static const String driverName = 'Driver Name';
+  static const String selectDriver = 'Select Driver (optional)';
+  static const String loadingSupervisor = 'Loading Supervisor';
+  static const String itemsToDeliver = 'Items to Deliver';
+  static const String scheduledQuantity = 'Scheduled Qty';
+  static const String deliveredQuantity = 'Delivered Qty';
+  static const String actualDeliveryDate = 'Actual Delivery Date';
+  static const String deliveryItemsRequired =
+      'Enter delivered quantity for each item';
+  static const String linkedSalesOrder = 'Sales Order';
+  static const String deliveryStatusUpdated = 'Delivery status updated';
+  static const String saveDelivery = 'Schedule Delivery';
 }

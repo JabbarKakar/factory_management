@@ -198,6 +198,21 @@ class SalesOrderDetailScreen extends StatelessWidget {
                           child: OutlinedButton.icon(
                             onPressed: isSaving
                                 ? null
+                                : () => context.push(
+                                      RoutePaths.deliveriesAddForOrder(order.id),
+                                    ),
+                            icon: const Icon(Icons.local_shipping_outlined),
+                            label: const Text(AppStrings.scheduleDelivery),
+                          ),
+                        ),
+                      ],
+                      if (canInvoice) ...[
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: isSaving
+                                ? null
                                 : () => _openInvoice(context),
                             icon: const Icon(Icons.receipt_long_outlined),
                             label: Text(

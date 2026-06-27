@@ -14,6 +14,10 @@ import '../../blocs/expense/expense_list_bloc.dart';
 import '../../blocs/finished_goods/finished_goods_detail_bloc.dart';
 import '../../blocs/finished_goods/finished_goods_list_bloc.dart';
 import '../../blocs/finished_goods/inventory_adjustment_bloc.dart';
+import '../../blocs/delivery/delivery_confirm_bloc.dart';
+import '../../blocs/delivery/delivery_detail_bloc.dart';
+import '../../blocs/delivery/delivery_form_bloc.dart';
+import '../../blocs/delivery/delivery_list_bloc.dart';
 import '../../blocs/labour/daily_attendance_bloc.dart';
 import '../../blocs/labour/employee_detail_bloc.dart';
 import '../../blocs/labour/employee_form_bloc.dart';
@@ -35,6 +39,7 @@ import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/attendance_repository.dart';
+import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/employee_repository.dart';
 import '../../data/repositories/finished_goods_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
@@ -103,6 +108,11 @@ void setupDependencies() {
   getIt.registerLazySingleton<SupplierRepository>(SupplierRepository.new);
   getIt.registerLazySingleton<EmployeeRepository>(EmployeeRepository.new);
   getIt.registerLazySingleton<AttendanceRepository>(AttendanceRepository.new);
+  getIt.registerLazySingleton<DeliveryRepository>(
+    () => DeliveryRepository(
+      salesOrderRepository: getIt<SalesOrderRepository>(),
+    ),
+  );
   getIt.registerLazySingleton<RawMaterialStockService>(
     RawMaterialStockService.new,
   );
@@ -259,5 +269,20 @@ void setupDependencies() {
       employeeRepository: getIt<EmployeeRepository>(),
       attendanceRepository: getIt<AttendanceRepository>(),
     ),
+  );
+  getIt.registerFactory<DeliveryListBloc>(
+    () => DeliveryListBloc(repository: getIt<DeliveryRepository>()),
+  );
+  getIt.registerFactory<DeliveryFormBloc>(
+    () => DeliveryFormBloc(
+      deliveryRepository: getIt<DeliveryRepository>(),
+      employeeRepository: getIt<EmployeeRepository>(),
+    ),
+  );
+  getIt.registerFactory<DeliveryDetailBloc>(
+    () => DeliveryDetailBloc(repository: getIt<DeliveryRepository>()),
+  );
+  getIt.registerFactory<DeliveryConfirmBloc>(
+    () => DeliveryConfirmBloc(repository: getIt<DeliveryRepository>()),
   );
 }

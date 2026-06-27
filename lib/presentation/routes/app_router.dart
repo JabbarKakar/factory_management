@@ -16,6 +16,10 @@ import '../../blocs/pl/pl_report_bloc.dart';
 import '../../blocs/finished_goods/finished_goods_detail_bloc.dart';
 import '../../blocs/finished_goods/finished_goods_list_bloc.dart';
 import '../../blocs/finished_goods/inventory_adjustment_bloc.dart';
+import '../../blocs/delivery/delivery_confirm_bloc.dart';
+import '../../blocs/delivery/delivery_detail_bloc.dart';
+import '../../blocs/delivery/delivery_form_bloc.dart';
+import '../../blocs/delivery/delivery_list_bloc.dart';
 import '../../blocs/labour/daily_attendance_bloc.dart';
 import '../../blocs/labour/employee_detail_bloc.dart';
 import '../../blocs/labour/employee_form_bloc.dart';
@@ -32,6 +36,7 @@ import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
+import '../../domain/enums/delivery_enums.dart';
 import '../../domain/enums/inventory_enums.dart';
 import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
@@ -65,6 +70,11 @@ import '../screens/raw_materials/record_stock_movement_screen.dart';
 import '../screens/finished_goods/finished_good_detail_screen.dart';
 import '../screens/finished_goods/finished_goods_screen.dart';
 import '../screens/finished_goods/record_inventory_adjustment_screen.dart';
+import '../screens/delivery/confirm_delivery_screen.dart';
+import '../screens/delivery/create_delivery_screen.dart';
+import '../screens/delivery/deliveries_screen.dart';
+import '../screens/delivery/delivery_challan_screen.dart';
+import '../screens/delivery/delivery_detail_screen.dart';
 import '../screens/labour/add_edit_employee_screen.dart';
 import '../screens/labour/daily_attendance_screen.dart';
 import '../screens/labour/employee_detail_screen.dart';
@@ -703,6 +713,102 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             child: DailyAttendanceScreen(initialDate: initialDate),
           );
         },
+      ),
+      GoRoute(
+        path: RoutePaths.deliveries,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final filterName = state.uri.queryParameters['filter'];
+          final initialFilter = filterName == null
+              ? null
+              : DeliveryListFilter.fromQuery(filterName);
+
+          return BlocProvider(
+            create: (context) {
+              final bloc = getIt<DeliveryListBloc>();
+              final factoryId = readFactoryId(context);
+              if (factoryId != null) {
+                bloc.add(
+                  DeliveryListWatchStarted(
+                    factoryId,
+                    initialFilter: initialFilter,
+                  ),
+                );
+              }
+              return bloc;
+            },
+            child: DeliveriesScreen(initialFilter: initialFilter),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'add',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final salesOrderId = state.uri.queryParameters['salesOrderId'];
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<DeliveryFormBloc>();
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    bloc.add(
+                      DeliveryFormInitialized(
+                        factoryId: factoryId,
+                        salesOrderId: salesOrderId,
+                      ),
+                    );
+                  }
+                  return bloc;
+                },
+                child: CreateDeliveryScreen(salesOrderId: salesOrderId),
+              );
+            },
+          ),
+          GoRoute(
+            path: ':deliveryId',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final deliveryId = state.pathParameters['deliveryId']!;
+              return BlocProvider(
+                create: (context) {
+                  final bloc = getIt<DeliveryDetailBloc>();
+                  bloc.add(DeliveryDetailWatchStarted(deliveryId));
+                  return bloc;
+                },
+                child: DeliveryDetailScreen(deliveryId: deliveryId),
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'challan',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final deliveryId = state.pathParameters['deliveryId']!;
+                  return BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<DeliveryDetailBloc>();
+                      bloc.add(DeliveryDetailWatchStarted(deliveryId));
+                      return bloc;
+                    },
+                    child: DeliveryChallanScreen(deliveryId: deliveryId),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'confirm',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final deliveryId = state.pathParameters['deliveryId']!;
+                  return BlocProvider(
+                    create: (_) => getIt<DeliveryConfirmBloc>()
+                      ..add(DeliveryConfirmInitialized(deliveryId)),
+                    child: ConfirmDeliveryScreen(deliveryId: deliveryId),
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
