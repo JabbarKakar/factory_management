@@ -10,9 +10,12 @@ import '../../../domain/enums/job_work_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/account_menu_button.dart';
+import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_list_tile.dart';
-import '../../widgets/account_menu_button.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
+import '../../widgets/job_work/job_work_stage_filter_bar.dart';
 import '../../widgets/notification_bell.dart';
 
 class JobWorkListScreen extends StatefulWidget {
@@ -31,11 +34,40 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<JobWorkListBloc>().add(const JobWorkListSearchChanged(''));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.jobWork),
+        title: BlocBuilder<JobWorkListBloc, JobWorkListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleOrders.length != curr.visibleOrders.length ||
+              prev.stageFilter != curr.stageFilter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.jobWork),
+                Text(
+                  '${state.visibleOrders.length} orders'
+                  '${state.stageFilter != JobWorkListStageFilter.all ? ' · ${state.stageFilter.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
         actions: const [
           NotificationBell(),
           AccountMenuButton(),
@@ -50,64 +82,37 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchJobWork,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context
-                              .read<JobWorkListBloc>()
-                              .add(const JobWorkListSearchChanged(''));
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<JobWorkListBloc>()
-                    .add(JobWorkListSearchChanged(value));
-                setState(() {});
-              },
+              onChanged: (value) => context
+                  .read<JobWorkListBloc>()
+                  .add(JobWorkListSearchChanged(value)),
+              onClear: _onSearchClear,
             ),
           ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: BlocBuilder<JobWorkListBloc, JobWorkListState>(
               buildWhen: (prev, curr) => prev.stageFilter != curr.stageFilter,
               builder: (context, state) {
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: JobWorkListStageFilter.values.map((filter) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(filter.label),
-                          selected: state.stageFilter == filter,
-                          onSelected: (_) {
-                            context.read<JobWorkListBloc>().add(
-                                  JobWorkListStageFilterChanged(filter),
-                                );
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                return JobWorkStageFilterBar(
+                  selected: state.stageFilter,
+                  onChanged: (filter) => context.read<JobWorkListBloc>().add(
+                        JobWorkListStageFilterChanged(filter),
+                      ),
                 );
               },
             ),
           ),
+          const SizedBox(height: 8),
           BlocBuilder<JobWorkListBloc, JobWorkListState>(
-            buildWhen: (prev, curr) => prev.awaitingQcCount != curr.awaitingQcCount,
+            buildWhen: (prev, curr) =>
+                prev.awaitingQcCount != curr.awaitingQcCount,
             builder: (context, state) {
               if (state.awaitingQcCount == 0) {
                 return const SizedBox.shrink();
@@ -115,24 +120,60 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
 
               return Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: Card(
-                  color: AppColors.warning.withValues(alpha: 0.08),
-                  child: ListTile(
-                    leading: const Icon(
-                      Icons.fact_check_outlined,
-                      color: AppColors.warning,
+                child: DashboardSurfaceCard(
+                  compact: true,
+                  borderRadius: 12,
+                  padding: EdgeInsets.zero,
+                  onTap: () {
+                    context.read<JobWorkListBloc>().add(
+                          const JobWorkListStageFilterChanged(
+                            JobWorkListStageFilter.atQc,
+                          ),
+                        );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
                     ),
-                    title: Text(
-                      '${state.awaitingQcCount} ${AppStrings.jobWorkAwaitingQc}',
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: const Icon(
+                            Icons.fact_check_outlined,
+                            color: AppColors.warning,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${state.awaitingQcCount} ${AppStrings.jobWorkAwaitingQc}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 12,
+                                ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withValues(alpha: 0.7),
+                        ),
+                      ],
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      context.read<JobWorkListBloc>().add(
-                            const JobWorkListStageFilterChanged(
-                              JobWorkListStageFilter.atQc,
-                            ),
-                          );
-                    },
                   ),
                 ),
               );
@@ -175,7 +216,8 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                     subtitle: state.searchQuery.isNotEmpty
                         ? AppStrings.tryDifferentSearch
                         : AppStrings.addFirstJobWork,
-                    action: state.searchQuery.isEmpty
+                    action: state.searchQuery.isEmpty &&
+                            context.userCanCreate(AppModule.jobWork)
                         ? ElevatedButton.icon(
                             onPressed: () =>
                                 context.push(RoutePaths.jobWorkAdd),
@@ -201,7 +243,8 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                       final order = state.visibleOrders[index];
                       return JobWorkListTile(
                         order: order,
-                        awaitingQcInspection: state.isAwaitingQcInspection(order),
+                        awaitingQcInspection:
+                            state.isAwaitingQcInspection(order),
                         onTap: () => context.push(
                           RoutePaths.jobWorkDetail(order.id),
                         ),
