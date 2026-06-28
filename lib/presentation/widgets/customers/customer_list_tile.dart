@@ -70,6 +70,7 @@ class CustomerListTile extends StatelessWidget {
                               ),
                               CustomerBalanceIndicator(
                                 status: customer.balanceStatus,
+                                compact: true,
                               ),
                             ],
                           ),

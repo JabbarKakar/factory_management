@@ -11,8 +11,10 @@ import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/sales/sales_order_list_tile.dart';
+import '../../widgets/sales/sales_order_stage_filter_bar.dart';
 
 class SalesOrderListScreen extends StatefulWidget {
   const SalesOrderListScreen({super.key});
@@ -30,11 +32,40 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<SalesOrderListBloc>().add(const SalesOrderListSearchChanged(''));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.sales),
+        title: BlocBuilder<SalesOrderListBloc, SalesOrderListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleOrders.length != curr.visibleOrders.length ||
+              prev.stageFilter != curr.stageFilter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.sales),
+                Text(
+                  '${state.visibleOrders.length} orders'
+                  '${state.stageFilter != SalesListFilter.all ? ' · ${state.stageFilter.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
         actions: const [
           NotificationBell(),
           AccountMenuButton(),
@@ -49,62 +80,35 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchSalesOrders,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context
-                              .read<SalesOrderListBloc>()
-                              .add(const SalesOrderListSearchChanged(''));
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<SalesOrderListBloc>()
-                    .add(SalesOrderListSearchChanged(value));
-                setState(() {});
-              },
+              hintText: AppStrings.searchSalesOrders,
+              onChanged: (value) => context
+                  .read<SalesOrderListBloc>()
+                  .add(SalesOrderListSearchChanged(value)),
+              onClear: _onSearchClear,
             ),
           ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: BlocBuilder<SalesOrderListBloc, SalesOrderListState>(
               buildWhen: (prev, curr) => prev.stageFilter != curr.stageFilter,
               builder: (context, state) {
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: SalesListFilter.values.map((filter) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: FilterChip(
-                          label: Text(filter.label),
-                          selected: state.stageFilter == filter,
-                          onSelected: (_) {
-                            context.read<SalesOrderListBloc>().add(
-                                  SalesOrderListStageFilterChanged(filter),
-                                );
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
+                return SalesOrderStageFilterBar(
+                  selected: state.stageFilter,
+                  onChanged: (filter) => context.read<SalesOrderListBloc>().add(
+                        SalesOrderListStageFilterChanged(filter),
+                      ),
                 );
               },
             ),
           ),
+          const SizedBox(height: 8),
           Expanded(
             child: BlocBuilder<SalesOrderListBloc, SalesOrderListState>(
               builder: (context, state) {
@@ -139,10 +143,13 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
                             state.stageFilter != SalesListFilter.all
                         ? AppStrings.noSalesOrdersFound
                         : AppStrings.noSalesOrdersYet,
-                    subtitle: state.searchQuery.isNotEmpty
+                    subtitle: state.searchQuery.isNotEmpty ||
+                            state.stageFilter != SalesListFilter.all
                         ? AppStrings.tryDifferentSearch
                         : AppStrings.addFirstSalesOrder,
-                    action: state.searchQuery.isEmpty
+                    action: state.searchQuery.isEmpty &&
+                            state.stageFilter == SalesListFilter.all &&
+                            context.userCanCreate(AppModule.sales)
                         ? ElevatedButton.icon(
                             onPressed: () => context.push(RoutePaths.salesAdd),
                             icon: const Icon(Icons.add),

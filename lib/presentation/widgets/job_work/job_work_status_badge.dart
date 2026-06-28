@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../domain/enums/job_work_enums.dart';
+import '../compact_status_chip.dart';
 
 class JobWorkStatusBadge extends StatelessWidget {
   const JobWorkStatusBadge({
@@ -17,21 +18,36 @@ class JobWorkStatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = _colorsFor(status);
 
+    if (compact) {
+      return CompactStatusChip(
+        label: status.label,
+        color: colors.foreground,
+      );
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final foreground = CompactStatusChip.readableForeground(
+      colors.foreground,
+      isDark,
+    );
+
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 10,
-        vertical: compact ? 4 : 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: colors.background,
+        color: isDark
+            ? foreground.withValues(alpha: 0.18)
+            : colors.background,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: colors.foreground.withValues(alpha: 0.25)),
+        border: Border.all(
+          color: foreground.withValues(alpha: isDark ? 0.35 : 0.25),
+        ),
       ),
       child: Text(
         status.label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: colors.foreground,
+              color: foreground,
               fontWeight: FontWeight.w600,
+              fontSize: 11,
             ),
       ),
     );
