@@ -59,19 +59,20 @@ class MoreScreen extends StatelessWidget {
           ],
           _MoreSection(
             title: AppStrings.appearance,
-            subtitle: 'Theme and display',
             icon: Icons.palette_outlined,
-            child: const ThemeModeSelector(),
+            child: const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: ThemeModeSelector(),
+            ),
           ),
           if (user != null) ...[
             ..._buildModuleSections(context, user),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _MoreSection(
               title: AppStrings.account,
-              subtitle: 'Session & sign out',
               icon: Icons.manage_accounts_outlined,
-              wrapInCard: false,
               child: MoreLogoutTile(
+                embedded: true,
                 onTap: () => _confirmLogout(context),
               ),
             ),
@@ -86,16 +87,14 @@ class MoreScreen extends StatelessWidget {
 
     void addSection({
       required String title,
-      required String subtitle,
       required IconData icon,
       required List<_MoreMenuItem> items,
     }) {
       if (items.isEmpty) return;
-      sections.add(const SizedBox(height: 16));
+      sections.add(const SizedBox(height: 12));
       sections.add(
         _MoreSection(
           title: title,
-          subtitle: subtitle,
           icon: icon,
           child: _MoreMenuGroup(items: items),
         ),
@@ -104,7 +103,6 @@ class MoreScreen extends StatelessWidget {
 
     addSection(
       title: AppStrings.reports,
-      subtitle: 'Analytics and exports',
       icon: Icons.assessment_outlined,
       items: [
         if (user.canView(AppModule.plReport) ||
@@ -121,7 +119,6 @@ class MoreScreen extends StatelessWidget {
 
     addSection(
       title: 'Finance',
-      subtitle: 'Costs and spending',
       icon: Icons.account_balance_wallet_outlined,
       items: [
         if (user.canView(AppModule.expenses))
@@ -137,7 +134,6 @@ class MoreScreen extends StatelessWidget {
 
     addSection(
       title: 'Inventory',
-      subtitle: 'Stock and materials',
       icon: Icons.inventory_2_outlined,
       items: [
         if (user.canView(AppModule.rawMaterials))
@@ -161,7 +157,6 @@ class MoreScreen extends StatelessWidget {
 
     addSection(
       title: 'Production',
-      subtitle: 'Manufacturing workflow',
       icon: Icons.precision_manufacturing_outlined,
       items: [
         if (user.canView(AppModule.production))
@@ -185,7 +180,6 @@ class MoreScreen extends StatelessWidget {
 
     addSection(
       title: 'Workforce',
-      subtitle: 'Team and attendance',
       icon: Icons.groups_outlined,
       items: [
         if (user.canView(AppModule.labour))
@@ -209,7 +203,6 @@ class MoreScreen extends StatelessWidget {
 
     addSection(
       title: 'Supply chain',
-      subtitle: 'Suppliers, equipment & delivery',
       icon: Icons.local_shipping_outlined,
       items: [
         if (user.canView(AppModule.suppliers))
@@ -242,7 +235,6 @@ class MoreScreen extends StatelessWidget {
     if (user.canManageTeam) {
       addSection(
         title: 'Administration',
-        subtitle: 'Access and permissions',
         icon: Icons.admin_panel_settings_outlined,
         items: [
           _MoreMenuItem(
@@ -279,38 +271,64 @@ class _MoreMenuItem {
 class _MoreSection extends StatelessWidget {
   const _MoreSection({
     required this.title,
-    required this.subtitle,
     required this.icon,
     required this.child,
-    this.wrapInCard = true,
   });
 
   final String title;
-  final String subtitle;
   final IconData icon;
   final Widget child;
-  final bool wrapInCard;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        DashboardSectionHeader(
-          title: title,
-          subtitle: subtitle,
-          icon: icon,
-        ),
-        const SizedBox(height: 10),
-        wrapInCard
-            ? DashboardSurfaceCard(
-                compact: true,
-                borderRadius: 14,
-                padding: EdgeInsets.zero,
-                child: child,
-              )
-            : child,
-      ],
+    final theme = Theme.of(context);
+
+    return DashboardSurfaceCard(
+      compact: true,
+      borderRadius: 14,
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 15,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    letterSpacing: 0.1,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(
+            height: 1,
+            thickness: 1,
+            color: theme.colorScheme.outline.withValues(alpha: 0.22),
+          ),
+          child,
+        ],
+      ),
     );
   }
 }
