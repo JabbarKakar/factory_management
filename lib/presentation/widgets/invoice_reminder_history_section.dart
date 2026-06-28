@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/di/injection.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/repositories/payment_reminder_repository.dart';
 import '../../domain/entities/payment_reminder.dart';
 import '../../domain/enums/reminder_enums.dart';
-import 'settings_section.dart';
+import 'job_work/job_work_detail_section.dart';
 
 class InvoiceReminderHistorySection extends StatelessWidget {
   const InvoiceReminderHistorySection({required this.invoiceId, super.key});
@@ -24,14 +25,15 @@ class InvoiceReminderHistorySection extends StatelessWidget {
 
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
-          return SettingsSection(
+          return JobWorkDetailSection(
             title: AppStrings.reminderHistory,
+            icon: Icons.notifications_outlined,
             child: const Padding(
-              padding: EdgeInsets.all(24),
+              padding: EdgeInsets.all(20),
               child: Center(
                 child: SizedBox(
-                  width: 24,
-                  height: 24,
+                  width: 22,
+                  height: 22,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
@@ -43,10 +45,11 @@ class InvoiceReminderHistorySection extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return SettingsSection(
+        return JobWorkDetailSection(
           title: AppStrings.reminderHistory,
+          icon: Icons.notifications_outlined,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             child: Column(
               children: [
                 for (var i = 0; i < reminders.length; i++) ...[
@@ -70,64 +73,48 @@ class _ReminderHistoryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    final surface = Theme.of(context).colorScheme.surfaceContainerHighest;
     final sentLabel = DateFormat.yMMMd().add_jm().format(reminder.sentAt);
     final channelLabel = switch (reminder.channel) {
       ReminderChannel.whatsapp => AppStrings.reminderViaWhatsApp,
       ReminderChannel.sms => AppStrings.reminderViaSms,
       ReminderChannel.inApp => AppStrings.reminderViaInApp,
     };
+    final icon = reminder.channel == ReminderChannel.whatsapp
+        ? Icons.chat_outlined
+        : Icons.notifications_outlined;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: surface.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        child: Row(
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withValues(
-                      alpha: 0.12,
-                    ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Icon(
-                  reminder.channel == ReminderChannel.whatsapp
-                      ? Icons.chat_outlined
-                      : Icons.notifications_outlined,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.primary,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  sentLabel,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        height: 1.25,
+                      ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                Text(
+                  '$channelLabel · ${Formatters.currencyPkr(reminder.amountDue)}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: muted,
+                        fontSize: 10,
+                        height: 1.2,
+                      ),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    sentLabel,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '$channelLabel · ${Formatters.currencyPkr(reminder.amountDue)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: muted,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

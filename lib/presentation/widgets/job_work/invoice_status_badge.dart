@@ -2,6 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../domain/enums/invoice_enums.dart';
+import '../compact_status_chip.dart';
+
+Color invoiceStatusAccent(InvoiceStatus status) {
+  return switch (status) {
+    InvoiceStatus.paid => AppColors.success,
+    InvoiceStatus.partial => AppColors.primary,
+    InvoiceStatus.overdue => AppColors.error,
+    InvoiceStatus.cancelled => AppColors.textSecondary,
+    InvoiceStatus.unpaid => AppColors.warning,
+  };
+}
 
 class InvoiceStatusBadge extends StatelessWidget {
   const InvoiceStatusBadge({
@@ -15,56 +26,29 @@ class InvoiceStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = _colorsFor(status);
+    final color = invoiceStatusAccent(status);
+
+    if (compact) {
+      return CompactStatusChip(
+        label: status.label,
+        color: color,
+      );
+    }
+
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? 8 : 12,
-        vertical: compact ? 4 : 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: colors.background,
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         status.label,
-        style: TextStyle(
-          color: colors.foreground,
-          fontSize: compact ? 11 : 12,
-          fontWeight: FontWeight.w600,
-        ),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
       ),
     );
   }
-
-  _BadgeColors _colorsFor(InvoiceStatus status) {
-    return switch (status) {
-      InvoiceStatus.paid => const _BadgeColors(
-          AppColors.success,
-          Colors.white,
-        ),
-      InvoiceStatus.partial => const _BadgeColors(
-          Color(0xFF1565C0),
-          Colors.white,
-        ),
-      InvoiceStatus.overdue => const _BadgeColors(
-          AppColors.error,
-          Colors.white,
-        ),
-      InvoiceStatus.cancelled => const _BadgeColors(
-          Color(0xFF757575),
-          Colors.white,
-        ),
-      InvoiceStatus.unpaid => const _BadgeColors(
-          Color(0xFFF57C00),
-          Colors.white,
-        ),
-    };
-  }
-}
-
-class _BadgeColors {
-  const _BadgeColors(this.background, this.foreground);
-
-  final Color background;
-  final Color foreground;
 }
