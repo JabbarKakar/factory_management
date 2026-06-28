@@ -14,6 +14,7 @@ import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/raw_materials/low_stock_badge.dart';
 import '../../widgets/settings_section.dart';
 
@@ -105,22 +106,22 @@ class RawMaterialDetailScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              FloatingActionButton.extended(
+              AppExtendedFab(
                 heroTag: 'fab-stock-out',
                 onPressed: () => context.push(
                   RoutePaths.rawMaterialStockOut(materialType.name),
                 ),
-                icon: const Icon(Icons.remove_circle_outline),
-                label: const Text(AppStrings.stockOut),
+                icon: Icons.remove_circle_outline,
+                label: AppStrings.stockOut,
               ),
-              const SizedBox(height: 12),
-              FloatingActionButton.extended(
+              const SizedBox(height: 10),
+              AppExtendedFab(
                 heroTag: 'fab-stock-in',
                 onPressed: () => context.push(
                   RoutePaths.rawMaterialStockIn(materialType.name),
                 ),
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text(AppStrings.stockIn),
+                icon: Icons.add_circle_outline,
+                label: AppStrings.stockIn,
               ),
             ],
           ),

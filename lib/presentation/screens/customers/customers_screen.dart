@@ -11,6 +11,7 @@ import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/customers/customer_list_tile.dart';
 import '../../widgets/customers/customer_service_type_filter_bar.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
@@ -71,11 +72,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
         ],
       ),
       floatingActionButton: context.userCanCreate(AppModule.customers)
-          ? FloatingActionButton.extended(
+          ? AppExtendedFab(
               heroTag: 'fab-customers',
               onPressed: () => context.push(RoutePaths.customersAdd),
-              icon: const Icon(Icons.person_add_alt_1_outlined),
-              label: const Text(AppStrings.addCustomer),
+              icon: Icons.person_add_alt_1_outlined,
+              label: AppStrings.addCustomer,
             )
           : null,
       body: Column(

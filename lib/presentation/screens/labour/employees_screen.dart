@@ -9,6 +9,7 @@ import '../../../domain/enums/labour_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/labour/employee_filter_bar.dart';
@@ -76,11 +77,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         ],
       ),
       floatingActionButton: context.userCanCreate(AppModule.labour)
-          ? FloatingActionButton.extended(
+          ? AppExtendedFab(
               heroTag: 'fab-employees',
               onPressed: () => context.push(RoutePaths.employeesAdd),
-              icon: const Icon(Icons.person_add_alt_1_outlined),
-              label: const Text(AppStrings.addEmployee),
+              icon: Icons.person_add_alt_1_outlined,
+              label: AppStrings.addEmployee,
             )
           : null,
       body: Column(

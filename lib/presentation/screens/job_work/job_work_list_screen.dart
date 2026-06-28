@@ -12,6 +12,7 @@ import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/dashboard/dashboard_surface.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_list_tile.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
@@ -74,11 +75,11 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
         ],
       ),
       floatingActionButton: context.userCanCreate(AppModule.jobWork)
-          ? FloatingActionButton.extended(
+          ? AppExtendedFab(
               heroTag: 'fab-job-work',
               onPressed: () => context.push(RoutePaths.jobWorkAdd),
-              icon: const Icon(Icons.add),
-              label: const Text(AppStrings.newJobWorkOrder),
+              icon: Icons.work_outline,
+              label: AppStrings.newJobWorkOrder,
             )
           : null,
       body: Column(

@@ -9,6 +9,7 @@ import '../../../domain/enums/production_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/production/production_batch_list_tile.dart';
@@ -114,11 +115,11 @@ class _ProductionBatchesScreenState extends State<ProductionBatchesScreen>
           ),
         ),
         floatingActionButton: context.userCanCreate(AppModule.production)
-            ? FloatingActionButton.extended(
+            ? AppExtendedFab(
                 heroTag: 'fab-production-batch',
                 onPressed: () => context.push(RoutePaths.productionAdd),
-                icon: const Icon(Icons.add),
-                label: const Text(AppStrings.recordProduction),
+                icon: Icons.precision_manufacturing_outlined,
+                label: AppStrings.recordProduction,
               )
             : null,
         body: Column(

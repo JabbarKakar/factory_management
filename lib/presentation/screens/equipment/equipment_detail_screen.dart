@@ -10,6 +10,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/equipment/equipment_status_badge.dart';
 import '../../widgets/equipment/maintenance_log_tile.dart';
 import '../../widgets/settings_section.dart';
@@ -90,13 +91,13 @@ class EquipmentDetailScreen extends StatelessWidget {
             ],
           ),
           floatingActionButton: context.userCanCreate(AppModule.equipment)
-              ? FloatingActionButton.extended(
+              ? AppExtendedFab(
                   heroTag: 'fab-record-maintenance-$equipmentId',
                   onPressed: () => context.push(
                     RoutePaths.equipmentRecordMaintenance(equipment.id),
                   ),
-                  icon: const Icon(Icons.build_circle_outlined),
-                  label: const Text(AppStrings.recordMaintenance),
+                  icon: Icons.build_circle_outlined,
+                  label: AppStrings.recordMaintenance,
                 )
               : null,
           body: ListView(

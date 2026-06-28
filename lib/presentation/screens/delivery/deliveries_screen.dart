@@ -13,6 +13,7 @@ import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/delivery/delivery_list_tile.dart';
 import '../../widgets/delivery/delivery_stage_filter_bar.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
@@ -96,11 +97,11 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         ],
       ),
       floatingActionButton: canScheduleDelivery
-          ? FloatingActionButton.extended(
+          ? AppExtendedFab(
               heroTag: 'fab-deliveries',
               onPressed: () => context.push(RoutePaths.deliveriesAdd),
-              icon: const Icon(Icons.local_shipping_outlined),
-              label: const Text(AppStrings.scheduleDelivery),
+              icon: Icons.local_shipping_outlined,
+              label: AppStrings.scheduleDelivery,
             )
           : null,
       body: Column(

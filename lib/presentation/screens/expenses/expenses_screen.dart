@@ -9,6 +9,7 @@ import '../../../domain/enums/expense_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/expenses/expense_category_filter_bar.dart';
 import '../../widgets/expenses/expense_list_tile.dart';
@@ -103,11 +104,11 @@ class _ExpensesScreenState extends State<ExpensesScreen>
           ),
         ),
         floatingActionButton: context.userCanCreate(AppModule.expenses)
-            ? FloatingActionButton.extended(
+            ? AppExtendedFab(
                 heroTag: 'fab-expenses',
                 onPressed: () => context.push(RoutePaths.expensesAdd),
-                icon: const Icon(Icons.add),
-                label: const Text(AppStrings.addExpense),
+                icon: Icons.receipt_long_outlined,
+                label: AppStrings.addExpense,
               )
             : null,
         body: Column(

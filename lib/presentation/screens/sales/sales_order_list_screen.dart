@@ -10,6 +10,7 @@ import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
@@ -72,11 +73,11 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
         ],
       ),
       floatingActionButton: context.userCanCreate(AppModule.sales)
-          ? FloatingActionButton.extended(
+          ? AppExtendedFab(
               heroTag: 'fab-sales',
               onPressed: () => context.push(RoutePaths.salesAdd),
-              icon: const Icon(Icons.add),
-              label: const Text(AppStrings.newSalesOrder),
+              icon: Icons.shopping_cart_outlined,
+              label: AppStrings.newSalesOrder,
             )
           : null,
       body: Column(

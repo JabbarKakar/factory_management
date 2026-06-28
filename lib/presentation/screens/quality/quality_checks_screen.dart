@@ -9,6 +9,7 @@ import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/quality/qc_filter_bar.dart';
@@ -82,11 +83,11 @@ class _QualityChecksScreenState extends State<QualityChecksScreen> {
         ),
       ),
       floatingActionButton: context.userCanCreate(AppModule.qualityControl)
-          ? FloatingActionButton.extended(
+          ? AppExtendedFab(
               heroTag: 'fab-quality-checks',
               onPressed: () => context.push(RoutePaths.qualityChecksAdd),
-              icon: const Icon(Icons.fact_check_outlined),
-              label: const Text(AppStrings.recordQcInspection),
+              icon: Icons.fact_check_outlined,
+              label: AppStrings.recordQcInspection,
             )
           : null,
       body: Column(

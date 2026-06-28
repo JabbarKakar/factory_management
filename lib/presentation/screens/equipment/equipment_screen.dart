@@ -10,6 +10,7 @@ import '../../../domain/enums/equipment_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/equipment/equipment_list_tile.dart';
 
@@ -48,11 +49,11 @@ class _EquipmentScreenState extends State<EquipmentScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.factoryEquipment)),
       floatingActionButton: context.userCanCreate(AppModule.equipment)
-          ? FloatingActionButton.extended(
+          ? AppExtendedFab(
               heroTag: 'fab-equipment',
               onPressed: () => context.push(RoutePaths.equipmentAdd),
-              icon: const Icon(Icons.add_circle_outline),
-              label: const Text(AppStrings.addEquipment),
+              icon: Icons.precision_manufacturing_outlined,
+              label: AppStrings.addEquipment,
             )
           : null,
       body: Column(
