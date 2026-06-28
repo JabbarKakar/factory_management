@@ -522,6 +522,7 @@ abstract final class AppStrings {
   static const String rawMaterialStockSubtitle =
       'Track blocks, slabs, and consumables in/out';
   static const String searchRawMaterials = 'Search material type...';
+  static const String noRawMaterialsFound = 'No materials match your filters';
   static const String rawMaterialsLoadError = 'Could not load raw material stock';
   static const String stockIn = 'Stock In';
   static const String stockOut = 'Stock Out';

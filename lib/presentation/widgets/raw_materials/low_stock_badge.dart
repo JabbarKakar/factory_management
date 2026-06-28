@@ -2,12 +2,22 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../compact_status_chip.dart';
 
 class LowStockBadge extends StatelessWidget {
-  const LowStockBadge({super.key});
+  const LowStockBadge({this.compact = false, super.key});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    if (compact) {
+      return const CompactStatusChip(
+        label: AppStrings.lowStock,
+        color: AppColors.warning,
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

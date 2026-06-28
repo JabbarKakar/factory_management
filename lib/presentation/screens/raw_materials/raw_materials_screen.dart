@@ -3,13 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../blocs/raw_material/raw_material_list_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
+import '../../widgets/raw_materials/raw_material_filter_bar.dart';
 import '../../widgets/raw_materials/raw_material_list_tile.dart';
+import '../../widgets/raw_materials/raw_material_low_stock_banner.dart';
+import '../../widgets/raw_materials/raw_material_stock_summary_card.dart';
 
 class RawMaterialsScreen extends StatefulWidget {
   const RawMaterialsScreen({this.initialFilter, super.key});
@@ -43,73 +46,114 @@ class _RawMaterialsScreenState extends State<RawMaterialsScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<RawMaterialListBloc>().add(
+          const RawMaterialListSearchChanged(''),
+        );
+  }
+
+  void _viewLowStock() {
+    context.read<RawMaterialListBloc>().add(
+          const RawMaterialListFilterChanged(RawMaterialListFilter.lowStock),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.rawMaterialStock),
+        title: BlocBuilder<RawMaterialListBloc, RawMaterialListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleMaterials.length != curr.visibleMaterials.length ||
+              prev.filter != curr.filter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.rawMaterialStock),
+                Text(
+                  '${state.visibleMaterials.length} materials'
+                  '${state.filter != RawMaterialListFilter.all ? ' · ${state.filter.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           BlocBuilder<RawMaterialListBloc, RawMaterialListState>(
-            buildWhen: (prev, curr) => prev.lowStockCount != curr.lowStockCount,
+            buildWhen: (prev, curr) =>
+                prev.materials != curr.materials ||
+                prev.lowStockCount != curr.lowStockCount ||
+                prev.status != curr.status,
             builder: (context, state) {
-              if (state.lowStockCount <= 0) {
+              if (state.status != RawMaterialListStatus.loaded ||
+                  state.materials.isEmpty) {
                 return const SizedBox.shrink();
               }
 
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Card(
-                  color: AppColors.warning.withValues(alpha: 0.12),
-                  child: ListTile(
-                    leading: Icon(Icons.warning_amber_rounded,
-                        color: AppColors.warning),
-                    title: Text(AppStrings.lowStockMaterials),
-                    subtitle: Text('${state.lowStockCount} material(s)'),
-                    trailing: TextButton(
-                      onPressed: () => context.read<RawMaterialListBloc>().add(
-                            const RawMaterialListFilterChanged(
-                              RawMaterialListFilter.lowStock,
-                            ),
-                          ),
-                      child: const Text(AppStrings.lowStock),
-                    ),
-                  ),
-                ),
+              return RawMaterialStockSummaryCard(
+                materials: state.materials,
+                lowStockCount: state.lowStockCount,
               );
             },
           ),
+          BlocBuilder<RawMaterialListBloc, RawMaterialListState>(
+            buildWhen: (prev, curr) =>
+                prev.lowStockCount != curr.lowStockCount ||
+                prev.filter != curr.filter,
+            builder: (context, state) {
+              if (state.lowStockCount <= 0 ||
+                  state.filter == RawMaterialListFilter.lowStock) {
+                return const SizedBox.shrink();
+              }
+
+              return RawMaterialLowStockBanner(
+                lowStockCount: state.lowStockCount,
+                onViewLowStock: _viewLowStock,
+              );
+            },
+          ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchRawMaterials,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context.read<RawMaterialListBloc>().add(
-                                const RawMaterialListSearchChanged(''),
-                              );
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<RawMaterialListBloc>()
-                    .add(RawMaterialListSearchChanged(value));
-                setState(() {});
+              hintText: AppStrings.searchRawMaterials,
+              onChanged: (value) => context
+                  .read<RawMaterialListBloc>()
+                  .add(RawMaterialListSearchChanged(value)),
+              onClear: _onSearchClear,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: BlocBuilder<RawMaterialListBloc, RawMaterialListState>(
+              buildWhen: (prev, curr) => prev.filter != curr.filter,
+              builder: (context, state) {
+                return RawMaterialFilterBar(
+                  selected: state.filter,
+                  onChanged: (filter) => context
+                      .read<RawMaterialListBloc>()
+                      .add(RawMaterialListFilterChanged(filter)),
+                );
               },
             ),
           ),
           const SizedBox(height: 8),
-          const _RawMaterialFilterBar(),
           Expanded(
             child: BlocBuilder<RawMaterialListBloc, RawMaterialListState>(
               builder: (context, state) {
@@ -140,7 +184,7 @@ class _RawMaterialsScreenState extends State<RawMaterialsScreen> {
                 if (state.visibleMaterials.isEmpty) {
                   return EmptyStateView(
                     icon: Icons.inventory_2_outlined,
-                    title: AppStrings.noStockMovementsFound,
+                    title: AppStrings.noRawMaterialsFound,
                     subtitle: AppStrings.tryDifferentSearch,
                   );
                 }
@@ -154,7 +198,7 @@ class _RawMaterialsScreenState extends State<RawMaterialsScreen> {
                         );
                   },
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 8, bottom: 24),
+                    padding: const EdgeInsets.only(top: 4, bottom: 24),
                     itemCount: state.visibleMaterials.length,
                     itemBuilder: (context, index) {
                       final material = state.visibleMaterials[index];
@@ -173,34 +217,6 @@ class _RawMaterialsScreenState extends State<RawMaterialsScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _RawMaterialFilterBar extends StatelessWidget {
-  const _RawMaterialFilterBar();
-
-  @override
-  Widget build(BuildContext context) {
-    final filter = context.watch<RawMaterialListBloc>().state.filter;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: RawMaterialListFilter.values.map((item) {
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: FilterChip(
-              label: Text(item.label),
-              selected: filter == item,
-              onSelected: (_) => context.read<RawMaterialListBloc>().add(
-                    RawMaterialListFilterChanged(item),
-                  ),
-            ),
-          );
-        }).toList(),
       ),
     );
   }
