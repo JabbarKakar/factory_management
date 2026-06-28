@@ -11,8 +11,10 @@ import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
-import '../../widgets/empty_state_view.dart';
 import '../../widgets/delivery/delivery_list_tile.dart';
+import '../../widgets/delivery/delivery_stage_filter_bar.dart';
+import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
 
 class DeliveriesScreen extends StatefulWidget {
@@ -45,6 +47,17 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<DeliveryListBloc>().add(const DeliveryListSearchChanged(''));
+  }
+
+  bool _isFilteredOut(DeliveryListState state) {
+    return state.searchQuery.isNotEmpty ||
+        state.filter != DeliveryListFilter.active ||
+        state.deliveries.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = watchCurrentUser(context);
@@ -52,7 +65,31 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.deliveries),
+        title: BlocBuilder<DeliveryListBloc, DeliveryListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleDeliveries.length != curr.visibleDeliveries.length ||
+              prev.filter != curr.filter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.deliveries),
+                Text(
+                  '${state.visibleDeliveries.length} deliveries'
+                  '${state.filter != DeliveryListFilter.active ? ' · ${state.filter.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
         actions: const [
           NotificationBell(),
           AccountMenuButton(),
@@ -67,37 +104,35 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchDeliveries,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context
-                              .read<DeliveryListBloc>()
-                              .add(const DeliveryListSearchChanged(''));
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<DeliveryListBloc>()
-                    .add(DeliveryListSearchChanged(value));
-                setState(() {});
+              hintText: AppStrings.searchDeliveries,
+              onChanged: (value) => context
+                  .read<DeliveryListBloc>()
+                  .add(DeliveryListSearchChanged(value)),
+              onClear: _onSearchClear,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: BlocBuilder<DeliveryListBloc, DeliveryListState>(
+              buildWhen: (prev, curr) => prev.filter != curr.filter,
+              builder: (context, state) {
+                return DeliveryStageFilterBar(
+                  selected: state.filter,
+                  onChanged: (filter) => context.read<DeliveryListBloc>().add(
+                        DeliveryListFilterChanged(filter),
+                      ),
+                );
               },
             ),
           ),
           const SizedBox(height: 8),
-          const _DeliveryFilterBar(),
           Expanded(
             child: BlocBuilder<DeliveryListBloc, DeliveryListState>(
               builder: (context, state) {
@@ -126,15 +161,16 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                 }
 
                 if (state.visibleDeliveries.isEmpty) {
+                  final filteredOut = _isFilteredOut(state);
                   return EmptyStateView(
                     icon: Icons.local_shipping_outlined,
-                    title: state.deliveries.isEmpty
-                        ? AppStrings.noDeliveriesYet
-                        : AppStrings.noDeliveriesFound,
-                    subtitle: state.deliveries.isEmpty
-                        ? AppStrings.noDeliveriesHint
-                        : null,
-                    action: state.deliveries.isEmpty && canScheduleDelivery
+                    title: filteredOut
+                        ? AppStrings.noDeliveriesFound
+                        : AppStrings.noDeliveriesYet,
+                    subtitle: filteredOut
+                        ? AppStrings.tryDifferentSearch
+                        : AppStrings.noDeliveriesHint,
+                    action: !filteredOut && canScheduleDelivery
                         ? FilledButton.icon(
                             onPressed: () =>
                                 context.push(RoutePaths.deliveriesAdd),
@@ -158,7 +194,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                     }
                   },
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 88),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: state.visibleDeliveries.length,
                     itemBuilder: (context, index) {
                       final delivery = state.visibleDeliveries[index];
@@ -176,39 +212,6 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DeliveryFilterBar extends StatelessWidget {
-  const _DeliveryFilterBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<DeliveryListBloc, DeliveryListState>(
-      buildWhen: (prev, curr) => prev.filter != curr.filter,
-      builder: (context, state) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: DeliveryListFilter.values.map((filter) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text(filter.label),
-                  selected: state.filter == filter,
-                  onSelected: (_) {
-                    context.read<DeliveryListBloc>().add(
-                          DeliveryListFilterChanged(filter),
-                        );
-                  },
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
   }
 }
