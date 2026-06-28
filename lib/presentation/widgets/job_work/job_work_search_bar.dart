@@ -7,12 +7,14 @@ class JobWorkSearchBar extends StatelessWidget {
     required this.controller,
     required this.onChanged,
     required this.onClear,
+    this.hintText = AppStrings.searchJobWork,
     super.key,
   });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final String hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +63,7 @@ class JobWorkSearchBar extends StatelessWidget {
                         fontWeight: FontWeight.w500,
                       ),
                       decoration: InputDecoration(
-                        hintText: AppStrings.searchJobWork,
+                        hintText: hintText,
                         hintStyle: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 13,

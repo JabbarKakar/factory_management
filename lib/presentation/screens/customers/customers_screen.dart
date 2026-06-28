@@ -5,13 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/customer/customer_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/app_module_enums.dart';
-import '../../../domain/enums/customer_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/customers/customer_list_tile.dart';
+import '../../widgets/customers/customer_service_type_filter_bar.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
 
 class CustomersScreen extends StatefulWidget {
@@ -30,11 +31,40 @@ class _CustomersScreenState extends State<CustomersScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<CustomerListBloc>().add(const CustomerListSearchChanged(''));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.customers),
+        title: BlocBuilder<CustomerListBloc, CustomerListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleCustomers.length != curr.visibleCustomers.length ||
+              prev.serviceTypeFilter != curr.serviceTypeFilter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.customers),
+                Text(
+                  '${state.visibleCustomers.length} customers'
+                  '${state.serviceTypeFilter != null ? ' · ${state.serviceTypeFilter!.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
         actions: const [
           NotificationBell(),
           AccountMenuButton(),
@@ -49,37 +79,36 @@ class _CustomersScreenState extends State<CustomersScreen> {
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchCustomers,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context
-                              .read<CustomerListBloc>()
-                              .add(const CustomerListSearchChanged(''));
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<CustomerListBloc>()
-                    .add(CustomerListSearchChanged(value));
-                setState(() {});
+              hintText: AppStrings.searchCustomers,
+              onChanged: (value) => context
+                  .read<CustomerListBloc>()
+                  .add(CustomerListSearchChanged(value)),
+              onClear: _onSearchClear,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: BlocBuilder<CustomerListBloc, CustomerListState>(
+              buildWhen: (prev, curr) =>
+                  prev.serviceTypeFilter != curr.serviceTypeFilter,
+              builder: (context, state) {
+                return CustomerServiceTypeFilterBar(
+                  selected: state.serviceTypeFilter,
+                  onChanged: (filter) => context.read<CustomerListBloc>().add(
+                        CustomerListFilterChanged(filter),
+                      ),
+                );
               },
             ),
           ),
           const SizedBox(height: 8),
-          _ServiceTypeFilterBar(),
           Expanded(
             child: BlocBuilder<CustomerListBloc, CustomerListState>(
               builder: (context, state) {
@@ -119,7 +148,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         ? AppStrings.tryDifferentSearch
                         : AppStrings.addFirstCustomer,
                     action: state.searchQuery.isEmpty &&
-                            state.serviceTypeFilter == null
+                            state.serviceTypeFilter == null &&
+                            context.userCanCreate(AppModule.customers)
                         ? ElevatedButton.icon(
                             onPressed: () =>
                                 context.push(RoutePaths.customersAdd),
@@ -139,7 +169,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         );
                   },
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 8, bottom: 88),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: state.visibleCustomers.length,
                     itemBuilder: (context, index) {
                       final customer = state.visibleCustomers[index];
@@ -153,42 +183,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   ),
                 );
               },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ServiceTypeFilterBar extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final filter = context.watch<CustomerListBloc>().state.serviceTypeFilter;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          FilterChip(
-            label: const Text(AppStrings.all),
-            selected: filter == null,
-            onSelected: (_) => context.read<CustomerListBloc>().add(
-                  const CustomerListFilterChanged(null),
-                ),
-          ),
-          const SizedBox(width: 8),
-          ...CustomerServiceType.values.map(
-            (type) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(type.label),
-                selected: filter == type,
-                onSelected: (_) => context.read<CustomerListBloc>().add(
-                      CustomerListFilterChanged(type),
-                    ),
-              ),
             ),
           ),
         ],
