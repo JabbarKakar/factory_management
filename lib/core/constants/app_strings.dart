@@ -172,6 +172,7 @@ abstract final class AppStrings {
   static const String gradeA = 'Grade A (sq. ft)';
   static const String gradeB = 'Grade B (sq. ft)';
   static const String gradeC = 'Grade C (sq. ft)';
+  static const String grade = 'Grade';
   static const String reject = 'Reject (sq. ft)';
   static const String totalUsableOutput = 'Total Usable Output';
   static const String wasteAndYield = 'Waste & Yield';

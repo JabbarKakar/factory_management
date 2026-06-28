@@ -4,15 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/finished_goods/finished_goods_detail_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/inventory_data.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../domain/entities/inventory_transaction.dart';
-import '../../../domain/enums/inventory_enums.dart';
 import '../../routes/route_paths.dart';
-import '../../widgets/raw_materials/low_stock_badge.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/finished_goods/finished_good_detail_hero.dart';
+import '../../widgets/finished_goods/finished_good_inventory_history_section.dart';
+import '../../widgets/finished_goods/finished_good_stock_actions_bar.dart';
+import '../../widgets/job_work/job_work_detail_row.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class FinishedGoodDetailScreen extends StatelessWidget {
   const FinishedGoodDetailScreen({required this.finishedGoodId, super.key});
@@ -158,6 +158,46 @@ class FinishedGoodDetailScreen extends StatelessWidget {
     );
   }
 
+  JobWorkDetailRow _editableValueRow({
+    required BuildContext context,
+    required String label,
+    required String value,
+    required VoidCallback onEdit,
+    required String editTooltip,
+  }) {
+    return JobWorkDetailRow(
+      label: label,
+      valueWidget: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 12,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: IconButton(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              tooltip: editTooltip,
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<FinishedGoodsDetailBloc, FinishedGoodsDetailState>(
@@ -192,237 +232,117 @@ class FinishedGoodDetailScreen extends StatelessWidget {
         }
 
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.stockItemDetails)),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              FloatingActionButton.extended(
-                heroTag: 'fab-inventory-out',
-                onPressed: () => context.push(
-                  RoutePaths.finishedGoodAdjustOut(item.id),
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.stockItemDetails),
+                Text(
+                  item.productType.label,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
                 ),
-                icon: const Icon(Icons.remove_circle_outline),
-                label: const Text(AppStrings.adjustStockOut),
-              ),
-              const SizedBox(height: 12),
-              FloatingActionButton.extended(
-                heroTag: 'fab-inventory-in',
-                onPressed: () => context.push(
-                  RoutePaths.finishedGoodAdjustIn(item.id),
-                ),
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text(AppStrings.adjustStockIn),
-              ),
-            ],
+              ],
+            ),
           ),
           body: ListView(
-            padding: const EdgeInsets.only(bottom: 140),
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
-              Card(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              Formatters.stockQuantity(
-                                item.currentQuantity,
-                                'sq. ft',
-                              ),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          if (item.isLowStock) const LowStockBadge(),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        AppStrings.currentQuantity,
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        item.productType.label,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.displaySubtitle,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                    ],
-                  ),
+              FinishedGoodDetailHero(item: item),
+              FinishedGoodStockActionsBar(
+                onAdjustIn: () => context.push(
+                  RoutePaths.finishedGoodAdjustIn(item.id),
+                ),
+                onAdjustOut: () => context.push(
+                  RoutePaths.finishedGoodAdjustOut(item.id),
                 ),
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.stockItemDetails,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _SummaryRow(
-                        label: AppStrings.reorderLevel,
-                        value: Formatters.stockQuantity(
-                          item.reorderLevel,
-                          'sq. ft',
-                        ),
-                        trailing: IconButton(
-                          onPressed: () =>
-                              _editReorderLevel(context, item.reorderLevel),
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: AppStrings.setReorderLevel,
-                        ),
+                icon: Icons.inventory_2_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    _editableValueRow(
+                      context: context,
+                      label: AppStrings.reorderLevel,
+                      value: Formatters.stockQuantity(
+                        item.reorderLevel,
+                        'sq. ft',
                       ),
-                      const SizedBox(height: 12),
-                      _SummaryRow(
-                        label: AppStrings.storageLocation,
-                        value: item.location ?? AppStrings.notSpecified,
-                        trailing: IconButton(
-                          onPressed: () =>
-                              _editLocation(context, item.location),
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: AppStrings.setStorageLocation,
-                        ),
+                      onEdit: () => _editReorderLevel(context, item.reorderLevel),
+                      editTooltip: AppStrings.setReorderLevel,
+                    ),
+                    _editableValueRow(
+                      context: context,
+                      label: AppStrings.storageLocation,
+                      value: item.location ?? AppStrings.notSpecified,
+                      onEdit: () => _editLocation(context, item.location),
+                      editTooltip: AppStrings.setStorageLocation,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.averageCost,
+                      value: item.averageCost > 0
+                          ? '${Formatters.currencyPkr(item.averageCost)} / sq. ft'
+                          : '—',
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.stockValue,
+                      value: item.hasStock
+                          ? Formatters.currencyPkr(item.stockValue)
+                          : '—',
+                      bold: item.hasStock,
+                      highlight: item.hasStock,
+                    ),
+                    if (item.lastReceiptDate != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.lastReceipt,
+                        value: DateFormat.yMMMd().format(item.lastReceiptDate!),
                       ),
-                      const SizedBox(height: 12),
-                      _SummaryRow(
-                        label: AppStrings.averageCost,
-                        value: item.averageCost > 0
-                            ? '${Formatters.currencyPkr(item.averageCost)} / sq. ft'
-                            : '—',
-                      ),
-                      const SizedBox(height: 12),
-                      _SummaryRow(
-                        label: AppStrings.stockValue,
-                        value: item.hasStock
-                            ? Formatters.currencyPkr(item.stockValue)
-                            : '—',
-                      ),
-                      if (item.lastReceiptDate != null) ...[
-                        const SizedBox(height: 12),
-                        _SummaryRow(
-                          label: AppStrings.lastReceipt,
-                          value:
-                              DateFormat.yMMMd().format(item.lastReceiptDate!),
-                        ),
-                      ],
-                    ],
-                  ),
+                  ],
                 ),
               ),
-              SettingsSection(
-                title: AppStrings.inventoryHistory,
-                child: state.transactions.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          AppStrings.noInventoryHistory,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: AppColors.textSecondary),
-                        ),
-                      )
-                    : Column(
-                        children: state.transactions
-                            .map(
-                              (transaction) => _TransactionTile(
-                                transaction: transaction,
-                              ),
-                            )
-                            .toList(),
+              JobWorkDetailSection(
+                title: AppStrings.productType,
+                icon: Icons.layers_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.productType,
+                      value: item.productType.label,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.marbleVariety,
+                      value: item.marbleVariety,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.grade,
+                      value: item.grade.label,
+                    ),
+                    if (item.size != null && item.size!.isNotEmpty)
+                      JobWorkDetailRow(
+                        label: AppStrings.size,
+                        value: item.size!,
                       ),
+                    if (item.thickness != null && item.thickness!.isNotEmpty)
+                      JobWorkDetailRow(
+                        label: AppStrings.thickness,
+                        value: item.thickness!,
+                      ),
+                  ],
+                ),
+              ),
+              FinishedGoodInventoryHistorySection(
+                transactions: state.transactions,
               ),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.trailing,
-  });
-
-  final String label;
-  final String value;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    return Row(
-      children: [
-        Expanded(
-          child: Text(label, style: TextStyle(color: muted)),
-        ),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        if (trailing != null) trailing!,
-      ],
-    );
-  }
-}
-
-class _TransactionTile extends StatelessWidget {
-  const _TransactionTile({required this.transaction});
-
-  final InventoryTransaction transaction;
-
-  @override
-  Widget build(BuildContext context) {
-    final isIn = transaction.movementType != InventoryMovementType.adjustmentOut;
-    final color = isIn ? AppColors.success : AppColors.error;
-    final prefix = isIn ? '+' : '−';
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    final subtitleParts = <String>[
-      DateFormat.yMMMd().format(transaction.transactionDate),
-      transaction.transactionNumber,
-      if (transaction.productionBatchNumber != null)
-        transaction.productionBatchNumber!,
-      if (transaction.reason != null && transaction.reason!.isNotEmpty)
-        transaction.reason!,
-    ];
-
-    return ListTile(
-      leading: Icon(
-        isIn ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-        color: color,
-      ),
-      title: Text(transaction.movementType.label),
-      subtitle: Text(
-        subtitleParts.join(' · '),
-        style: TextStyle(color: muted),
-      ),
-      trailing: Text(
-        '$prefix${Formatters.stockQuantity(transaction.quantity, 'sq. ft')}',
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
-      ),
-      onTap: transaction.productionBatchId != null
-          ? () => context.push(
-                RoutePaths.productionDetail(transaction.productionBatchId!),
-              )
-          : null,
     );
   }
 }
