@@ -10,7 +10,10 @@ import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
+import '../../widgets/quality/qc_filter_bar.dart';
 import '../../widgets/quality/qc_list_tile.dart';
+import '../../widgets/quality/qc_summary_card.dart';
 
 class QualityChecksScreen extends StatefulWidget {
   const QualityChecksScreen({this.initialFilter, super.key});
@@ -42,10 +45,42 @@ class _QualityChecksScreenState extends State<QualityChecksScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<QcListBloc>().add(const QcListSearchChanged(''));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.qualityControl)),
+      appBar: AppBar(
+        title: BlocBuilder<QcListBloc, QcListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleChecks.length != curr.visibleChecks.length ||
+              prev.filter != curr.filter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.qualityControl),
+                Text(
+                  '${state.visibleChecks.length} inspections'
+                  '${state.filter != QcListFilter.all ? ' · ${state.filter.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
       floatingActionButton: context.userCanCreate(AppModule.qualityControl)
           ? FloatingActionButton.extended(
               heroTag: 'fab-quality-checks',
@@ -55,61 +90,51 @@ class _QualityChecksScreenState extends State<QualityChecksScreen> {
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           BlocBuilder<QcListBloc, QcListState>(
             buildWhen: (prev, curr) =>
                 prev.monthlyInspectionCount != curr.monthlyInspectionCount ||
-                prev.monthlyPassRate != curr.monthlyPassRate,
+                prev.monthlyPassRate != curr.monthlyPassRate ||
+                prev.status != curr.status,
             builder: (context, state) {
-              if (state.monthlyInspectionCount == 0) {
+              if (state.status != QcListStatus.loaded ||
+                  state.monthlyInspectionCount == 0) {
                 return const SizedBox.shrink();
               }
 
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.assessment_outlined),
-                    title: Text(AppStrings.qcThisMonth),
-                    subtitle: Text(
-                      '${state.monthlyInspectionCount} '
-                      '${AppStrings.qcInspectionsThisMonth} · '
-                      '${state.monthlyPassRate.toStringAsFixed(1)}% '
-                      '${AppStrings.avgPassRate}',
-                    ),
-                  ),
-                ),
+              return QcSummaryCard(
+                monthlyInspectionCount: state.monthlyInspectionCount,
+                monthlyPassRate: state.monthlyPassRate,
               );
             },
           ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchQualityChecks,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context
-                              .read<QcListBloc>()
-                              .add(const QcListSearchChanged(''));
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context.read<QcListBloc>().add(QcListSearchChanged(value));
-                setState(() {});
+              hintText: AppStrings.searchQualityChecks,
+              onChanged: (value) =>
+                  context.read<QcListBloc>().add(QcListSearchChanged(value)),
+              onClear: _onSearchClear,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: BlocBuilder<QcListBloc, QcListState>(
+              buildWhen: (prev, curr) => prev.filter != curr.filter,
+              builder: (context, state) {
+                return QcFilterBar(
+                  selected: state.filter,
+                  onChanged: (filter) =>
+                      context.read<QcListBloc>().add(QcListFilterChanged(filter)),
+                );
               },
             ),
           ),
           const SizedBox(height: 8),
-          const _QcFilterBar(),
           Expanded(
             child: BlocBuilder<QcListBloc, QcListState>(
               builder: (context, state) {
@@ -138,15 +163,20 @@ class _QualityChecksScreenState extends State<QualityChecksScreen> {
                 }
 
                 if (state.visibleChecks.isEmpty) {
+                  final filteredOut = state.checks.isNotEmpty ||
+                      state.searchQuery.isNotEmpty ||
+                      state.filter != QcListFilter.all;
+
                   return EmptyStateView(
                     icon: Icons.fact_check_outlined,
-                    title: state.checks.isEmpty
-                        ? AppStrings.noQualityChecksYet
-                        : AppStrings.noQualityChecksFound,
-                    subtitle: state.checks.isEmpty
-                        ? AppStrings.noQualityChecksHint
-                        : null,
-                    action: state.checks.isEmpty
+                    title: filteredOut
+                        ? AppStrings.noQualityChecksFound
+                        : AppStrings.noQualityChecksYet,
+                    subtitle: filteredOut
+                        ? AppStrings.tryDifferentSearch
+                        : AppStrings.noQualityChecksHint,
+                    action: !filteredOut &&
+                            context.userCanCreate(AppModule.qualityControl)
                         ? FilledButton.icon(
                             onPressed: () =>
                                 context.push(RoutePaths.qualityChecksAdd),
@@ -160,21 +190,21 @@ class _QualityChecksScreenState extends State<QualityChecksScreen> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     final factoryId = readFactoryId(context);
-                    if (factoryId != null) {
-                      context
-                          .read<QcListBloc>()
-                          .add(QcListWatchStarted(factoryId));
-                    }
+                    if (factoryId == null) return;
+                    context
+                        .read<QcListBloc>()
+                        .add(QcListWatchStarted(factoryId));
                   },
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 88),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: state.visibleChecks.length,
                     itemBuilder: (context, index) {
                       final check = state.visibleChecks[index];
                       return QcListTile(
                         check: check,
-                        onTap: () =>
-                            context.push(RoutePaths.qualityCheckDetail(check.id)),
+                        onTap: () => context.push(
+                          RoutePaths.qualityCheckDetail(check.id),
+                        ),
                       );
                     },
                   ),
@@ -184,39 +214,6 @@ class _QualityChecksScreenState extends State<QualityChecksScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _QcFilterBar extends StatelessWidget {
-  const _QcFilterBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<QcListBloc, QcListState>(
-      buildWhen: (prev, curr) => prev.filter != curr.filter,
-      builder: (context, state) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: QcListFilter.values.map((filter) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text(filter.label),
-                  selected: state.filter == filter,
-                  onSelected: (_) {
-                    context
-                        .read<QcListBloc>()
-                        .add(QcListFilterChanged(filter));
-                  },
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
   }
 }

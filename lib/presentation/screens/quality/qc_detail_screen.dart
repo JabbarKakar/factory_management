@@ -4,17 +4,21 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/quality/qc_detail_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
-import '../../widgets/quality/qc_disposition_badge.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/job_work/job_work_detail_row.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/quality/qc_detail_hero.dart';
+import '../../widgets/quality/qc_reference_action_bar.dart';
 
 class QcDetailScreen extends StatelessWidget {
   const QcDetailScreen({required this.qcId, super.key});
 
   final String qcId;
+
+  String _sqFt(double value) => Formatters.stockQuantity(value, 'sq. ft');
 
   @override
   Widget build(BuildContext context) {
@@ -39,167 +43,146 @@ class QcDetailScreen extends StatelessWidget {
         }
 
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.qcInspectionDetails)),
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.qcInspectionDetails),
+                Text(
+                  check.qcNumber,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
+          ),
           body: ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              Card(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              check.qcNumber,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          QcDispositionBadge(disposition: check.disposition),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${check.referenceType.label} · ${check.referenceNumber}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                      if (check.referenceLabel.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(check.referenceLabel),
-                      ],
-                      const SizedBox(height: 12),
-                      Text(
-                        '${check.passRatePercent.toStringAsFixed(1)}% ${AppStrings.passRate}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.success,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          if (check.referenceType == QcReferenceType.production) {
-                            context.push(
-                              RoutePaths.productionDetail(check.referenceId),
-                            );
-                          } else {
-                            context.push(
-                              RoutePaths.jobWorkDetail(check.referenceId),
-                            );
-                          }
-                        },
-                        icon: Icon(
-                          check.referenceType == QcReferenceType.production
-                              ? Icons.precision_manufacturing_outlined
-                              : Icons.content_cut_outlined,
-                        ),
-                        label: Text(
-                          check.referenceType == QcReferenceType.production
-                              ? AppStrings.viewProductionBatch
-                              : AppStrings.viewJobWorkOrder,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              QcDetailHero(check: check),
+              QcReferenceActionBar(
+                referenceType: check.referenceType,
+                onPressed: () {
+                  if (check.referenceType == QcReferenceType.production) {
+                    context.push(RoutePaths.productionDetail(check.referenceId));
+                  } else {
+                    context.push(RoutePaths.jobWorkDetail(check.referenceId));
+                  }
+                },
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.qcInspectionDetails,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _Row(
-                        AppStrings.inspectionDate,
-                        DateFormat.yMMMd().format(check.inspectionDate),
+                icon: Icons.fact_check_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.inspectionDate,
+                      value: DateFormat.yMMMd().format(check.inspectionDate),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.inspectorName,
+                      value: check.inspectorName,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.qcReferenceType,
+                      value: check.referenceType.label,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.qcReference,
+                      value: check.referenceNumber,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.productType,
+                      value: check.productLabel,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.marbleVariety,
+                      value: check.marbleVariety,
+                    ),
+                    if (check.sizeThickness != null &&
+                        check.sizeThickness!.isNotEmpty)
+                      JobWorkDetailRow(
+                        label: AppStrings.sizeThickness,
+                        value: check.sizeThickness!,
                       ),
-                      const SizedBox(height: 8),
-                      _Row(AppStrings.inspectorName, check.inspectorName),
-                      const SizedBox(height: 8),
-                      _Row(AppStrings.productType, check.productLabel),
-                      const SizedBox(height: 8),
-                      _Row(AppStrings.marbleVariety, check.marbleVariety),
-                      if (check.sizeThickness != null &&
-                          check.sizeThickness!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _Row(AppStrings.sizeThickness, check.sizeThickness!),
-                      ],
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.quantityInspected,
-                        '${check.quantityInspected.toStringAsFixed(1)} sq.ft',
-                      ),
-                    ],
-                  ),
+                    JobWorkDetailRow(
+                      label: AppStrings.quantityInspected,
+                      value: _sqFt(check.quantityInspected),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.qcDisposition,
+                      value: check.disposition.label,
+                      bold: true,
+                      highlight: true,
+                    ),
+                  ],
                 ),
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.outputByGrade,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _Row(
-                        AppStrings.gradeA,
-                        '${check.gradeASqFt.toStringAsFixed(1)} sq.ft',
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.gradeB,
-                        '${check.gradeBSqFt.toStringAsFixed(1)} sq.ft',
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.gradeC,
-                        '${check.gradeCSqFt.toStringAsFixed(1)} sq.ft',
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.reject,
-                        '${check.rejectSqFt.toStringAsFixed(1)} sq.ft',
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.totalUsableOutput,
-                        '${check.totalUsableSqFt.toStringAsFixed(1)} sq.ft',
-                        bold: true,
-                      ),
-                    ],
-                  ),
+                icon: Icons.analytics_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.gradeA,
+                      value: _sqFt(check.gradeASqFt),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.gradeB,
+                      value: _sqFt(check.gradeBSqFt),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.gradeC,
+                      value: _sqFt(check.gradeCSqFt),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.reject,
+                      value: _sqFt(check.rejectSqFt),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.totalUsableOutput,
+                      value: _sqFt(check.totalUsableSqFt),
+                      bold: true,
+                      highlight: true,
+                    ),
+                  ],
                 ),
               ),
               if (check.defects.isNotEmpty)
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.defectsFound,
+                  icon: Icons.report_problem_outlined,
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                     child: Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 6,
+                      runSpacing: 6,
                       children: check.defects
                           .map(
-                            (defect) => Chip(
-                              label: Text(defect.label),
-                            ),
+                            (defect) => _DefectChip(label: defect.label),
                           )
                           .toList(),
                     ),
                   ),
                 ),
               if (check.notes != null && check.notes!.isNotEmpty)
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.notes,
+                  icon: Icons.notes_outlined,
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(check.notes!),
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: Text(
+                      check.notes!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                            height: 1.35,
+                          ),
+                    ),
                   ),
                 ),
             ],
@@ -210,34 +193,30 @@ class QcDetailScreen extends StatelessWidget {
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row(this.label, this.value, {this.bold = false});
+class _DefectChip extends StatelessWidget {
+  const _DefectChip({required this.label});
 
   final String label;
-  final String value;
-  final bool bold;
 
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(label, style: TextStyle(color: muted)),
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest
+            .withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
