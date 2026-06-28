@@ -3,14 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../blocs/finished_goods/finished_goods_list_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/inventory_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/finished_goods/finished_good_list_tile.dart';
+import '../../widgets/finished_goods/finished_goods_filter_bar.dart';
+import '../../widgets/finished_goods/finished_goods_low_stock_banner.dart';
+import '../../widgets/finished_goods/finished_goods_stock_summary_card.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
 
 class FinishedGoodsScreen extends StatefulWidget {
   const FinishedGoodsScreen({this.initialFilter, super.key});
@@ -44,97 +46,118 @@ class _FinishedGoodsScreenState extends State<FinishedGoodsScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<FinishedGoodsListBloc>().add(
+          const FinishedGoodsListSearchChanged(''),
+        );
+  }
+
+  void _viewLowStock() {
+    context.read<FinishedGoodsListBloc>().add(
+          const FinishedGoodsListFilterChanged(
+            FinishedGoodsListFilter.lowStock,
+          ),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.finishedGoodsInventory),
+        title: BlocBuilder<FinishedGoodsListBloc, FinishedGoodsListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleItems.length != curr.visibleItems.length ||
+              prev.filter != curr.filter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.finishedGoodsInventory),
+                Text(
+                  '${state.visibleItems.length} items'
+                  '${state.filter != FinishedGoodsListFilter.all ? ' · ${state.filter.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           BlocBuilder<FinishedGoodsListBloc, FinishedGoodsListState>(
             buildWhen: (prev, curr) =>
+                prev.items != curr.items ||
                 prev.totalStockValue != curr.totalStockValue ||
-                prev.lowStockCount != curr.lowStockCount,
+                prev.lowStockCount != curr.lowStockCount ||
+                prev.status != curr.status,
             builder: (context, state) {
-              if (state.items.isEmpty) return const SizedBox.shrink();
+              if (state.status != FinishedGoodsListStatus.loaded ||
+                  state.items.isEmpty) {
+                return const SizedBox.shrink();
+              }
 
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Column(
-                  children: [
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.account_balance_wallet_outlined),
-                        title: const Text(AppStrings.totalInventoryValue),
-                        trailing: Text(
-                          Formatters.currencyPkr(state.totalStockValue),
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.primary,
-                                  ),
-                        ),
-                      ),
-                    ),
-                    if (state.lowStockCount > 0) ...[
-                      const SizedBox(height: 8),
-                      Card(
-                        color: AppColors.warning.withValues(alpha: 0.12),
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.warning_amber_rounded,
-                            color: AppColors.warning,
-                          ),
-                          title: const Text(AppStrings.lowStockFinishedGoods),
-                          subtitle: Text('${state.lowStockCount} SKU(s)'),
-                          trailing: TextButton(
-                            onPressed: () =>
-                                context.read<FinishedGoodsListBloc>().add(
-                                      const FinishedGoodsListFilterChanged(
-                                        FinishedGoodsListFilter.lowStock,
-                                      ),
-                                    ),
-                            child: const Text(AppStrings.lowStock),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+              return FinishedGoodsStockSummaryCard(
+                items: state.items,
+                totalStockValue: state.totalStockValue,
+                lowStockCount: state.lowStockCount,
               );
             },
           ),
+          BlocBuilder<FinishedGoodsListBloc, FinishedGoodsListState>(
+            buildWhen: (prev, curr) =>
+                prev.lowStockCount != curr.lowStockCount ||
+                prev.filter != curr.filter,
+            builder: (context, state) {
+              if (state.lowStockCount <= 0 ||
+                  state.filter == FinishedGoodsListFilter.lowStock) {
+                return const SizedBox.shrink();
+              }
+
+              return FinishedGoodsLowStockBanner(
+                lowStockCount: state.lowStockCount,
+                onViewLowStock: _viewLowStock,
+              );
+            },
+          ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchFinishedGoods,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context.read<FinishedGoodsListBloc>().add(
-                                const FinishedGoodsListSearchChanged(''),
-                              );
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<FinishedGoodsListBloc>()
-                    .add(FinishedGoodsListSearchChanged(value));
-                setState(() {});
+              hintText: AppStrings.searchFinishedGoods,
+              onChanged: (value) => context
+                  .read<FinishedGoodsListBloc>()
+                  .add(FinishedGoodsListSearchChanged(value)),
+              onClear: _onSearchClear,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: BlocBuilder<FinishedGoodsListBloc, FinishedGoodsListState>(
+              buildWhen: (prev, curr) => prev.filter != curr.filter,
+              builder: (context, state) {
+                return FinishedGoodsFilterBar(
+                  selected: state.filter,
+                  onChanged: (filter) => context
+                      .read<FinishedGoodsListBloc>()
+                      .add(FinishedGoodsListFilterChanged(filter)),
+                );
               },
             ),
           ),
           const SizedBox(height: 8),
-          const _FinishedGoodsFilterBar(),
           Expanded(
             child: BlocBuilder<FinishedGoodsListBloc, FinishedGoodsListState>(
               builder: (context, state) {
@@ -163,19 +186,23 @@ class _FinishedGoodsScreenState extends State<FinishedGoodsScreen> {
                 }
 
                 if (state.visibleItems.isEmpty) {
+                  final filteredOut = state.items.isNotEmpty;
+
                   return EmptyStateView(
                     icon: Icons.layers_outlined,
-                    title: state.items.isEmpty
-                        ? AppStrings.noFinishedGoodsYet
-                        : AppStrings.noFinishedGoodsFound,
-                    subtitle: state.items.isEmpty
-                        ? AppStrings.noFinishedGoodsHint
-                        : null,
-                    action: state.items.isEmpty
+                    title: filteredOut
+                        ? AppStrings.noFinishedGoodsFound
+                        : AppStrings.noFinishedGoodsYet,
+                    subtitle: filteredOut
+                        ? AppStrings.tryDifferentSearch
+                        : AppStrings.noFinishedGoodsHint,
+                    action: !filteredOut
                         ? FilledButton.icon(
                             onPressed: () =>
                                 context.push(RoutePaths.productionAdd),
-                            icon: const Icon(Icons.precision_manufacturing_outlined),
+                            icon: const Icon(
+                              Icons.precision_manufacturing_outlined,
+                            ),
                             label: const Text(AppStrings.recordProduction),
                           )
                         : null,
@@ -185,16 +212,14 @@ class _FinishedGoodsScreenState extends State<FinishedGoodsScreen> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     final factoryId = readFactoryId(context);
-                    if (factoryId != null) {
-                      context.read<FinishedGoodsListBloc>().add(
-                            FinishedGoodsListWatchStarted(factoryId),
-                          );
-                    }
+                    if (factoryId == null) return;
+                    context.read<FinishedGoodsListBloc>().add(
+                          FinishedGoodsListWatchStarted(factoryId),
+                        );
                   },
-                  child: ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 24),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(top: 4, bottom: 24),
                     itemCount: state.visibleItems.length,
-                    separatorBuilder: (_, index) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final item = state.visibleItems[index];
                       return FinishedGoodListTile(
@@ -211,39 +236,6 @@ class _FinishedGoodsScreenState extends State<FinishedGoodsScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _FinishedGoodsFilterBar extends StatelessWidget {
-  const _FinishedGoodsFilterBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<FinishedGoodsListBloc, FinishedGoodsListState>(
-      buildWhen: (prev, curr) => prev.filter != curr.filter,
-      builder: (context, state) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: FinishedGoodsListFilter.values.map((filter) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text(filter.label),
-                  selected: state.filter == filter,
-                  onSelected: (_) {
-                    context.read<FinishedGoodsListBloc>().add(
-                          FinishedGoodsListFilterChanged(filter),
-                        );
-                  },
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
   }
 }
