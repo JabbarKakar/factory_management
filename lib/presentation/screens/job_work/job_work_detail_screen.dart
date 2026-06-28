@@ -11,11 +11,13 @@ import '../../../domain/enums/job_work_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
+import '../../widgets/job_work/job_work_detail_hero.dart';
+import '../../widgets/job_work/job_work_detail_row.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
-import '../../widgets/job_work/job_work_status_badge.dart';
 import '../../widgets/quality/qc_reference_section.dart';
-import '../../widgets/settings_section.dart';
 
 class JobWorkDetailScreen extends StatelessWidget {
   const JobWorkDetailScreen({required this.jobWorkId, super.key});
@@ -130,24 +132,39 @@ class JobWorkDetailScreen extends StatelessWidget {
         final canEditIntake = (order.status == JobWorkStatus.agreed ||
                 order.status == JobWorkStatus.received) &&
             context.userCanEdit(AppModule.jobWork);
-        final canRecordOutput =
-            order.status.canRecordOutput && context.userCanEdit(AppModule.jobWork);
-        final nextStatus = order.status.nextOperationalStatus;
-        final nextCompletionStatus = order.status.nextCompletionStatus;
+        final canRecordOutput = order.status.canRecordOutput &&
+            context.userCanEdit(AppModule.jobWork);
         final isSaving = state.status == JobWorkFormStatus.saving;
         final hasOutput = order.output?.isRecorded == true;
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(AppStrings.jobWorkDetails),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.jobWorkDetails),
+                Text(
+                  order.jobWorkNumber,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
             actions: [
               if (canRecordOutput)
                 IconButton(
-                  onPressed: isSaving
-                      ? null
-                      : () => _openRecordOutput(context),
-                  icon: Icon(hasOutput ? Icons.edit_note : Icons.fact_check_outlined),
-                  tooltip: hasOutput ? AppStrings.editOutput : AppStrings.recordOutput,
+                  onPressed:
+                      isSaving ? null : () => _openRecordOutput(context),
+                  icon: Icon(
+                    hasOutput ? Icons.edit_note : Icons.fact_check_outlined,
+                  ),
+                  tooltip:
+                      hasOutput ? AppStrings.editOutput : AppStrings.recordOutput,
                 ),
               if (canEditIntake)
                 IconButton(
@@ -162,294 +179,190 @@ class JobWorkDetailScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              Card(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              order.jobWorkNumber,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          JobWorkStatusBadge(status: order.status),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        order.customerName,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      if (order.status.canAdvanceOperationally &&
-                          nextStatus != null) ...[
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.tonal(
-                            onPressed: isSaving
-                                ? null
-                                : () => _advanceStatus(context, nextStatus),
-                            child: Text(order.status.advanceActionLabel),
-                          ),
-                        ),
-                      ],
-                      if (nextCompletionStatus != null) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: isSaving
-                                ? null
-                                : () => _advanceCompletion(
-                                      context,
-                                      nextCompletionStatus,
-                                    ),
-                            child: Text(order.status.completionActionLabel),
-                          ),
-                        ),
-                      ],
-                      if (canRecordOutput) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: isSaving
-                                ? null
-                                : () => _openRecordOutput(context),
-                            icon: Icon(
-                              hasOutput
-                                  ? Icons.edit_note_outlined
-                                  : Icons.fact_check_outlined,
-                            ),
-                            label: Text(
-                              hasOutput
-                                  ? AppStrings.editOutput
-                                  : AppStrings.recordOutput,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+              JobWorkDetailHero(
+                order: order,
+                isSaving: isSaving,
+                hasOutput: hasOutput,
+                canRecordOutput: canRecordOutput,
+                onAdvanceStatus: (s) => _advanceStatus(context, s),
+                onAdvanceCompletion: (s) => _advanceCompletion(context, s),
+                onRecordOutput: () => _openRecordOutput(context),
               ),
               JobWorkOutputSummary(order: order),
               if (hasOutput)
-                QcReferenceSection(
-                  checks: state.qualityChecks,
-                  onRecordQc: () async {
-                    final saved = await context.push<bool>(
-                      RoutePaths.qualityChecksAddForReference(
-                        refType: QcReferenceType.jobWork,
-                        referenceId: order.id,
-                      ),
-                    );
-                    if (saved == true && context.mounted) {
-                      context
-                          .read<JobWorkFormBloc>()
-                          .add(JobWorkFormLoadRequested(jobWorkId));
-                    }
-                  },
-                ),
-              SettingsSection(
-                title: AppStrings.pricingAgreement,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _Row(
-                        AppStrings.negotiatedAmount,
-                        Formatters.currencyPkr(order.negotiatedFinalAmount),
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.advanceReceived,
-                        Formatters.currencyPkr(order.advanceReceived),
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.balanceDue,
-                        Formatters.currencyPkr(order.balanceDue),
-                        bold: true,
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.paymentTerms,
-                        order.paymentTerms.label,
-                      ),
-                      if (order.paymentDueDate != null) ...[
-                        const SizedBox(height: 8),
-                        _Row(
-                          AppStrings.paymentDueDate,
-                          DateFormat.yMMMd().format(order.paymentDueDate!),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: QcReferenceSection(
+                    checks: state.qualityChecks,
+                    onRecordQc: () async {
+                      final saved = await context.push<bool>(
+                        RoutePaths.qualityChecksAddForReference(
+                          refType: QcReferenceType.jobWork,
+                          referenceId: order.id,
                         ),
-                      ],
-                    ],
+                      );
+                      if (saved == true && context.mounted) {
+                        context
+                            .read<JobWorkFormBloc>()
+                            .add(JobWorkFormLoadRequested(jobWorkId));
+                      }
+                    },
                   ),
                 ),
-              ),
-              SettingsSection(
-                title: AppStrings.inputMaterial,
-                child: _DetailSection(
+              JobWorkDetailSection(
+                title: AppStrings.pricingAgreement,
+                icon: Icons.payments_outlined,
+                child: JobWorkDetailRows(
                   rows: [
-                    _Row(AppStrings.marbleVariety, order.marbleVariety),
-                    _Row(AppStrings.blockCount, '${order.blockCount}'),
-                    _Row(
-                      AppStrings.totalTons,
-                      order.totalTons.toStringAsFixed(2),
+                    JobWorkDetailRow(
+                      label: AppStrings.negotiatedAmount,
+                      value: Formatters.currencyPkr(order.negotiatedFinalAmount),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.advanceReceived,
+                      value: Formatters.currencyPkr(order.advanceReceived),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.balanceDue,
+                      value: Formatters.currencyPkr(order.balanceDue),
+                      bold: true,
+                      highlight: true,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.paymentTerms,
+                      value: order.paymentTerms.label,
+                    ),
+                    if (order.paymentDueDate != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.paymentDueDate,
+                        value: DateFormat.yMMMd().format(order.paymentDueDate!),
+                      ),
+                  ],
+                ),
+              ),
+              JobWorkDetailSection(
+                title: AppStrings.inputMaterial,
+                icon: Icons.inventory_2_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.marbleVariety,
+                      value: order.marbleVariety,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.blockCount,
+                      value: '${order.blockCount}',
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.totalTons,
+                      value: order.totalTons.toStringAsFixed(2),
                     ),
                     if (order.totalVolumeM3 != null)
-                      _Row(
-                        AppStrings.totalVolume,
-                        order.totalVolumeM3!.toStringAsFixed(2),
+                      JobWorkDetailRow(
+                        label: AppStrings.totalVolume,
+                        value: order.totalVolumeM3!.toStringAsFixed(2),
                       ),
                     if (order.blockDimensions != null)
-                      _Row(
-                        AppStrings.blockDimensions,
-                        order.blockDimensions!,
+                      JobWorkDetailRow(
+                        label: AppStrings.blockDimensions,
+                        value: order.blockDimensions!,
                       ),
                     if (order.conditionNotes != null)
-                      _Row(AppStrings.conditionNotes, order.conditionNotes!),
+                      JobWorkDetailRow(
+                        label: AppStrings.conditionNotes,
+                        value: order.conditionNotes!,
+                      ),
                     if (order.vehicleNumber != null)
-                      _Row(AppStrings.vehicleNumber, order.vehicleNumber!),
+                      JobWorkDetailRow(
+                        label: AppStrings.vehicleNumber,
+                        value: order.vehicleNumber!,
+                      ),
                   ],
                 ),
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.cuttingSpecification,
-                child: _DetailSection(
+                icon: Icons.content_cut_outlined,
+                child: JobWorkDetailRows(
                   rows: [
-                    _Row(
-                      AppStrings.cuttingStrategy,
-                      order.cuttingStrategy.label,
+                    JobWorkDetailRow(
+                      label: AppStrings.cuttingStrategy,
+                      value: order.cuttingStrategy.label,
                     ),
-                    _Row(AppStrings.targetProduct, order.targetProduct.label),
-                    _Row(
-                      AppStrings.tileSlabSizes,
-                      order.sizes.join(', '),
+                    JobWorkDetailRow(
+                      label: AppStrings.targetProduct,
+                      value: order.targetProduct.label,
                     ),
-                    _Row(AppStrings.thickness, order.thickness),
-                    _Row(AppStrings.finishRequired, order.finish.label),
+                    JobWorkDetailRow(
+                      label: AppStrings.tileSlabSizes,
+                      value: order.sizes.join(', '),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.thickness,
+                      value: order.thickness,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.finishRequired,
+                      value: order.finish.label,
+                    ),
                     if (order.expectedOutputSqFt != null)
-                      _Row(
-                        AppStrings.expectedOutput,
-                        order.expectedOutputSqFt!.toStringAsFixed(0),
+                      JobWorkDetailRow(
+                        label: AppStrings.expectedOutput,
+                        value: order.expectedOutputSqFt!.toStringAsFixed(0),
                       ),
                     if (order.specialInstructions != null)
-                      _Row(
-                        AppStrings.specialInstructions,
-                        order.specialInstructions!,
+                      JobWorkDetailRow(
+                        label: AppStrings.specialInstructions,
+                        value: order.specialInstructions!,
                       ),
                   ],
                 ),
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.customerAndDates,
-                child: _DetailSection(
+                icon: Icons.calendar_today_outlined,
+                child: JobWorkDetailRows(
                   rows: [
-                    _Row(
-                      AppStrings.receivedDate,
-                      DateFormat.yMMMd().format(order.receivedDate),
+                    JobWorkDetailRow(
+                      label: AppStrings.receivedDate,
+                      value: DateFormat.yMMMd().format(order.receivedDate),
                     ),
                     if (order.expectedCompletionDate != null)
-                      _Row(
-                        AppStrings.expectedCompletion,
-                        DateFormat.yMMMd()
+                      JobWorkDetailRow(
+                        label: AppStrings.expectedCompletion,
+                        value: DateFormat.yMMMd()
                             .format(order.expectedCompletionDate!),
                       ),
                     if (order.collectedAt != null)
-                      _Row(
-                        AppStrings.collectedDate,
-                        DateFormat.yMMMd().format(order.collectedAt!),
+                      JobWorkDetailRow(
+                        label: AppStrings.collectedDate,
+                        value: DateFormat.yMMMd().format(order.collectedAt!),
                       ),
                     if (order.closedAt != null)
-                      _Row(
-                        AppStrings.closedDate,
-                        DateFormat.yMMMd().format(order.closedAt!),
+                      JobWorkDetailRow(
+                        label: AppStrings.closedDate,
+                        value: DateFormat.yMMMd().format(order.closedAt!),
                       ),
                   ],
                 ),
               ),
               if (order.status == JobWorkStatus.ready &&
                   (order.invoiceId == null || order.invoiceId!.isEmpty))
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Card(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primaryContainer
-                        .withValues(alpha: 0.35),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.receipt_long_outlined,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  AppStrings.invoiceNotReady,
-                                  style:
-                                      Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          FilledButton.icon(
-                            onPressed: () => _openInvoice(context),
-                            icon: const Icon(Icons.receipt_long),
-                            label: const Text(AppStrings.generateInvoice),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                _InvoicePromptCard(
+                  message: AppStrings.invoiceNotReady,
+                  primaryLabel: AppStrings.generateInvoice,
+                  primaryIcon: Icons.receipt_long_rounded,
+                  onPrimary: () => _openInvoice(context),
                 ),
               if (order.invoiceId != null && order.invoiceId!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: () => _openInvoice(context),
-                            icon: const Icon(Icons.receipt_long_outlined),
-                            label: const Text(AppStrings.viewInvoice),
-                          ),
-                          if (order.status != JobWorkStatus.paid &&
-                              order.status != JobWorkStatus.collected &&
-                              order.status != JobWorkStatus.closed) ...[
-                            const SizedBox(height: 8),
-                            FilledButton.icon(
-                              onPressed: () => _openRecordPayment(
-                                context,
-                                order.invoiceId!,
-                              ),
-                              icon: const Icon(Icons.payments_outlined),
-                              label: const Text(AppStrings.recordPayment),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
+                _InvoicePromptCard(
+                  showViewInvoice: true,
+                  showRecordPayment: order.status != JobWorkStatus.paid &&
+                      order.status != JobWorkStatus.collected &&
+                      order.status != JobWorkStatus.closed,
+                  onViewInvoice: () => _openInvoice(context),
+                  onRecordPayment: () =>
+                      _openRecordPayment(context, order.invoiceId!),
                 ),
             ],
           ),
@@ -459,55 +372,108 @@ class JobWorkDetailScreen extends StatelessWidget {
   }
 }
 
-class _DetailSection extends StatelessWidget {
-  const _DetailSection({required this.rows});
+class _InvoicePromptCard extends StatelessWidget {
+  const _InvoicePromptCard({
+    this.message,
+    this.primaryLabel,
+    this.primaryIcon,
+    this.onPrimary,
+    this.showViewInvoice = false,
+    this.showRecordPayment = false,
+    this.onViewInvoice,
+    this.onRecordPayment,
+  });
 
-  final List<_Row> rows;
+  final String? message;
+  final String? primaryLabel;
+  final IconData? primaryIcon;
+  final VoidCallback? onPrimary;
+  final bool showViewInvoice;
+  final bool showRecordPayment;
+  final VoidCallback? onViewInvoice;
+  final VoidCallback? onRecordPayment;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          for (var i = 0; i < rows.length; i++) ...[
-            rows[i],
-            if (i < rows.length - 1) const SizedBox(height: 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: DashboardSurfaceCard(
+        compact: true,
+        borderRadius: 14,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (message != null) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      message!,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (primaryLabel != null && onPrimary != null)
+              FilledButton.icon(
+                onPressed: onPrimary,
+                icon: Icon(primaryIcon, size: 16),
+                label: Text(
+                  primaryLabel!,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            if (showViewInvoice) ...[
+              OutlinedButton.icon(
+                onPressed: onViewInvoice,
+                icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                label: Text(
+                  AppStrings.viewInvoice,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ],
+            if (showRecordPayment) ...[
+              const SizedBox(height: 6),
+              FilledButton.icon(
+                onPressed: onRecordPayment,
+                icon: const Icon(Icons.payments_outlined, size: 16),
+                label: Text(
+                  AppStrings.recordPayment,
+                  style: const TextStyle(fontSize: 12),
+                ),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row(this.label, this.value, {this.bold = false});
-
-  final String label;
-  final String value;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(label, style: TextStyle(color: muted)),
-        ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
