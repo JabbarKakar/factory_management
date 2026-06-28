@@ -3,16 +3,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../blocs/expense/expense_list_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/expense_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/expenses/expense_category_filter_bar.dart';
 import '../../widgets/expenses/expense_list_tile.dart';
+import '../../widgets/expenses/expense_period_filter_bar.dart';
+import '../../widgets/expenses/expense_summary_card.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -30,11 +32,47 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<ExpenseListBloc>().add(const ExpenseListSearchChanged(''));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.expenses),
+        title: BlocBuilder<ExpenseListBloc, ExpenseListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleExpenses.length != curr.visibleExpenses.length ||
+              prev.periodFilter != curr.periodFilter ||
+              prev.categoryFilter != curr.categoryFilter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+            final filterParts = <String>[
+              if (state.periodFilter != ExpenseListPeriodFilter.thisMonth)
+                state.periodFilter.label,
+              if (state.categoryFilter != null) state.categoryFilter!.label,
+            ];
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.expenses),
+                Text(
+                  '${state.visibleExpenses.length} expenses'
+                  '${filterParts.isNotEmpty ? ' · ${filterParts.join(' · ')}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       floatingActionButton: context.userCanCreate(AppModule.expenses)
           ? FloatingActionButton.extended(
@@ -45,6 +83,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           BlocBuilder<ExpenseListBloc, ExpenseListState>(
             buildWhen: (prev, curr) =>
@@ -52,101 +91,28 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 prev.filteredTotal != curr.filteredTotal ||
                 prev.periodFilter != curr.periodFilter,
             builder: (context, state) {
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Card(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primaryContainer
-                      .withValues(alpha: 0.35),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                state.periodFilter ==
-                                        ExpenseListPeriodFilter.thisMonth
-                                    ? AppStrings.expensesThisMonth
-                                    : AppStrings.filteredTotal,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .labelMedium
-                                    ?.copyWith(color: AppColors.textSecondary),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                Formatters.currencyPkr(
-                                  state.periodFilter ==
-                                          ExpenseListPeriodFilter.thisMonth
-                                      ? state.monthTotal
-                                      : state.filteredTotal,
-                                ),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
-                                    ?.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              AppStrings.monthToDate,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
-                                  ?.copyWith(color: AppColors.textSecondary),
-                            ),
-                            Text(
-                              Formatters.currencyPkr(state.monthTotal),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+              return ExpenseSummaryCard(
+                periodFilter: state.periodFilter,
+                monthTotal: state.monthTotal,
+                filteredTotal: state.filteredTotal,
               );
             },
           ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchExpenses,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context
-                              .read<ExpenseListBloc>()
-                              .add(const ExpenseListSearchChanged(''));
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context.read<ExpenseListBloc>().add(ExpenseListSearchChanged(value));
-                setState(() {});
-              },
+              hintText: AppStrings.searchExpenses,
+              onChanged: (value) => context
+                  .read<ExpenseListBloc>()
+                  .add(ExpenseListSearchChanged(value)),
+              onClear: _onSearchClear,
             ),
           ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: BlocBuilder<ExpenseListBloc, ExpenseListState>(
               buildWhen: (prev, curr) =>
                   prev.periodFilter != curr.periodFilter ||
@@ -155,65 +121,25 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: ExpenseListPeriodFilter.values.map((period) {
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(period.label),
-                            selected: state.periodFilter == period,
-                            onSelected: (_) {
-                              context.read<ExpenseListBloc>().add(
-                                    ExpenseListPeriodFilterChanged(period),
-                                  );
-                            },
+                    ExpensePeriodFilterBar(
+                      selected: state.periodFilter,
+                      onChanged: (period) => context.read<ExpenseListBloc>().add(
+                            ExpenseListPeriodFilterChanged(period),
                           ),
-                        );
-                      }).toList(),
                     ),
                     const SizedBox(height: 8),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: FilterChip(
-                              label: const Text(AppStrings.allCategories),
-                              selected: state.categoryFilter == null,
-                              onSelected: (_) {
-                                context.read<ExpenseListBloc>().add(
-                                      const ExpenseListCategoryFilterChanged(
-                                        null,
-                                      ),
-                                    );
-                              },
-                            ),
-                          ),
-                          ...ExpenseCategory.values.map((category) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: FilterChip(
-                                label: Text(category.label),
-                                selected: state.categoryFilter == category,
-                                onSelected: (_) {
-                                  context.read<ExpenseListBloc>().add(
-                                        ExpenseListCategoryFilterChanged(
-                                          category,
-                                        ),
-                                      );
-                                },
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
+                    ExpenseCategoryFilterBar(
+                      selected: state.categoryFilter,
+                      onChanged: (category) => context
+                          .read<ExpenseListBloc>()
+                          .add(ExpenseListCategoryFilterChanged(category)),
                     ),
                   ],
                 );
               },
             ),
           ),
+          const SizedBox(height: 8),
           Expanded(
             child: BlocBuilder<ExpenseListBloc, ExpenseListState>(
               builder: (context, state) {
@@ -242,18 +168,24 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 }
 
                 if (state.visibleExpenses.isEmpty) {
+                  final filteredOut = state.searchQuery.isNotEmpty ||
+                      state.categoryFilter != null ||
+                      state.periodFilter != ExpenseListPeriodFilter.thisMonth ||
+                      state.expenses.isNotEmpty;
+
                   return EmptyStateView(
                     icon: Icons.receipt_long_outlined,
-                    title: state.searchQuery.isNotEmpty ||
-                            state.categoryFilter != null
+                    title: filteredOut
                         ? AppStrings.noExpensesFound
                         : AppStrings.noExpensesYet,
-                    subtitle: state.searchQuery.isNotEmpty
+                    subtitle: filteredOut
                         ? AppStrings.tryDifferentSearch
                         : AppStrings.addFirstExpense,
-                    action: state.searchQuery.isEmpty
+                    action: !filteredOut &&
+                            context.userCanCreate(AppModule.expenses)
                         ? ElevatedButton.icon(
-                            onPressed: () => context.push(RoutePaths.expensesAdd),
+                            onPressed: () =>
+                                context.push(RoutePaths.expensesAdd),
                             icon: const Icon(Icons.add),
                             label: const Text(AppStrings.addExpense),
                           )
