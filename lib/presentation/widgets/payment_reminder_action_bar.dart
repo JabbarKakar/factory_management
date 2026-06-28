@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/di/injection.dart';
 import '../../data/repositories/payment_reminder_repository.dart';
@@ -30,9 +31,15 @@ class PaymentReminderActionBar extends StatelessWidget {
   final DateTime? dueDate;
   final bool isOverdue;
 
+  static const Color _whatsAppGreen = Color(0xFF25A56A);
+
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final isDark = theme.brightness == Brightness.dark;
+    final surfaceTint = _whatsAppGreen.withValues(alpha: isDark ? 0.14 : 0.08);
+    final borderTint = _whatsAppGreen.withValues(alpha: isDark ? 0.32 : 0.22);
 
     return StreamBuilder(
       stream: getIt<PaymentReminderRepository>()
@@ -42,43 +49,80 @@ class PaymentReminderActionBar extends StatelessWidget {
             ? snapshot.data!.first
             : null;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (latest != null) ...[
-              Row(
-                children: [
-                  Icon(Icons.history, size: 14, color: muted),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '${AppStrings.lastRemindedOn} '
-                      '${DateFormat.yMMMd().add_jm().format(latest.sentAt)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: surfaceTint,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderTint),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 6, 6, 6),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.chat_outlined,
+                  size: 14,
+                  color: _whatsAppGreen.withValues(alpha: isDark ? 0.95 : 0.88),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: latest != null
+                      ? Text(
+                          '${AppStrings.lastRemindedOn} '
+                          '${DateFormat.MMMd().add_jm().format(latest.sentAt)}',
+                          style: theme.textTheme.labelSmall?.copyWith(
                             color: muted,
+                            fontSize: 10,
+                            height: 1.25,
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        )
+                      : Text(
+                          AppStrings.noRemindersYet,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: muted,
+                            fontSize: 10,
+                            height: 1.25,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                ),
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: AppStrings.remindOnWhatsApp,
+                  child: TextButton.icon(
+                    onPressed: () => _send(context),
+                    icon: const Icon(Icons.send_rounded, size: 13),
+                    label: const Text(
+                      'Remind',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: isDark ? AppColors.success : _whatsAppGreen,
+                    backgroundColor: _whatsAppGreen.withValues(
+                      alpha: isDark ? 0.18 : 0.12,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    minimumSize: Size.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => _send(context),
-                icon: const Icon(Icons.chat_outlined, size: 18),
-                label: const Text(AppStrings.remindOnWhatsApp),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  alignment: Alignment.center,
                 ),
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );

@@ -3,14 +3,16 @@ import 'package:flutter/material.dart';
 class JobWorkDetailRow extends StatelessWidget {
   const JobWorkDetailRow({
     required this.label,
-    required this.value,
+    this.value,
+    this.valueWidget,
     this.bold = false,
     this.highlight = false,
     super.key,
-  });
+  }) : assert(value != null || valueWidget != null);
 
   final String label;
-  final String value;
+  final String? value;
+  final Widget? valueWidget;
   final bool bold;
   final bool highlight;
 
@@ -37,16 +39,17 @@ class JobWorkDetailRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontSize: 12,
-              height: 1.35,
-              fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-              color: valueColor,
-            ),
-          ),
+          child: valueWidget ??
+              Text(
+                value ?? '—',
+                textAlign: TextAlign.end,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 12,
+                  height: 1.35,
+                  fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+                  color: valueColor,
+                ),
+              ),
         ),
       ],
     );

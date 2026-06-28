@@ -12,8 +12,8 @@ import '../../../domain/entities/job_work_invoice.dart';
 import '../../../domain/entities/payment.dart';
 import '../../../domain/entities/sales_invoice.dart';
 import '../../../domain/enums/invoice_enums.dart';
+import '../job_work/job_work_detail_section.dart';
 import '../payment_reminder_action_bar.dart';
-import '../settings_section.dart';
 
 class CustomerLedgerSection extends StatelessWidget {
   const CustomerLedgerSection({
@@ -31,18 +31,25 @@ class CustomerLedgerSection extends StatelessWidget {
     final salesInvoiceRepository = getIt<SalesInvoiceRepository>();
     final paymentRepository = getIt<PaymentRepository>();
 
-    return SettingsSection(
-      title: AppStrings.accountLedger,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              AppStrings.ledgerOpeningBalanceNote,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: JobWorkDetailSection(
+        title: AppStrings.accountLedger,
+        icon: Icons.account_balance_wallet_outlined,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                AppStrings.ledgerOpeningBalanceNote,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                      height: 1.35,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 12),
             StreamBuilder<List<JobWorkInvoice>>(
               stream: jobWorkInvoiceRepository.watchInvoicesForCustomer(customerId),
               builder: (context, jobWorkSnapshot) {
@@ -61,7 +68,13 @@ class CustomerLedgerSection extends StatelessWidget {
                         if (jobWorkInvoices.isEmpty &&
                             salesInvoices.isEmpty &&
                             payments.isEmpty) {
-                          return Text(AppStrings.noLedgerActivity);
+                          return Text(
+                            AppStrings.noLedgerActivity,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontSize: 11),
+                          );
                         }
 
                         final entries = <_LedgerEntry>[
@@ -81,7 +94,7 @@ class CustomerLedgerSection extends StatelessWidget {
                                 customerName: customerName,
                               ),
                               if (i < visible.length - 1)
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 8),
                             ],
                           ],
                         );
@@ -91,7 +104,8 @@ class CustomerLedgerSection extends StatelessWidget {
                 );
               },
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -226,7 +240,7 @@ class _OutstandingLedgerCard extends StatelessWidget {
         border: Border.all(color: accent.withValues(alpha: 0.28)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(11),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -235,10 +249,10 @@ class _OutstandingLedgerCard extends StatelessWidget {
               children: [
                 Icon(
                   Icons.receipt_long_outlined,
-                  size: 22,
+                  size: 18,
                   color: accent,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,13 +261,15 @@ class _OutstandingLedgerCard extends StatelessWidget {
                         entry.title,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
+                              fontSize: 12,
                             ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 3),
                       Text(
                         '${entry.reference} · $dateLabel',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: muted,
+                              fontSize: 11,
                             ),
                       ),
                     ],
@@ -264,22 +280,22 @@ class _OutstandingLedgerCard extends StatelessWidget {
                   Formatters.currencyPkr(entry.amount),
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: accent,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
                       ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               entry.subtitle,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: accent,
                     fontWeight: FontWeight.w600,
+                    fontSize: 11,
                   ),
             ),
-            const SizedBox(height: 14),
-            Divider(height: 1, color: accent.withValues(alpha: 0.2)),
-            const SizedBox(height: 14),
+            const SizedBox(height: 8),
             PaymentReminderActionBar(
               invoiceId: entry.invoiceId!,
               customerId: customerId,
@@ -330,20 +346,21 @@ class _CompactLedgerRow extends StatelessWidget {
     };
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: iconColor),
-          const SizedBox(width: 12),
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   entry.title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         fontWeight: FontWeight.w600,
+                        fontSize: 12,
                         color: entry.kind == _LedgerEntryKind.settled
                             ? muted
                             : null,
@@ -354,6 +371,7 @@ class _CompactLedgerRow extends StatelessWidget {
                   '${entry.reference} · ${entry.subtitle} · $dateLabel',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: muted,
+                        fontSize: 11,
                       ),
                 ),
               ],
@@ -362,9 +380,10 @@ class _CompactLedgerRow extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             amountText,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: amountColor,
                   fontWeight: FontWeight.w700,
+                  fontSize: 12,
                 ),
           ),
         ],

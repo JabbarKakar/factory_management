@@ -6,19 +6,30 @@ import 'package:intl/intl.dart';
 import '../../../blocs/customer/customer_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../domain/entities/customer.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/customers/customer_balance_indicator.dart';
+import '../../widgets/customers/customer_detail_hero.dart';
 import '../../widgets/customers/customer_ledger_section.dart';
-import '../../widgets/customers/service_type_chip.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/dashboard/dashboard_surface.dart';
+import '../../widgets/job_work/job_work_detail_row.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class CustomerDetailScreen extends StatelessWidget {
   const CustomerDetailScreen({required this.customerId, super.key});
 
   final String customerId;
+
+  String _formatAddress(String? street, String? city, String? province) {
+    final parts = [street, city, province]
+        .whereType<String>()
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '—';
+    return parts.join(', ');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +56,22 @@ class CustomerDetailScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(AppStrings.customerDetails),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.customerDetails),
+                Text(
+                  customer.name,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
             actions: [
               if (context.userCanEdit(AppModule.customers))
                 IconButton(
@@ -60,43 +86,42 @@ class CustomerDetailScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              _ProfileHeader(customer: customer),
-              SettingsSection(
+              CustomerDetailHero(customer: customer),
+              JobWorkDetailSection(
                 title: AppStrings.accountSummary,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _DetailRow(
-                        label: AppStrings.balance,
-                        value: Formatters.currencyPkr(customer.balance),
-                      ),
-                      const SizedBox(height: 12),
-                      _DetailRow(
-                        label: AppStrings.paymentStatus,
-                        valueWidget: CustomerBalanceIndicator(
+                icon: Icons.payments_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.balance,
+                      value: Formatters.currencyPkr(customer.balance),
+                      bold: true,
+                      highlight: true,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.paymentStatus,
+                      valueWidget: Align(
+                        alignment: Alignment.centerRight,
+                        child: CustomerBalanceIndicator(
                           status: customer.balanceStatus,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      _DetailRow(
-                        label: AppStrings.creditLimit,
-                        value: Formatters.currencyPkr(customer.creditLimit),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.creditLimit,
+                      value: Formatters.currencyPkr(customer.creditLimit),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.paymentTerms,
+                      value: customer.paymentTerms.label,
+                    ),
+                    if (customer.nextDueDate != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.nextDueDate,
+                        value:
+                            DateFormat.yMMMd().format(customer.nextDueDate!),
                       ),
-                      const SizedBox(height: 12),
-                      _DetailRow(
-                        label: AppStrings.paymentTerms,
-                        value: customer.paymentTerms.label,
-                      ),
-                      if (customer.nextDueDate != null) ...[
-                        const SizedBox(height: 12),
-                        _DetailRow(
-                          label: AppStrings.nextDueDate,
-                          value: DateFormat.yMMMd().format(customer.nextDueDate!),
-                        ),
-                      ],
-                    ],
-                  ),
+                  ],
                 ),
               ),
               CustomerLedgerSection(
@@ -105,48 +130,71 @@ class CustomerDetailScreen extends StatelessWidget {
               ),
               if (context.userCanExport(AppModule.customers))
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: FilledButton.icon(
-                    onPressed: () => context.push(
-                      RoutePaths.customerStatement(customer.id),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: DashboardSurfaceCard(
+                    compact: true,
+                    borderRadius: 14,
+                    padding: const EdgeInsets.all(12),
+                    child: FilledButton.icon(
+                      onPressed: () => context.push(
+                        RoutePaths.customerStatement(customer.id),
+                      ),
+                      icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                      label: Text(
+                        AppStrings.generateStatement,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
                     ),
-                    icon: const Icon(Icons.receipt_long_outlined),
-                    label: const Text(AppStrings.generateStatement),
                   ),
                 ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.contactInformation,
-                child: _DetailList(
-                  items: [
-                    _DetailItem(AppStrings.phone, customer.phone),
+                icon: Icons.contact_phone_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.phone,
+                      value: customer.phone,
+                    ),
                     if (customer.phoneSecondary != null)
-                      _DetailItem(
-                        AppStrings.secondaryPhone,
-                        customer.phoneSecondary!,
+                      JobWorkDetailRow(
+                        label: AppStrings.secondaryPhone,
+                        value: customer.phoneSecondary!,
                       ),
                     if (customer.whatsApp != null)
-                      _DetailItem(AppStrings.whatsApp, customer.whatsApp!),
+                      JobWorkDetailRow(
+                        label: AppStrings.whatsApp,
+                        value: customer.whatsApp!,
+                      ),
                     if (customer.email != null)
-                      _DetailItem(AppStrings.email, customer.email!),
+                      JobWorkDetailRow(
+                        label: AppStrings.email,
+                        value: customer.email!,
+                      ),
                   ],
                 ),
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.address,
-                child: _DetailList(
-                  items: [
-                    _DetailItem(
-                      AppStrings.billingAddress,
-                      _formatAddress(
+                icon: Icons.location_on_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.billingAddress,
+                      value: _formatAddress(
                         customer.billingStreet,
                         customer.billingCity,
                         customer.billingProvince,
                       ),
                     ),
                     if (!customer.useSameShippingAddress)
-                      _DetailItem(
-                        AppStrings.shippingAddress,
-                        _formatAddress(
+                      JobWorkDetailRow(
+                        label: AppStrings.shippingAddress,
+                        value: _formatAddress(
                           customer.shippingStreet,
                           customer.shippingCity,
                           customer.shippingProvince,
@@ -155,34 +203,44 @@ class CustomerDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.businessDetails,
-                child: _DetailList(
-                  items: [
-                    _DetailItem(
-                      AppStrings.customerType,
-                      customer.customerType.label,
+                icon: Icons.business_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.customerType,
+                      value: customer.customerType.label,
                     ),
                     if (customer.contactPersonName != null)
-                      _DetailItem(
-                        AppStrings.contactPerson,
-                        customer.contactPersonName!,
+                      JobWorkDetailRow(
+                        label: AppStrings.contactPerson,
+                        value: customer.contactPersonName!,
                       ),
-                    _DetailItem(
-                      AppStrings.customerCategory,
-                      customer.category.label,
+                    JobWorkDetailRow(
+                      label: AppStrings.customerCategory,
+                      value: customer.category.label,
                     ),
                     if (customer.cnicNtn != null)
-                      _DetailItem(AppStrings.cnicNtn, customer.cnicNtn!),
+                      JobWorkDetailRow(
+                        label: AppStrings.cnicNtn,
+                        value: customer.cnicNtn!,
+                      ),
                     if (customer.referredBy != null)
-                      _DetailItem(AppStrings.referredBy, customer.referredBy!),
+                      JobWorkDetailRow(
+                        label: AppStrings.referredBy,
+                        value: customer.referredBy!,
+                      ),
                     if (customer.otherServiceDescription != null)
-                      _DetailItem(
-                        AppStrings.otherServiceDescription,
-                        customer.otherServiceDescription!,
+                      JobWorkDetailRow(
+                        label: AppStrings.otherServiceDescription,
+                        value: customer.otherServiceDescription!,
                       ),
                     if (customer.notes != null)
-                      _DetailItem(AppStrings.notes, customer.notes!),
+                      JobWorkDetailRow(
+                        label: AppStrings.notes,
+                        value: customer.notes!,
+                      ),
                   ],
                 ),
               ),
@@ -190,116 +248,6 @@ class CustomerDetailScreen extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  String _formatAddress(String? street, String? city, String? province) {
-    final parts = [street, city, province]
-        .whereType<String>()
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    if (parts.isEmpty) return '—';
-    return parts.join(', ');
-  }
-}
-
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.customer});
-
-  final Customer customer;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              customer.name,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            ServiceTypeChip(serviceType: customer.serviceType),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailList extends StatelessWidget {
-  const _DetailList({required this.items});
-
-  final List<_DetailItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: _DetailRow(label: items[i].label, value: items[i].value),
-          ),
-          if (i < items.length - 1) const Divider(height: 1),
-        ],
-      ],
-    );
-  }
-}
-
-class _DetailItem {
-  const _DetailItem(this.label, this.value);
-
-  final String label;
-  final String value;
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    this.value,
-    this.valueWidget,
-  });
-
-  final String label;
-  final String? value;
-  final Widget? valueWidget;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: muted,
-                ),
-          ),
-        ),
-        Expanded(
-          flex: 3,
-          child: valueWidget ??
-              Text(
-                value ?? '—',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                textAlign: TextAlign.end,
-              ),
-        ),
-      ],
     );
   }
 }
