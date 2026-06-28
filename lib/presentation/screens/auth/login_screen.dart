@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/validators.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/auth/login_brand_header.dart';
+import '../../widgets/dashboard/dashboard_surface.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -57,105 +59,145 @@ class _LoginScreenState extends State<LoginScreen> {
         },
         builder: (context, state) {
           final isLoading = state is AuthLoading;
+          final theme = Theme.of(context);
 
           return SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Icon(
-                          Icons.factory_outlined,
-                          size: 64,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          AppStrings.appFullName,
-                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.primary,
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const LoginBrandHeader(),
+                      DashboardSurfaceCard(
+                        compact: true,
+                        borderRadius: 14,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                AppStrings.login,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  letterSpacing: 0.1,
+                                ),
                               ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Sign in to manage your factory',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                autofillHints: const [AutofillHints.email],
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 13,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: AppStrings.email,
+                                  labelStyle: TextStyle(fontSize: 12),
+                                  prefixIcon: Icon(Icons.email_outlined, size: 20),
+                                  isDense: true,
+                                ),
+                                validator: Validators.email,
+                                enabled: !isLoading,
                               ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 40),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          autofillHints: const [AutofillHints.email],
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.email,
-                            prefixIcon: Icon(Icons.email_outlined),
-                          ),
-                          validator: Validators.email,
-                          enabled: !isLoading,
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: _obscurePassword,
-                          textInputAction: TextInputAction.done,
-                          autofillHints: const [AutofillHints.password],
-                          decoration: InputDecoration(
-                            labelText: AppStrings.password,
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                              ),
-                              onPressed: isLoading
-                                  ? null
-                                  : () => setState(
-                                        () => _obscurePassword = !_obscurePassword,
-                                      ),
-                            ),
-                          ),
-                          validator: Validators.password,
-                          enabled: !isLoading,
-                          onFieldSubmitted: (_) => _submit(),
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: isLoading
-                                ? null
-                                : () => context.push(RoutePaths.forgotPassword),
-                            child: const Text(AppStrings.forgotPassword),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: isLoading ? null : _submit,
-                          child: isLoading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
+                              const SizedBox(height: 12),
+                              TextFormField(
+                                controller: _passwordController,
+                                obscureText: _obscurePassword,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [AutofillHints.password],
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 13,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: AppStrings.password,
+                                  labelStyle: const TextStyle(fontSize: 12),
+                                  prefixIcon: const Icon(
+                                    Icons.lock_outline,
+                                    size: 20,
                                   ),
-                                )
-                              : const Text(AppStrings.login),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePassword
+                                          ? Icons.visibility_outlined
+                                          : Icons.visibility_off_outlined,
+                                      size: 20,
+                                    ),
+                                    onPressed: isLoading
+                                        ? null
+                                        : () => setState(
+                                              () => _obscurePassword =
+                                                  !_obscurePassword,
+                                            ),
+                                  ),
+                                  isDense: true,
+                                ),
+                                validator: Validators.password,
+                                enabled: !isLoading,
+                                onFieldSubmitted: (_) => _submit(),
+                              ),
+                              const SizedBox(height: 4),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: isLoading
+                                      ? null
+                                      : () =>
+                                          context.push(RoutePaths.forgotPassword),
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    AppStrings.forgotPassword,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              FilledButton(
+                                onPressed: isLoading ? null : _submit,
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: isLoading
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        AppStrings.login,
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
