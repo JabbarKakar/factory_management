@@ -11,6 +11,8 @@ class PlCategoryLine extends Equatable {
   final ExpenseCategory category;
   final double amount;
 
+  String get label => category.label;
+
   @override
   List<Object?> get props => [category, amount];
 }
@@ -41,6 +43,10 @@ class MonthlyPlReport extends Equatable {
   final double netProfitMargin;
   final int paymentCount;
   final int expenseCount;
+
+  DateTime get monthDate => DateTime(year, month);
+
+  bool get isProfit => netProfit >= 0;
 
   bool get hasData => paymentCount > 0 || expenseCount > 0;
 
