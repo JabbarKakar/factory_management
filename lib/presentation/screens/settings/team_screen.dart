@@ -3,8 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../blocs/team/team_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/entities/app_user.dart';
 import '../../../domain/enums/factory_role_enums.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
+import '../../widgets/empty_state_view.dart';
+import '../../widgets/team/team_member_tile.dart';
+import '../../widgets/team/team_summary_card.dart';
 
 class TeamScreen extends StatelessWidget {
   const TeamScreen({super.key});
@@ -23,12 +27,39 @@ class TeamScreen extends StatelessWidget {
         );
       },
       builder: (context, state) {
+        final appBarForeground =
+            Theme.of(context).appBarTheme.foregroundColor ??
+                Theme.of(context).colorScheme.onSurface;
+
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.teamManagement)),
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.teamManagement),
+                Text(
+                  state.users.isEmpty
+                      ? AppStrings.teamManagementSubtitle
+                      : '${state.users.length} members',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
+          ),
           body: _buildBody(context, state),
         );
       },
     );
+  }
+
+  int _driverCount(List<AppUser> users) {
+    return users
+        .where((user) => user.factoryRole == FactoryRole.driver)
+        .length;
   }
 
   Widget _buildBody(BuildContext context, TeamState state) {
@@ -37,126 +68,82 @@ class TeamScreen extends StatelessWidget {
     }
 
     if (state.status == TeamStatus.failure && state.users.isEmpty) {
-      return Center(child: Text(state.errorMessage ?? AppStrings.teamLoadError));
+      return EmptyStateView(
+        icon: Icons.error_outline,
+        title: AppStrings.teamLoadError,
+        subtitle: state.errorMessage,
+        action: ElevatedButton(
+          onPressed: () {
+            final factoryId = state.factoryId;
+            final currentUserId = state.currentUserId;
+            if (factoryId == null || currentUserId == null) return;
+            context.read<TeamBloc>().add(
+                  TeamWatchStarted(
+                    factoryId: factoryId,
+                    currentUserId: currentUserId,
+                  ),
+                );
+          },
+          child: const Text(AppStrings.retry),
+        ),
+      );
     }
 
     if (state.users.isEmpty) {
-      return const Center(child: Text(AppStrings.teamEmpty));
+      return const EmptyStateView(
+        icon: Icons.groups_outlined,
+        title: AppStrings.teamEmpty,
+        subtitle: AppStrings.teamManagementSubtitle,
+      );
     }
 
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: state.users.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final member = state.users[index];
-        final isSelf = member.id == state.currentUserId;
-        final isDriver = member.factoryRole == FactoryRole.driver;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TeamSummaryCard(
+          memberCount: state.users.length,
+          driverCount: _driverCount(state.users),
+        ),
+        if (state.isSaving) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(minHeight: 2),
+        ],
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.only(top: 4, bottom: 24),
+            itemCount: state.users.length,
+            itemBuilder: (context, index) {
+              final member = state.users[index];
+              final isSelf = member.id == state.currentUserId;
 
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      child: Text(
-                        member.name.isNotEmpty
-                            ? member.name[0].toUpperCase()
-                            : '?',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            member.name,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          Text(member.email),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<FactoryRole>(
-                  isExpanded: true,
-                  initialValue: member.factoryRole,
-                  decoration: InputDecoration(
-                    labelText: AppStrings.role,
-                    border: const OutlineInputBorder(),
-                  ),
-                  items: FactoryRole.values
-                      .map(
-                        (role) => DropdownMenuItem(
-                          value: role,
-                          child: Text(role.label),
+              return TeamMemberTile(
+                key: ValueKey(member.id),
+                member: member,
+                employees: state.employees,
+                isSelf: isSelf,
+                enabled: !state.isSaving,
+                onRoleChanged: (role) {
+                  context.read<TeamBloc>().add(
+                        TeamRoleChangeRequested(
+                          userId: member.id,
+                          role: role,
                         ),
-                      )
-                      .toList(),
-                  onChanged: state.isSaving || isSelf
-                      ? null
-                      : (role) {
-                          if (role == null) return;
-                          context.read<TeamBloc>().add(
-                                TeamRoleChangeRequested(
-                                  userId: member.id,
-                                  role: role,
-                                ),
-                              );
-                        },
-                ),
-                if (isDriver) ...[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String?>(
-                    isExpanded: true,
-                    initialValue: member.employeeId,
-                    decoration: InputDecoration(
-                      labelText: AppStrings.linkedEmployee,
-                      border: const OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text(AppStrings.noEmployeeLinked),
-                      ),
-                      ...state.employees.map(
-                        (employee) => DropdownMenuItem<String?>(
-                          value: employee.id,
-                          child: Text(employee.fullName),
+                      );
+                },
+                onEmployeeLinkChanged: (employeeId) {
+                  context.read<TeamBloc>().add(
+                        TeamEmployeeLinkRequested(
+                          userId: member.id,
+                          employeeId: employeeId,
                         ),
-                      ),
-                    ],
-                    onChanged: state.isSaving || isSelf
-                        ? null
-                        : (employeeId) {
-                            context.read<TeamBloc>().add(
-                                  TeamEmployeeLinkRequested(
-                                    userId: member.id,
-                                    employeeId: employeeId,
-                                  ),
-                                );
-                          },
-                  ),
-                  if (member.employeeId == null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        AppStrings.driverEmployeeLinkHint,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                ],
-              ],
-            ),
+                      );
+                },
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
