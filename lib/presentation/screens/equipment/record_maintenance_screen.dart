@@ -8,7 +8,8 @@ import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/maintenance_log.dart';
 import '../../../domain/enums/equipment_enums.dart';
 import '../../utils/auth_context.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class RecordMaintenanceScreen extends StatefulWidget {
   const RecordMaintenanceScreen({required this.equipmentId, super.key});
@@ -58,7 +59,8 @@ class _RecordMaintenanceScreenState extends State<RecordMaintenanceScreen> {
   Future<void> _pickNextDueDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _nextDueDate ?? DateTime.now().add(const Duration(days: 90)),
+      initialDate:
+          _nextDueDate ?? DateTime.now().add(const Duration(days: 90)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
@@ -141,187 +143,210 @@ class _RecordMaintenanceScreenState extends State<RecordMaintenanceScreen> {
         final isSaving = state.status == MaintenanceFormStatus.saving;
 
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.recordMaintenance)),
+          appBar: AppBar(
+            title: AppFormAppBarTitle(
+              title: AppStrings.recordMaintenance,
+              subtitle:
+                  '${equipment.name} · ${equipment.equipmentNumber}',
+            ),
+          ),
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.equipmentDetails,
-                  child: ListTile(
-                    title: Text(equipment.name),
-                    subtitle: Text(equipment.equipmentNumber),
+                  icon: Icons.precision_manufacturing_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      Text(
+                        equipment.name,
+                        style: AppFormFields.valueStyle(context),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        equipment.equipmentNumber,
+                        style: AppFormFields.labelStyle(context),
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.maintenanceDetails,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.maintenanceDate),
-                          subtitle:
-                              Text(DateFormat.yMMMd().format(_maintenanceDate)),
-                          trailing: const Icon(Icons.calendar_today_outlined),
-                          onTap: isSaving ? null : _pickMaintenanceDate,
+                  icon: Icons.build_circle_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      AppFormDateField(
+                        label: AppStrings.maintenanceDate,
+                        value: DateFormat.yMMMd().format(_maintenanceDate),
+                        onTap: isSaving ? null : _pickMaintenanceDate,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<MaintenanceType>(
+                        key: ValueKey(_maintenanceType),
+                        initialValue: _maintenanceType,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.maintenanceType,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<MaintenanceType>(
-                          initialValue: _maintenanceType,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.maintenanceType,
-                          ),
-                          items: MaintenanceType.values
-                              .map(
-                                (type) => DropdownMenuItem(
-                                  value: type,
-                                  child: Text(type.label),
+                        items: MaintenanceType.values
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(
+                                  type.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _maintenanceType = value);
-                                  }
-                                },
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _maintenanceType = value);
+                                }
+                              },
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _descriptionController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.maintenanceDescription,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _descriptionController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.maintenanceDescription,
-                          ),
-                          maxLines: 3,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Description is required';
-                            }
-                            return null;
-                          },
+                        maxLines: 3,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Description is required';
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _costController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.maintenanceCost,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _costController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.maintenanceCost,
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<MaintenancePerformedBy>(
-                          initialValue: _performedBy,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.performedBy,
-                          ),
-                          items: MaintenancePerformedBy.values
-                              .map(
-                                (value) => DropdownMenuItem(
-                                  value: value,
-                                  child: Text(value.label),
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<MaintenancePerformedBy>(
+                        key: ValueKey(_performedBy),
+                        initialValue: _performedBy,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.performedBy,
+                        ),
+                        items: MaintenancePerformedBy.values
+                            .map(
+                              (value) => DropdownMenuItem(
+                                value: value,
+                                child: Text(
+                                  value.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _performedBy = value);
-                                  }
-                                },
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _performedBy = value);
+                                }
+                              },
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _performedByNameController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.performedByName,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _performedByNameController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.performedByName,
-                          ),
-                          textCapitalization: TextCapitalization.words,
+                        textCapitalization: TextCapitalization.words,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _downtimeController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.downtimeHours,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _downtimeController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.downtimeHours,
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        const SizedBox(height: 12),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.nextMaintenanceDue),
-                          subtitle: Text(
-                            _nextDueDate == null
-                                ? AppStrings.notSpecified
-                                : DateFormat.yMMMd().format(_nextDueDate!),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_nextDueDate != null)
-                                IconButton(
-                                  onPressed: isSaving
-                                      ? null
-                                      : () => setState(() => _nextDueDate = null),
-                                  icon: const Icon(Icons.clear),
-                                ),
-                              const Icon(Icons.calendar_today_outlined),
-                            ],
-                          ),
-                          onTap: isSaving ? null : _pickNextDueDate,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.nextMaintenanceDue,
+                        value: _nextDueDate == null
+                            ? AppStrings.notSpecified
+                            : DateFormat.yMMMd().format(_nextDueDate!),
+                        onTap: isSaving ? null : _pickNextDueDate,
+                        onClear: isSaving || _nextDueDate == null
+                            ? null
+                            : () => setState(() => _nextDueDate = null),
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<EquipmentStatus?>(
+                        key: ValueKey(_statusAfter),
+                        initialValue: _statusAfter,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.statusAfterMaintenance,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<EquipmentStatus?>(
-                          initialValue: _statusAfter,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.statusAfterMaintenance,
-                          ),
-                          items: [
-                            const DropdownMenuItem<EquipmentStatus?>(
-                              value: null,
-                              child: Text(AppStrings.keepCurrentStatus),
+                        items: [
+                          const DropdownMenuItem<EquipmentStatus?>(
+                            value: null,
+                            child: Text(
+                              AppStrings.keepCurrentStatus,
+                              style: TextStyle(fontSize: 13),
                             ),
-                            ...EquipmentStatus.values.map(
-                              (status) => DropdownMenuItem(
-                                value: status,
-                                child: Text(status.label),
+                          ),
+                          ...EquipmentStatus.values.map(
+                            (status) => DropdownMenuItem(
+                              value: status,
+                              child: Text(
+                                status.label,
+                                style: const TextStyle(fontSize: 13),
                               ),
                             ),
-                          ],
-                          onChanged: isSaving
-                              ? null
-                              : (value) => setState(() => _statusAfter = value),
-                        ),
-                      ],
-                    ),
+                          ),
+                        ],
+                        onChanged: isSaving
+                            ? null
+                            : (value) => setState(() => _statusAfter = value),
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: FilledButton(
-                    onPressed: isSaving
-                        ? null
-                        : () {
-                            final factoryId = readFactoryId(context);
-                            if (factoryId == null) return;
-                            _submit(context, factoryId);
-                          },
-                    child: isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text(AppStrings.saveMaintenance),
-                  ),
+                AppFormSubmitBar(
+                  label: AppStrings.saveMaintenance,
+                  isLoading: isSaving,
+                  onPressed: isSaving
+                      ? null
+                      : () {
+                          final factoryId = readFactoryId(context);
+                          if (factoryId == null) return;
+                          _submit(context, factoryId);
+                        },
                 ),
               ],
             ),

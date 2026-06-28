@@ -6,7 +6,8 @@ import 'package:intl/intl.dart';
 import '../../../blocs/delivery/delivery_confirm_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/delivery.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class ConfirmDeliveryScreen extends StatefulWidget {
   const ConfirmDeliveryScreen({required this.deliveryId, super.key});
@@ -72,6 +73,13 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
         );
   }
 
+  String _appBarSubtitle(Delivery delivery) {
+    if (delivery.deliveryNumber.isNotEmpty) {
+      return '${delivery.deliveryNumber} · ${delivery.customerName}';
+    }
+    return delivery.customerName;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<DeliveryConfirmBloc, DeliveryConfirmState>(
@@ -93,7 +101,12 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
         if (state.status == DeliveryConfirmStatus.loading ||
             state.status == DeliveryConfirmStatus.initial) {
           return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.confirmDelivery)),
+            appBar: AppBar(
+              title: AppFormAppBarTitle(
+                title: AppStrings.confirmDelivery,
+                subtitle: AppStrings.confirmDelivery,
+              ),
+            ),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -101,7 +114,12 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
         final delivery = state.delivery;
         if (delivery == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.confirmDelivery)),
+            appBar: AppBar(
+              title: AppFormAppBarTitle(
+                title: AppStrings.confirmDelivery,
+                subtitle: AppStrings.confirmDelivery,
+              ),
+            ),
             body: Center(
               child: Text(state.errorMessage ?? AppStrings.deliveryNotFound),
             ),
@@ -112,86 +130,95 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
         final isSaving = state.status == DeliveryConfirmStatus.saving;
 
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.confirmDelivery)),
+          appBar: AppBar(
+            title: AppFormAppBarTitle(
+              title: AppStrings.confirmDelivery,
+              subtitle: _appBarSubtitle(delivery),
+            ),
+          ),
           body: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.only(top: 12, bottom: 24),
             children: [
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.actualDeliveryDate,
-                child: ListTile(
-                  title: Text(DateFormat.yMMMd().format(_actualDate)),
-                  trailing: const Icon(Icons.calendar_today_outlined),
-                  onTap: isSaving ? null : _pickDate,
-                ),
-              ),
-              SettingsSection(
-                title: AppStrings.itemsToDeliver,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: _fields.map((field) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              field.item.displayLabel,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              'Scheduled: ${field.item.quantity} ${field.item.quantityUnit.label}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: field.controller,
-                              enabled: !isSaving,
-                              decoration: InputDecoration(
-                                labelText:
-                                    '${AppStrings.deliveredQuantity} (${field.item.quantityUnit.label})',
-                              ),
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              SettingsSection(
-                title: AppStrings.notes,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: TextField(
-                    controller: _notesController,
-                    enabled: !isSaving,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.notes,
+                icon: Icons.event_outlined,
+                child: AppFormSectionBody(
+                  children: [
+                    AppFormDateField(
+                      label: AppStrings.actualDeliveryDate,
+                      value: DateFormat.yMMMd().format(_actualDate),
+                      onTap: isSaving ? null : _pickDate,
                     ),
-                    maxLines: 3,
-                  ),
+                  ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: FilledButton(
-                  onPressed: isSaving ? null : () => _submit(context),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text(AppStrings.confirmDelivery),
+              JobWorkDetailSection(
+                title: AppStrings.itemsToDeliver,
+                icon: Icons.inventory_2_outlined,
+                child: AppFormSectionBody(
+                  children: _fields.map((field) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            field.item.displayLabel,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Scheduled: ${field.item.quantity} ${field.item.quantityUnit.label}',
+                            style: AppFormFields.labelStyle(context),
+                          ),
+                          AppFormFields.gap,
+                          TextFormField(
+                            controller: field.controller,
+                            enabled: !isSaving,
+                            style: AppFormFields.valueStyle(context),
+                            decoration: AppFormFields.decoration(
+                              context,
+                              label:
+                                  '${AppStrings.deliveredQuantity} (${field.item.quantityUnit.label})',
+                            ),
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ),
+              ),
+              JobWorkDetailSection(
+                title: AppStrings.notes,
+                icon: Icons.notes_outlined,
+                child: AppFormSectionBody(
+                  children: [
+                    TextFormField(
+                      controller: _notesController,
+                      enabled: !isSaving,
+                      style: AppFormFields.valueStyle(context),
+                      decoration: AppFormFields.decoration(
+                        context,
+                        label: AppStrings.notes,
+                      ),
+                      maxLines: 3,
+                    ),
+                  ],
+                ),
+              ),
+              AppFormSubmitBar(
+                label: AppStrings.confirmDelivery,
+                isLoading: isSaving,
+                onPressed: isSaving ? null : () => _submit(context),
               ),
             ],
           ),

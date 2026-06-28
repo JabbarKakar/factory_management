@@ -105,12 +105,14 @@ class AppFormDateField extends StatelessWidget {
     required this.label,
     required this.value,
     this.onTap,
+    this.onClear,
     super.key,
   });
 
   final String label;
   final String value;
   final VoidCallback? onTap;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -171,11 +173,25 @@ class AppFormDateField extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 20,
-                  color: muted.withValues(alpha: 0.7),
-                ),
+                if (onClear != null) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: onClear,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Clear',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+                ] else
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: muted.withValues(alpha: 0.7),
+                  ),
               ],
             ),
           ),
@@ -311,6 +327,173 @@ class AppFormSubmitBar extends StatelessWidget {
                 ),
               )
             : Text(label),
+      ),
+    );
+  }
+}
+
+/// Two-line app bar title used on form screens.
+class AppFormAppBarTitle extends StatelessWidget {
+  const AppFormAppBarTitle({
+    required this.title,
+    required this.subtitle,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final appBarForeground = Theme.of(context).appBarTheme.foregroundColor ??
+        Theme.of(context).colorScheme.onSurface;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: appBarForeground.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w500,
+                fontSize: 11,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Compact context header for record/payment forms.
+class AppFormContextHeader extends StatelessWidget {
+  const AppFormContextHeader({
+    required this.title,
+    required this.subtitle,
+    this.icon = Icons.receipt_long_outlined,
+    super.key,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final outline =
+        theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.45);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(14),
+            bottomRight: Radius.circular(14),
+          ),
+          border: Border.all(color: outline),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(width: 3, color: theme.colorScheme.primary),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color:
+                              theme.colorScheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          icon,
+                          size: 15,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 13,
+                                height: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              subtitle,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 11,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom safe-area submit bar for forms that pin the action.
+class AppFormBottomBar extends StatelessWidget {
+  const AppFormBottomBar({
+    required this.label,
+    required this.onPressed,
+    this.isLoading = false,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: FilledButton(
+          onPressed: isLoading ? null : onPressed,
+          style: FilledButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            textStyle:
+                const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          child: isLoading
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(label),
+        ),
       ),
     );
   }

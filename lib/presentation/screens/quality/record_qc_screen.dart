@@ -9,7 +9,8 @@ import '../../../domain/entities/quality_check.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../utils/auth_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class RecordQcScreen extends StatefulWidget {
   const RecordQcScreen({
@@ -162,6 +163,18 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
     context.read<QcFormBloc>().add(QcFormSubmitted(check));
   }
 
+  String _appBarSubtitle(QcFormState state) {
+    final batch = state.selectedBatch;
+    final order = state.selectedOrder;
+    if (batch != null) {
+      return '${batch.batchNumber} · ${batch.marbleVariety}';
+    }
+    if (order != null) {
+      return '${order.jobWorkNumber} · ${order.customerName}';
+    }
+    return _referenceType.label;
+  }
+
   Widget _dropdownLabel(String text) {
     return Text(
       text,
@@ -175,8 +188,10 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
       return DropdownButtonFormField<String>(
         initialValue: _selectedReferenceId,
         isExpanded: true,
-        decoration: const InputDecoration(
-          labelText: AppStrings.productionBatchLabel,
+        style: AppFormFields.valueStyle(context),
+        decoration: AppFormFields.decoration(
+          context,
+          label: AppStrings.productionBatchLabel,
         ),
         items: state.productionBatches
             .map(
@@ -208,8 +223,10 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
     return DropdownButtonFormField<String>(
       initialValue: _selectedReferenceId,
       isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: AppStrings.jobWorkOrderLabel,
+      style: AppFormFields.valueStyle(context),
+      decoration: AppFormFields.decoration(
+        context,
+        label: AppStrings.jobWorkOrderLabel,
       ),
       items: state.jobWorkOrders
           .map(
@@ -299,7 +316,12 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
         if (state.status == QcFormStatus.loading ||
             state.status == QcFormStatus.initial) {
           return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.recordQcInspection)),
+            appBar: AppBar(
+              title: const AppFormAppBarTitle(
+                title: AppStrings.recordQcInspection,
+                subtitle: AppStrings.recordQcInspection,
+              ),
+            ),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -310,272 +332,299 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
             : state.jobWorkOrders.isEmpty;
 
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.recordQcInspection)),
+          appBar: AppBar(
+            title: AppFormAppBarTitle(
+              title: AppStrings.recordQcInspection,
+              subtitle: _appBarSubtitle(state),
+            ),
+          ),
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.qcReference,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<QcReferenceType>(
-                          initialValue: _referenceType,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.qcReferenceType,
-                          ),
-                          items: QcReferenceType.values
-                              .map(
-                                (type) => DropdownMenuItem(
-                                  value: type,
-                                  child: _dropdownLabel(type.label),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value == null) return;
-                                  context.read<QcFormBloc>().add(
-                                        QcFormReferenceTypeChanged(value),
-                                      );
-                                },
-                        ),
-                        const SizedBox(height: 12),
-                        if (referencesEmpty)
-                          Text(
-                            _referenceType == QcReferenceType.production
-                                ? AppStrings.noQcEligibleProduction
-                                : AppStrings.noQcEligibleJobWork,
-                          )
-                        else
-                          _buildReferenceDropdown(state, isSaving),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_selectedReferenceId != null) ...[
-                  SettingsSection(
-                    title: AppStrings.qcInspectionDetails,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text(AppStrings.inspectionDate),
-                            subtitle:
-                                Text(DateFormat.yMMMd().format(_inspectionDate)),
-                            trailing:
-                                const Icon(Icons.calendar_today_outlined),
-                            onTap: isSaving ? null : _pickDate,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _inspectorController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.inspectorName,
-                            ),
-                            textCapitalization: TextCapitalization.words,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Inspector name is required';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _productController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.productType,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Product is required';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _varietyController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.marbleVariety,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Variety is required';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _sizeController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.sizeThickness,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _quantityController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.quantityInspected,
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Quantity is required';
-                              }
-                              final qty = double.tryParse(value.trim());
-                              if (qty == null || qty <= 0) {
-                                return 'Enter a valid quantity';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SettingsSection(
-                    title: AppStrings.outputByGrade,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          TextFormField(
-                            controller: _gradeAController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.gradeA,
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _gradeBController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.gradeB,
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _gradeCController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.gradeC,
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _rejectController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.reject,
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SettingsSection(
-                    title: AppStrings.defectsFound,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: QcDefectType.values.map((defect) {
-                          final selected = _defects.contains(defect);
-                          return FilterChip(
-                            label: Text(defect.label),
-                            selected: selected,
-                            onSelected: isSaving
-                                ? null
-                                : (value) {
-                                    setState(() {
-                                      if (value) {
-                                        _defects.add(defect);
-                                      } else {
-                                        _defects.remove(defect);
-                                      }
-                                    });
-                                  },
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  SettingsSection(
-                    title: AppStrings.qcDisposition,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: DropdownButtonFormField<QcDisposition>(
-                        initialValue: _disposition,
+                  icon: Icons.link_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      DropdownButtonFormField<QcReferenceType>(
+                        initialValue: _referenceType,
                         isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: AppStrings.qcDisposition,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.qcReferenceType,
                         ),
-                        items: QcDisposition.values
+                        items: QcReferenceType.values
                             .map(
-                              (disposition) => DropdownMenuItem(
-                                value: disposition,
-                                child: _dropdownLabel(disposition.label),
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: _dropdownLabel(type.label),
                               ),
                             )
                             .toList(),
                         onChanged: isSaving
                             ? null
                             : (value) {
-                                if (value != null) {
-                                  setState(() => _disposition = value);
-                                }
+                                if (value == null) return;
+                                context.read<QcFormBloc>().add(
+                                      QcFormReferenceTypeChanged(value),
+                                    );
                               },
                       ),
-                    ),
-                  ),
-                  SettingsSection(
-                    title: AppStrings.notes,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: AppStrings.notes,
+                      if (referencesEmpty) ...[
+                        AppFormFields.gap,
+                        Text(
+                          _referenceType == QcReferenceType.production
+                              ? AppStrings.noQcEligibleProduction
+                              : AppStrings.noQcEligibleJobWork,
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        maxLines: 3,
-                      ),
+                      ] else ...[
+                        AppFormFields.gap,
+                        _buildReferenceDropdown(state, isSaving),
+                      ],
+                    ],
+                  ),
+                ),
+                if (_selectedReferenceId != null) ...[
+                  JobWorkDetailSection(
+                    title: AppStrings.qcInspectionDetails,
+                    icon: Icons.fact_check_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        AppFormDateField(
+                          label: AppStrings.inspectionDate,
+                          value: DateFormat.yMMMd().format(_inspectionDate),
+                          onTap: isSaving ? null : _pickDate,
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _inspectorController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.inspectorName,
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                          enabled: !isSaving,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Inspector name is required';
+                            }
+                            return null;
+                          },
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _productController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.productType,
+                          ),
+                          enabled: !isSaving,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Product is required';
+                            }
+                            return null;
+                          },
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _varietyController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.marbleVariety,
+                          ),
+                          enabled: !isSaving,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Variety is required';
+                            }
+                            return null;
+                          },
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _sizeController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.sizeThickness,
+                          ),
+                          enabled: !isSaving,
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _quantityController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.quantityInspected,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          enabled: !isSaving,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Quantity is required';
+                            }
+                            final qty = double.tryParse(value.trim());
+                            if (qty == null || qty <= 0) {
+                              return 'Enter a valid quantity';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: FilledButton(
-                      onPressed:
-                          isSaving ? null : () => _submit(context, state),
-                      child: isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text(AppStrings.saveQcInspection),
+                  JobWorkDetailSection(
+                    title: AppStrings.outputByGrade,
+                    icon: Icons.grid_view_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        TextFormField(
+                          controller: _gradeAController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.gradeA,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          enabled: !isSaving,
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _gradeBController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.gradeB,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          enabled: !isSaving,
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _gradeCController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.gradeC,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          enabled: !isSaving,
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _rejectController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.reject,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          enabled: !isSaving,
+                        ),
+                      ],
                     ),
+                  ),
+                  JobWorkDetailSection(
+                    title: AppStrings.defectsFound,
+                    icon: Icons.warning_amber_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        AppFormChipGroup(
+                          label: AppStrings.defectsFound,
+                          options: QcDefectType.values
+                              .map((defect) => defect.label)
+                              .toList(),
+                          selected: _defects.map((defect) => defect.label).toSet(),
+                          enabled: !isSaving,
+                          onToggle: (option, value) {
+                            final defect = QcDefectType.values.firstWhere(
+                              (type) => type.label == option,
+                            );
+                            setState(() {
+                              if (value) {
+                                _defects.add(defect);
+                              } else {
+                                _defects.remove(defect);
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  JobWorkDetailSection(
+                    title: AppStrings.qcDisposition,
+                    icon: Icons.rule_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        DropdownButtonFormField<QcDisposition>(
+                          initialValue: _disposition,
+                          isExpanded: true,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.qcDisposition,
+                          ),
+                          items: QcDisposition.values
+                              .map(
+                                (disposition) => DropdownMenuItem(
+                                  value: disposition,
+                                  child: _dropdownLabel(disposition.label),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: isSaving
+                              ? null
+                              : (value) {
+                                  if (value != null) {
+                                    setState(() => _disposition = value);
+                                  }
+                                },
+                        ),
+                      ],
+                    ),
+                  ),
+                  JobWorkDetailSection(
+                    title: AppStrings.notes,
+                    icon: Icons.notes_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        TextFormField(
+                          controller: _notesController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.notes,
+                          ),
+                          maxLines: 3,
+                          enabled: !isSaving,
+                        ),
+                      ],
+                    ),
+                  ),
+                  AppFormSubmitBar(
+                    label: AppStrings.saveQcInspection,
+                    isLoading: isSaving,
+                    onPressed: isSaving ? null : () => _submit(context, state),
                   ),
                 ],
               ],

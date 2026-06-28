@@ -231,6 +231,7 @@ abstract final class AppStrings {
   static const String paymentDate = 'Payment Date';
   static const String paymentReference = 'Reference / Cheque #';
   static const String paymentNotes = 'Payment Notes';
+  static const String paymentDetails = 'Payment Details';
   static const String savePayment = 'Save Payment';
   static const String noPaymentsYet = 'No payments recorded yet';
   static const String accountLedger = 'Account Ledger';

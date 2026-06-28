@@ -12,7 +12,8 @@ import '../../../data/repositories/supplier_repository.dart';
 import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../utils/auth_context.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class RecordStockMovementScreen extends StatefulWidget {
   const RecordStockMovementScreen({
@@ -114,6 +115,8 @@ class _RecordStockMovementScreenState extends State<RecordStockMovementScreen> {
     final materialType = widget.materialType;
     final isStockIn = widget.isStockIn;
     final factoryId = readFactoryId(context);
+    final title =
+        isStockIn ? AppStrings.recordStockIn : AppStrings.recordStockOut;
 
     return BlocConsumer<StockMovementBloc, StockMovementState>(
       listener: (context, state) {
@@ -141,40 +144,61 @@ class _RecordStockMovementScreenState extends State<RecordStockMovementScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              isStockIn ? AppStrings.recordStockIn : AppStrings.recordStockOut,
+            title: AppFormAppBarTitle(
+              title: title,
+              subtitle: materialType.label,
             ),
           ),
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
-                SettingsSection(
+                JobWorkDetailSection(
                   title: materialType.label,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(
-                            isStockIn
-                                ? AppStrings.receiptDate
-                                : AppStrings.movementDate,
-                          ),
-                          subtitle:
-                              Text(DateFormat.yMMMd().format(_transactionDate)),
-                          trailing:
-                              const Icon(Icons.calendar_today_outlined),
-                          onTap: isSaving ? null : _pickDate,
+                  icon: Icons.category_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      AppFormDateField(
+                        label: isStockIn
+                            ? AppStrings.receiptDate
+                            : AppStrings.movementDate,
+                        value: DateFormat.yMMMd().format(_transactionDate),
+                        onTap: isSaving ? null : _pickDate,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _quantityController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label:
+                              '${AppStrings.quantity} (${materialType.unit.label})',
                         ),
-                        const SizedBox(height: 12),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        onChanged: (_) => setState(() {}),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Quantity is required';
+                          }
+                          final quantity = double.tryParse(value.trim());
+                          if (quantity == null || quantity <= 0) {
+                            return 'Enter a valid quantity';
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                      ),
+                      if (isStockIn) ...[
+                        AppFormFields.gap,
                         TextFormField(
-                          controller: _quantityController,
-                          decoration: InputDecoration(
-                            labelText:
-                                '${AppStrings.quantity} (${materialType.unit.label})',
+                          controller: _unitCostController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.unitCostPkr,
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -182,155 +206,133 @@ class _RecordStockMovementScreenState extends State<RecordStockMovementScreen> {
                           onChanged: (_) => setState(() {}),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Quantity is required';
+                              return 'Unit cost is required';
                             }
-                            final quantity = double.tryParse(value.trim());
-                            if (quantity == null || quantity <= 0) {
-                              return 'Enter a valid quantity';
+                            final cost = double.tryParse(value.trim());
+                            if (cost == null || cost < 0) {
+                              return 'Enter a valid unit cost';
                             }
                             return null;
                           },
+                          enabled: !isSaving,
                         ),
-                        if (isStockIn) ...[
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _unitCostController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.unitCostPkr,
-                            ),
-                            keyboardType:
-                                const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            onChanged: (_) => setState(() {}),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Unit cost is required';
-                              }
-                              final cost = double.tryParse(value.trim());
-                              if (cost == null || cost < 0) {
-                                return 'Enter a valid unit cost';
-                              }
-                              return null;
-                            },
+                        if (_totalCost != null) ...[
+                          AppFormFields.gap,
+                          AppFormSummaryRow(
+                            label: AppStrings.totalCost,
+                            value: Formatters.currencyPkr(_totalCost!),
+                            highlight: true,
                           ),
-                          if (_totalCost != null) ...[
-                            const SizedBox(height: 12),
-                            ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text(AppStrings.totalCost),
-                              trailing: Text(
-                                Formatters.currencyPkr(_totalCost!),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                          ],
                         ],
                       ],
-                    ),
+                    ],
                   ),
                 ),
                 if (isStockIn)
-                  SettingsSection(
+                  JobWorkDetailSection(
                     title: AppStrings.optionalDetails,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          if (factoryId != null)
-                            StreamBuilder<List<Supplier>>(
-                              stream: getIt<SupplierRepository>()
-                                  .watchSuppliers(factoryId),
-                              builder: (context, snapshot) {
-                                final suppliers = snapshot.data ?? const [];
-                                return DropdownButtonFormField<String?>(
-                                  initialValue: _supplierId != null &&
-                                          suppliers.any(
-                                            (supplier) =>
-                                                supplier.id == _supplierId,
-                                          )
-                                      ? _supplierId
-                                      : null,
-                                  decoration: const InputDecoration(
-                                    labelText: AppStrings.linkSupplier,
-                                  ),
-                                  items: [
-                                    const DropdownMenuItem<String?>(
-                                      value: null,
-                                      child: Text(AppStrings.noSupplierLinked),
+                    icon: Icons.more_horiz_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        if (factoryId != null)
+                          StreamBuilder<List<Supplier>>(
+                            stream: getIt<SupplierRepository>()
+                                .watchSuppliers(factoryId),
+                            builder: (context, snapshot) {
+                              final suppliers = snapshot.data ?? const [];
+                              final supplierValue = _supplierId != null &&
+                                      suppliers.any(
+                                        (supplier) =>
+                                            supplier.id == _supplierId,
+                                      )
+                                  ? _supplierId
+                                  : null;
+                              return DropdownButtonFormField<String?>(
+                                key: ValueKey(supplierValue),
+                                initialValue: supplierValue,
+                                style: AppFormFields.valueStyle(context),
+                                decoration: AppFormFields.decoration(
+                                  context,
+                                  label: AppStrings.linkSupplier,
+                                ),
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text(
+                                      AppStrings.noSupplierLinked,
+                                      style: TextStyle(fontSize: 13),
                                     ),
-                                    ...suppliers.map(
-                                      (supplier) => DropdownMenuItem<String?>(
-                                        value: supplier.id,
-                                        child: Text(supplier.name),
+                                  ),
+                                  ...suppliers.map(
+                                    (supplier) => DropdownMenuItem<String?>(
+                                      value: supplier.id,
+                                      child: Text(
+                                        supplier.name,
+                                        style: const TextStyle(fontSize: 13),
                                       ),
                                     ),
-                                  ],
-                                  onChanged: isSaving
-                                      ? null
-                                      : (value) =>
-                                          setState(() => _supplierId = value),
-                                );
-                              },
-                            ),
-                          if (factoryId != null) const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _referenceController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.referenceNumber,
-                            ),
+                                  ),
+                                ],
+                                onChanged: isSaving
+                                    ? null
+                                    : (value) =>
+                                        setState(() => _supplierId = value),
+                              );
+                            },
                           ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _notesController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.notes,
-                            ),
-                            maxLines: 3,
-                            textCapitalization: TextCapitalization.sentences,
+                        if (factoryId != null) AppFormFields.gap,
+                        TextFormField(
+                          controller: _referenceController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.referenceNumber,
                           ),
-                        ],
-                      ),
+                          enabled: !isSaving,
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _notesController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.notes,
+                          ),
+                          maxLines: 3,
+                          textCapitalization: TextCapitalization.sentences,
+                          enabled: !isSaving,
+                        ),
+                      ],
                     ),
                   )
                 else
-                  SettingsSection(
+                  JobWorkDetailSection(
                     title: AppStrings.optionalDetails,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: AppStrings.consumptionReason,
+                    icon: Icons.more_horiz_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        TextFormField(
+                          controller: _notesController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.consumptionReason,
+                          ),
+                          maxLines: 3,
+                          textCapitalization: TextCapitalization.sentences,
+                          validator: (value) => Validators.requiredText(
+                            value,
+                            field: 'Reason',
+                          ),
+                          enabled: !isSaving,
                         ),
-                        maxLines: 3,
-                        textCapitalization: TextCapitalization.sentences,
-                        validator: (value) => Validators.requiredText(
-                          value,
-                          field: 'Reason',
-                        ),
-                      ),
+                      ],
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: FilledButton(
-                    onPressed: isSaving ? null : () => _submit(context),
-                    child: isSaving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            isStockIn
-                                ? AppStrings.recordStockIn
-                                : AppStrings.recordStockOut,
-                          ),
-                  ),
+                AppFormSubmitBar(
+                  label: title,
+                  isLoading: isSaving,
+                  onPressed: isSaving ? null : () => _submit(context),
                 ),
               ],
             ),

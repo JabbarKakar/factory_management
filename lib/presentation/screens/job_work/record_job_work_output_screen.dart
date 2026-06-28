@@ -9,8 +9,9 @@ import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/job_work_output.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
+import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/add_shift_log_dialog.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class RecordJobWorkOutputScreen extends StatefulWidget {
   const RecordJobWorkOutputScreen({required this.jobWorkId, super.key});
@@ -252,171 +253,137 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              isEditing ? AppStrings.editOutput : AppStrings.recordOutput,
+            title: AppFormAppBarTitle(
+              title: isEditing ? AppStrings.editOutput : AppStrings.recordOutput,
+              subtitle: order.jobWorkNumber,
             ),
           ),
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 96),
+              padding: const EdgeInsets.only(top: 12, bottom: 12),
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: Text(
-                    '${order.jobWorkNumber} · ${order.customerName}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.shiftLogs,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+                  icon: Icons.schedule_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      Text(
+                        AppStrings.shiftLogsHint,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              height: 1.35,
+                            ),
+                      ),
+                      AppFormFields.gap,
+                      if (_shiftLogs.isEmpty)
                         Text(
-                          AppStrings.shiftLogsHint,
+                          AppStrings.noShiftLogsYet,
                           style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 12),
-                        if (_shiftLogs.isEmpty)
-                          Text(
-                            AppStrings.noShiftLogsYet,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          )
-                        else
-                          ..._shiftLogs.map(
-                            (shift) => Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                title: Text(
-                                  [
-                                    DateFormat.yMMMd().format(shift.shiftDate),
-                                    if (shift.shiftName != null) shift.shiftName,
-                                  ].join(' · '),
-                                ),
-                                subtitle: Text(
-                                  'A ${shift.gradeASqFt.toStringAsFixed(0)} · '
-                                  'B ${shift.gradeBSqFt.toStringAsFixed(0)} · '
-                                  'C ${shift.gradeCSqFt.toStringAsFixed(0)} · '
-                                  'Reject ${shift.rejectSqFt.toStringAsFixed(0)} sq. ft',
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline),
-                                  onPressed:
-                                      isSaving ? null : () => _removeShiftLog(shift),
-                                ),
+                        )
+                      else
+                        ..._shiftLogs.map(
+                          (shift) => Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              title: Text(
+                                [
+                                  DateFormat.yMMMd().format(shift.shiftDate),
+                                  if (shift.shiftName != null) shift.shiftName,
+                                ].join(' · '),
+                              ),
+                              subtitle: Text(
+                                'A ${shift.gradeASqFt.toStringAsFixed(0)} · '
+                                'B ${shift.gradeBSqFt.toStringAsFixed(0)} · '
+                                'C ${shift.gradeCSqFt.toStringAsFixed(0)} · '
+                                'Reject ${shift.rejectSqFt.toStringAsFixed(0)} sq. ft',
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: isSaving
+                                    ? null
+                                    : () => _removeShiftLog(shift),
                               ),
                             ),
                           ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: isSaving ? null : _addShiftLog,
-                          icon: const Icon(Icons.add),
-                          label: const Text(AppStrings.addShiftLog),
                         ),
-                      ],
-                    ),
+                      AppFormFields.gap,
+                      OutlinedButton.icon(
+                        onPressed: isSaving ? null : _addShiftLog,
+                        icon: const Icon(Icons.add),
+                        label: const Text(AppStrings.addShiftLog),
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.manualTotals,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (usesShiftLogs)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Text(
-                              AppStrings.manualTotalsLocked,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
-                                  ),
-                            ),
-                          ),
-                        _numberField(
-                          _gradeAController,
-                          AppStrings.gradeA,
-                          enabled: !isSaving && !usesShiftLogs,
+                  icon: Icons.calculate_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      if (usesShiftLogs)
+                        Text(
+                          AppStrings.manualTotalsLocked,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                         ),
-                        const SizedBox(height: 12),
-                        _numberField(
-                          _gradeBController,
-                          AppStrings.gradeB,
-                          enabled: !isSaving && !usesShiftLogs,
-                        ),
-                        const SizedBox(height: 12),
-                        _numberField(
-                          _gradeCController,
-                          AppStrings.gradeC,
-                          enabled: !isSaving && !usesShiftLogs,
-                        ),
-                        const SizedBox(height: 12),
-                        _numberField(
-                          _rejectController,
-                          AppStrings.reject,
-                          enabled: !isSaving && !usesShiftLogs,
-                        ),
-                      ],
-                    ),
+                      if (usesShiftLogs) AppFormFields.gap,
+                      _numberField(
+                        _gradeAController,
+                        AppStrings.gradeA,
+                        enabled: !isSaving && !usesShiftLogs,
+                      ),
+                      AppFormFields.gap,
+                      _numberField(
+                        _gradeBController,
+                        AppStrings.gradeB,
+                        enabled: !isSaving && !usesShiftLogs,
+                      ),
+                      AppFormFields.gap,
+                      _numberField(
+                        _gradeCController,
+                        AppStrings.gradeC,
+                        enabled: !isSaving && !usesShiftLogs,
+                      ),
+                      AppFormFields.gap,
+                      _numberField(
+                        _rejectController,
+                        AppStrings.reject,
+                        enabled: !isSaving && !usesShiftLogs,
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.wasteAndYield,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (!usesShiftLogs)
-                          _numberField(
-                            _wasteController,
-                            AppStrings.wasteGenerated,
-                            enabled: !isSaving,
+                  icon: Icons.recycling_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      if (!usesShiftLogs) ...[
+                        _numberField(
+                          _wasteController,
+                          AppStrings.wasteGenerated,
+                          enabled: !isSaving,
+                        ),
+                        AppFormFields.gap,
+                        DropdownButtonFormField<WasteUnit>(
+                          key: ValueKey(_wasteUnit),
+                          initialValue: _wasteUnit,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.wasteUnit,
                           ),
-                        if (!usesShiftLogs) const SizedBox(height: 12),
-                        if (!usesShiftLogs)
-                          DropdownButtonFormField<WasteUnit>(
-                            initialValue: _wasteUnit,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.wasteUnit,
-                              border: OutlineInputBorder(),
-                            ),
-                            items: WasteUnit.values
-                                .map(
-                                  (unit) => DropdownMenuItem(
-                                    value: unit,
-                                    child: Text(unit.label),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: isSaving
-                                ? null
-                                : (value) {
-                                    if (value == null) return;
-                                    setState(() => _wasteUnit = value);
-                                  },
-                          ),
-                        if (!usesShiftLogs) const SizedBox(height: 12),
-                        DropdownButtonFormField<WasteDisposition>(
-                          initialValue: _wasteDisposition,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.wasteDisposition,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: WasteDisposition.values
+                          items: WasteUnit.values
                               .map(
-                                (item) => DropdownMenuItem(
-                                  value: item,
-                                  child: Text(item.label),
+                                (unit) => DropdownMenuItem(
+                                  value: unit,
+                                  child: Text(
+                                    unit.label,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -424,117 +391,141 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                               ? null
                               : (value) {
                                   if (value == null) return;
-                                  setState(() => _wasteDisposition = value);
+                                  setState(() => _wasteUnit = value);
                                 },
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _slurryController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.slurryDust,
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: !isSaving,
-                        ),
+                        AppFormFields.gap,
                       ],
-                    ),
-                  ),
-                ),
-                SettingsSection(
-                  title: AppStrings.cuttingExecution,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _dateTile(
-                          label: AppStrings.cuttingStartDate,
-                          value: _startDate,
-                          onPick: (date) => setState(() => _startDate = date),
-                          enabled: !isSaving,
+                      DropdownButtonFormField<WasteDisposition>(
+                        key: ValueKey(_wasteDisposition),
+                        initialValue: _wasteDisposition,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.wasteDisposition,
                         ),
-                        const SizedBox(height: 12),
-                        _dateTile(
-                          label: AppStrings.cuttingCompletionDate,
-                          value: _completionDate,
-                          onPick: (date) =>
-                              setState(() => _completionDate = date),
-                          enabled: !isSaving,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _supervisorController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.supervisorName,
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: !isSaving,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _notesController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.progressNotes,
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 3,
-                          enabled: !isSaving,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Card(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest
-                        .withValues(alpha: 0.5),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          _summaryRow(
-                            AppStrings.totalUsableOutput,
-                            '${previewOutput.totalUsableSqFt.toStringAsFixed(0)} sq. ft',
-                            bold: true,
-                          ),
-                          if (wastePct > 0) ...[
-                            const SizedBox(height: 8),
-                            _summaryRow(
-                              AppStrings.wastePercent,
-                              '${wastePct.toStringAsFixed(1)}%',
-                            ),
-                          ],
-                          if (yieldPct > 0) ...[
-                            const SizedBox(height: 8),
-                            _summaryRow(
-                              AppStrings.yieldPercent,
-                              '${yieldPct.toStringAsFixed(1)}%',
-                            ),
-                          ],
-                        ],
+                        items: WasteDisposition.values
+                            .map(
+                              (item) => DropdownMenuItem(
+                                value: item,
+                                child: Text(
+                                  item.label,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value == null) return;
+                                setState(() => _wasteDisposition = value);
+                              },
                       ),
-                    ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _slurryController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.slurryDust,
+                        ),
+                        enabled: !isSaving,
+                      ),
+                    ],
+                  ),
+                ),
+                JobWorkDetailSection(
+                  title: AppStrings.cuttingExecution,
+                  icon: Icons.content_cut_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      AppFormDateField(
+                        label: AppStrings.cuttingStartDate,
+                        value: _startDate == null
+                            ? 'Not set'
+                            : DateFormat.yMMMd().format(_startDate!),
+                        onTap: isSaving
+                            ? null
+                            : () => _pickDate(
+                                  initial: _startDate,
+                                  onPicked: (date) =>
+                                      setState(() => _startDate = date),
+                                ),
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.cuttingCompletionDate,
+                        value: _completionDate == null
+                            ? 'Not set'
+                            : DateFormat.yMMMd().format(_completionDate!),
+                        onTap: isSaving
+                            ? null
+                            : () => _pickDate(
+                                  initial: _completionDate,
+                                  onPicked: (date) =>
+                                      setState(() => _completionDate = date),
+                                ),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _supervisorController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.supervisorName,
+                        ),
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _notesController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.progressNotes,
+                        ),
+                        maxLines: 3,
+                        enabled: !isSaving,
+                      ),
+                    ],
+                  ),
+                ),
+                JobWorkDetailSection(
+                  title: AppStrings.outputRecording,
+                  icon: Icons.analytics_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      AppFormSummaryRow(
+                        label: AppStrings.totalUsableOutput,
+                        value:
+                            '${previewOutput.totalUsableSqFt.toStringAsFixed(0)} sq. ft',
+                        highlight: true,
+                      ),
+                      if (wastePct > 0) ...[
+                        AppFormFields.gap,
+                        AppFormSummaryRow(
+                          label: AppStrings.wastePercent,
+                          value: '${wastePct.toStringAsFixed(1)}%',
+                        ),
+                      ],
+                      if (yieldPct > 0) ...[
+                        AppFormFields.gap,
+                        AppFormSummaryRow(
+                          label: AppStrings.yieldPercent,
+                          value: '${yieldPct.toStringAsFixed(1)}%',
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-          bottomNavigationBar: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton(
-                onPressed: isSaving ? null : () => _submit(order),
-                child: isSaving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(AppStrings.saveOutput),
-              ),
-            ),
+          bottomNavigationBar: AppFormBottomBar(
+            label: AppStrings.saveOutput,
+            isLoading: isSaving,
+            onPressed: () => _submit(order),
           ),
         );
       },
@@ -550,42 +541,9 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       controller: controller,
       enabled: enabled,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
+      style: AppFormFields.valueStyle(context),
+      decoration: AppFormFields.decoration(context, label: label),
       onChanged: (_) => setState(() {}),
-    );
-  }
-
-  Widget _dateTile({
-    required String label,
-    required DateTime? value,
-    required ValueChanged<DateTime> onPick,
-    required bool enabled,
-  }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(label),
-      subtitle: Text(
-        value == null ? 'Not set' : DateFormat.yMMMd().format(value),
-      ),
-      trailing: const Icon(Icons.calendar_today_outlined),
-      onTap: enabled
-          ? () => _pickDate(initial: value, onPicked: onPick)
-          : null,
-    );
-  }
-
-  Widget _summaryRow(String label, String value, {bool bold = false}) {
-    return Row(
-      children: [
-        Expanded(child: Text(label)),
-        Text(
-          value,
-          style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w600),
-        ),
-      ],
     );
   }
 }

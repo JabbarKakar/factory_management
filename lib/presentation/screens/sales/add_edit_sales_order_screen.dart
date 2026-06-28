@@ -11,7 +11,8 @@ import '../../../domain/entities/customer.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/customer_enums.dart';
 import '../../../domain/enums/sales_enums.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class AddEditSalesOrderScreen extends StatefulWidget {
   const AddEditSalesOrderScreen({this.salesOrderId, super.key});
@@ -102,6 +103,17 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
 
   double get _balanceDue =>
       (_grandTotal - _advance).clamp(0, double.infinity).toDouble();
+
+  String _appBarSubtitle({required bool isEditing, SalesOrder? order}) {
+    if (isEditing) {
+      return _baseOrder?.orderNumber ?? order?.orderNumber ?? '';
+    }
+    if (_customerId == null) return AppStrings.newSalesOrder;
+    for (final customer in _customers) {
+      if (customer.id == _customerId) return customer.name;
+    }
+    return AppStrings.newSalesOrder;
+  }
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
@@ -201,8 +213,11 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
             state.status == SalesOrderFormStatus.initial) {
           return Scaffold(
             appBar: AppBar(
-              title: Text(
-                isEditing ? AppStrings.editSalesOrder : AppStrings.newSalesOrder,
+              title: AppFormAppBarTitle(
+                title: isEditing
+                    ? AppStrings.editSalesOrder
+                    : AppStrings.newSalesOrder,
+                subtitle: _appBarSubtitle(isEditing: isEditing),
               ),
             ),
             body: const Center(child: CircularProgressIndicator()),
@@ -217,8 +232,14 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
         if (_customers.isEmpty) {
           return Scaffold(
             appBar: AppBar(
-              title: Text(
-                isEditing ? AppStrings.editSalesOrder : AppStrings.newSalesOrder,
+              title: AppFormAppBarTitle(
+                title: isEditing
+                    ? AppStrings.editSalesOrder
+                    : AppStrings.newSalesOrder,
+                subtitle: _appBarSubtitle(
+                  isEditing: isEditing,
+                  order: order,
+                ),
               ),
             ),
             body: Center(
@@ -235,305 +256,284 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
 
         final isSaving = state.status == SalesOrderFormStatus.saving;
         final canEdit = order == null || order.status == SalesOrderStatus.received;
+        final fieldsEnabled = canEdit && !isSaving;
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              isEditing ? AppStrings.editSalesOrder : AppStrings.newSalesOrder,
+            title: AppFormAppBarTitle(
+              title: isEditing
+                  ? AppStrings.editSalesOrder
+                  : AppStrings.newSalesOrder,
+              subtitle: _appBarSubtitle(isEditing: isEditing, order: order),
             ),
           ),
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 100),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.customerAndDates,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<String>(
-                          initialValue: _customerId,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.selectCustomer,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: _customers
-                              .map(
-                                (customer) => DropdownMenuItem(
-                                  value: customer.id,
-                                  child: Text(customer.name),
+                  icon: Icons.person_outline,
+                  child: AppFormSectionBody(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(_customerId),
+                        initialValue: _customerId,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.selectCustomer,
+                        ),
+                        items: _customers
+                            .map(
+                              (customer) => DropdownMenuItem(
+                                value: customer.id,
+                                child: Text(
+                                  customer.name,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: canEdit && !isSaving
-                              ? (value) => setState(() => _customerId = value)
-                              : null,
-                          validator: (value) =>
-                              value == null ? 'Select a customer' : null,
+                              ),
+                            )
+                            .toList(),
+                        onChanged: fieldsEnabled
+                            ? (value) => setState(() => _customerId = value)
+                            : null,
+                        validator: (value) =>
+                            value == null ? 'Select a customer' : null,
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.orderDate,
+                        value: DateFormat.yMMMd().format(_orderDate),
+                        onTap: fieldsEnabled
+                            ? () => _pickDate(
+                                  initial: _orderDate,
+                                  onPicked: (d) =>
+                                      setState(() => _orderDate = d),
+                                )
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.expectedDelivery,
+                        value: _expectedDelivery == null
+                            ? 'Not set'
+                            : DateFormat.yMMMd().format(_expectedDelivery!),
+                        onTap: fieldsEnabled
+                            ? () => _pickDate(
+                                  initial: _expectedDelivery ?? _orderDate,
+                                  onPicked: (d) => setState(
+                                    () => _expectedDelivery = d,
+                                  ),
+                                )
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<SalesOrderSource>(
+                        key: ValueKey(_orderSource),
+                        initialValue: _orderSource,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.orderSource,
                         ),
-                        const SizedBox(height: 12),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.orderDate),
-                          subtitle: Text(DateFormat.yMMMd().format(_orderDate)),
-                          trailing: const Icon(Icons.calendar_today_outlined),
-                          onTap: canEdit && !isSaving
-                              ? () => _pickDate(
-                                    initial: _orderDate,
-                                    onPicked: (d) =>
-                                        setState(() => _orderDate = d),
-                                  )
-                              : null,
-                        ),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.expectedDelivery),
-                          subtitle: Text(
-                            _expectedDelivery == null
-                                ? 'Not set'
-                                : DateFormat.yMMMd()
-                                    .format(_expectedDelivery!),
-                          ),
-                          trailing: const Icon(Icons.event_outlined),
-                          onTap: canEdit && !isSaving
-                              ? () => _pickDate(
-                                    initial: _expectedDelivery ?? _orderDate,
-                                    onPicked: (d) => setState(
-                                      () => _expectedDelivery = d,
-                                    ),
-                                  )
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<SalesOrderSource>(
-                          initialValue: _orderSource,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.orderSource,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: SalesOrderSource.values
-                              .map(
-                                (source) => DropdownMenuItem(
-                                  value: source,
-                                  child: Text(source.label),
+                        items: SalesOrderSource.values
+                            .map(
+                              (source) => DropdownMenuItem(
+                                value: source,
+                                child: Text(
+                                  source.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: canEdit && !isSaving
-                              ? (value) {
-                                  if (value != null) {
-                                    setState(() => _orderSource = value);
-                                  }
+                              ),
+                            )
+                            .toList(),
+                        onChanged: fieldsEnabled
+                            ? (value) {
+                                if (value != null) {
+                                  setState(() => _orderSource = value);
                                 }
-                              : null,
-                        ),
-                      ],
-                    ),
+                              }
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.lineItems,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        for (var i = 0; i < _lineItems.length; i++) ...[
-                          _LineItemEditor(
-                            draft: _lineItems[i],
-                            enabled: canEdit && !isSaving,
-                            onChanged: () => setState(() {}),
-                            onRemove: _lineItems.length > 1 && canEdit
-                                ? () => setState(() {
-                                      _lineItems[i].dispose();
-                                      _lineItems.removeAt(i);
-                                    })
-                                : null,
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        if (canEdit)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: isSaving
-                                  ? null
-                                  : () => setState(
-                                        () => _lineItems.add(_LineItemDraft()),
-                                      ),
-                              icon: const Icon(Icons.add),
-                              label: const Text(AppStrings.addLineItem),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                SettingsSection(
-                  title: AppStrings.pricingAgreement,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _SummaryRow(
-                          AppStrings.subtotal,
-                          Formatters.currencyPkr(_subtotal),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _orderDiscountController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.orderDiscount,
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: canEdit && !isSaving,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _taxController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.taxAmount,
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: canEdit && !isSaving,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryRow(
-                          AppStrings.grandTotal,
-                          Formatters.currencyPkr(_grandTotal),
-                          bold: true,
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<PaymentTerms>(
-                          initialValue: _paymentTerms,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.paymentTerms,
-                            border: OutlineInputBorder(),
-                          ),
-                          items: PaymentTerms.values
-                              .map(
-                                (terms) => DropdownMenuItem(
-                                  value: terms,
-                                  child: Text(terms.label),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: canEdit && !isSaving
-                              ? (value) {
-                                  if (value != null) {
-                                    setState(() => _paymentTerms = value);
-                                  }
-                                }
+                  icon: Icons.list_alt_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      for (var i = 0; i < _lineItems.length; i++) ...[
+                        _LineItemEditor(
+                          draft: _lineItems[i],
+                          enabled: fieldsEnabled,
+                          onChanged: () => setState(() {}),
+                          onRemove: _lineItems.length > 1 && canEdit
+                              ? () => setState(() {
+                                    _lineItems[i].dispose();
+                                    _lineItems.removeAt(i);
+                                  })
                               : null,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _advanceController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
+                        if (i < _lineItems.length - 1) AppFormFields.gap,
+                      ],
+                      if (canEdit) ...[
+                        AppFormFields.gap,
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: isSaving
+                                ? null
+                                : () => setState(
+                                      () => _lineItems.add(_LineItemDraft()),
+                                    ),
+                            icon: const Icon(Icons.add),
+                            label: const Text(AppStrings.addLineItem),
                           ),
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.advanceReceived,
-                            border: OutlineInputBorder(),
-                          ),
-                          enabled: canEdit && !isSaving,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryRow(
-                          AppStrings.balanceDue,
-                          Formatters.currencyPkr(_balanceDue),
-                          bold: true,
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
+                  title: AppStrings.pricingAgreement,
+                  icon: Icons.payments_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      AppFormSummaryRow(
+                        label: AppStrings.subtotal,
+                        value: Formatters.currencyPkr(_subtotal),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _orderDiscountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.orderDiscount,
+                        ),
+                        enabled: fieldsEnabled,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _taxController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.taxAmount,
+                        ),
+                        enabled: fieldsEnabled,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      AppFormSummaryRow(
+                        label: AppStrings.grandTotal,
+                        value: Formatters.currencyPkr(_grandTotal),
+                        highlight: true,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<PaymentTerms>(
+                        key: ValueKey(_paymentTerms),
+                        initialValue: _paymentTerms,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.paymentTerms,
+                        ),
+                        items: PaymentTerms.values
+                            .map(
+                              (terms) => DropdownMenuItem(
+                                value: terms,
+                                child: Text(
+                                  terms.label,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: fieldsEnabled
+                            ? (value) {
+                                if (value != null) {
+                                  setState(() => _paymentTerms = value);
+                                }
+                              }
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _advanceController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.advanceReceived,
+                        ),
+                        enabled: fieldsEnabled,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      AppFormSummaryRow(
+                        label: AppStrings.balanceDue,
+                        value: Formatters.currencyPkr(_balanceDue),
+                        highlight: true,
+                      ),
+                    ],
+                  ),
+                ),
+                JobWorkDetailSection(
                   title: AppStrings.deliveryDetails,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _deliveryAddressController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.deliveryAddress,
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 2,
-                          enabled: canEdit && !isSaving,
+                  icon: Icons.local_shipping_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      TextFormField(
+                        controller: _deliveryAddressController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.deliveryAddress,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _specialInstructionsController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.specialInstructions,
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 3,
-                          enabled: canEdit && !isSaving,
+                        maxLines: 2,
+                        enabled: fieldsEnabled,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _specialInstructionsController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.specialInstructions,
                         ),
-                      ],
-                    ),
+                        maxLines: 3,
+                        enabled: fieldsEnabled,
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
           bottomNavigationBar: canEdit
-              ? SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: FilledButton(
-                      onPressed: isSaving ? null : _submit,
-                      child: isSaving
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(
-                              isEditing
-                                  ? AppStrings.saveChanges
-                                  : AppStrings.saveSalesOrder,
-                            ),
-                    ),
-                  ),
+              ? AppFormBottomBar(
+                  label: isEditing
+                      ? AppStrings.saveChanges
+                      : AppStrings.saveSalesOrder,
+                  isLoading: isSaving,
+                  onPressed: _submit,
                 )
               : null,
         );
       },
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow(this.label, this.value, {this.bold = false});
-
-  final String label;
-  final String value;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Text(label)),
-        Text(
-          value,
-          style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w600),
-        ),
-      ],
     );
   }
 }
@@ -553,10 +553,21 @@ class _LineItemEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final outline =
+        theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.4);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: isDark
+            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25)
+            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: outline),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         child: Column(
           children: [
             Row(
@@ -564,27 +575,42 @@ class _LineItemEditor extends StatelessWidget {
                 Expanded(
                   child: Text(
                     AppStrings.lineItem,
-                    style: Theme.of(context).textTheme.titleSmall,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 if (onRemove != null)
                   IconButton(
                     onPressed: enabled ? onRemove : null,
-                    icon: const Icon(Icons.delete_outline),
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
               ],
             ),
+            const SizedBox(height: 8),
             DropdownButtonFormField<SalesProductType>(
+              key: ValueKey(draft.productType),
               initialValue: draft.productType,
-              decoration: const InputDecoration(
-                labelText: AppStrings.productType,
-                border: OutlineInputBorder(),
+              style: AppFormFields.valueStyle(context),
+              decoration: AppFormFields.decoration(
+                context,
+                label: AppStrings.productType,
               ),
               items: SalesProductType.values
                   .map(
                     (type) => DropdownMenuItem(
                       value: type,
-                      child: Text(type.label),
+                      child: Text(
+                        type.label,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                   )
                   .toList(),
@@ -597,18 +623,23 @@ class _LineItemEditor extends StatelessWidget {
                     }
                   : null,
             ),
-            const SizedBox(height: 8),
+            AppFormFields.gap,
             DropdownButtonFormField<String>(
-              value: _resolveMarbleVariety(draft.marbleVariety),
-              decoration: const InputDecoration(
-                labelText: AppStrings.marbleVariety,
-                border: OutlineInputBorder(),
+              key: ValueKey(draft.marbleVariety),
+              initialValue: _resolveMarbleVariety(draft.marbleVariety),
+              style: AppFormFields.valueStyle(context),
+              decoration: AppFormFields.decoration(
+                context,
+                label: AppStrings.marbleVariety,
               ),
               items: _marbleVarietyItems(draft.marbleVariety)
                   .map(
                     (variety) => DropdownMenuItem(
                       value: variety,
-                      child: Text(variety),
+                      child: Text(
+                        variety,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                   )
                   .toList(),
@@ -621,17 +652,18 @@ class _LineItemEditor extends StatelessWidget {
                     }
                   : null,
             ),
-            const SizedBox(height: 8),
+            AppFormFields.gap,
             TextFormField(
               controller: draft.sizeController,
-              decoration: const InputDecoration(
-                labelText: AppStrings.sizeThickness,
-                border: OutlineInputBorder(),
+              style: AppFormFields.valueStyle(context),
+              decoration: AppFormFields.decoration(
+                context,
+                label: AppStrings.sizeThickness,
               ),
               enabled: enabled,
               onChanged: (_) => onChanged(),
             ),
-            const SizedBox(height: 8),
+            AppFormFields.gap,
             Row(
               children: [
                 Expanded(
@@ -640,9 +672,10 @@ class _LineItemEditor extends StatelessWidget {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.quantity,
-                      border: OutlineInputBorder(),
+                    style: AppFormFields.valueStyle(context),
+                    decoration: AppFormFields.decoration(
+                      context,
+                      label: AppStrings.quantity,
                     ),
                     enabled: enabled,
                     onChanged: (_) => onChanged(),
@@ -651,16 +684,21 @@ class _LineItemEditor extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<SalesQuantityUnit>(
+                    key: ValueKey(draft.quantityUnit),
                     initialValue: draft.quantityUnit,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.unit,
-                      border: OutlineInputBorder(),
+                    style: AppFormFields.valueStyle(context),
+                    decoration: AppFormFields.decoration(
+                      context,
+                      label: AppStrings.unit,
                     ),
                     items: SalesQuantityUnit.values
                         .map(
                           (unit) => DropdownMenuItem(
                             value: unit,
-                            child: Text(unit.label),
+                            child: Text(
+                              unit.label,
+                              style: const TextStyle(fontSize: 13),
+                            ),
                           ),
                         )
                         .toList(),
@@ -676,7 +714,7 @@ class _LineItemEditor extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            AppFormFields.gap,
             Row(
               children: [
                 Expanded(
@@ -685,9 +723,10 @@ class _LineItemEditor extends StatelessWidget {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.unitRate,
-                      border: OutlineInputBorder(),
+                    style: AppFormFields.valueStyle(context),
+                    decoration: AppFormFields.decoration(
+                      context,
+                      label: AppStrings.unitRate,
                     ),
                     enabled: enabled,
                     onChanged: (_) => onChanged(),
@@ -700,9 +739,10 @@ class _LineItemEditor extends StatelessWidget {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.discountPercent,
-                      border: OutlineInputBorder(),
+                    style: AppFormFields.valueStyle(context),
+                    decoration: AppFormFields.decoration(
+                      context,
+                      label: AppStrings.discountPercent,
                     ),
                     enabled: enabled,
                     onChanged: (_) => onChanged(),
@@ -710,15 +750,10 @@ class _LineItemEditor extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                '${AppStrings.lineTotal}: ${Formatters.currencyPkr(draft.lineTotal)}',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
+            AppFormFields.gap,
+            AppFormSummaryRow(
+              label: AppStrings.lineTotal,
+              value: Formatters.currencyPkr(draft.lineTotal),
             ),
           ],
         ),

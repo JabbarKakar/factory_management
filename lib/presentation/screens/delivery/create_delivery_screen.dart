@@ -11,7 +11,8 @@ import '../../../domain/entities/employee.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/delivery_enums.dart';
 import '../../utils/auth_context.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class CreateDeliveryScreen extends StatefulWidget {
   const CreateDeliveryScreen({this.salesOrderId, super.key});
@@ -148,6 +149,14 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     context.read<DeliveryFormBloc>().add(DeliveryFormSubmitted(delivery));
   }
 
+  String _appBarSubtitle(DeliveryFormState state) {
+    final order = state.selectedOrder;
+    if (order != null) {
+      return '${order.orderNumber} · ${order.customerName}';
+    }
+    return AppStrings.scheduleDelivery;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<DeliveryFormBloc, DeliveryFormState>(
@@ -174,7 +183,12 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         if (state.status == DeliveryFormStatus.loading ||
             state.status == DeliveryFormStatus.initial) {
           return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.scheduleDelivery)),
+            appBar: AppBar(
+              title: AppFormAppBarTitle(
+                title: AppStrings.scheduleDelivery,
+                subtitle: AppStrings.scheduleDelivery,
+              ),
+            ),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -182,7 +196,12 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         if (state.status == DeliveryFormStatus.failure &&
             state.eligibleOrders.isEmpty) {
           return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.scheduleDelivery)),
+            appBar: AppBar(
+              title: AppFormAppBarTitle(
+                title: AppStrings.scheduleDelivery,
+                subtitle: AppStrings.scheduleDelivery,
+              ),
+            ),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -205,252 +224,264 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         }
 
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.scheduleDelivery)),
+          appBar: AppBar(
+            title: AppFormAppBarTitle(
+              title: AppStrings.scheduleDelivery,
+              subtitle: _appBarSubtitle(state),
+            ),
+          ),
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.linkedSalesOrder,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        if (state.eligibleOrders.isEmpty)
-                          Text(AppStrings.noDeliveryEligibleOrders)
-                        else
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedOrderId,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.selectSalesOrder,
-                            ),
-                            items: state.eligibleOrders
-                                .map(
-                                  (order) => DropdownMenuItem(
-                                    value: order.id,
-                                    child: Text(
-                                      '${order.orderNumber} · ${order.customerName}',
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: isSaving
-                                ? null
-                                : (value) {
-                                    if (value == null) return;
-                                    context.read<DeliveryFormBloc>().add(
-                                          DeliveryFormSalesOrderSelected(value),
-                                        );
-                                  },
-                            validator: (value) =>
-                                value == null ? 'Select a sales order' : null,
+                  icon: Icons.receipt_long_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      if (state.eligibleOrders.isEmpty)
+                        Text(
+                          AppStrings.noDeliveryEligibleOrders,
+                          style: AppFormFields.valueStyle(context),
+                        )
+                      else
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedOrderId,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.selectSalesOrder,
                           ),
-                      ],
-                    ),
+                          items: state.eligibleOrders
+                              .map(
+                                (order) => DropdownMenuItem(
+                                  value: order.id,
+                                  child: Text(
+                                    '${order.orderNumber} · ${order.customerName}',
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: isSaving
+                              ? null
+                              : (value) {
+                                  if (value == null) return;
+                                  context.read<DeliveryFormBloc>().add(
+                                        DeliveryFormSalesOrderSelected(value),
+                                      );
+                                },
+                          validator: (value) =>
+                              value == null ? 'Select a sales order' : null,
+                        ),
+                    ],
                   ),
                 ),
                 if (_selectedOrderId != null) ...[
-                  SettingsSection(
+                  JobWorkDetailSection(
                     title: AppStrings.deliveryDetails,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        children: [
-                          TextFormField(
-                            controller: _addressController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.deliveryAddress,
-                            ),
-                            textCapitalization: TextCapitalization.sentences,
-                            maxLines: 2,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Delivery address is required';
-                              }
-                              return null;
-                            },
+                    icon: Icons.local_shipping_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        TextFormField(
+                          controller: _addressController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.deliveryAddress,
                           ),
-                          const SizedBox(height: 12),
-                          ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text(AppStrings.scheduledDeliveryDate),
-                            subtitle: Text(DateFormat.yMMMd().format(_scheduledDate)),
-                            trailing: const Icon(Icons.calendar_today_outlined),
-                            onTap: isSaving ? null : _pickDate,
+                          textCapitalization: TextCapitalization.sentences,
+                          maxLines: 2,
+                          enabled: !isSaving,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Delivery address is required';
+                            }
+                            return null;
+                          },
+                        ),
+                        AppFormFields.gap,
+                        AppFormDateField(
+                          label: AppStrings.scheduledDeliveryDate,
+                          value: DateFormat.yMMMd().format(_scheduledDate),
+                          onTap: isSaving ? null : _pickDate,
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _vehicleController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.deliveryVehicleNumber,
                           ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _vehicleController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.deliveryVehicleNumber,
-                            ),
-                            textCapitalization: TextCapitalization.characters,
+                          textCapitalization: TextCapitalization.characters,
+                          enabled: !isSaving,
+                        ),
+                        AppFormFields.gap,
+                        DropdownButtonFormField<String?>(
+                          initialValue: _selectedDriverId,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.selectDriver,
                           ),
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String?>(
-                            initialValue: _selectedDriverId,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.selectDriver,
-                            ),
-                            items: [
-                              const DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text(AppStrings.notSpecified),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text(
+                                AppStrings.notSpecified,
+                                style: TextStyle(fontSize: 13),
                               ),
-                              ...state.employees.map(
-                                (employee) => DropdownMenuItem(
-                                  value: employee.id,
-                                  child: Text(employee.fullName),
+                            ),
+                            ...state.employees.map(
+                              (employee) => DropdownMenuItem(
+                                value: employee.id,
+                                child: Text(
+                                  employee.fullName,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
                               ),
-                            ],
-                            onChanged: isSaving
-                                ? null
-                                : (value) =>
-                                    _onDriverSelected(value, state.employees),
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _driverNameController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.driverName,
                             ),
-                            textCapitalization: TextCapitalization.words,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _supervisorController,
-                            decoration: const InputDecoration(
-                              labelText: AppStrings.loadingSupervisor,
-                            ),
-                            textCapitalization: TextCapitalization.words,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SettingsSection(
-                    title: AppStrings.itemsToDeliver,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!hasRemaining)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(
-                                AppStrings.noRemainingQuantity,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .error,
-                                    ),
-                              ),
-                            ),
-                          ..._lineItems.map((fields) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    fields.item.displayLabel,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${fields.maxRemaining.toStringAsFixed(1)} of '
-                                    '${fields.orderedQuantity.toStringAsFixed(1)} '
-                                    '${fields.item.quantityUnit.label} '
-                                    '${AppStrings.remainingQuantityHint}',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  TextFormField(
-                                    controller: fields.quantityController,
-                                    decoration: InputDecoration(
-                                      labelText:
-                                          '${AppStrings.scheduledQuantity} (${fields.item.quantityUnit.label})',
-                                    ),
-                                    keyboardType:
-                                        const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Quantity is required';
-                                      }
-                                      final qty =
-                                          double.tryParse(value.trim());
-                                      if (qty == null || qty <= 0) {
-                                        return 'Enter a valid quantity';
-                                      }
-                                      if (qty > fields.maxRemaining) {
-                                        return 'Cannot exceed '
-                                            '${fields.maxRemaining.toStringAsFixed(1)} '
-                                            '${fields.item.quantityUnit.label}';
-                                      }
-                                      return null;
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (hasRemaining)
-                    SettingsSection(
-                      title: AppStrings.notes,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: TextFormField(
-                          controller: _notesController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.notes,
-                          ),
-                          maxLines: 3,
+                          ],
+                          onChanged: isSaving
+                              ? null
+                              : (value) =>
+                                  _onDriverSelected(value, state.employees),
                         ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _driverNameController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.driverName,
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                          enabled: !isSaving,
+                        ),
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _supervisorController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.loadingSupervisor,
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                          enabled: !isSaving,
+                        ),
+                      ],
+                    ),
+                  ),
+                  JobWorkDetailSection(
+                    title: AppStrings.itemsToDeliver,
+                    icon: Icons.inventory_2_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        if (!hasRemaining)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Text(
+                              AppStrings.noRemainingQuantity,
+                              style: AppFormFields.valueStyle(context).copyWith(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
+                        ..._lineItems.map((fields) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  fields.item.displayLabel,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${fields.maxRemaining.toStringAsFixed(1)} of '
+                                  '${fields.orderedQuantity.toStringAsFixed(1)} '
+                                  '${fields.item.quantityUnit.label} '
+                                  '${AppStrings.remainingQuantityHint}',
+                                  style: AppFormFields.labelStyle(context),
+                                ),
+                                AppFormFields.gap,
+                                TextFormField(
+                                  controller: fields.quantityController,
+                                  style: AppFormFields.valueStyle(context),
+                                  decoration: AppFormFields.decoration(
+                                    context,
+                                    label:
+                                        '${AppStrings.scheduledQuantity} (${fields.item.quantityUnit.label})',
+                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  enabled: !isSaving,
+                                  validator: (value) {
+                                    if (value == null ||
+                                        value.trim().isEmpty) {
+                                      return 'Quantity is required';
+                                    }
+                                    final qty =
+                                        double.tryParse(value.trim());
+                                    if (qty == null || qty <= 0) {
+                                      return 'Enter a valid quantity';
+                                    }
+                                    if (qty > fields.maxRemaining) {
+                                      return 'Cannot exceed '
+                                          '${fields.maxRemaining.toStringAsFixed(1)} '
+                                          '${fields.item.quantityUnit.label}';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  if (hasRemaining)
+                    JobWorkDetailSection(
+                      title: AppStrings.notes,
+                      icon: Icons.notes_outlined,
+                      child: AppFormSectionBody(
+                        children: [
+                          TextFormField(
+                            controller: _notesController,
+                            style: AppFormFields.valueStyle(context),
+                            decoration: AppFormFields.decoration(
+                              context,
+                              label: AppStrings.notes,
+                            ),
+                            maxLines: 3,
+                            enabled: !isSaving,
+                          ),
+                        ],
                       ),
                     ),
                   if (hasRemaining)
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: FilledButton(
-                        onPressed: isSaving
-                            ? null
-                            : () {
-                                final factoryId = readFactoryId(context);
-                                if (factoryId == null) return;
-                                _submit(context, factoryId);
-                              },
-                        child: isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text(AppStrings.saveDelivery),
-                      ),
+                    AppFormSubmitBar(
+                      label: AppStrings.saveDelivery,
+                      isLoading: isSaving,
+                      onPressed: isSaving
+                          ? null
+                          : () {
+                              final factoryId = readFactoryId(context);
+                              if (factoryId == null) return;
+                              _submit(context, factoryId);
+                            },
                     ),
                 ],
               ],

@@ -11,7 +11,8 @@ import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/supplier_enums.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class AddEditSupplierScreen extends StatefulWidget {
   const AddEditSupplierScreen({this.supplierId, super.key});
@@ -129,6 +130,15 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
     }
   }
 
+  String _subtitle(Supplier? supplier) {
+    if (_isEditing) {
+      final name = _nameController.text.trim();
+      if (name.isNotEmpty) return name;
+      return supplier?.name ?? '';
+    }
+    return AppStrings.addSupplier;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<SupplierFormBloc, SupplierFormState>(
@@ -180,8 +190,11 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              _isEditing ? AppStrings.editSupplier : AppStrings.addSupplier,
+            title: AppFormAppBarTitle(
+              title: _isEditing
+                  ? AppStrings.editSupplier
+                  : AppStrings.addSupplier,
+              subtitle: _subtitle(supplier),
             ),
             actions: [
               if (_isEditing &&
@@ -199,164 +212,188 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.supplierInformation,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.companyName,
-                          ),
-                          textCapitalization: TextCapitalization.words,
-                          validator: (value) => Validators.requiredText(
-                            value,
-                            field: 'Supplier name',
-                          ),
+                  icon: Icons.business_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      TextFormField(
+                        controller: _nameController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.companyName,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<SupplierType>(
-                          initialValue: _supplierType,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.supplierType,
-                          ),
-                          items: SupplierType.values
-                              .map(
-                                (type) => DropdownMenuItem(
-                                  value: type,
-                                  child: Text(type.label),
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) => Validators.requiredText(
+                          value,
+                          field: 'Supplier name',
+                        ),
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<SupplierType>(
+                        key: ValueKey(_supplierType),
+                        initialValue: _supplierType,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.supplierType,
+                        ),
+                        items: SupplierType.values
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(
+                                  type.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _supplierType = value);
-                                  }
-                                },
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _supplierType = value);
+                                }
+                              },
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _phoneController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.phone,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _phoneController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.phone,
-                          ),
-                          keyboardType: TextInputType.phone,
-                          validator: Validators.phone,
+                        keyboardType: TextInputType.phone,
+                        validator: Validators.phone,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<PaymentTerms>(
+                        key: ValueKey(_paymentTerms),
+                        initialValue: _paymentTerms,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.paymentTerms,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<PaymentTerms>(
-                          initialValue: _paymentTerms,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.paymentTerms,
-                          ),
-                          items: PaymentTerms.values
-                              .map(
-                                (terms) => DropdownMenuItem(
-                                  value: terms,
-                                  child: Text(terms.label),
+                        items: PaymentTerms.values
+                            .map(
+                              (terms) => DropdownMenuItem(
+                                value: terms,
+                                child: Text(
+                                  terms.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _paymentTerms = value);
-                                  }
-                                },
-                        ),
-                      ],
-                    ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _paymentTerms = value);
+                                }
+                              },
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.optionalDetails,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _contactPersonController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.contactPerson,
-                          ),
-                          textCapitalization: TextCapitalization.words,
+                  icon: Icons.notes_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      TextFormField(
+                        controller: _contactPersonController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.contactPerson,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _phoneSecondaryController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.secondaryPhone,
-                          ),
-                          keyboardType: TextInputType.phone,
+                        textCapitalization: TextCapitalization.words,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _phoneSecondaryController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.secondaryPhone,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _cityController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.city,
-                          ),
-                          textCapitalization: TextCapitalization.words,
+                        keyboardType: TextInputType.phone,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _cityController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.city,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _addressController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.address,
-                          ),
-                          textCapitalization: TextCapitalization.sentences,
+                        textCapitalization: TextCapitalization.words,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _addressController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.address,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _cnicNtnController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.cnicNtn,
-                          ),
+                        textCapitalization: TextCapitalization.sentences,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _cnicNtnController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.cnicNtn,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _materialsController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.materialsSupplied,
-                          ),
-                          textCapitalization: TextCapitalization.sentences,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _materialsController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.materialsSupplied,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _notesController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.notes,
-                          ),
-                          maxLines: 3,
-                          textCapitalization: TextCapitalization.sentences,
+                        textCapitalization: TextCapitalization.sentences,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _notesController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.notes,
                         ),
-                      ],
-                    ),
+                        maxLines: 3,
+                        textCapitalization: TextCapitalization.sentences,
+                        enabled: !isSaving,
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: FilledButton(
-                    onPressed:
-                        isSaving ? null : () => _submit(context, supplier),
-                    child: isSaving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            _isEditing
-                                ? AppStrings.saveSupplier
-                                : AppStrings.addSupplier,
-                          ),
-                  ),
+                AppFormSubmitBar(
+                  label: _isEditing
+                      ? AppStrings.saveSupplier
+                      : AppStrings.addSupplier,
+                  isLoading: isSaving,
+                  onPressed: () => _submit(context, supplier),
                 ),
               ],
             ),

@@ -7,6 +7,8 @@ import '../../../blocs/sales/sales_invoice_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/invoice_enums.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class RecordSalesPaymentScreen extends StatefulWidget {
   const RecordSalesPaymentScreen({required this.invoiceId, super.key});
@@ -115,107 +117,113 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
         final isSaving = state.status == SalesInvoiceStatus.saving;
 
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.recordPayment)),
+          appBar: AppBar(
+            title: AppFormAppBarTitle(
+              title: AppStrings.recordPayment,
+              subtitle: '${invoice.invoiceNumber} · ${invoice.customerName}',
+            ),
+          ),
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.only(top: 12, bottom: 12),
               children: [
-                Text(
-                  '${invoice.invoiceNumber} · ${invoice.customerName}',
-                  style: Theme.of(context).textTheme.titleMedium,
+                AppFormContextHeader(
+                  title: invoice.invoiceNumber,
+                  subtitle:
+                      '${AppStrings.amountDue}: ${Formatters.currencyPkr(invoice.dueAmount)}',
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '${AppStrings.amountDue}: ${Formatters.currencyPkr(invoice.dueAmount)}',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: AppStrings.paymentAmount,
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    final amount = double.tryParse(value?.trim() ?? '') ?? 0;
-                    if (amount <= 0) return 'Enter a valid amount';
-                    if (amount > invoice.dueAmount) {
-                      return 'Cannot exceed amount due';
-                    }
-                    return null;
-                  },
-                  enabled: !isSaving,
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<PaymentMethod>(
-                  initialValue: _method,
-                  decoration: const InputDecoration(
-                    labelText: AppStrings.paymentMethod,
-                    border: OutlineInputBorder(),
-                  ),
-                  items: PaymentMethod.values
-                      .map(
-                        (method) => DropdownMenuItem(
-                          value: method,
-                          child: Text(method.label),
+                JobWorkDetailSection(
+                  title: AppStrings.paymentDetails,
+                  icon: Icons.payments_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      TextFormField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                      )
-                      .toList(),
-                  onChanged: isSaving
-                      ? null
-                      : (value) {
-                          if (value != null) setState(() => _method = value);
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.paymentAmount,
+                        ),
+                        validator: (value) {
+                          final amount =
+                              double.tryParse(value?.trim() ?? '') ?? 0;
+                          if (amount <= 0) return 'Enter a valid amount';
+                          if (amount > invoice.dueAmount) {
+                            return 'Cannot exceed amount due';
+                          }
+                          return null;
                         },
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(AppStrings.paymentDate),
-                  subtitle: Text(DateFormat.yMMMd().format(_paymentDate)),
-                  trailing: const Icon(Icons.calendar_today_outlined),
-                  onTap: isSaving ? null : _pickDate,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _referenceController,
-                  decoration: const InputDecoration(
-                    labelText: AppStrings.paymentReference,
-                    border: OutlineInputBorder(),
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<PaymentMethod>(
+                        key: ValueKey(_method),
+                        initialValue: _method,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.paymentMethod,
+                        ),
+                        items: PaymentMethod.values
+                            .map(
+                              (method) => DropdownMenuItem(
+                                value: method,
+                                child: Text(
+                                  method.label,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _method = value);
+                                }
+                              },
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.paymentDate,
+                        value: DateFormat.yMMMd().format(_paymentDate),
+                        onTap: isSaving ? null : _pickDate,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _referenceController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.paymentReference,
+                        ),
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _notesController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.paymentNotes,
+                        ),
+                        maxLines: 2,
+                        enabled: !isSaving,
+                      ),
+                    ],
                   ),
-                  enabled: !isSaving,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _notesController,
-                  decoration: const InputDecoration(
-                    labelText: AppStrings.paymentNotes,
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
-                  enabled: !isSaving,
                 ),
               ],
             ),
           ),
-          bottomNavigationBar: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton(
-                onPressed: isSaving ? null : _submit,
-                child: isSaving
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text(AppStrings.savePayment),
-              ),
-            ),
+          bottomNavigationBar: AppFormBottomBar(
+            label: AppStrings.savePayment,
+            isLoading: isSaving,
+            onPressed: _submit,
           ),
         );
       },

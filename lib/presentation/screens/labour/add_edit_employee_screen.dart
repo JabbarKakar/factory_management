@@ -11,7 +11,8 @@ import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/labour_enums.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class AddEditEmployeeScreen extends StatefulWidget {
   const AddEditEmployeeScreen({this.employeeId, super.key});
@@ -125,6 +126,15 @@ class _AddEditEmployeeScreenState extends State<AddEditEmployeeScreen> {
     }
   }
 
+  String _subtitle(Employee? employee) {
+    if (_isEditing) {
+      final name = _nameController.text.trim();
+      if (name.isNotEmpty) return name;
+      return employee?.fullName ?? '';
+    }
+    return AppStrings.addEmployee;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<EmployeeFormBloc, EmployeeFormState>(
@@ -170,8 +180,11 @@ class _AddEditEmployeeScreenState extends State<AddEditEmployeeScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              _isEditing ? AppStrings.editEmployee : AppStrings.addEmployee,
+            title: AppFormAppBarTitle(
+              title: _isEditing
+                  ? AppStrings.editEmployee
+                  : AppStrings.addEmployee,
+              subtitle: _subtitle(employee),
             ),
             actions: [
               if (_isEditing &&
@@ -189,211 +202,233 @@ class _AddEditEmployeeScreenState extends State<AddEditEmployeeScreen> {
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.basicInformation,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.fullName,
-                          ),
-                          textCapitalization: TextCapitalization.words,
-                          validator: (value) => Validators.requiredText(
-                            value,
-                            field: 'Name',
-                          ),
+                  icon: Icons.person_outline,
+                  child: AppFormSectionBody(
+                    children: [
+                      TextFormField(
+                        controller: _nameController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.fullName,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _phoneController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.phone,
-                          ),
-                          keyboardType: TextInputType.phone,
-                          validator: Validators.phone,
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) => Validators.requiredText(
+                          value,
+                          field: 'Name',
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _cnicController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.cnicNumber,
-                          ),
-                          keyboardType: TextInputType.number,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _phoneController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.phone,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<WorkerCategory>(
-                          initialValue: _workerCategory,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.workerCategory,
-                          ),
-                          items: WorkerCategory.values
-                              .map(
-                                (category) => DropdownMenuItem(
-                                  value: category,
-                                  child: Text(category.label),
+                        keyboardType: TextInputType.phone,
+                        validator: Validators.phone,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _cnicController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.cnicNumber,
+                        ),
+                        keyboardType: TextInputType.number,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<WorkerCategory>(
+                        key: ValueKey(_workerCategory),
+                        initialValue: _workerCategory,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.workerCategory,
+                        ),
+                        items: WorkerCategory.values
+                            .map(
+                              (category) => DropdownMenuItem(
+                                value: category,
+                                child: Text(
+                                  category.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _workerCategory = value);
-                                  }
-                                },
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _workerCategory = value);
+                                }
+                              },
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.employeeJoinDate,
+                        value: DateFormat.yMMMd().format(_joinDate),
+                        onTap: isSaving ? null : _pickJoinDate,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<EmployeeStatus>(
+                        key: ValueKey(_status),
+                        initialValue: _status,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.employeeStatus,
                         ),
-                        const SizedBox(height: 12),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.employeeJoinDate),
-                          subtitle: Text(
-                            DateFormat.yMMMd().format(_joinDate),
-                          ),
-                          trailing: const Icon(Icons.calendar_today_outlined),
-                          onTap: isSaving ? null : _pickJoinDate,
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<EmployeeStatus>(
-                          initialValue: _status,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.employeeStatus,
-                          ),
-                          items: EmployeeStatus.values
-                              .map(
-                                (status) => DropdownMenuItem(
-                                  value: status,
-                                  child: Text(status.label),
+                        items: EmployeeStatus.values
+                            .map(
+                              (status) => DropdownMenuItem(
+                                value: status,
+                                child: Text(
+                                  status.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _status = value);
-                                  }
-                                },
-                        ),
-                      ],
-                    ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _status = value);
+                                }
+                              },
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.salaryType,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<EmploymentType>(
-                          initialValue: _employmentType,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.employmentType,
-                          ),
-                          items: EmploymentType.values
-                              .map(
-                                (type) => DropdownMenuItem(
-                                  value: type,
-                                  child: Text(type.label),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _employmentType = value);
-                                  }
-                                },
+                  icon: Icons.payments_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      DropdownButtonFormField<EmploymentType>(
+                        key: ValueKey(_employmentType),
+                        initialValue: _employmentType,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.employmentType,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<SalaryType>(
-                          initialValue: _salaryType,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.salaryType,
-                          ),
-                          items: SalaryType.values
-                              .map(
-                                (type) => DropdownMenuItem(
-                                  value: type,
-                                  child: Text(type.label),
+                        items: EmploymentType.values
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(
+                                  type.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _salaryType = value);
-                                  }
-                                },
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _employmentType = value);
+                                }
+                              },
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<SalaryType>(
+                        key: ValueKey(_salaryType),
+                        initialValue: _salaryType,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.salaryType,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _rateController,
-                          decoration: InputDecoration(
-                            labelText: AppStrings.rateAmount,
-                            helperText: switch (_salaryType) {
-                              SalaryType.monthlyFixed => 'Monthly salary in PKR',
-                              SalaryType.dailyRate => 'Daily wage in PKR',
-                              SalaryType.perPieceRate =>
-                                'Rate per piece / sq. ft in PKR',
-                            },
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Rate is required';
-                            }
-                            final rate = double.tryParse(value.trim());
-                            if (rate == null || rate < 0) {
-                              return 'Enter a valid rate';
-                            }
-                            return null;
+                        items: SalaryType.values
+                            .map(
+                              (type) => DropdownMenuItem(
+                                value: type,
+                                child: Text(
+                                  type.label,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _salaryType = value);
+                                }
+                              },
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _rateController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.rateAmount,
+                        ).copyWith(
+                          helperText: switch (_salaryType) {
+                            SalaryType.monthlyFixed => 'Monthly salary in PKR',
+                            SalaryType.dailyRate => 'Daily wage in PKR',
+                            SalaryType.perPieceRate =>
+                              'Rate per piece / sq. ft in PKR',
                           },
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                SettingsSection(
-                  title: AppStrings.notes,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: TextFormField(
-                      controller: _notesController,
-                      decoration: const InputDecoration(
-                        labelText: AppStrings.notes,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Rate is required';
+                          }
+                          final rate = double.tryParse(value.trim());
+                          if (rate == null || rate < 0) {
+                            return 'Enter a valid rate';
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
                       ),
-                      textCapitalization: TextCapitalization.sentences,
-                      maxLines: 3,
-                    ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: FilledButton(
-                    onPressed: isSaving
-                        ? null
-                        : () => _submit(context, employee),
-                    child: isSaving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            _isEditing
-                                ? AppStrings.saveChanges
-                                : AppStrings.saveEmployee,
-                          ),
+                JobWorkDetailSection(
+                  title: AppStrings.notes,
+                  icon: Icons.notes_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      TextFormField(
+                        controller: _notesController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.notes,
+                        ),
+                        textCapitalization: TextCapitalization.sentences,
+                        maxLines: 3,
+                        enabled: !isSaving,
+                      ),
+                    ],
                   ),
+                ),
+                AppFormSubmitBar(
+                  label: _isEditing
+                      ? AppStrings.saveChanges
+                      : AppStrings.saveEmployee,
+                  isLoading: isSaving,
+                  onPressed: () => _submit(context, employee),
                 ),
               ],
             ),

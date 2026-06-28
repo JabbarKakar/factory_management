@@ -8,7 +8,8 @@ import '../../../blocs/finished_goods/inventory_adjustment_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/inventory_enums.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class RecordInventoryAdjustmentScreen extends StatefulWidget {
   const RecordInventoryAdjustmentScreen({
@@ -103,146 +104,147 @@ class _RecordInventoryAdjustmentScreenState
       },
       builder: (context, state) {
         final isSaving = state.status == InventoryAdjustmentStatus.saving;
+        final title = isStockIn
+            ? AppStrings.adjustStockIn
+            : AppStrings.adjustStockOut;
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              isStockIn
-                  ? AppStrings.adjustStockIn
-                  : AppStrings.adjustStockOut,
+            title: AppFormAppBarTitle(
+              title: title,
+              subtitle: item?.displaySubtitle ?? title,
             ),
           ),
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
                 if (item != null)
-                  SettingsSection(
+                  JobWorkDetailSection(
                     title: item.productType.label,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.displaySubtitle),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${AppStrings.currentQuantity}: '
-                            '${Formatters.stockQuantity(item.currentQuantity, 'sq. ft')}',
-                            style: Theme.of(context).textTheme.titleSmall,
+                    icon: Icons.inventory_2_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        Text(
+                          item.displaySubtitle,
+                          style: AppFormFields.valueStyle(context),
+                        ),
+                        AppFormFields.gap,
+                        AppFormSummaryRow(
+                          label: AppStrings.currentQuantity,
+                          value: Formatters.stockQuantity(
+                            item.currentQuantity,
+                            'sq. ft',
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.recordStockAdjustment,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.movementDate),
-                          subtitle:
-                              Text(DateFormat.yMMMd().format(_transactionDate)),
-                          trailing:
-                              const Icon(Icons.calendar_today_outlined),
-                          onTap: isSaving ? null : _pickDate,
+                  icon: Icons.tune_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      AppFormDateField(
+                        label: AppStrings.movementDate,
+                        value: DateFormat.yMMMd().format(_transactionDate),
+                        onTap: isSaving ? null : _pickDate,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _quantityController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: 'Quantity (sq. ft)',
                         ),
-                        const SizedBox(height: 12),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Quantity is required';
+                          }
+                          final quantity = double.tryParse(value.trim());
+                          if (quantity == null || quantity <= 0) {
+                            return 'Enter a valid quantity';
+                          }
+                          if (!isStockIn &&
+                              item != null &&
+                              quantity > item.currentQuantity) {
+                            return AppStrings.quantityExceedsStock;
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                      ),
+                      if (isStockIn) ...[
+                        AppFormFields.gap,
                         TextFormField(
-                          controller: _quantityController,
-                          decoration: const InputDecoration(
-                            labelText: 'Quantity (sq. ft)',
+                          controller: _unitCostController,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.unitCostPerSqFt,
+                            hint: AppStrings.adjustmentUnitCostHint,
                           ),
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
                           validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Quantity is required';
-                            }
-                            final quantity = double.tryParse(value.trim());
-                            if (quantity == null || quantity <= 0) {
-                              return 'Enter a valid quantity';
-                            }
-                            if (!isStockIn &&
-                                item != null &&
-                                quantity > item.currentQuantity) {
-                              return AppStrings.quantityExceedsStock;
-                            }
-                            return null;
-                          },
-                        ),
-                        if (isStockIn) ...[
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _unitCostController,
-                            decoration: InputDecoration(
-                              labelText: AppStrings.unitCostPerSqFt,
-                              helperText: AppStrings.adjustmentUnitCostHint,
-                            ),
-                            keyboardType:
-                                const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            validator: (value) {
-                              if (!requiresUnitCost &&
-                                  (value == null || value.trim().isEmpty)) {
-                                return null;
-                              }
-                              if (value == null || value.trim().isEmpty) {
-                                return AppStrings.adjustmentUnitCostRequired;
-                              }
-                              final cost = double.tryParse(value.trim());
-                              if (cost == null || cost < 0) {
-                                return 'Enter a valid unit cost';
-                              }
+                            if (!requiresUnitCost &&
+                                (value == null || value.trim().isEmpty)) {
                               return null;
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _reasonController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.adjustmentReason,
-                          ),
-                          textCapitalization: TextCapitalization.sentences,
-                          validator: (value) {
+                            }
                             if (value == null || value.trim().isEmpty) {
-                              return AppStrings.adjustmentReasonRequired;
+                              return AppStrings.adjustmentUnitCostRequired;
+                            }
+                            final cost = double.tryParse(value.trim());
+                            if (cost == null || cost < 0) {
+                              return 'Enter a valid unit cost';
                             }
                             return null;
                           },
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _notesController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.notes,
-                          ),
-                          maxLines: 3,
-                          textCapitalization: TextCapitalization.sentences,
+                          enabled: !isSaving,
                         ),
                       ],
-                    ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _reasonController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.adjustmentReason,
+                        ),
+                        textCapitalization: TextCapitalization.sentences,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return AppStrings.adjustmentReasonRequired;
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _notesController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.notes,
+                        ),
+                        maxLines: 3,
+                        textCapitalization: TextCapitalization.sentences,
+                        enabled: !isSaving,
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: FilledButton(
-                    onPressed: isSaving ? null : () => _submit(context),
-                    child: isSaving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text(AppStrings.recordStockAdjustment),
-                  ),
+                AppFormSubmitBar(
+                  label: AppStrings.recordStockAdjustment,
+                  isLoading: isSaving,
+                  onPressed: isSaving ? null : () => _submit(context),
                 ),
               ],
             ),
