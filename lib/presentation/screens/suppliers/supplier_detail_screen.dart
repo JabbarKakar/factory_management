@@ -9,6 +9,7 @@ import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/dialogs/app_bottom_sheet.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/suppliers/supplier_actions_bar.dart';
@@ -158,66 +159,35 @@ class SupplierDetailScreen extends StatelessWidget {
   }
 
   void _showMaterialPicker(BuildContext context, Supplier supplier) {
-    final theme = Theme.of(context);
-
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                child: Text(
-                  AppStrings.selectMaterialForStockIn,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              ...RawMaterialType.values.map(
-                (materialType) => ListTile(
-                  dense: true,
-                  visualDensity: VisualDensity.compact,
-                  leading: Icon(
-                    Icons.inventory_2_outlined,
-                    size: 20,
-                    color: theme.colorScheme.primary,
-                  ),
-                  title: Text(
-                    materialType.label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
-                  ),
-                  subtitle: Text(
-                    materialType.unit.label,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontSize: 11,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    context.push(
-                      RoutePaths.rawMaterialStockIn(
-                        materialType.name,
-                        supplierId: supplier.id,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
+    AppBottomSheet.show<void>(
+      context,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AppBottomSheet(
+            title: AppStrings.selectMaterialForStockIn,
+            icon: Icons.inventory_2_outlined,
+            child: const SizedBox.shrink(),
           ),
-        );
-      },
+          ...RawMaterialType.values.map(
+            (materialType) => AppBottomSheetListTile(
+              title: materialType.label,
+              subtitle: materialType.unit.label,
+              leadingIcon: Icons.inventory_2_outlined,
+              onTap: () {
+                Navigator.pop(context);
+                context.push(
+                  RoutePaths.rawMaterialStockIn(
+                    materialType.name,
+                    supplierId: supplier.id,
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
     );
   }
 }

@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/job_work_output.dart';
 import '../../../domain/enums/job_work_enums.dart';
+import '../dialogs/app_dialog.dart';
+import '../forms/app_form_fields.dart';
 
 class AddShiftLogDialog extends StatefulWidget {
   const AddShiftLogDialog({super.key});
@@ -78,121 +80,108 @@ class _AddShiftLogDialogState extends State<AddShiftLogDialog> {
     Navigator.of(context).pop(shift);
   }
 
+  InputDecoration _fieldDecoration(BuildContext context, String label) {
+    return AppFormFields.decoration(context, label: label);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text(AppStrings.addShiftLog),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(AppStrings.shiftDate),
-                subtitle: Text(DateFormat.yMMMd().format(_shiftDate)),
-                trailing: const Icon(Icons.calendar_today_outlined),
-                onTap: _pickDate,
-              ),
-              TextFormField(
-                controller: _shiftNameController,
-                decoration: const InputDecoration(
-                  labelText: AppStrings.shiftName,
-                  hintText: 'Morning, Evening, Night...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _gradeAController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: AppStrings.gradeA,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _gradeBController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: AppStrings.gradeB,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _gradeCController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: AppStrings.gradeC,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _rejectController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: AppStrings.reject,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _wasteController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: AppStrings.wasteGenerated,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<WasteUnit>(
-                initialValue: _wasteUnit,
-                decoration: const InputDecoration(
-                  labelText: AppStrings.wasteUnit,
-                  border: OutlineInputBorder(),
-                ),
-                items: WasteUnit.values
-                    .map(
-                      (unit) => DropdownMenuItem(
-                        value: unit,
-                        child: Text(unit.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) setState(() => _wasteUnit = value);
-                },
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _notesController,
-                decoration: const InputDecoration(
-                  labelText: AppStrings.shiftNotes,
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 2,
-              ),
-            ],
-          ),
+    return AppDialog(
+      title: AppStrings.addShiftLog,
+      icon: Icons.fact_check_outlined,
+      scrollable: true,
+      maxWidth: 440,
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AppFormDateField(
+              label: AppStrings.shiftDate,
+              value: DateFormat.yMMMd().format(_shiftDate),
+              onTap: _pickDate,
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _shiftNameController,
+              style: AppFormFields.valueStyle(context),
+              decoration: _fieldDecoration(context, AppStrings.shiftName),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _gradeAController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: AppFormFields.valueStyle(context),
+              decoration: _fieldDecoration(context, AppStrings.gradeA),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _gradeBController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: AppFormFields.valueStyle(context),
+              decoration: _fieldDecoration(context, AppStrings.gradeB),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _gradeCController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: AppFormFields.valueStyle(context),
+              decoration: _fieldDecoration(context, AppStrings.gradeC),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _rejectController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: AppFormFields.valueStyle(context),
+              decoration: _fieldDecoration(context, AppStrings.reject),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _wasteController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: AppFormFields.valueStyle(context),
+              decoration: _fieldDecoration(context, AppStrings.wasteGenerated),
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<WasteUnit>(
+              key: ValueKey(_wasteUnit),
+              initialValue: _wasteUnit,
+              style: AppFormFields.valueStyle(context),
+              decoration: _fieldDecoration(context, AppStrings.wasteUnit),
+              items: WasteUnit.values
+                  .map(
+                    (unit) => DropdownMenuItem(
+                      value: unit,
+                      child: Text(unit.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) setState(() => _wasteUnit = value);
+              },
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _notesController,
+              style: AppFormFields.valueStyle(context),
+              decoration: _fieldDecoration(context, AppStrings.shiftNotes),
+              maxLines: 2,
+            ),
+          ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text(AppStrings.cancel),
-        ),
-        FilledButton(
+        AppDialogActions.cancel(context),
+        AppDialogActions.confirm(
+          context,
+          label: AppStrings.addShiftLog,
           onPressed: _submit,
-          child: const Text(AppStrings.addShiftLog),
         ),
       ],
     );

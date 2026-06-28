@@ -14,6 +14,7 @@ import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../widgets/dialogs/app_input_dialog.dart';
 import '../../widgets/app_extended_fab.dart';
 import '../../widgets/raw_materials/low_stock_badge.dart';
 import '../../widgets/settings_section.dart';
@@ -30,37 +31,12 @@ class RawMaterialDetailScreen extends StatelessWidget {
       RawMaterialType.fromString(materialTypeName);
 
   Future<void> _editReorderLevel(BuildContext context, double current) async {
-    final controller = TextEditingController(
-      text: current > 0 ? current.toStringAsFixed(0) : '',
-    );
-    final result = await showDialog<double>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(AppStrings.setReorderLevel),
-          content: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: AppStrings.reorderLevel,
-              helperText: AppStrings.reorderLevelHint,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text(AppStrings.cancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                final value = double.tryParse(controller.text.trim()) ?? 0;
-                Navigator.pop(dialogContext, value);
-              },
-              child: const Text(AppStrings.saveChanges),
-            ),
-          ],
-        );
-      },
+    final result = await AppInputDialog.showNumber(
+      context,
+      title: AppStrings.setReorderLevel,
+      fieldLabel: AppStrings.reorderLevel,
+      helperText: AppStrings.reorderLevelHint,
+      initialValue: current,
     );
 
     if (!context.mounted || result == null) return;

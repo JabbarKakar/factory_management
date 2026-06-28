@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
+import 'app_dialog.dart';
 
 class AppConfirmDialog extends StatelessWidget {
   const AppConfirmDialog({
@@ -26,9 +27,9 @@ class AppConfirmDialog extends StatelessWidget {
     String cancelLabel = AppStrings.cancel,
     bool destructive = false,
   }) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AppConfirmDialog(
+    final result = await AppDialog.show<bool>(
+      context,
+      child: AppConfirmDialog(
         title: title,
         message: message,
         confirmLabel: confirmLabel,
@@ -41,25 +42,24 @@ class AppConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return AlertDialog(
-      title: Text(title),
-      content: Text(message),
+    return AppDialog(
+      title: title,
+      message: message,
+      icon: appDialogIconForDestructive(destructive),
+      iconColor: appDialogIconColorForDestructive(context, destructive),
+      includeContentSection: false,
+      content: const SizedBox.shrink(),
       actions: [
-        TextButton(
+        AppDialogActions.cancel(
+          context,
+          label: cancelLabel,
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text(cancelLabel),
         ),
-        FilledButton(
+        AppDialogActions.confirm(
+          context,
+          label: confirmLabel,
+          destructive: destructive,
           onPressed: () => Navigator.of(context).pop(true),
-          style: destructive
-              ? FilledButton.styleFrom(
-                  backgroundColor: colorScheme.error,
-                  foregroundColor: colorScheme.onError,
-                )
-              : null,
-          child: Text(confirmLabel),
         ),
       ],
     );

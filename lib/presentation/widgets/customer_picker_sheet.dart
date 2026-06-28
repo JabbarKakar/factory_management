@@ -7,18 +7,18 @@ import '../../data/repositories/customer_repository.dart';
 import '../../domain/entities/customer.dart';
 import '../routes/route_paths.dart';
 import '../utils/auth_context.dart';
+import '../widgets/dialogs/app_bottom_sheet.dart';
+import '../widgets/job_work/job_work_search_bar.dart';
 
 Future<void> showCustomerPickerSheet(BuildContext context) async {
   final factoryId = readFactoryId(context);
   if (factoryId == null) return;
 
-  await showModalBottomSheet<void>(
-    context: context,
+  await AppBottomSheet.show<void>(
+    context,
     isScrollControlled: true,
     useSafeArea: true,
-    builder: (sheetContext) {
-      return _CustomerPickerSheet(factoryId: factoryId);
-    },
+    child: _CustomerPickerSheet(factoryId: factoryId),
   );
 }
 
@@ -39,6 +39,11 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchClear() {
+    _searchController.clear();
+    setState(() {});
   }
 
   List<Customer> _filter(List<Customer> customers, String query) {
@@ -62,30 +67,22 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
       maxChildSize: 0.95,
       builder: (context, scrollController) {
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            AppBottomSheet(
+              title: AppStrings.selectCustomerForStatement,
+              subtitle: AppStrings.searchCustomers,
+              icon: Icons.person_search_outlined,
+              showDragHandle: false,
+              child: const SizedBox.shrink(),
+            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    AppStrings.selectCustomerForStatement,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      hintText: AppStrings.searchCustomers,
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+              child: JobWorkSearchBar(
+                controller: _searchController,
+                hintText: AppStrings.searchCustomers,
+                onChanged: (_) => setState(() {}),
+                onClear: _onSearchClear,
               ),
             ),
             Expanded(
@@ -96,12 +93,23 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final customers = _filter(snapshot.data ?? const [], _searchController.text);
+                  final customers =
+                      _filter(snapshot.data ?? const [], _searchController.text);
                   if (customers.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text(AppStrings.noCustomersFound),
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          AppStrings.noCustomersFound,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontSize: 12,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     );
                   }
@@ -111,19 +119,15 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
                     itemCount: customers.length,
                     itemBuilder: (context, index) {
                       final customer = customers[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          child: Text(
-                            customer.name.isNotEmpty
-                                ? customer.name[0].toUpperCase()
-                                : '?',
-                          ),
-                        ),
-                        title: Text(customer.name),
-                        subtitle: Text(customer.phone),
+                      return AppBottomSheetListTile(
+                        title: customer.name,
+                        subtitle: customer.phone,
+                        leadingIcon: Icons.person_outline,
                         onTap: () {
                           Navigator.of(context).pop();
-                          context.push(RoutePaths.customerStatement(customer.id));
+                          context.push(
+                            RoutePaths.customerStatement(customer.id),
+                          );
                         },
                       );
                     },

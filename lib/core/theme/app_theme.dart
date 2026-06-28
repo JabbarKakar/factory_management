@@ -153,6 +153,24 @@ abstract final class AppTheme {
         side: BorderSide(color: outlineColor),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: outlineColor),
+        ),
+        titleTextStyle: textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          fontSize: 15,
+          color: textPrimary,
+        ),
+        contentTextStyle: textTheme.bodySmall?.copyWith(
+          fontSize: 12,
+          height: 1.4,
+          color: textSecondary,
+        ),
+      ),
       dividerTheme: DividerThemeData(color: dividerColor, thickness: 1),
       segmentedButtonTheme: const SegmentedButtonThemeData(
         style: ButtonStyle(

@@ -5,9 +5,10 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/finished_goods/finished_goods_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/constants/inventory_data.dart';
 import '../../../core/utils/formatters.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/dialogs/app_input_dialog.dart';
+import '../../widgets/dialogs/storage_location_dialog.dart';
 import '../../widgets/finished_goods/finished_good_detail_hero.dart';
 import '../../widgets/finished_goods/finished_good_inventory_history_section.dart';
 import '../../widgets/finished_goods/finished_good_stock_actions_bar.dart';
@@ -20,37 +21,12 @@ class FinishedGoodDetailScreen extends StatelessWidget {
   final String finishedGoodId;
 
   Future<void> _editReorderLevel(BuildContext context, double current) async {
-    final controller = TextEditingController(
-      text: current > 0 ? current.toStringAsFixed(0) : '',
-    );
-    final result = await showDialog<double>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text(AppStrings.setReorderLevel),
-          content: TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: AppStrings.reorderLevel,
-              helperText: AppStrings.reorderLevelHint,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text(AppStrings.cancel),
-            ),
-            FilledButton(
-              onPressed: () {
-                final value = double.tryParse(controller.text.trim()) ?? 0;
-                Navigator.pop(dialogContext, value);
-              },
-              child: const Text(AppStrings.saveChanges),
-            ),
-          ],
-        );
-      },
+    final result = await AppInputDialog.showNumber(
+      context,
+      title: AppStrings.setReorderLevel,
+      fieldLabel: AppStrings.reorderLevel,
+      helperText: AppStrings.reorderLevelHint,
+      initialValue: current,
     );
 
     if (!context.mounted || result == null) return;
@@ -68,83 +44,9 @@ class FinishedGoodDetailScreen extends StatelessWidget {
     BuildContext context,
     String? currentLocation,
   ) async {
-    String? selected = currentLocation;
-    if (selected != null &&
-        !InventoryData.storageLocations.contains(selected)) {
-      selected = 'Other';
-    }
-
-    final customController = TextEditingController(
-      text: selected == 'Other' ? (currentLocation ?? '') : '',
-    );
-
-    final result = await showDialog<String?>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text(AppStrings.setStorageLocation),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<String?>(
-                    initialValue: selected,
-                    decoration: const InputDecoration(
-                      labelText: AppStrings.storageLocation,
-                    ),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text(AppStrings.notSpecified),
-                      ),
-                      ...InventoryData.storageLocations.map(
-                        (location) => DropdownMenuItem(
-                          value: location,
-                          child: Text(location),
-                        ),
-                      ),
-                    ],
-                    onChanged: (value) =>
-                        setDialogState(() => selected = value),
-                  ),
-                  if (selected == 'Other') ...[
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: customController,
-                      decoration: const InputDecoration(
-                        labelText: AppStrings.storageLocation,
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text(AppStrings.cancel),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    if (selected == 'Other') {
-                      Navigator.pop(
-                        dialogContext,
-                        customController.text.trim().isEmpty
-                            ? null
-                            : customController.text.trim(),
-                      );
-                    } else {
-                      Navigator.pop(dialogContext, selected);
-                    }
-                  },
-                  child: const Text(AppStrings.saveChanges),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final result = await StorageLocationDialog.show(
+      context,
+      currentLocation: currentLocation,
     );
 
     if (!context.mounted) return;
