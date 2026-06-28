@@ -60,6 +60,12 @@ enum ProductionListFilter {
   all,
   thisMonth;
 
+  /// Tab bar order — This Month first, then All.
+  static const List<ProductionListFilter> tabOrder = [
+    ProductionListFilter.thisMonth,
+    ProductionListFilter.all,
+  ];
+
   String get label => switch (this) {
         ProductionListFilter.all => 'All',
         ProductionListFilter.thisMonth => 'This Month',

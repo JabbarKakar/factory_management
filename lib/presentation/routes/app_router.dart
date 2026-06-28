@@ -493,7 +493,7 @@ GoRouter createAppRouter(AuthBloc authBloc) {
               ? null
               : ProductionListFilter.values.firstWhere(
                   (filter) => filter.name == filterName,
-                  orElse: () => ProductionListFilter.all,
+                  orElse: () => ProductionListFilter.thisMonth,
                 );
 
           return BlocProvider(

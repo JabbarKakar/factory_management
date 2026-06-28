@@ -8,7 +8,7 @@ class ProductionListState extends Equatable {
     this.batches = const [],
     this.visibleBatches = const [],
     this.searchQuery = '',
-    this.filter = ProductionListFilter.all,
+    this.filter = ProductionListFilter.thisMonth,
     this.monthTotalSqFt = 0,
     this.errorMessage,
   });
