@@ -3,16 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../blocs/production/production_list_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/production_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
+import '../../widgets/production/production_batch_filter_bar.dart';
 import '../../widgets/production/production_batch_list_tile.dart';
+import '../../widgets/production/production_summary_card.dart';
 
 class ProductionBatchesScreen extends StatefulWidget {
   const ProductionBatchesScreen({this.initialFilter, super.key});
@@ -47,11 +48,43 @@ class _ProductionBatchesScreenState extends State<ProductionBatchesScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<ProductionListBloc>().add(
+          const ProductionListSearchChanged(''),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.productionBatches),
+        title: BlocBuilder<ProductionListBloc, ProductionListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleBatches.length != curr.visibleBatches.length ||
+              prev.filter != curr.filter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.productionBatches),
+                Text(
+                  '${state.visibleBatches.length} batches'
+                  '${state.filter != ProductionListFilter.all ? ' · ${state.filter.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       floatingActionButton: context.userCanCreate(AppModule.production)
           ? FloatingActionButton.extended(
@@ -62,62 +95,55 @@ class _ProductionBatchesScreenState extends State<ProductionBatchesScreen> {
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           BlocBuilder<ProductionListBloc, ProductionListState>(
             buildWhen: (prev, curr) =>
+                prev.batches != curr.batches ||
                 prev.monthTotalSqFt != curr.monthTotalSqFt ||
-                prev.batches.length != curr.batches.length,
+                prev.filter != curr.filter ||
+                prev.status != curr.status,
             builder: (context, state) {
-              if (state.batches.isEmpty) return const SizedBox.shrink();
+              if (state.status != ProductionListStatus.loaded ||
+                  state.batches.isEmpty) {
+                return const SizedBox.shrink();
+              }
 
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.calendar_month_outlined),
-                    title: const Text(AppStrings.productionThisMonth),
-                    trailing: Text(
-                      Formatters.stockQuantity(state.monthTotalSqFt, 'sq. ft'),
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primary,
-                          ),
-                    ),
-                  ),
-                ),
+              return ProductionSummaryCard(
+                batches: state.batches,
+                filter: state.filter,
+                monthTotalSqFt: state.monthTotalSqFt,
               );
             },
           ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchProductionBatches,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context.read<ProductionListBloc>().add(
-                                const ProductionListSearchChanged(''),
-                              );
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<ProductionListBloc>()
-                    .add(ProductionListSearchChanged(value));
-                setState(() {});
+              hintText: AppStrings.searchProductionBatches,
+              onChanged: (value) => context
+                  .read<ProductionListBloc>()
+                  .add(ProductionListSearchChanged(value)),
+              onClear: _onSearchClear,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: BlocBuilder<ProductionListBloc, ProductionListState>(
+              buildWhen: (prev, curr) => prev.filter != curr.filter,
+              builder: (context, state) {
+                return ProductionBatchFilterBar(
+                  selected: state.filter,
+                  onChanged: (filter) => context
+                      .read<ProductionListBloc>()
+                      .add(ProductionListFilterChanged(filter)),
+                );
               },
             ),
           ),
           const SizedBox(height: 8),
-          const _ProductionFilterBar(),
           Expanded(
             child: BlocBuilder<ProductionListBloc, ProductionListState>(
               builder: (context, state) {
@@ -146,15 +172,18 @@ class _ProductionBatchesScreenState extends State<ProductionBatchesScreen> {
                 }
 
                 if (state.visibleBatches.isEmpty) {
+                  final filteredOut = state.batches.isNotEmpty;
+
                   return EmptyStateView(
                     icon: Icons.precision_manufacturing_outlined,
-                    title: state.batches.isEmpty
-                        ? AppStrings.noProductionBatchesYet
-                        : AppStrings.noProductionBatchesFound,
-                    subtitle: state.batches.isEmpty
-                        ? AppStrings.noProductionBatchesHint
-                        : null,
-                    action: state.batches.isEmpty
+                    title: filteredOut
+                        ? AppStrings.noProductionBatchesFound
+                        : AppStrings.noProductionBatchesYet,
+                    subtitle: filteredOut
+                        ? AppStrings.tryDifferentSearch
+                        : AppStrings.noProductionBatchesHint,
+                    action: !filteredOut &&
+                            context.userCanCreate(AppModule.production)
                         ? FilledButton.icon(
                             onPressed: () =>
                                 context.push(RoutePaths.productionAdd),
@@ -168,16 +197,14 @@ class _ProductionBatchesScreenState extends State<ProductionBatchesScreen> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     final factoryId = readFactoryId(context);
-                    if (factoryId != null) {
-                      context.read<ProductionListBloc>().add(
-                            ProductionListWatchStarted(factoryId),
-                          );
-                    }
+                    if (factoryId == null) return;
+                    context.read<ProductionListBloc>().add(
+                          ProductionListWatchStarted(factoryId),
+                        );
                   },
-                  child: ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 88),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: state.visibleBatches.length,
-                    separatorBuilder: (_, index) => const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final batch = state.visibleBatches[index];
                       return ProductionBatchListTile(
@@ -194,40 +221,6 @@ class _ProductionBatchesScreenState extends State<ProductionBatchesScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ProductionFilterBar extends StatelessWidget {
-  const _ProductionFilterBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<ProductionListBloc, ProductionListState>(
-      buildWhen: (prev, curr) => prev.filter != curr.filter,
-      builder: (context, state) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: ProductionListFilter.values.map((filter) {
-              final selected = state.filter == filter;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text(filter.label),
-                  selected: selected,
-                  onSelected: (_) {
-                    context.read<ProductionListBloc>().add(
-                          ProductionListFilterChanged(filter),
-                        );
-                  },
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
   }
 }
