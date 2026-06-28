@@ -1,30 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../blocs/sales/sales_invoice_bloc.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/utils/formatters.dart';
-import '../../routes/route_paths.dart';
 import '../../../core/di/injection.dart';
 import '../../../data/services/export/invoice_excel_exporter.dart';
 import '../../../data/services/export/invoice_pdf_exporter.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/invoice_enums.dart';
+import '../../routes/route_paths.dart';
 import '../../utils/export_actions.dart';
 import '../../utils/export_factory_name.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/empty_state_view.dart';
 import '../../widgets/export_menu_button.dart';
 import '../../widgets/invoice_reminder_history_section.dart';
-import '../../widgets/job_work/invoice_status_badge.dart';
+import '../../widgets/job_work/job_work_invoice_line_items_section.dart';
+import '../../widgets/job_work/job_work_invoice_payment_action_bar.dart';
+import '../../widgets/job_work/job_work_invoice_pricing_section.dart';
+import '../../widgets/sales/sales_invoice_detail_hero.dart';
+import '../../widgets/sales/sales_invoice_pricing_section.dart';
 import '../../widgets/send_payment_reminder_button.dart';
-import '../../widgets/settings_section.dart';
 
 class SalesInvoiceScreen extends StatelessWidget {
   const SalesInvoiceScreen({required this.salesOrderId, super.key});
 
   final String salesOrderId;
+
+  Future<void> _recordPayment(BuildContext context) async {
+    final state = context.read<SalesInvoiceBloc>().state;
+    final invoice = state.invoice;
+    if (invoice == null) return;
+
+    final recorded = await context.push<bool>(
+      RoutePaths.salesRecordPayment(invoice.id),
+    );
+    if (recorded == true && context.mounted) {
+      context.read<SalesInvoiceBloc>().add(
+            SalesInvoiceLoadByOrder(salesOrderId),
+          );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +61,9 @@ class SalesInvoiceScreen extends StatelessWidget {
       },
       builder: (context, state) {
         if (state.status == SalesInvoiceStatus.loading ||
-            state.status == SalesInvoiceStatus.initial) {
+            state.status == SalesInvoiceStatus.initial ||
+            (state.status == SalesInvoiceStatus.saving &&
+                state.invoice == null)) {
           return Scaffold(
             appBar: AppBar(title: const Text(AppStrings.salesInvoice)),
             body: const Center(child: CircularProgressIndicator()),
@@ -54,31 +73,15 @@ class SalesInvoiceScreen extends StatelessWidget {
         if (state.status == SalesInvoiceStatus.notFound) {
           return Scaffold(
             appBar: AppBar(title: const Text(AppStrings.salesInvoice)),
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.receipt_long_outlined, size: 56),
-                    const SizedBox(height: 16),
-                    Text(
-                      AppStrings.salesInvoiceNotReady,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge,
+            body: EmptyStateView(
+              icon: Icons.receipt_long_outlined,
+              title: AppStrings.salesInvoiceNotReady,
+              action: FilledButton.icon(
+                onPressed: () => context.read<SalesInvoiceBloc>().add(
+                      SalesInvoiceGenerateRequested(salesOrderId),
                     ),
-                    const SizedBox(height: 24),
-                    FilledButton.icon(
-                      onPressed: state.status == SalesInvoiceStatus.saving
-                          ? null
-                          : () => context.read<SalesInvoiceBloc>().add(
-                                SalesInvoiceGenerateRequested(salesOrderId),
-                              ),
-                      icon: const Icon(Icons.receipt_long),
-                      label: const Text(AppStrings.generateInvoice),
-                    ),
-                  ],
-                ),
+                icon: const Icon(Icons.receipt_long_outlined),
+                label: const Text(AppStrings.generateInvoice),
               ),
             ),
           );
@@ -88,17 +91,34 @@ class SalesInvoiceScreen extends StatelessWidget {
         if (invoice == null) {
           return Scaffold(
             appBar: AppBar(title: const Text(AppStrings.salesInvoice)),
-            body: Center(
-              child: Text(state.errorMessage ?? 'Invoice not available'),
+            body: EmptyStateView(
+              icon: Icons.error_outline,
+              title: state.errorMessage ?? 'Invoice not available',
             ),
           );
         }
 
         final isSaving = state.status == SalesInvoiceStatus.saving;
+        final appBarForeground =
+            Theme.of(context).appBarTheme.foregroundColor ??
+                Theme.of(context).colorScheme.onSurface;
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(AppStrings.salesInvoice),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.salesInvoice),
+                Text(
+                  invoice.invoiceNumber,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
             actions: [
               if (context.userCanExport(AppModule.sales))
                 ExportMenuButton(
@@ -156,18 +176,7 @@ class SalesInvoiceScreen extends StatelessWidget {
                 ),
               if (invoice.dueAmount > 0)
                 IconButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          final recorded = await context.push<bool>(
-                            RoutePaths.salesRecordPayment(invoice.id),
-                          );
-                          if (recorded == true && context.mounted) {
-                            context.read<SalesInvoiceBloc>().add(
-                                  SalesInvoiceLoadByOrder(salesOrderId),
-                                );
-                          }
-                        },
+                  onPressed: isSaving ? null : () => _recordPayment(context),
                   icon: const Icon(Icons.payments_outlined),
                   tooltip: AppStrings.recordPayment,
                 ),
@@ -176,164 +185,20 @@ class SalesInvoiceScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              Card(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              invoice.invoiceNumber,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          InvoiceStatusBadge(status: invoice.status),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(invoice.customerName),
-                      Text(
-                        invoice.orderNumber,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              SettingsSection(
-                title: AppStrings.lineItems,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      for (final item in invoice.lineItems) ...[
-                        _Row(
-                          item.description,
-                          item.amount > 0
-                              ? Formatters.currencyPkr(item.amount)
-                              : '—',
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              SettingsSection(
-                title: AppStrings.pricingAgreement,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _Row(
-                        AppStrings.invoiceTotal,
-                        Formatters.currencyPkr(invoice.totalAmount),
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.amountPaid,
-                        Formatters.currencyPkr(invoice.paidAmount),
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.amountDue,
-                        Formatters.currencyPkr(invoice.dueAmount),
-                        bold: true,
-                      ),
-                      if (invoice.dueDate != null) ...[
-                        const SizedBox(height: 8),
-                        _Row(
-                          AppStrings.paymentDueDate,
-                          DateFormat.yMMMd().format(invoice.dueDate!),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              SettingsSection(
-                title: AppStrings.paymentHistory,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: state.payments.isEmpty
-                      ? Text(AppStrings.noPaymentsYet)
-                      : Column(
-                          children: [
-                            for (final payment in state.payments) ...[
-                              _Row(
-                                '${DateFormat.yMMMd().format(payment.paymentDate)} · ${payment.method.label}',
-                                Formatters.currencyPkr(payment.amount),
-                              ),
-                              const SizedBox(height: 8),
-                            ],
-                          ],
-                        ),
-                ),
-              ),
-              InvoiceReminderHistorySection(invoiceId: invoice.id),
+              SalesInvoiceDetailHero(invoice: invoice),
               if (invoice.dueAmount > 0)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: FilledButton.icon(
-                    onPressed: isSaving
-                        ? null
-                        : () async {
-                            final recorded = await context.push<bool>(
-                              RoutePaths.salesRecordPayment(invoice.id),
-                            );
-                            if (recorded == true && context.mounted) {
-                              context.read<SalesInvoiceBloc>().add(
-                                    SalesInvoiceLoadByOrder(salesOrderId),
-                                  );
-                            }
-                          },
-                    icon: const Icon(Icons.payments_outlined),
-                    label: const Text(AppStrings.recordPayment),
-                  ),
+                JobWorkInvoicePaymentActionBar(
+                  enabled: !isSaving,
+                  onRecordPayment: () => _recordPayment(context),
                 ),
+              JobWorkInvoiceLineItemsSection(lineItems: invoice.lineItems),
+              SalesInvoicePricingSection(invoice: invoice),
+              JobWorkInvoicePaymentHistorySection(payments: state.payments),
+              InvoiceReminderHistorySection(invoiceId: invoice.id),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row(this.label, this.value, {this.bold = false});
-
-  final String label;
-  final String value;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(label, style: TextStyle(color: muted)),
-        ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
