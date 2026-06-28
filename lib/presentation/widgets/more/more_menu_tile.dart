@@ -30,7 +30,7 @@ class MoreMenuTile extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
               child: Row(
                 children: [
                   Container(
@@ -85,7 +85,7 @@ class MoreMenuTile extends StatelessWidget {
         if (showDivider)
           Divider(
             height: 1,
-            indent: 64,
+            indent: 60,
             endIndent: 14,
             color: theme.colorScheme.outline.withValues(alpha: 0.25),
           ),
