@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/services/customer_statement_service.dart';
 import '../../../data/services/export/customer_statement_excel_exporter.dart';
 import '../../../data/services/export/customer_statement_pdf_exporter.dart';
@@ -13,8 +11,11 @@ import '../../../domain/enums/app_module_enums.dart';
 import '../../utils/export_actions.dart';
 import '../../utils/export_factory_name.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/customers/customer_statement_date_range_section.dart';
+import '../../widgets/customers/customer_statement_detail_hero.dart';
+import '../../widgets/customers/customer_statement_ledger_section.dart';
+import '../../widgets/empty_state_view.dart';
 import '../../widgets/export_menu_button.dart';
-import '../../widgets/settings_section.dart';
 
 class CustomerStatementScreen extends StatefulWidget {
   const CustomerStatementScreen({required this.customerId, super.key});
@@ -116,11 +117,29 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
   Widget build(BuildContext context) {
     final canExport = context.userCanExport(AppModule.customers);
     final statement = _statement;
-    final dateFormat = DateFormat.yMMMd();
+    final isInitialLoad = _loading && statement == null;
+    final isRefreshing = _loading && statement != null;
+    final appBarForeground =
+        Theme.of(context).appBarTheme.foregroundColor ??
+            Theme.of(context).colorScheme.onSurface;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.customerStatement),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(AppStrings.customerStatement),
+            if (statement != null)
+              Text(
+                statement.customer.name,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: appBarForeground.withValues(alpha: 0.78),
+                      fontWeight: FontWeight.w500,
+                      fontSize: 11,
+                    ),
+              ),
+          ],
+        ),
         actions: [
           if (canExport && statement != null)
             ExportMenuButton(
@@ -157,24 +176,23 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
               },
             ),
         ],
+        bottom: isRefreshing
+            ? const PreferredSize(
+                preferredSize: Size.fromHeight(2),
+                child: LinearProgressIndicator(minHeight: 2),
+              )
+            : null,
       ),
-      body: _loading
+      body: isInitialLoad
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_errorMessage!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadStatement,
-                          child: const Text(AppStrings.retry),
-                        ),
-                      ],
-                    ),
+              ? EmptyStateView(
+                  icon: Icons.error_outline,
+                  title: _errorMessage!,
+                  action: FilledButton.icon(
+                    onPressed: _loadStatement,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text(AppStrings.retry),
                   ),
                 )
               : statement == null
@@ -184,227 +202,18 @@ class _CustomerStatementScreenState extends State<CustomerStatementScreen> {
                       child: ListView(
                         padding: const EdgeInsets.only(bottom: 24),
                         children: [
-                          SettingsSection(
-                            title: AppStrings.statementDateRange,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                children: [
-                                  _DatePickerRow(
-                                    label: AppStrings.fromDate,
-                                    value: dateFormat.format(_fromDate),
-                                    onTap: _pickFromDate,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _DatePickerRow(
-                                    label: AppStrings.toDate,
-                                    value: dateFormat.format(_toDate),
-                                    onTap: _pickToDate,
-                                  ),
-                                ],
-                              ),
-                            ),
+                          CustomerStatementDetailHero(statement: statement),
+                          CustomerStatementDateRangeSection(
+                            fromDate: _fromDate,
+                            toDate: _toDate,
+                            onPickFrom: _pickFromDate,
+                            onPickTo: _pickToDate,
+                            enabled: !_loading,
                           ),
-                          Card(
-                            margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    statement.customer.name,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleLarge
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    statement.customer.phone,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: AppColors.textSecondary,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          SettingsSection(
-                            title: AppStrings.accountLedger,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                children: [
-                                  _SummaryRow(
-                                    label: AppStrings.openingBalance,
-                                    value: Formatters.currencyPkr(
-                                      statement.openingBalance,
-                                    ),
-                                  ),
-                                  const Divider(height: 24),
-                                  if (statement.lines.isEmpty)
-                                    Text(
-                                      AppStrings.noStatementActivity,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            color: AppColors.textSecondary,
-                                          ),
-                                    )
-                                  else
-                                    for (final line in statement.lines) ...[
-                                      _StatementLineRow(
-                                        line: line,
-                                        dateFormat: dateFormat,
-                                      ),
-                                      const SizedBox(height: 8),
-                                    ],
-                                  const Divider(height: 24),
-                                  _SummaryRow(
-                                    label: AppStrings.closingBalance,
-                                    value: Formatters.currencyPkr(
-                                      statement.closingBalance,
-                                    ),
-                                    bold: true,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          CustomerStatementLedgerSection(statement: statement),
                         ],
                       ),
                     ),
-    );
-  }
-}
-
-class _DatePickerRow extends StatelessWidget {
-  const _DatePickerRow({
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            ),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.calendar_today_outlined, size: 18),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatementLineRow extends StatelessWidget {
-  const _StatementLineRow({
-    required this.line,
-    required this.dateFormat,
-  });
-
-  final CustomerStatementLine line;
-  final DateFormat dateFormat;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    final amountText = line.debit > 0
-        ? '+${Formatters.currencyPkr(line.debit)}'
-        : '-${Formatters.currencyPkr(line.credit)}';
-    final amountColor = line.debit > 0
-        ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.primary;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                line.description,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              Text(
-                '${dateFormat.format(line.date)} · ${line.reference}',
-                style: TextStyle(color: muted, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          amountText,
-          style: TextStyle(
-            color: amountColor,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.bold = false,
-  });
-
-  final String label;
-  final String value;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: muted,
-              fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.w600),
-        ),
-      ],
     );
   }
 }
