@@ -12,7 +12,7 @@ import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/expenses/expense_category_filter_bar.dart';
 import '../../widgets/expenses/expense_list_tile.dart';
-import '../../widgets/expenses/expense_period_filter_bar.dart';
+import '../../widgets/expenses/expense_period_tab_bar.dart';
 import '../../widgets/expenses/expense_summary_card.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 
@@ -23,13 +23,37 @@ class ExpensesScreen extends StatefulWidget {
   State<ExpensesScreen> createState() => _ExpensesScreenState();
 }
 
-class _ExpensesScreenState extends State<ExpensesScreen> {
+class _ExpensesScreenState extends State<ExpensesScreen>
+    with SingleTickerProviderStateMixin {
   final _searchController = TextEditingController();
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: ExpenseListPeriodFilter.values.length,
+      vsync: this,
+    );
+    _tabController.addListener(_onTabChanged);
+  }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+
+    final period = ExpenseListPeriodFilter.values[_tabController.index];
+    final bloc = context.read<ExpenseListBloc>();
+    if (bloc.state.periodFilter != period) {
+      bloc.add(ExpenseListPeriodFilterChanged(period));
+    }
   }
 
   void _onSearchClear() {
@@ -39,187 +63,192 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: BlocBuilder<ExpenseListBloc, ExpenseListState>(
-          buildWhen: (prev, curr) =>
-              prev.visibleExpenses.length != curr.visibleExpenses.length ||
-              prev.periodFilter != curr.periodFilter ||
-              prev.categoryFilter != curr.categoryFilter,
-          builder: (context, state) {
-            final appBarForeground =
-                Theme.of(context).appBarTheme.foregroundColor ??
-                    Theme.of(context).colorScheme.onSurface;
-            final filterParts = <String>[
-              if (state.periodFilter != ExpenseListPeriodFilter.thisMonth)
-                state.periodFilter.label,
-              if (state.categoryFilter != null) state.categoryFilter!.label,
-            ];
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(AppStrings.expenses),
-                Text(
-                  '${state.visibleExpenses.length} expenses'
-                  '${filterParts.isNotEmpty ? ' · ${filterParts.join(' · ')}' : ''}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: appBarForeground.withValues(alpha: 0.78),
-                        fontWeight: FontWeight.w500,
-                        fontSize: 11,
-                      ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-      floatingActionButton: context.userCanCreate(AppModule.expenses)
-          ? FloatingActionButton.extended(
-              heroTag: 'fab-expenses',
-              onPressed: () => context.push(RoutePaths.expensesAdd),
-              icon: const Icon(Icons.add),
-              label: const Text(AppStrings.addExpense),
-            )
-          : null,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          BlocBuilder<ExpenseListBloc, ExpenseListState>(
+    return BlocListener<ExpenseListBloc, ExpenseListState>(
+      listenWhen: (prev, curr) => prev.periodFilter != curr.periodFilter,
+      listener: (context, state) {
+        final index =
+            ExpenseListPeriodFilter.values.indexOf(state.periodFilter);
+        if (_tabController.index != index) {
+          _tabController.animateTo(index);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: BlocBuilder<ExpenseListBloc, ExpenseListState>(
             buildWhen: (prev, curr) =>
-                prev.monthTotal != curr.monthTotal ||
-                prev.filteredTotal != curr.filteredTotal ||
-                prev.periodFilter != curr.periodFilter,
+                prev.visibleExpenses.length != curr.visibleExpenses.length ||
+                prev.categoryFilter != curr.categoryFilter,
             builder: (context, state) {
-              return ExpenseSummaryCard(
-                periodFilter: state.periodFilter,
-                monthTotal: state.monthTotal,
-                filteredTotal: state.filteredTotal,
+              final appBarForeground =
+                  Theme.of(context).appBarTheme.foregroundColor ??
+                      Theme.of(context).colorScheme.onSurface;
+              final categoryLabel = state.categoryFilter?.label;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(AppStrings.expenses),
+                  Text(
+                    '${state.visibleExpenses.length} expenses'
+                    '${categoryLabel != null ? ' · $categoryLabel' : ''}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: appBarForeground.withValues(alpha: 0.78),
+                          fontWeight: FontWeight.w500,
+                          fontSize: 11,
+                        ),
+                  ),
+                ],
               );
             },
           ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-            child: JobWorkSearchBar(
-              controller: _searchController,
-              hintText: AppStrings.searchExpenses,
-              onChanged: (value) => context
-                  .read<ExpenseListBloc>()
-                  .add(ExpenseListSearchChanged(value)),
-              onClear: _onSearchClear,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: BlocBuilder<ExpenseListBloc, ExpenseListState>(
+        ),
+        floatingActionButton: context.userCanCreate(AppModule.expenses)
+            ? FloatingActionButton.extended(
+                heroTag: 'fab-expenses',
+                onPressed: () => context.push(RoutePaths.expensesAdd),
+                icon: const Icon(Icons.add),
+                label: const Text(AppStrings.addExpense),
+              )
+            : null,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ExpensePeriodTabBar(controller: _tabController),
+            BlocBuilder<ExpenseListBloc, ExpenseListState>(
               buildWhen: (prev, curr) =>
-                  prev.periodFilter != curr.periodFilter ||
-                  prev.categoryFilter != curr.categoryFilter,
+                  prev.monthTotal != curr.monthTotal ||
+                  prev.filteredTotal != curr.filteredTotal ||
+                  prev.periodFilter != curr.periodFilter,
               builder: (context, state) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ExpensePeriodFilterBar(
-                      selected: state.periodFilter,
-                      onChanged: (period) => context.read<ExpenseListBloc>().add(
-                            ExpenseListPeriodFilterChanged(period),
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    ExpenseCategoryFilterBar(
-                      selected: state.categoryFilter,
-                      onChanged: (category) => context
-                          .read<ExpenseListBloc>()
-                          .add(ExpenseListCategoryFilterChanged(category)),
-                    ),
-                  ],
+                return ExpenseSummaryCard(
+                  periodFilter: state.periodFilter,
+                  monthTotal: state.monthTotal,
+                  filteredTotal: state.filteredTotal,
                 );
               },
             ),
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: BlocBuilder<ExpenseListBloc, ExpenseListState>(
-              builder: (context, state) {
-                if (state.status == ExpenseListStatus.loading &&
-                    state.expenses.isEmpty) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (state.status == ExpenseListStatus.failure) {
-                  return EmptyStateView(
-                    icon: Icons.error_outline,
-                    title: AppStrings.expensesLoadError,
-                    subtitle: state.errorMessage,
-                    action: ElevatedButton(
-                      onPressed: () {
-                        final factoryId = readFactoryId(context);
-                        if (factoryId != null) {
-                          context.read<ExpenseListBloc>().add(
-                                ExpenseListWatchStarted(factoryId),
-                              );
-                        }
-                      },
-                      child: const Text(AppStrings.retry),
-                    ),
-                  );
-                }
-
-                if (state.visibleExpenses.isEmpty) {
-                  final filteredOut = state.searchQuery.isNotEmpty ||
-                      state.categoryFilter != null ||
-                      state.periodFilter != ExpenseListPeriodFilter.thisMonth ||
-                      state.expenses.isNotEmpty;
-
-                  return EmptyStateView(
-                    icon: Icons.receipt_long_outlined,
-                    title: filteredOut
-                        ? AppStrings.noExpensesFound
-                        : AppStrings.noExpensesYet,
-                    subtitle: filteredOut
-                        ? AppStrings.tryDifferentSearch
-                        : AppStrings.addFirstExpense,
-                    action: !filteredOut &&
-                            context.userCanCreate(AppModule.expenses)
-                        ? ElevatedButton.icon(
-                            onPressed: () =>
-                                context.push(RoutePaths.expensesAdd),
-                            icon: const Icon(Icons.add),
-                            label: const Text(AppStrings.addExpense),
-                          )
-                        : null,
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async {
-                    final factoryId = readFactoryId(context);
-                    if (factoryId == null) return;
-                    context.read<ExpenseListBloc>().add(
-                          ExpenseListWatchStarted(factoryId),
-                        );
-                  },
-                  child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 4, bottom: 88),
-                    itemCount: state.visibleExpenses.length,
-                    itemBuilder: (context, index) {
-                      final expense = state.visibleExpenses[index];
-                      return ExpenseListTile(
-                        expense: expense,
-                        onTap: () => context.push(
-                          RoutePaths.expenseEdit(expense.id),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: JobWorkSearchBar(
+                controller: _searchController,
+                hintText: AppStrings.searchExpenses,
+                onChanged: (value) => context
+                    .read<ExpenseListBloc>()
+                    .add(ExpenseListSearchChanged(value)),
+                onClear: _onSearchClear,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: BlocBuilder<ExpenseListBloc, ExpenseListState>(
+                buildWhen: (prev, curr) =>
+                    prev.categoryFilter != curr.categoryFilter,
+                builder: (context, state) {
+                  return ExpenseCategoryFilterBar(
+                    selected: state.categoryFilter,
+                    onChanged: (category) => context
+                        .read<ExpenseListBloc>()
+                        .add(ExpenseListCategoryFilterChanged(category)),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: ExpenseListPeriodFilter.values
+                    .map((_) => const _ExpenseListPane())
+                    .toList(),
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _ExpenseListPane extends StatelessWidget {
+  const _ExpenseListPane();
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<ExpenseListBloc, ExpenseListState>(
+      builder: (context, state) {
+        if (state.status == ExpenseListStatus.loading &&
+            state.expenses.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (state.status == ExpenseListStatus.failure) {
+          return EmptyStateView(
+            icon: Icons.error_outline,
+            title: AppStrings.expensesLoadError,
+            subtitle: state.errorMessage,
+            action: ElevatedButton(
+              onPressed: () {
+                final factoryId = readFactoryId(context);
+                if (factoryId != null) {
+                  context.read<ExpenseListBloc>().add(
+                        ExpenseListWatchStarted(factoryId),
+                      );
+                }
+              },
+              child: const Text(AppStrings.retry),
+            ),
+          );
+        }
+
+        if (state.visibleExpenses.isEmpty) {
+          final filteredOut = state.searchQuery.isNotEmpty ||
+              state.categoryFilter != null ||
+              state.periodFilter != ExpenseListPeriodFilter.thisMonth ||
+              state.expenses.isNotEmpty;
+
+          return EmptyStateView(
+            icon: Icons.receipt_long_outlined,
+            title: filteredOut
+                ? AppStrings.noExpensesFound
+                : AppStrings.noExpensesYet,
+            subtitle: filteredOut
+                ? AppStrings.tryDifferentSearch
+                : AppStrings.addFirstExpense,
+            action: !filteredOut && context.userCanCreate(AppModule.expenses)
+                ? ElevatedButton.icon(
+                    onPressed: () => context.push(RoutePaths.expensesAdd),
+                    icon: const Icon(Icons.add),
+                    label: const Text(AppStrings.addExpense),
+                  )
+                : null,
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            final factoryId = readFactoryId(context);
+            if (factoryId == null) return;
+            context.read<ExpenseListBloc>().add(
+                  ExpenseListWatchStarted(factoryId),
+                );
+          },
+          child: ListView.builder(
+            padding: const EdgeInsets.only(top: 4, bottom: 88),
+            itemCount: state.visibleExpenses.length,
+            itemBuilder: (context, index) {
+              final expense = state.visibleExpenses[index];
+              return ExpenseListTile(
+                expense: expense,
+                onTap: () => context.push(
+                  RoutePaths.expenseEdit(expense.id),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }
