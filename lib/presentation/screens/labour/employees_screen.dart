@@ -10,7 +10,10 @@ import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
+import '../../widgets/labour/employee_filter_bar.dart';
 import '../../widgets/labour/employee_list_tile.dart';
+import '../../widgets/labour/employee_summary_card.dart';
 
 class EmployeesScreen extends StatefulWidget {
   const EmployeesScreen({super.key});
@@ -28,11 +31,41 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<EmployeeListBloc>().add(const EmployeeListSearchChanged(''));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.factoryWorkers),
+        title: BlocBuilder<EmployeeListBloc, EmployeeListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleEmployees.length != curr.visibleEmployees.length ||
+              prev.filter != curr.filter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.factoryWorkers),
+                Text(
+                  '${state.visibleEmployees.length} workers'
+                  '${state.filter != EmployeeListFilter.active ? ' · ${state.filter.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
         actions: [
           if (context.userCanView(AppModule.labour))
             IconButton(
@@ -51,37 +84,52 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          BlocBuilder<EmployeeListBloc, EmployeeListState>(
+            buildWhen: (prev, curr) =>
+                prev.employees != curr.employees ||
+                prev.status != curr.status,
+            builder: (context, state) {
+              if (state.status != EmployeeListStatus.loaded ||
+                  state.employees.isEmpty) {
+                return const SizedBox.shrink();
+              }
+
+              return EmployeeSummaryCard(
+                totalCount: state.employees.length,
+                activeCount: state.activeCount,
+              );
+            },
+          ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchEmployees,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context
-                              .read<EmployeeListBloc>()
-                              .add(const EmployeeListSearchChanged(''));
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<EmployeeListBloc>()
-                    .add(EmployeeListSearchChanged(value));
-                setState(() {});
+              hintText: AppStrings.searchEmployees,
+              onChanged: (value) => context
+                  .read<EmployeeListBloc>()
+                  .add(EmployeeListSearchChanged(value)),
+              onClear: _onSearchClear,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: BlocBuilder<EmployeeListBloc, EmployeeListState>(
+              buildWhen: (prev, curr) => prev.filter != curr.filter,
+              builder: (context, state) {
+                return EmployeeFilterBar(
+                  selected: state.filter,
+                  onChanged: (filter) => context
+                      .read<EmployeeListBloc>()
+                      .add(EmployeeListFilterChanged(filter)),
+                );
               },
             ),
           ),
           const SizedBox(height: 8),
-          const _EmployeeFilterBar(),
           Expanded(
             child: BlocBuilder<EmployeeListBloc, EmployeeListState>(
               builder: (context, state) {
@@ -110,15 +158,20 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 }
 
                 if (state.visibleEmployees.isEmpty) {
+                  final filteredOut = state.employees.isNotEmpty ||
+                      state.searchQuery.isNotEmpty ||
+                      state.filter != EmployeeListFilter.active;
+
                   return EmptyStateView(
                     icon: Icons.groups_outlined,
-                    title: state.employees.isEmpty
-                        ? AppStrings.noEmployeesYet
-                        : AppStrings.noEmployeesFound,
-                    subtitle: state.employees.isEmpty
-                        ? AppStrings.noEmployeesHint
-                        : null,
-                    action: state.employees.isEmpty
+                    title: filteredOut
+                        ? AppStrings.noEmployeesFound
+                        : AppStrings.noEmployeesYet,
+                    subtitle: filteredOut
+                        ? AppStrings.tryDifferentSearch
+                        : AppStrings.noEmployeesHint,
+                    action: !filteredOut &&
+                            context.userCanCreate(AppModule.labour)
                         ? FilledButton.icon(
                             onPressed: () =>
                                 context.push(RoutePaths.employeesAdd),
@@ -132,14 +185,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 return RefreshIndicator(
                   onRefresh: () async {
                     final factoryId = readFactoryId(context);
-                    if (factoryId != null) {
-                      context.read<EmployeeListBloc>().add(
-                            EmployeeListWatchStarted(factoryId),
-                          );
-                    }
+                    if (factoryId == null) return;
+                    context.read<EmployeeListBloc>().add(
+                          EmployeeListWatchStarted(factoryId),
+                        );
                   },
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(bottom: 88),
+                    padding: const EdgeInsets.only(top: 4, bottom: 88),
                     itemCount: state.visibleEmployees.length,
                     itemBuilder: (context, index) {
                       final employee = state.visibleEmployees[index];
@@ -157,40 +209,6 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _EmployeeFilterBar extends StatelessWidget {
-  const _EmployeeFilterBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<EmployeeListBloc, EmployeeListState>(
-      buildWhen: (prev, curr) => prev.filter != curr.filter,
-      builder: (context, state) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: EmployeeListFilter.values.map((filter) {
-              final selected = state.filter == filter;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text(filter.label),
-                  selected: selected,
-                  onSelected: (_) {
-                    context.read<EmployeeListBloc>().add(
-                          EmployeeListFilterChanged(filter),
-                        );
-                  },
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
   }
 }

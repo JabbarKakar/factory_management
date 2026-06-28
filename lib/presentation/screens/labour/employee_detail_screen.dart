@@ -6,12 +6,14 @@ import 'package:intl/intl.dart';
 import '../../../blocs/labour/employee_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../domain/entities/attendance_record.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
-import '../../widgets/labour/employee_status_badge.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/job_work/job_work_detail_row.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/labour/employee_attendance_action_bar.dart';
+import '../../widgets/labour/employee_attendance_history_section.dart';
+import '../../widgets/labour/employee_detail_hero.dart';
 
 class EmployeeDetailScreen extends StatelessWidget {
   const EmployeeDetailScreen({required this.employeeId, super.key});
@@ -43,7 +45,22 @@ class EmployeeDetailScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(AppStrings.employeeDetails),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.employeeDetails),
+                Text(
+                  employee.fullName,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
             actions: [
               if (context.userCanEdit(AppModule.labour))
                 IconButton(
@@ -55,143 +72,89 @@ class EmployeeDetailScreen extends StatelessWidget {
                 ),
             ],
           ),
-          floatingActionButton: employee.isActive &&
-                  context.userCanCreate(AppModule.labour)
-              ? FloatingActionButton.extended(
-                  heroTag: 'fab-employee-attendance',
-                  onPressed: () => context.push(RoutePaths.attendance),
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text(AppStrings.markAttendance),
-                )
-              : null,
           body: ListView(
-            padding: const EdgeInsets.only(bottom: 88),
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                employee.fullName,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w700),
-                              ),
-                            ),
-                            EmployeeStatusBadge(status: employee.status),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          employee.employeeNumber,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(employee.workerCategory.label),
-                      ],
-                    ),
-                  ),
+              EmployeeDetailHero(employee: employee),
+              if (employee.isActive &&
+                  context.userCanCreate(AppModule.labour))
+                EmployeeAttendanceActionBar(
+                  onPressed: () => context.push(RoutePaths.attendance),
                 ),
-              ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.contactInformation,
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.phone_outlined),
-                      title: const Text(AppStrings.phone),
-                      subtitle: Text(employee.phone),
+                icon: Icons.contact_phone_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.phone,
+                      value: employee.phone,
                     ),
                     if (employee.cnic != null && employee.cnic!.isNotEmpty)
-                      ListTile(
-                        leading: const Icon(Icons.badge_outlined),
-                        title: const Text(AppStrings.cnicNumber),
-                        subtitle: Text(employee.cnic!),
+                      JobWorkDetailRow(
+                        label: AppStrings.cnicNumber,
+                        value: employee.cnic!,
                       ),
                   ],
                 ),
               ),
-              SettingsSection(
-                title: AppStrings.salaryType,
-                child: Column(
-                  children: [
-                    ListTile(
-                      title: const Text(AppStrings.employmentType),
-                      trailing: Text(employee.employmentType.label),
+              JobWorkDetailSection(
+                title: AppStrings.employmentType,
+                icon: Icons.payments_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.workerCategory,
+                      value: employee.workerCategory.label,
                     ),
-                    ListTile(
-                      title: const Text(AppStrings.salaryType),
-                      trailing: Text(employee.salaryType.label),
+                    JobWorkDetailRow(
+                      label: AppStrings.employmentType,
+                      value: employee.employmentType.label,
                     ),
-                    ListTile(
-                      title: const Text(AppStrings.rateAmount),
-                      trailing: Text(
-                        '${Formatters.currencyPkr(employee.rateAmount)} ${employee.rateLabel}',
-                      ),
+                    JobWorkDetailRow(
+                      label: AppStrings.salaryType,
+                      value: employee.salaryType.label,
                     ),
-                    ListTile(
-                      title: const Text(AppStrings.employeeJoinDate),
-                      trailing: Text(DateFormat.yMMMd().format(employee.joinDate)),
+                    JobWorkDetailRow(
+                      label: AppStrings.rateAmount,
+                      value:
+                          '${Formatters.currencyPkr(employee.rateAmount)} ${employee.rateLabel}',
+                      bold: true,
+                      highlight: true,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.employeeJoinDate,
+                      value: DateFormat.yMMMd().format(employee.joinDate),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.employeeStatus,
+                      value: employee.status.label,
                     ),
                   ],
                 ),
               ),
               if (employee.notes != null && employee.notes!.isNotEmpty)
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.notes,
-                  child: ListTile(
-                    title: Text(employee.notes!),
+                  icon: Icons.notes_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: Text(
+                      employee.notes!,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                            height: 1.35,
+                          ),
+                    ),
                   ),
                 ),
-              SettingsSection(
-                title: AppStrings.attendanceHistory,
-                child: state.attendanceRecords.isEmpty
-                    ? const ListTile(
-                        title: Text(AppStrings.noAttendanceHistory),
-                      )
-                    : Column(
-                        children: state.attendanceRecords
-                            .map(
-                              (record) => _AttendanceHistoryTile(record: record),
-                            )
-                            .toList(),
-                      ),
+              EmployeeAttendanceHistorySection(
+                records: state.attendanceRecords,
               ),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _AttendanceHistoryTile extends StatelessWidget {
-  const _AttendanceHistoryTile({required this.record});
-
-  final AttendanceRecord record;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    return ListTile(
-      leading: const Icon(Icons.event_available_outlined),
-      title: Text(DateFormat.yMMMd().format(record.attendanceDate)),
-      subtitle: Text(
-        [
-          record.status.label,
-          if (record.shift != null) record.shift!.label,
-        ].join(' · '),
-        style: TextStyle(color: muted),
-      ),
     );
   }
 }
