@@ -4,16 +4,19 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/sales/sales_order_form_bloc.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../domain/enums/sales_enums.dart';
+import '../../../domain/entities/delivery.dart';
 import '../../../domain/enums/app_module_enums.dart';
+import '../../../domain/enums/delivery_enums.dart';
+import '../../../domain/enums/sales_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
-import '../../widgets/delivery/delivery_status_badge.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
-import '../../widgets/sales/sales_order_status_badge.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/job_work/job_work_detail_row.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/sales/sales_order_detail_hero.dart';
 
 class SalesOrderDetailScreen extends StatelessWidget {
   const SalesOrderDetailScreen({required this.salesOrderId, super.key});
@@ -101,10 +104,6 @@ class SalesOrderDetailScreen extends StatelessWidget {
             SnackBar(content: Text(state.successMessage!)),
           );
         }
-        if (state.status == SalesOrderFormStatus.ready &&
-            state.order != null) {
-          // status advanced snackbar handled by rebuild
-        }
       },
       builder: (context, state) {
         if (state.status == SalesOrderFormStatus.loading ||
@@ -132,11 +131,29 @@ class SalesOrderDetailScreen extends StatelessWidget {
         final canInvoice = order.status == SalesOrderStatus.ready ||
             order.status == SalesOrderStatus.invoiced ||
             order.status == SalesOrderStatus.paid;
-        final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
+        final hasInvoice =
+            order.invoiceId != null && order.invoiceId!.isNotEmpty;
+        final showDeliveries = state.deliveries.isNotEmpty ||
+            (canInvoice && order.status != SalesOrderStatus.closed);
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(AppStrings.salesOrderDetails),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.salesOrderDetails),
+                Text(
+                  order.orderNumber,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
             actions: [
               if (canEdit)
                 IconButton(
@@ -157,254 +174,192 @@ class SalesOrderDetailScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              Card(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              order.orderNumber,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          SalesOrderStatusBadge(status: order.status),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        order.customerName,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      if (nextStatus != null) ...[
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.tonal(
-                            onPressed: isSaving
-                                ? null
-                                : () => _advanceStatus(context, nextStatus),
-                            child: Text(order.status.advanceActionLabel),
-                          ),
-                        ),
-                      ],
-                      if (canInvoice) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: isSaving
-                                ? null
-                                : () => context.push(
-                                      RoutePaths.deliveriesAddForOrder(order.id),
-                                    ),
-                            icon: const Icon(Icons.local_shipping_outlined),
-                            label: const Text(AppStrings.scheduleDelivery),
-                          ),
-                        ),
-                      ],
-                      if (canInvoice) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: isSaving
-                                ? null
-                                : () => _openInvoice(context),
-                            icon: const Icon(Icons.receipt_long_outlined),
-                            label: Text(
-                              hasInvoice
-                                  ? AppStrings.viewInvoice
-                                  : AppStrings.generateInvoice,
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (hasInvoice &&
-                          order.status != SalesOrderStatus.paid &&
-                          order.balanceDue > 0) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: isSaving
-                                ? null
-                                : () => _openRecordPayment(
-                                      context,
-                                      order.invoiceId!,
-                                    ),
-                            icon: const Icon(Icons.payments_outlined),
-                            label: const Text(AppStrings.recordPayment),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+              SalesOrderDetailHero(
+                order: order,
+                isSaving: isSaving,
+                canInvoice: canInvoice,
+                hasInvoice: hasInvoice,
+                onAdvanceStatus: nextStatus != null
+                    ? () => _advanceStatus(context, nextStatus)
+                    : null,
+                onScheduleDelivery: canInvoice
+                    ? () => context.push(
+                          RoutePaths.deliveriesAddForOrder(order.id),
+                        )
+                    : null,
+                onOpenInvoice:
+                    canInvoice ? () => _openInvoice(context) : null,
+                onRecordPayment: hasInvoice &&
+                        order.status != SalesOrderStatus.paid &&
+                        order.balanceDue > 0
+                    ? () => _openRecordPayment(context, order.invoiceId!)
+                    : null,
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.lineItems,
+                icon: Icons.list_alt_outlined,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                   child: Column(
                     children: [
-                      for (final item in order.lineItems) ...[
-                        _Row(
-                          '${item.productType.label} — ${item.marbleVariety}',
-                          Formatters.currencyPkr(item.lineTotal),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              '${item.sizeThickness} · ${item.quantity} ${item.quantityUnit.label} @ ${Formatters.currencyPkr(item.unitRate)}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
+                      for (var i = 0; i < order.lineItems.length; i++) ...[
+                        JobWorkDetailRow(
+                          label:
+                              '${order.lineItems[i].productType.label} — ${order.lineItems[i].marbleVariety}',
+                          value: Formatters.currencyPkr(
+                            order.lineItems[i].lineTotal,
                           ),
                         ),
+                        const SizedBox(height: 3),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '${order.lineItems[i].sizeThickness} · '
+                            '${order.lineItems[i].quantity} '
+                            '${order.lineItems[i].quantityUnit.label} @ '
+                            '${Formatters.currencyPkr(order.lineItems[i].unitRate)}',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontSize: 11,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                      height: 1.35,
+                                    ),
+                          ),
+                        ),
+                        if (i < order.lineItems.length - 1)
+                          const SizedBox(height: 9),
                       ],
                     ],
                   ),
                 ),
               ),
-              if (state.deliveries.isNotEmpty ||
-                  (canInvoice && order.status != SalesOrderStatus.closed))
-                SettingsSection(
+              if (showDeliveries)
+                JobWorkDetailSection(
                   title: AppStrings.orderDeliveries,
-                  child: state.deliveries.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Text(
+                  icon: Icons.local_shipping_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: state.deliveries.isEmpty
+                        ? Text(
                             AppStrings.noOrderDeliveries,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  fontSize: 11,
                                   color: Theme.of(context)
                                       .colorScheme
                                       .onSurfaceVariant,
                                 ),
-                          ),
-                        )
-                      : Column(
-                          children: [
-                            for (final delivery in state.deliveries)
-                              ListTile(
-                                title: Text(delivery.deliveryNumber),
-                                subtitle: Text(
-                                  DateFormat.yMMMd()
-                                      .format(delivery.scheduledDate),
-                                ),
-                                trailing: DeliveryStatusBadge(
-                                  status: delivery.status,
-                                ),
-                                onTap: isSaving
-                                    ? null
-                                    : () => context.push(
-                                          RoutePaths.deliveryDetail(
-                                            delivery.id,
+                          )
+                        : Column(
+                            children: [
+                              for (var i = 0;
+                                  i < state.deliveries.length;
+                                  i++) ...[
+                                _DeliveryRow(
+                                  delivery: state.deliveries[i],
+                                  onTap: isSaving
+                                      ? null
+                                      : () => context.push(
+                                            RoutePaths.deliveryDetail(
+                                              state.deliveries[i].id,
+                                            ),
                                           ),
-                                        ),
-                              ),
-                          ],
-                        ),
-                ),
-              SettingsSection(
-                title: AppStrings.pricingAgreement,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _Row(
-                        AppStrings.subtotal,
-                        Formatters.currencyPkr(order.subtotal),
-                      ),
-                      const SizedBox(height: 8),
-                      if (order.orderDiscount > 0)
-                        _Row(
-                          AppStrings.orderDiscount,
-                          '-${Formatters.currencyPkr(order.orderDiscount)}',
-                        ),
-                      if (order.tax > 0) ...[
-                        const SizedBox(height: 8),
-                        _Row(AppStrings.taxAmount, Formatters.currencyPkr(order.tax)),
-                      ],
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.grandTotal,
-                        Formatters.currencyPkr(order.grandTotal),
-                        bold: true,
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.advanceReceived,
-                        Formatters.currencyPkr(order.advanceReceived),
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(
-                        AppStrings.balanceDue,
-                        Formatters.currencyPkr(order.balanceDue),
-                        bold: true,
-                      ),
-                      const SizedBox(height: 8),
-                      _Row(AppStrings.paymentTerms, order.paymentTerms.label),
-                      if (order.paymentDueDate != null) ...[
-                        const SizedBox(height: 8),
-                        _Row(
-                          AppStrings.paymentDueDate,
-                          DateFormat.yMMMd().format(order.paymentDueDate!),
-                        ),
-                      ],
-                    ],
+                                ),
+                                if (i < state.deliveries.length - 1)
+                                  const SizedBox(height: 6),
+                              ],
+                            ],
+                          ),
                   ),
+                ),
+              JobWorkDetailSection(
+                title: AppStrings.pricingAgreement,
+                icon: Icons.payments_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.subtotal,
+                      value: Formatters.currencyPkr(order.subtotal),
+                    ),
+                    if (order.orderDiscount > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.orderDiscount,
+                        value: '-${Formatters.currencyPkr(order.orderDiscount)}',
+                      ),
+                    if (order.tax > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.taxAmount,
+                        value: Formatters.currencyPkr(order.tax),
+                      ),
+                    JobWorkDetailRow(
+                      label: AppStrings.grandTotal,
+                      value: Formatters.currencyPkr(order.grandTotal),
+                      bold: true,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.advanceReceived,
+                      value: Formatters.currencyPkr(order.advanceReceived),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.balanceDue,
+                      value: Formatters.currencyPkr(order.balanceDue),
+                      bold: true,
+                      highlight: order.balanceDue > 0,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.paymentTerms,
+                      value: order.paymentTerms.label,
+                    ),
+                    if (order.paymentDueDate != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.paymentDueDate,
+                        value:
+                            DateFormat.yMMMd().format(order.paymentDueDate!),
+                      ),
+                  ],
                 ),
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.orderDetails,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      _Row(
-                        AppStrings.orderDate,
-                        DateFormat.yMMMd().format(order.orderDate),
+                icon: Icons.receipt_long_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.orderDate,
+                      value: DateFormat.yMMMd().format(order.orderDate),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.orderSource,
+                      value: order.orderSource.label,
+                    ),
+                    if (order.expectedDeliveryDate != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.expectedDelivery,
+                        value: DateFormat.yMMMd()
+                            .format(order.expectedDeliveryDate!),
                       ),
-                      const SizedBox(height: 8),
-                      _Row(AppStrings.orderSource, order.orderSource.label),
-                      if (order.expectedDeliveryDate != null) ...[
-                        const SizedBox(height: 8),
-                        _Row(
-                          AppStrings.expectedDelivery,
-                          DateFormat.yMMMd().format(order.expectedDeliveryDate!),
-                        ),
-                      ],
-                      if (order.deliveryAddress != null &&
-                          order.deliveryAddress!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _Row(AppStrings.deliveryAddress, order.deliveryAddress!),
-                      ],
-                      if (order.specialInstructions != null &&
-                          order.specialInstructions!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        _Row(
-                          AppStrings.specialInstructions,
-                          order.specialInstructions!,
-                        ),
-                      ],
-                      if (order.closedAt != null) ...[
-                        const SizedBox(height: 8),
-                        _Row(
-                          AppStrings.closedDate,
-                          DateFormat.yMMMd().format(order.closedAt!),
-                        ),
-                      ],
-                    ],
-                  ),
+                    if (order.deliveryAddress != null &&
+                        order.deliveryAddress!.isNotEmpty)
+                      JobWorkDetailRow(
+                        label: AppStrings.deliveryAddress,
+                        value: order.deliveryAddress!,
+                      ),
+                    if (order.specialInstructions != null &&
+                        order.specialInstructions!.isNotEmpty)
+                      JobWorkDetailRow(
+                        label: AppStrings.specialInstructions,
+                        value: order.specialInstructions!,
+                      ),
+                    if (order.closedAt != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.closedDate,
+                        value: DateFormat.yMMMd().format(order.closedAt!),
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -415,34 +370,98 @@ class SalesOrderDetailScreen extends StatelessWidget {
   }
 }
 
-class _Row extends StatelessWidget {
-  const _Row(this.label, this.value, {this.bold = false});
+class _DeliveryRow extends StatelessWidget {
+  const _DeliveryRow({
+    required this.delivery,
+    this.onTap,
+  });
 
-  final String label;
-  final String value;
-  final bool bold;
+  final Delivery delivery;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(label, style: TextStyle(color: muted)),
-        ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
-            ),
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final accent = _accentFor(delivery.status);
+    final dateLabel = DateFormat.yMMMd().format(delivery.scheduledDate);
+
+    return Material(
+      color: accent.withValues(alpha: 0.06),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.local_shipping_outlined,
+                size: 14,
+                color: accent,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      delivery.deliveryNumber,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      dateLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: muted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  delivery.status.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: muted.withValues(alpha: 0.7),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
+  }
+
+  Color _accentFor(DeliveryStatus status) {
+    return switch (status) {
+      DeliveryStatus.scheduled => const Color(0xFF1565C0),
+      DeliveryStatus.loaded => const Color(0xFF3949AB),
+      DeliveryStatus.inTransit => AppColors.warning,
+      DeliveryStatus.delivered => AppColors.success,
+      DeliveryStatus.partiallyDelivered => AppColors.success,
+      DeliveryStatus.failed => AppColors.error,
+    };
   }
 }
