@@ -11,7 +11,8 @@ import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/customer_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/forms/app_form_fields.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class AddEditJobWorkScreen extends StatefulWidget {
   const AddEditJobWorkScreen({this.jobWorkId, super.key});
@@ -328,10 +329,27 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(
-              isEditing
-                  ? AppStrings.editJobWorkOrder
-                  : AppStrings.newJobWorkOrder,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isEditing
+                      ? AppStrings.editJobWorkOrder
+                      : AppStrings.newJobWorkOrder,
+                ),
+                Text(
+                  isEditing
+                      ? (state.order?.jobWorkNumber ?? '')
+                      : (_selectedCustomer?.name ?? AppStrings.newJobWorkOrder),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
             ),
             actions: [
               if (isEditing &&
@@ -346,481 +364,460 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
           body: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.customerAndDates,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<String>(
-                          key: ValueKey(customerDropdownValue),
-                          initialValue: customerDropdownValue,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.selectCustomer,
-                          ),
-                          items: state.eligibleCustomers
-                              .map(
-                                (c) => DropdownMenuItem(
-                                  value: c.id,
-                                  child: Text(c.name),
+                  icon: Icons.person_outline,
+                  child: AppFormSectionBody(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(customerDropdownValue),
+                        initialValue: customerDropdownValue,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.selectCustomer,
+                        ),
+                        items: state.eligibleCustomers
+                            .map(
+                              (c) => DropdownMenuItem(
+                                value: c.id,
+                                child: Text(
+                                  c.name,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) =>
-                                  setState(() => _customerId = value),
-                          validator: (value) =>
-                              value == null ? 'Select a customer' : null,
-                        ),
-                        const SizedBox(height: 12),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.receivedDate),
-                          subtitle:
-                              Text(DateFormat.yMMMd().format(_receivedDate)),
-                          trailing: const Icon(Icons.calendar_today),
-                          onTap: isSaving
-                              ? null
-                              : () => _pickDate(
-                                    initial: _receivedDate,
-                                    onPicked: (d) =>
-                                        setState(() => _receivedDate = d),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) => setState(() => _customerId = value),
+                        validator: (value) =>
+                            value == null ? 'Select a customer' : null,
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.receivedDate,
+                        value: DateFormat.yMMMd().format(_receivedDate),
+                        onTap: isSaving
+                            ? null
+                            : () => _pickDate(
+                                  initial: _receivedDate,
+                                  onPicked: (d) =>
+                                      setState(() => _receivedDate = d),
+                                ),
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.expectedCompletion,
+                        value: _expectedCompletion == null
+                            ? 'Not set'
+                            : DateFormat.yMMMd().format(_expectedCompletion!),
+                        onTap: isSaving
+                            ? null
+                            : () => _pickDate(
+                                  initial:
+                                      _expectedCompletion ?? _receivedDate,
+                                  onPicked: (d) => setState(
+                                    () => _expectedCompletion = d,
                                   ),
-                        ),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.expectedCompletion),
-                          subtitle: Text(
-                            _expectedCompletion == null
-                                ? 'Not set'
-                                : DateFormat.yMMMd()
-                                    .format(_expectedCompletion!),
-                          ),
-                          trailing: const Icon(Icons.event),
-                          onTap: isSaving
-                              ? null
-                              : () => _pickDate(
-                                    initial:
-                                        _expectedCompletion ?? _receivedDate,
-                                    onPicked: (d) => setState(
-                                      () => _expectedCompletion = d,
-                                    ),
-                                  ),
-                        ),
-                      ],
-                    ),
+                                ),
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.inputMaterial,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<String>(
-                          key: ValueKey(_marbleVariety),
-                          initialValue: _marbleVariety,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.marbleVariety,
-                          ),
-                          items: MarbleData.varieties
-                              .map(
-                                (v) => DropdownMenuItem(
-                                  value: v,
-                                  child: Text(v),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (v) => setState(() => _marbleVariety = v!),
+                  icon: Icons.inventory_2_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(_marbleVariety),
+                        initialValue: _marbleVariety,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.marbleVariety,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _blockCountController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.blockCount,
-                          ),
-                          validator: (v) {
-                            if (_parseInt(v ?? '') < 1) {
-                              return 'Enter at least 1 block';
-                            }
-                            return null;
-                          },
-                          enabled: !isSaving,
-                          onChanged: (_) => setState(() {}),
+                        items: MarbleData.varieties
+                            .map(
+                              (v) => DropdownMenuItem(
+                                value: v,
+                                child: Text(v, style: const TextStyle(fontSize: 13)),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (v) => setState(() => _marbleVariety = v!),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _blockCountController,
+                        keyboardType: TextInputType.number,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.blockCount,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _totalTonsController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.totalTons,
-                          ),
-                          validator: (v) {
-                            if (_parse(v ?? '') <= 0) {
-                              return 'Enter total tons';
-                            }
-                            return null;
-                          },
-                          enabled: !isSaving,
-                          onChanged: (_) => setState(() {}),
+                        validator: (v) {
+                          if (_parseInt(v ?? '') < 1) {
+                            return 'Enter at least 1 block';
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _totalTonsController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _totalVolumeController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.totalVolume,
-                          ),
-                          enabled: !isSaving,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.totalTons,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _blockDimensionsController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.blockDimensions,
-                          ),
-                          enabled: !isSaving,
+                        validator: (v) {
+                          if (_parse(v ?? '') <= 0) {
+                            return 'Enter total tons';
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _totalVolumeController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _conditionNotesController,
-                          maxLines: 2,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.conditionNotes,
-                          ),
-                          enabled: !isSaving,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.totalVolume,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _vehicleController,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.vehicleNumber,
-                          ),
-                          enabled: !isSaving,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _blockDimensionsController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.blockDimensions,
                         ),
-                      ],
-                    ),
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _conditionNotesController,
+                        maxLines: 2,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.conditionNotes,
+                        ),
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _vehicleController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.vehicleNumber,
+                        ),
+                        enabled: !isSaving,
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.cuttingSpecification,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DropdownButtonFormField<CuttingStrategy>(
-                          key: ValueKey(_cuttingStrategy),
-                          initialValue: _cuttingStrategy,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.cuttingStrategy,
-                          ),
-                          items: CuttingStrategy.values
-                              .map(
-                                (s) => DropdownMenuItem(
-                                  value: s,
-                                  child: Text(s.label),
+                  icon: Icons.content_cut_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      DropdownButtonFormField<CuttingStrategy>(
+                        key: ValueKey(_cuttingStrategy),
+                        initialValue: _cuttingStrategy,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.cuttingStrategy,
+                        ),
+                        items: CuttingStrategy.values
+                            .map(
+                              (s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(
+                                  s.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (v) =>
-                                  setState(() => _cuttingStrategy = v!),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (v) => setState(() => _cuttingStrategy = v!),
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<TargetProduct>(
+                        key: ValueKey(_targetProduct),
+                        initialValue: _targetProduct,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.targetProduct,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<TargetProduct>(
-                          key: ValueKey(_targetProduct),
-                          initialValue: _targetProduct,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.targetProduct,
-                          ),
-                          items: TargetProduct.values
-                              .map(
-                                (p) => DropdownMenuItem(
-                                  value: p,
-                                  child: Text(p.label),
+                        items: TargetProduct.values
+                            .map(
+                              (p) => DropdownMenuItem(
+                                value: p,
+                                child: Text(
+                                  p.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (v) => setState(() => _targetProduct = v!),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (v) => setState(() => _targetProduct = v!),
+                      ),
+                      AppFormFields.gap,
+                      AppFormChipGroup(
+                        label: AppStrings.tileSlabSizes,
+                        options: MarbleData.commonSizes,
+                        selected: _selectedSizes,
+                        enabled: !isSaving,
+                        onToggle: (size, value) {
+                          setState(() {
+                            if (value) {
+                              _selectedSizes.add(size);
+                            } else {
+                              _selectedSizes.remove(size);
+                            }
+                          });
+                        },
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(_thickness),
+                        initialValue: _thickness,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.thickness,
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          AppStrings.tileSlabSizes,
-                          style: Theme.of(context).textTheme.titleSmall,
+                        items: MarbleData.thicknesses
+                            .map(
+                              (t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(t, style: const TextStyle(fontSize: 13)),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (v) => setState(() => _thickness = v!),
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<FinishType>(
+                        key: ValueKey(_finish),
+                        initialValue: _finish,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.finishRequired,
                         ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: MarbleData.commonSizes.map((size) {
-                            final selected = _selectedSizes.contains(size);
-                            return FilterChip(
-                              label: Text(size),
-                              selected: selected,
-                              onSelected: isSaving
-                                  ? null
-                                  : (value) {
-                                      setState(() {
-                                        if (value) {
-                                          _selectedSizes.add(size);
-                                        } else {
-                                          _selectedSizes.remove(size);
-                                        }
-                                      });
-                                    },
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          key: ValueKey(_thickness),
-                          initialValue: _thickness,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.thickness,
-                          ),
-                          items: MarbleData.thicknesses
-                              .map(
-                                (t) => DropdownMenuItem(
-                                  value: t,
-                                  child: Text(t),
+                        items: FinishType.values
+                            .map(
+                              (f) => DropdownMenuItem(
+                                value: f,
+                                child: Text(
+                                  f.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (v) => setState(() => _thickness = v!),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (v) => setState(() => _finish = v!),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _expectedOutputController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
                         ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<FinishType>(
-                          key: ValueKey(_finish),
-                          initialValue: _finish,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.finishRequired,
-                          ),
-                          items: FinishType.values
-                              .map(
-                                (f) => DropdownMenuItem(
-                                  value: f,
-                                  child: Text(f.label),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (v) => setState(() => _finish = v!),
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.expectedOutput,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _expectedOutputController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.expectedOutput,
-                          ),
-                          enabled: !isSaving,
-                          onChanged: (_) => setState(() {}),
+                        enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _specialInstructionsController,
+                        maxLines: 3,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.specialInstructions,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _specialInstructionsController,
-                          maxLines: 3,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.specialInstructions,
-                          ),
-                          enabled: !isSaving,
-                        ),
-                      ],
-                    ),
+                        enabled: !isSaving,
+                      ),
+                    ],
                   ),
                 ),
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.pricingAgreement,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        DropdownButtonFormField<PricingModel>(
-                          key: ValueKey(_pricingModel),
-                          initialValue: _pricingModel,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.pricingModel,
-                          ),
-                          items: PricingModel.values
-                              .map(
-                                (m) => DropdownMenuItem(
-                                  value: m,
-                                  child: Text(m.label),
+                  icon: Icons.payments_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      DropdownButtonFormField<PricingModel>(
+                        key: ValueKey(_pricingModel),
+                        initialValue: _pricingModel,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.pricingModel,
+                        ),
+                        items: PricingModel.values
+                            .map(
+                              (m) => DropdownMenuItem(
+                                value: m,
+                                child: Text(
+                                  m.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (v) => setState(() => _pricingModel = v!),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (v) => setState(() => _pricingModel = v!),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _agreedRateController,
+                        keyboardType: TextInputType.number,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.agreedRate,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _agreedRateController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.agreedRate,
-                          ),
-                          validator: (v) {
-                            if (_parse(v ?? '') <= 0) {
-                              return 'Enter agreed rate';
-                            }
-                            return null;
-                          },
-                          enabled: !isSaving,
-                          onChanged: (_) => setState(() {}),
+                        validator: (v) {
+                          if (_parse(v ?? '') <= 0) {
+                            return 'Enter agreed rate';
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      AppFormSummaryRow(
+                        label: AppStrings.estimatedTotal,
+                        value: '₨ ${_estimatedTotal.toStringAsFixed(0)}',
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _negotiatedAmountController,
+                        keyboardType: TextInputType.number,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.negotiatedAmount,
                         ),
-                        const SizedBox(height: 12),
-                        _SummaryRow(
-                          label: AppStrings.estimatedTotal,
-                          value: '₨ ${_estimatedTotal.toStringAsFixed(0)}',
+                        validator: (v) {
+                          if (_parse(v ?? '') <= 0) {
+                            return 'Enter final agreed amount';
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _advanceController,
+                        keyboardType: TextInputType.number,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.advanceReceived,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _negotiatedAmountController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.negotiatedAmount,
-                          ),
-                          validator: (v) {
-                            if (_parse(v ?? '') <= 0) {
-                              return 'Enter final agreed amount';
-                            }
-                            return null;
-                          },
-                          enabled: !isSaving,
-                          onChanged: (_) => setState(() {}),
+                        enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      AppFormSummaryRow(
+                        label: AppStrings.balanceDue,
+                        value: '₨ ${_balanceDue.toStringAsFixed(0)}',
+                        highlight: true,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<PaymentTerms>(
+                        key: ValueKey(_paymentTerms),
+                        initialValue: _paymentTerms,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.paymentTerms,
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _advanceController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.advanceReceived,
-                          ),
-                          enabled: !isSaving,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                        const SizedBox(height: 12),
-                        _SummaryRow(
-                          label: AppStrings.balanceDue,
-                          value: '₨ ${_balanceDue.toStringAsFixed(0)}',
-                          emphasized: true,
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<PaymentTerms>(
-                          key: ValueKey(_paymentTerms),
-                          initialValue: _paymentTerms,
-                          decoration: const InputDecoration(
-                            labelText: AppStrings.paymentTerms,
-                          ),
-                          items: PaymentTerms.values
-                              .map(
-                                (t) => DropdownMenuItem(
-                                  value: t,
-                                  child: Text(t.label),
+                        items: PaymentTerms.values
+                            .map(
+                              (t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(
+                                  t.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (v) => setState(() => _paymentTerms = v!),
-                        ),
-                        const SizedBox(height: 12),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text(AppStrings.paymentDueDate),
-                          subtitle: Text(
-                            _paymentDueDate == null
-                                ? 'Not set'
-                                : DateFormat.yMMMd().format(_paymentDueDate!),
-                          ),
-                          trailing: const Icon(Icons.event),
-                          onTap: isSaving
-                              ? null
-                              : () => _pickDate(
-                                    initial: _paymentDueDate ?? _receivedDate,
-                                    onPicked: (d) =>
-                                        setState(() => _paymentDueDate = d),
-                                  ),
-                        ),
-                      ],
-                    ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (v) => setState(() => _paymentTerms = v!),
+                      ),
+                      AppFormFields.gap,
+                      AppFormDateField(
+                        label: AppStrings.paymentDueDate,
+                        value: _paymentDueDate == null
+                            ? 'Not set'
+                            : DateFormat.yMMMd().format(_paymentDueDate!),
+                        onTap: isSaving
+                            ? null
+                            : () => _pickDate(
+                                  initial: _paymentDueDate ?? _receivedDate,
+                                  onPicked: (d) =>
+                                      setState(() => _paymentDueDate = d),
+                                ),
+                      ),
+                    ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: ElevatedButton(
-                    onPressed: isSaving ? null : _submit,
-                    child: isSaving
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            isEditing
-                                ? AppStrings.saveChanges
-                                : AppStrings.saveJobWorkOrder,
-                          ),
-                  ),
+                AppFormSubmitBar(
+                  label: isEditing
+                      ? AppStrings.saveChanges
+                      : AppStrings.saveJobWorkOrder,
+                  isLoading: isSaving,
+                  onPressed: _submit,
                 ),
               ],
             ),
           ),
         );
       },
-    );
-  }
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.emphasized = false,
-  });
-
-  final String label;
-  final String value;
-  final bool emphasized;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label),
-        Text(
-          value,
-          style: emphasized
-              ? Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  )
-              : Theme.of(context).textTheme.bodyLarge,
-        ),
-      ],
     );
   }
 }
