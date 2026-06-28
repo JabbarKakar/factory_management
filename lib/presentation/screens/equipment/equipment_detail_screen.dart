@@ -4,16 +4,16 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/equipment/equipment_detail_bloc.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
-import '../../widgets/app_extended_fab.dart';
-import '../../widgets/equipment/equipment_status_badge.dart';
-import '../../widgets/equipment/maintenance_log_tile.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/equipment/equipment_detail_hero.dart';
+import '../../widgets/equipment/equipment_maintenance_action_bar.dart';
+import '../../widgets/equipment/equipment_maintenance_history_section.dart';
+import '../../widgets/job_work/job_work_detail_row.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class EquipmentDetailScreen extends StatelessWidget {
   const EquipmentDetailScreen({required this.equipmentId, super.key});
@@ -71,7 +71,22 @@ class EquipmentDetailScreen extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(AppStrings.equipmentDetails),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.equipmentDetails),
+                Text(
+                  equipment.name,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
             actions: [
               if (context.userCanEdit(AppModule.equipment))
                 IconButton(
@@ -90,263 +105,131 @@ class EquipmentDetailScreen extends StatelessWidget {
                 ),
             ],
           ),
-          floatingActionButton: context.userCanCreate(AppModule.equipment)
-              ? AppExtendedFab(
-                  heroTag: 'fab-record-maintenance-$equipmentId',
+          body: ListView(
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              EquipmentDetailHero(
+                equipment: equipment,
+                overdue: overdue,
+                dueSoon: dueSoon,
+                bookValue: bookValue,
+              ),
+              if (context.userCanCreate(AppModule.equipment))
+                EquipmentMaintenanceActionBar(
                   onPressed: () => context.push(
                     RoutePaths.equipmentRecordMaintenance(equipment.id),
                   ),
-                  icon: Icons.build_circle_outlined,
-                  label: AppStrings.recordMaintenance,
-                )
-              : null,
-          body: ListView(
-            padding: const EdgeInsets.only(bottom: 88),
-            children: [
-              Card(
-                margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              equipment.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          EquipmentStatusBadge(status: equipment.status),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        equipment.equipmentNumber,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(equipment.displaySubtitle),
-                      if (overdue || dueSoon) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: (overdue ? AppColors.error : AppColors.warning)
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            overdue
-                                ? AppStrings.maintenanceOverdueMessage
-                                : AppStrings.maintenanceDueSoonMessage,
-                            style: TextStyle(
-                              color: overdue ? AppColors.error : AppColors.warning,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                ),
+              if (hasSpecs)
+                JobWorkDetailSection(
+                  title: AppStrings.equipmentSpecs,
+                  icon: Icons.tune_outlined,
+                  child: JobWorkDetailRows(
+                    rows: [
+                      if (equipment.brand != null &&
+                          equipment.brand!.isNotEmpty)
+                        JobWorkDetailRow(
+                          label: AppStrings.brand,
+                          value: equipment.brand!,
                         ),
-                      ],
+                      if (equipment.model != null &&
+                          equipment.model!.isNotEmpty)
+                        JobWorkDetailRow(
+                          label: AppStrings.model,
+                          value: equipment.model!,
+                        ),
+                      if (equipment.serialNumber != null &&
+                          equipment.serialNumber!.isNotEmpty)
+                        JobWorkDetailRow(
+                          label: AppStrings.serialNumber,
+                          value: equipment.serialNumber!,
+                        ),
+                      if (equipment.location != null &&
+                          equipment.location!.isNotEmpty)
+                        JobWorkDetailRow(
+                          label: AppStrings.equipmentLocation,
+                          value: equipment.location!,
+                        ),
                     ],
                   ),
                 ),
-              ),
-              if (hasSpecs)
-                SettingsSection(
-                  title: AppStrings.equipmentSpecs,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        if (equipment.brand != null &&
-                            equipment.brand!.isNotEmpty)
-                          _Row(AppStrings.brand, equipment.brand!),
-                        if (equipment.model != null &&
-                            equipment.model!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          _Row(AppStrings.model, equipment.model!),
-                        ],
-                        if (equipment.serialNumber != null &&
-                            equipment.serialNumber!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          _Row(
-                            AppStrings.serialNumber,
-                            equipment.serialNumber!,
-                          ),
-                        ],
-                        if (equipment.location != null &&
-                            equipment.location!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          _Row(
-                            AppStrings.equipmentLocation,
-                            equipment.location!,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
               if (hasPurchaseInfo)
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.purchaseInfo,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        if (equipment.purchaseDate != null) ...[
-                          _Row(
-                            AppStrings.purchaseDate,
-                            DateFormat.yMMMd().format(equipment.purchaseDate!),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (equipment.purchaseCost != null) ...[
-                          _Row(
-                            AppStrings.purchaseCost,
-                            Formatters.currencyPkr(equipment.purchaseCost!),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (equipment.supplierName != null &&
-                            equipment.supplierName!.isNotEmpty) ...[
-                          _Row(
-                            AppStrings.supplierVendor,
-                            equipment.supplierName!,
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (bookValue != null)
-                          _Row(
-                            AppStrings.bookValue,
-                            Formatters.currencyPkr(bookValue),
-                            bold: true,
-                          ),
-                      ],
-                    ),
+                  icon: Icons.receipt_long_outlined,
+                  child: JobWorkDetailRows(
+                    rows: [
+                      if (equipment.purchaseDate != null)
+                        JobWorkDetailRow(
+                          label: AppStrings.purchaseDate,
+                          value: DateFormat.yMMMd()
+                              .format(equipment.purchaseDate!),
+                        ),
+                      if (equipment.purchaseCost != null)
+                        JobWorkDetailRow(
+                          label: AppStrings.purchaseCost,
+                          value:
+                              Formatters.currencyPkr(equipment.purchaseCost!),
+                        ),
+                      if (equipment.supplierName != null &&
+                          equipment.supplierName!.isNotEmpty)
+                        JobWorkDetailRow(
+                          label: AppStrings.supplierVendor,
+                          value: equipment.supplierName!,
+                        ),
+                    ],
                   ),
                 ),
               if (hasMaintenanceSchedule)
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.maintenanceSchedule,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        if (equipment.lastMaintenanceDate != null) ...[
-                          _Row(
-                            AppStrings.lastMaintenanceDate,
-                            DateFormat.yMMMd()
-                                .format(equipment.lastMaintenanceDate!),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (equipment.nextMaintenanceDueDate != null)
-                          _Row(
-                            AppStrings.nextMaintenanceDue,
-                            DateFormat.yMMMd()
-                                .format(equipment.nextMaintenanceDueDate!),
-                            bold: overdue || dueSoon,
-                          ),
-                        if (equipment.maintenanceIntervalDays != null) ...[
-                          const SizedBox(height: 8),
-                          _Row(
-                            AppStrings.maintenanceIntervalDays,
-                            '${equipment.maintenanceIntervalDays} days',
-                          ),
-                        ],
-                      ],
-                    ),
+                  icon: Icons.event_repeat_outlined,
+                  child: JobWorkDetailRows(
+                    rows: [
+                      if (equipment.lastMaintenanceDate != null)
+                        JobWorkDetailRow(
+                          label: AppStrings.lastMaintenanceDate,
+                          value: DateFormat.yMMMd()
+                              .format(equipment.lastMaintenanceDate!),
+                        ),
+                      if (equipment.nextMaintenanceDueDate != null)
+                        JobWorkDetailRow(
+                          label: AppStrings.nextMaintenanceDue,
+                          value: DateFormat.yMMMd()
+                              .format(equipment.nextMaintenanceDueDate!),
+                          highlight: overdue || dueSoon,
+                          bold: overdue || dueSoon,
+                        ),
+                      if (equipment.maintenanceIntervalDays != null)
+                        JobWorkDetailRow(
+                          label: AppStrings.maintenanceIntervalDays,
+                          value: '${equipment.maintenanceIntervalDays} days',
+                        ),
+                    ],
                   ),
                 ),
-              SettingsSection(
-                title: AppStrings.maintenanceHistory,
-                child: logs.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          AppStrings.noMaintenanceLogs,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                        ),
-                      )
-                    : Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            _Row(
-                              AppStrings.totalMaintenanceCost,
-                              Formatters.currencyPkr(totalMaintenanceCost),
-                              bold: true,
-                            ),
-                            if (totalDowntimeHours > 0) ...[
-                              const SizedBox(height: 8),
-                              _Row(
-                                AppStrings.totalDowntimeHours,
-                                '${totalDowntimeHours.toStringAsFixed(1)} h',
-                              ),
-                            ],
-                            const Divider(height: 24),
-                            for (final log in logs) ...[
-                              MaintenanceLogTile(log: log),
-                              if (log != logs.last) const Divider(),
-                            ],
-                          ],
-                        ),
-                      ),
+              EquipmentMaintenanceHistorySection(
+                logs: logs,
+                totalMaintenanceCost: totalMaintenanceCost,
+                totalDowntimeHours: totalDowntimeHours,
               ),
               if (equipment.notes != null && equipment.notes!.isNotEmpty)
-                SettingsSection(
+                JobWorkDetailSection(
                   title: AppStrings.notes,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(equipment.notes!),
+                  icon: Icons.notes_outlined,
+                  child: JobWorkDetailRows(
+                    rows: [
+                      JobWorkDetailRow(
+                        label: AppStrings.notes,
+                        value: equipment.notes!,
+                      ),
+                    ],
                   ),
                 ),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _Row extends StatelessWidget {
-  const _Row(this.label, this.value, {this.bold = false});
-
-  final String label;
-  final String value;
-  final bool bold;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(label, style: TextStyle(color: muted)),
-        ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
