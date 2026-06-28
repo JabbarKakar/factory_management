@@ -4,13 +4,18 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/supplier/supplier_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/supplier_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_search_bar.dart';
+import '../../widgets/suppliers/supplier_filter_bar.dart';
 import '../../widgets/suppliers/supplier_list_tile.dart';
+import '../../widgets/suppliers/supplier_summary_card.dart';
 
 class SuppliersScreen extends StatefulWidget {
   const SuppliersScreen({super.key});
@@ -28,52 +33,113 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     super.dispose();
   }
 
+  void _onSearchClear() {
+    _searchController.clear();
+    context.read<SupplierListBloc>().add(const SupplierListSearchChanged(''));
+  }
+
+  int _countForType(List<Supplier> suppliers, SupplierType type) {
+    return suppliers.where((s) => s.supplierType == type).length;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(AppStrings.suppliers),
+        title: BlocBuilder<SupplierListBloc, SupplierListState>(
+          buildWhen: (prev, curr) =>
+              prev.visibleSuppliers.length != curr.visibleSuppliers.length ||
+              prev.supplierTypeFilter != curr.supplierTypeFilter,
+          builder: (context, state) {
+            final appBarForeground =
+                Theme.of(context).appBarTheme.foregroundColor ??
+                    Theme.of(context).colorScheme.onSurface;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.suppliers),
+                Text(
+                  '${state.visibleSuppliers.length} suppliers'
+                  '${state.supplierTypeFilter != null ? ' · ${state.supplierTypeFilter!.label}' : ''}',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
       floatingActionButton: context.userCanCreate(AppModule.suppliers)
-          ? FloatingActionButton.extended(
+          ? AppExtendedFab(
               heroTag: 'fab-suppliers',
               onPressed: () => context.push(RoutePaths.suppliersAdd),
-              icon: const Icon(Icons.add),
-              label: const Text(AppStrings.addSupplier),
+              icon: Icons.add_business_outlined,
+              label: AppStrings.addSupplier,
             )
           : null,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          BlocBuilder<SupplierListBloc, SupplierListState>(
+            buildWhen: (prev, curr) =>
+                prev.suppliers != curr.suppliers ||
+                prev.supplierTypeFilter != curr.supplierTypeFilter ||
+                prev.status != curr.status,
+            builder: (context, state) {
+              if (state.status != SupplierListStatus.loaded ||
+                  state.suppliers.isEmpty) {
+                return const SizedBox.shrink();
+              }
+
+              final marbleCount = _countForType(
+                state.suppliers,
+                SupplierType.marbleBlockSlab,
+              );
+              final filteredCount = state.supplierTypeFilter != null
+                  ? _countForType(state.suppliers, state.supplierTypeFilter!)
+                  : null;
+
+              return SupplierSummaryCard(
+                totalCount: state.suppliers.length,
+                marbleVendorCount: marbleCount,
+                typeFilter: state.supplierTypeFilter,
+                filteredCount: filteredCount,
+              );
+            },
+          ),
+          const SizedBox(height: 10),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TextField(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: JobWorkSearchBar(
               controller: _searchController,
-              decoration: InputDecoration(
-                hintText: AppStrings.searchSuppliers,
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          context
-                              .read<SupplierListBloc>()
-                              .add(const SupplierListSearchChanged(''));
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                context
-                    .read<SupplierListBloc>()
-                    .add(SupplierListSearchChanged(value));
-                setState(() {});
+              hintText: AppStrings.searchSuppliers,
+              onChanged: (value) => context
+                  .read<SupplierListBloc>()
+                  .add(SupplierListSearchChanged(value)),
+              onClear: _onSearchClear,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: BlocBuilder<SupplierListBloc, SupplierListState>(
+              buildWhen: (prev, curr) =>
+                  prev.supplierTypeFilter != curr.supplierTypeFilter,
+              builder: (context, state) {
+                return SupplierFilterBar(
+                  selected: state.supplierTypeFilter,
+                  onChanged: (type) => context.read<SupplierListBloc>().add(
+                        SupplierListFilterChanged(type),
+                      ),
+                );
               },
             ),
           ),
           const SizedBox(height: 8),
-          const _SupplierTypeFilterBar(),
           Expanded(
             child: BlocBuilder<SupplierListBloc, SupplierListState>(
               builder: (context, state) {
@@ -133,7 +199,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                         );
                   },
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 8, bottom: 88),
+                    padding: const EdgeInsets.only(top: 4, bottom: 84),
                     itemCount: state.visibleSuppliers.length,
                     itemBuilder: (context, index) {
                       final supplier = state.visibleSuppliers[index];
@@ -147,44 +213,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   ),
                 );
               },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SupplierTypeFilterBar extends StatelessWidget {
-  const _SupplierTypeFilterBar();
-
-  @override
-  Widget build(BuildContext context) {
-    final filter = context.watch<SupplierListBloc>().state.supplierTypeFilter;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          FilterChip(
-            label: const Text(AppStrings.all),
-            selected: filter == null,
-            onSelected: (_) => context.read<SupplierListBloc>().add(
-                  const SupplierListFilterChanged(null),
-                ),
-          ),
-          const SizedBox(width: 8),
-          ...SupplierType.values.map(
-            (type) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: FilterChip(
-                label: Text(type.label),
-                selected: filter == type,
-                onSelected: (_) => context.read<SupplierListBloc>().add(
-                      SupplierListFilterChanged(type),
-                    ),
-              ),
             ),
           ),
         ],

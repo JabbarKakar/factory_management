@@ -5,13 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/supplier/supplier_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/supplier.dart';
-import '../../../domain/enums/raw_material_enums.dart';
 import '../../../domain/enums/app_module_enums.dart';
+import '../../../domain/enums/raw_material_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
-import '../../widgets/settings_section.dart';
+import '../../widgets/job_work/job_work_detail_row.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/suppliers/supplier_actions_bar.dart';
+import '../../widgets/suppliers/supplier_detail_hero.dart';
 import '../../widgets/suppliers/supplier_purchases_section.dart';
-import '../../widgets/suppliers/supplier_type_chip.dart';
 
 class SupplierDetailScreen extends StatelessWidget {
   const SupplierDetailScreen({required this.supplierId, super.key});
@@ -40,10 +42,28 @@ class SupplierDetailScreen extends StatelessWidget {
         }
 
         final supplier = state.supplier!;
+        final canRecordPurchase =
+            context.userCanCreate(AppModule.expenses);
+        final canStockIn = context.userCanCreate(AppModule.rawMaterials);
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(AppStrings.supplierDetails),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(AppStrings.supplierDetails),
+                Text(
+                  supplier.name,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: (Theme.of(context).appBarTheme.foregroundColor ??
+                                Theme.of(context).colorScheme.onSurface)
+                            .withValues(alpha: 0.78),
+                        fontWeight: FontWeight.w500,
+                        fontSize: 11,
+                      ),
+                ),
+              ],
+            ),
             actions: [
               if (context.userCanEdit(AppModule.suppliers))
                 IconButton(
@@ -55,83 +75,78 @@ class SupplierDetailScreen extends StatelessWidget {
                 ),
             ],
           ),
-          floatingActionButton:
-              (context.userCanCreate(AppModule.expenses) ||
-                      context.userCanCreate(AppModule.rawMaterials))
-                  ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (context.userCanCreate(AppModule.expenses))
-                          FloatingActionButton.extended(
-                            heroTag: 'fab-supplier-purchase',
-                            onPressed: () => context.push(
-                              RoutePaths.expensesAddForSupplier(
-                                supplierId: supplier.id,
-                                payeeName: supplier.name,
-                              ),
-                            ),
-                            icon: const Icon(Icons.add_shopping_cart_outlined),
-                            label: const Text(AppStrings.recordPurchase),
-                          ),
-                        if (context.userCanCreate(AppModule.expenses) &&
-                            context.userCanCreate(AppModule.rawMaterials))
-                          const SizedBox(height: 12),
-                        if (context.userCanCreate(AppModule.rawMaterials))
-                          FloatingActionButton.extended(
-                            heroTag: 'fab-supplier-stock-in',
-                            onPressed: () =>
-                                _showMaterialPicker(context, supplier),
-                            icon: const Icon(Icons.inventory_2_outlined),
-                            label: const Text(AppStrings.stockIn),
-                          ),
-                      ],
-                    )
-                  : null,
           body: ListView(
-            padding: const EdgeInsets.only(bottom: 140),
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
-              _ProfileHeader(supplier: supplier),
+              SupplierDetailHero(supplier: supplier),
+              SupplierActionsBar(
+                canRecordPurchase: canRecordPurchase,
+                canStockIn: canStockIn,
+                onRecordPurchase: () => context.push(
+                  RoutePaths.expensesAddForSupplier(
+                    supplierId: supplier.id,
+                    payeeName: supplier.name,
+                  ),
+                ),
+                onStockIn: () => _showMaterialPicker(context, supplier),
+              ),
               SupplierPurchasesSection(supplierId: supplier.id),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.contactInformation,
-                child: _DetailList(
-                  items: [
-                    _DetailItem(AppStrings.phone, supplier.phone),
+                icon: Icons.contact_phone_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.phone,
+                      value: supplier.phone,
+                    ),
                     if (supplier.phoneSecondary != null)
-                      _DetailItem(
-                        AppStrings.secondaryPhone,
-                        supplier.phoneSecondary!,
+                      JobWorkDetailRow(
+                        label: AppStrings.secondaryPhone,
+                        value: supplier.phoneSecondary!,
                       ),
                     if (supplier.contactPersonName != null)
-                      _DetailItem(
-                        AppStrings.contactPerson,
-                        supplier.contactPersonName!,
+                      JobWorkDetailRow(
+                        label: AppStrings.contactPerson,
+                        value: supplier.contactPersonName!,
                       ),
                     if (supplier.city != null)
-                      _DetailItem(AppStrings.city, supplier.city!),
+                      JobWorkDetailRow(
+                        label: AppStrings.city,
+                        value: supplier.city!,
+                      ),
                     if (supplier.address != null)
-                      _DetailItem(AppStrings.address, supplier.address!),
+                      JobWorkDetailRow(
+                        label: AppStrings.address,
+                        value: supplier.address!,
+                      ),
                   ],
                 ),
               ),
-              SettingsSection(
+              JobWorkDetailSection(
                 title: AppStrings.supplierInformation,
-                child: _DetailList(
-                  items: [
-                    _DetailItem(
-                      AppStrings.paymentTerms,
-                      supplier.paymentTerms.label,
+                icon: Icons.info_outline,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.paymentTerms,
+                      value: supplier.paymentTerms.label,
                     ),
                     if (supplier.cnicNtn != null)
-                      _DetailItem(AppStrings.cnicNtn, supplier.cnicNtn!),
+                      JobWorkDetailRow(
+                        label: AppStrings.cnicNtn,
+                        value: supplier.cnicNtn!,
+                      ),
                     if (supplier.materialsSupplied != null)
-                      _DetailItem(
-                        AppStrings.materialsSupplied,
-                        supplier.materialsSupplied!,
+                      JobWorkDetailRow(
+                        label: AppStrings.materialsSupplied,
+                        value: supplier.materialsSupplied!,
                       ),
                     if (supplier.notes != null)
-                      _DetailItem(AppStrings.notes, supplier.notes!),
+                      JobWorkDetailRow(
+                        label: AppStrings.notes,
+                        value: supplier.notes!,
+                      ),
                   ],
                 ),
               ),
@@ -143,8 +158,11 @@ class SupplierDetailScreen extends StatelessWidget {
   }
 
   void _showMaterialPicker(BuildContext context, Supplier supplier) {
+    final theme = Theme.of(context);
+
     showModalBottomSheet<void>(
       context: context,
+      showDragHandle: true,
       builder: (sheetContext) {
         return SafeArea(
           child: Column(
@@ -152,18 +170,38 @@ class SupplierDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                 child: Text(
                   AppStrings.selectMaterialForStockIn,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
                 ),
               ),
               ...RawMaterialType.values.map(
                 (materialType) => ListTile(
-                  title: Text(materialType.label),
-                  subtitle: Text(materialType.unit.label),
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: Icon(
+                    Icons.inventory_2_outlined,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: Text(
+                    materialType.label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  subtitle: Text(
+                    materialType.unit.label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   onTap: () {
                     Navigator.pop(sheetContext);
                     context.push(
@@ -175,116 +213,11 @@ class SupplierDetailScreen extends StatelessWidget {
                   },
                 ),
               ),
+              const SizedBox(height: 8),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.supplier});
-
-  final Supplier supplier;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    return Card(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              supplier.name,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              supplier.supplierNumber,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: muted,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            SupplierTypeChip(supplierType: supplier.supplierType),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DetailList extends StatelessWidget {
-  const _DetailList({required this.items});
-
-  final List<_DetailItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: _DetailRow(label: items[i].label, value: items[i].value),
-          ),
-          if (i < items.length - 1) const Divider(height: 1),
-        ],
-      ],
-    );
-  }
-}
-
-class _DetailItem {
-  const _DetailItem(this.label, this.value);
-
-  final String label;
-  final String value;
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            style: TextStyle(color: muted),
-          ),
-        ),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.end,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ),
-      ],
     );
   }
 }
