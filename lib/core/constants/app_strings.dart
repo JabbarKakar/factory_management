@@ -10,6 +10,10 @@ abstract final class AppStrings {
   static const String password = 'Password';
   static const String forgotPassword = 'Forgot Password?';
   static const String resetPassword = 'Reset Password';
+  static const String resetPasswordSubtitle =
+      'Enter your email and we will send you a link to reset your password.';
+  static const String passwordResetLinkSent =
+      'Password reset link sent. Check your email.';
   static const String sendResetLink = 'Send Reset Link';
   static const String backToLogin = 'Back to Login';
 

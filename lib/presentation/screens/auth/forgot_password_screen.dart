@@ -7,6 +7,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/validators.dart';
 import '../../routes/route_paths.dart';
+import '../../widgets/auth/login_brand_header.dart';
+import '../../widgets/dashboard/dashboard_surface.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -36,7 +38,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.resetPassword)),
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthPasswordResetSent) {
@@ -44,7 +45,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ..hideCurrentSnackBar()
               ..showSnackBar(
                 const SnackBar(
-                  content: Text('Password reset link sent. Check your email.'),
+                  content: Text(AppStrings.passwordResetLinkSent),
                   backgroundColor: AppColors.success,
                 ),
               );
@@ -62,54 +63,119 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         },
         builder: (context, state) {
           final isLoading = state is AuthLoading;
+          final theme = Theme.of(context);
 
           return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Enter your email and we will send you a link to reset your password.',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.done,
-                      decoration: const InputDecoration(
-                        labelText: AppStrings.email,
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      validator: Validators.email,
-                      enabled: !isLoading,
-                      onFieldSubmitted: (_) => _submit(),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: isLoading ? null : _submit,
-                      child: isLoading
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+            child: Center(
+              child: SingleChildScrollView(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const LoginBrandHeader(),
+                      DashboardSurfaceCard(
+                        compact: true,
+                        borderRadius: 14,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                AppStrings.resetPassword,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  letterSpacing: 0.1,
+                                ),
                               ),
-                            )
-                          : const Text(AppStrings.sendResetLink),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: isLoading ? null : () => context.go(RoutePaths.login),
-                      child: const Text(AppStrings.backToLogin),
-                    ),
-                  ],
+                              const SizedBox(height: 8),
+                              Text(
+                                AppStrings.resetPasswordSubtitle,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontSize: 11,
+                                  height: 1.35,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [AutofillHints.email],
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 13,
+                                ),
+                                decoration: const InputDecoration(
+                                  labelText: AppStrings.email,
+                                  labelStyle: TextStyle(fontSize: 12),
+                                  prefixIcon: Icon(
+                                    Icons.email_outlined,
+                                    size: 20,
+                                  ),
+                                  isDense: true,
+                                ),
+                                validator: Validators.email,
+                                enabled: !isLoading,
+                                onFieldSubmitted: (_) => _submit(),
+                              ),
+                              const SizedBox(height: 16),
+                              FilledButton(
+                                onPressed: isLoading ? null : _submit,
+                                style: FilledButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                                child: isLoading
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        AppStrings.sendResetLink,
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () => context.go(RoutePaths.login),
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                ),
+                                child: Text(
+                                  AppStrings.backToLogin,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
