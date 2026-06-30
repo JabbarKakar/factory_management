@@ -81,6 +81,21 @@ class JobWorkInvoiceDetailHero extends StatelessWidget {
                           fontSize: 11,
                         ),
                       ),
+                      if (invoice.mineLocation != null ||
+                          invoice.mineOwner != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            if (invoice.mineLocation != null)
+                              invoice.mineLocation!,
+                            if (invoice.mineOwner != null) invoice.mineOwner!,
+                          ].join(' · '),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       Divider(
                         height: 1,

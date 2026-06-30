@@ -251,11 +251,17 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
         final isEditing = order.output?.isRecorded == true;
         final usesShiftLogs = _shiftLogs.isNotEmpty;
 
+        final subtitleParts = <String>[
+          order.jobWorkNumber,
+          if (order.mineLocation != null) order.mineLocation!,
+          if (order.mineOwner != null) order.mineOwner!,
+        ];
+
         return Scaffold(
           appBar: AppBar(
             title: AppFormAppBarTitle(
               title: isEditing ? AppStrings.editOutput : AppStrings.recordOutput,
-              subtitle: order.jobWorkNumber,
+              subtitle: subtitleParts.join(' · '),
             ),
           ),
           body: Form(

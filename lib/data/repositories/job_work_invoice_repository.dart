@@ -134,6 +134,8 @@ class JobWorkInvoiceRepository {
         totalAmount: totalAmount,
         dueDate: dueDate,
       ),
+      mineLocation: order.mineLocation,
+      mineOwner: order.mineOwner,
       createdAt: DateTime.now(),
     );
 
@@ -164,7 +166,7 @@ class JobWorkInvoiceRepository {
   List<InvoiceLineItem> _buildLineItems(JobWorkOrder order) {
     final items = <InvoiceLineItem>[
       InvoiceLineItem(
-        description: 'Cutting fee — ${order.marbleVariety}',
+        description: _cuttingFeeDescription(order),
         amount: order.negotiatedFinalAmount,
       ),
     ];
@@ -181,6 +183,17 @@ class JobWorkInvoiceRepository {
     }
 
     return items;
+  }
+
+  String _cuttingFeeDescription(JobWorkOrder order) {
+    final details = <String>['Cutting fee — ${order.marbleVariety}'];
+    if (order.mineLocation != null && order.mineLocation!.isNotEmpty) {
+      details.add(order.mineLocation!);
+    }
+    if (order.mineOwner != null && order.mineOwner!.isNotEmpty) {
+      details.add(order.mineOwner!);
+    }
+    return details.join(' · ');
   }
 
   Future<String> _generateInvoiceNumber(String factoryId) async {

@@ -18,6 +18,8 @@ class JobWorkInvoiceModel {
     required this.dueAmount,
     required this.status,
     required this.createdAt,
+    this.mineLocation,
+    this.mineOwner,
     this.dueDate,
     this.updatedAt,
   });
@@ -34,6 +36,8 @@ class JobWorkInvoiceModel {
   final double paidAmount;
   final double dueAmount;
   final DateTime? dueDate;
+  final String? mineLocation;
+  final String? mineOwner;
   final InvoiceStatus status;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -64,6 +68,8 @@ class JobWorkInvoiceModel {
       paidAmount: (data['paid'] as num?)?.toDouble() ?? 0,
       dueAmount: (data['due'] as num?)?.toDouble() ?? 0,
       dueDate: (data['dueDate'] as Timestamp?)?.toDate(),
+      mineLocation: data['mineLocation'] as String?,
+      mineOwner: data['mineOwner'] as String?,
       status: InvoiceStatus.fromString(data['status'] as String?),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -90,6 +96,8 @@ class JobWorkInvoiceModel {
       'paid': paidAmount,
       'due': dueAmount,
       if (dueDate != null) 'dueDate': Timestamp.fromDate(dueDate!),
+      if (mineLocation != null) 'mineLocation': mineLocation,
+      if (mineOwner != null) 'mineOwner': mineOwner,
       'status': status.firestoreValue,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -110,6 +118,8 @@ class JobWorkInvoiceModel {
       paidAmount: paidAmount,
       dueAmount: dueAmount,
       dueDate: dueDate,
+      mineLocation: mineLocation,
+      mineOwner: mineOwner,
       status: status,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -130,6 +140,8 @@ class JobWorkInvoiceModel {
       paidAmount: invoice.paidAmount,
       dueAmount: invoice.dueAmount,
       dueDate: invoice.dueDate,
+      mineLocation: invoice.mineLocation,
+      mineOwner: invoice.mineOwner,
       status: invoice.status,
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,

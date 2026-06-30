@@ -53,6 +53,12 @@ class InvoiceExcelExporter {
       paidAmount: invoice.paidAmount,
       dueAmount: invoice.dueAmount,
       payments: payments,
+      extraDetails: [
+        if (invoice.mineLocation != null)
+          (AppStrings.mineLocation, invoice.mineLocation!),
+        if (invoice.mineOwner != null)
+          (AppStrings.mineOwner, invoice.mineOwner!),
+      ],
     );
   }
 
@@ -70,6 +76,7 @@ class InvoiceExcelExporter {
     required double paidAmount,
     required double dueAmount,
     required List<Payment> payments,
+    List<(String label, String value)> extraDetails = const [],
   }) {
     final excel = Excel.createExcel();
     final sheetName = excel.getDefaultSheet();
@@ -106,6 +113,13 @@ class InvoiceExcelExporter {
         row++,
         0,
         '${AppStrings.paymentDueDate}: ${dateFormat.format(dueDate)}',
+      );
+    }
+    for (final detail in extraDetails) {
+      setCell(
+        row++,
+        0,
+        '${detail.$1}: ${Formatters.textForExport(detail.$2)}',
       );
     }
     row++;

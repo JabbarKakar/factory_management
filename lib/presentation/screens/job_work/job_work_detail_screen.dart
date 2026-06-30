@@ -245,6 +245,16 @@ class JobWorkDetailScreen extends StatelessWidget {
                 icon: Icons.inventory_2_outlined,
                 child: JobWorkDetailRows(
                   rows: [
+                    if (order.mineLocation != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.mineLocation,
+                        value: order.mineLocation!,
+                      ),
+                    if (order.mineOwner != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.mineOwner,
+                        value: order.mineOwner!,
+                      ),
                     JobWorkDetailRow(
                       label: AppStrings.marbleVariety,
                       value: order.marbleVariety,

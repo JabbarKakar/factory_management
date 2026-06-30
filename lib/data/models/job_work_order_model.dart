@@ -14,6 +14,8 @@ class JobWorkOrderModel {
     required this.customerName,
     required this.status,
     required this.receivedDate,
+    this.mineLocation,
+    this.mineOwner,
     required this.marbleVariety,
     required this.blockCount,
     required this.totalTons,
@@ -55,6 +57,8 @@ class JobWorkOrderModel {
   final JobWorkStatus status;
   final DateTime receivedDate;
   final DateTime? expectedCompletionDate;
+  final String? mineLocation;
+  final String? mineOwner;
   final String marbleVariety;
   final int blockCount;
   final double totalTons;
@@ -105,6 +109,8 @@ class JobWorkOrderModel {
           (data['receivedDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       expectedCompletionDate:
           (data['expectedCompletionDate'] as Timestamp?)?.toDate(),
+      mineLocation: data['mineLocation'] as String?,
+      mineOwner: data['mineOwner'] as String?,
       marbleVariety: input['variety'] as String? ?? '',
       blockCount: (input['blockCount'] as num?)?.toInt() ?? 0,
       totalTons: (input['totalTons'] as num?)?.toDouble() ?? 0,
@@ -209,6 +215,8 @@ class JobWorkOrderModel {
       'receivedDate': Timestamp.fromDate(receivedDate),
       if (expectedCompletionDate != null)
         'expectedCompletionDate': Timestamp.fromDate(expectedCompletionDate!),
+      if (mineLocation != null) 'mineLocation': mineLocation,
+      if (mineOwner != null) 'mineOwner': mineOwner,
       'input': {
         'variety': marbleVariety,
         'blockCount': blockCount,
@@ -341,6 +349,8 @@ class JobWorkOrderModel {
       status: status,
       receivedDate: receivedDate,
       expectedCompletionDate: expectedCompletionDate,
+      mineLocation: mineLocation,
+      mineOwner: mineOwner,
       marbleVariety: marbleVariety,
       blockCount: blockCount,
       totalTons: totalTons,
@@ -384,6 +394,8 @@ class JobWorkOrderModel {
       status: order.status,
       receivedDate: order.receivedDate,
       expectedCompletionDate: order.expectedCompletionDate,
+      mineLocation: order.mineLocation,
+      mineOwner: order.mineOwner,
       marbleVariety: order.marbleVariety,
       blockCount: order.blockCount,
       totalTons: order.totalTons,

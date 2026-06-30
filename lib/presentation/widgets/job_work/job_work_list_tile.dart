@@ -98,6 +98,16 @@ class JobWorkListTile extends StatelessWidget {
                               spacing: 6,
                               runSpacing: 6,
                               children: [
+                                if (order.mineLocation != null)
+                                  _MetaChip(
+                                    icon: Icons.place_outlined,
+                                    label: order.mineLocation!,
+                                  ),
+                                if (order.mineOwner != null)
+                                  _MetaChip(
+                                    icon: Icons.person_outline,
+                                    label: order.mineOwner!,
+                                  ),
                                 _MetaChip(
                                   icon: Icons.layers_outlined,
                                   label: order.marbleVariety,

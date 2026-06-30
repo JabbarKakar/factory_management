@@ -182,6 +182,8 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         order.jobWorkNumber,
         order.customerName,
         order.marbleVariety,
+        order.mineLocation,
+        order.mineOwner,
         order.status.label,
       ].join(' ').toLowerCase();
 

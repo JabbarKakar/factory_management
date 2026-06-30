@@ -30,6 +30,8 @@ class JobWorkInvoice extends Equatable {
     required this.dueAmount,
     required this.status,
     required this.createdAt,
+    this.mineLocation,
+    this.mineOwner,
     this.dueDate,
     this.updatedAt,
   });
@@ -46,6 +48,8 @@ class JobWorkInvoice extends Equatable {
   final double paidAmount;
   final double dueAmount;
   final DateTime? dueDate;
+  final String? mineLocation;
+  final String? mineOwner;
   final InvoiceStatus status;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -63,6 +67,8 @@ class JobWorkInvoice extends Equatable {
     double? paidAmount,
     double? dueAmount,
     DateTime? dueDate,
+    String? mineLocation,
+    String? mineOwner,
     InvoiceStatus? status,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -80,6 +86,8 @@ class JobWorkInvoice extends Equatable {
       paidAmount: paidAmount ?? this.paidAmount,
       dueAmount: dueAmount ?? this.dueAmount,
       dueDate: dueDate ?? this.dueDate,
+      mineLocation: mineLocation ?? this.mineLocation,
+      mineOwner: mineOwner ?? this.mineOwner,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -100,6 +108,8 @@ class JobWorkInvoice extends Equatable {
         paidAmount,
         dueAmount,
         dueDate,
+        mineLocation,
+        mineOwner,
         status,
         createdAt,
         updatedAt,

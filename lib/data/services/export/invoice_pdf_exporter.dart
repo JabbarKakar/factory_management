@@ -153,6 +153,20 @@ class InvoicePdfExporter {
             '${AppStrings.date}: ${dateFormat.format(invoice.createdAt)}',
             style: PdfDocumentTheme.subtitleStyle(fonts),
           ),
+          if (invoice.mineLocation != null) ...[
+            pw.SizedBox(height: 4),
+            pw.Text(
+              '${AppStrings.mineLocation}: ${Formatters.textForExport(invoice.mineLocation!)}',
+              style: PdfDocumentTheme.subtitleStyle(fonts),
+            ),
+          ],
+          if (invoice.mineOwner != null) ...[
+            pw.SizedBox(height: 4),
+            pw.Text(
+              '${AppStrings.mineOwner}: ${Formatters.textForExport(invoice.mineOwner!)}',
+              style: PdfDocumentTheme.subtitleStyle(fonts),
+            ),
+          ],
           PdfDocumentTheme.divider(),
           pw.Text(
             AppStrings.lineItems,

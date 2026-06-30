@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/marble_data.dart';
+import '../../../core/constants/mine_locations.dart';
+import '../../../core/constants/mine_owners.dart';
 import '../../../domain/entities/customer.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/customer_enums.dart';
@@ -30,6 +32,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
   DateTime _receivedDate = DateTime.now();
   DateTime? _expectedCompletion;
   DateTime? _paymentDueDate;
+
+  String? _mineLocation;
+  String? _mineOwner;
 
   String _marbleVariety = MarbleData.varieties.first;
   CuttingStrategy _cuttingStrategy = CuttingStrategy.gangSaw;
@@ -91,6 +96,16 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     _receivedDate = order.receivedDate;
     _expectedCompletion = order.expectedCompletionDate;
     _paymentDueDate = order.paymentDueDate;
+    if (MineLocations.contains(order.mineLocation)) {
+      _mineLocation = order.mineLocation;
+      _mineOwner = MineOwners.normalizeOwnerForLocation(
+        _mineLocation,
+        order.mineOwner,
+      );
+    } else {
+      _mineLocation = null;
+      _mineOwner = null;
+    }
     _marbleVariety = MarbleData.varieties.contains(order.marbleVariety)
         ? order.marbleVariety
         : MarbleData.varieties.first;
@@ -132,6 +147,18 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
 
   double get _balanceDue =>
       _parse(_negotiatedAmountController.text) - _parse(_advanceController.text);
+
+  List<String> get _mineOwnerOptions => MineOwners.forLocation(_mineLocation);
+
+  void _onMineLocationChanged(String? location) {
+    setState(() {
+      _mineLocation = location;
+      if (_mineOwner != null &&
+          !MineOwners.forLocation(location).contains(_mineOwner)) {
+        _mineOwner = null;
+      }
+    });
+  }
 
   Customer? get _selectedCustomer {
     if (_customerId == null) return null;
@@ -176,6 +203,8 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
       customerName: customer.name,
       receivedDate: _receivedDate,
       expectedCompletionDate: _expectedCompletion,
+      mineLocation: _mineLocation,
+      mineOwner: _mineOwner,
       marbleVariety: _marbleVariety,
       blockCount: _parseInt(_blockCountController.text),
       totalTons: _parse(_totalTonsController.text),
@@ -432,6 +461,72 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                   icon: Icons.inventory_2_outlined,
                   child: AppFormSectionBody(
                     children: [
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(_mineLocation),
+                        initialValue: _mineLocation,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.mineLocation,
+                        ),
+                        items: MineLocations.all
+                            .map(
+                              (location) => DropdownMenuItem(
+                                value: location,
+                                child: Text(
+                                  location,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving ? null : _onMineLocationChanged,
+                        validator: (value) => value == null
+                            ? AppStrings.mineLocationRequired
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<String>(
+                        key: ValueKey('$_mineLocation-$_mineOwner'),
+                        initialValue: _mineOwnerOptions.contains(_mineOwner)
+                            ? _mineOwner
+                            : null,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.mineOwner,
+                        ),
+                        items: _mineOwnerOptions
+                            .map(
+                              (owner) => DropdownMenuItem(
+                                value: owner,
+                                child: Text(
+                                  owner,
+                                  style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _mineLocation == null || isSaving
+                            ? null
+                            : (value) => setState(() => _mineOwner = value),
+                        validator: (value) {
+                          if (_mineLocation == null) {
+                            return AppStrings.mineLocationRequired;
+                          }
+                          if (value == null) {
+                            return AppStrings.mineOwnerRequired;
+                          }
+                          if (!MineOwners.isValidCombination(
+                            _mineLocation,
+                            value,
+                          )) {
+                            return AppStrings.mineOwnerRequired;
+                          }
+                          return null;
+                        },
+                      ),
+                      AppFormFields.gap,
                       DropdownButtonFormField<String>(
                         key: ValueKey(_marbleVariety),
                         initialValue: _marbleVariety,

@@ -115,7 +115,8 @@ abstract final class AppStrings {
   static const String cancelJobWorkMessage =
       'This order will be marked as cancelled.';
   static const String cancelOrder = 'Cancel Order';
-  static const String searchJobWork = 'Search order #, customer, variety...';
+  static const String searchJobWork =
+      'Search order #, customer, variety, mine...';
   static const String noJobWorkYet = 'No job work orders yet';
   static const String noJobWorkFound = 'No job work orders found';
   static const String addFirstJobWork =
@@ -131,6 +132,12 @@ abstract final class AppStrings {
   static const String receivedDate = 'Date Received';
   static const String expectedCompletion = 'Expected Completion';
   static const String marbleVariety = 'Marble Variety';
+  static const String mineLocation = 'Mine Location';
+  static const String mineOwner = 'Mine Owner';
+  static const String selectMineLocation = 'Select mine location';
+  static const String selectMineOwner = 'Select mine owner';
+  static const String mineLocationRequired = 'Select a mine location';
+  static const String mineOwnerRequired = 'Select a mine owner';
   static const String blockCount = 'Number of Blocks';
   static const String totalTons = 'Total Weight (Tons)';
   static const String totalVolume = 'Total Volume (m³)';

@@ -357,6 +357,22 @@ class _PickupRow extends StatelessWidget {
                             height: 1.1,
                           ),
                         ),
+                        if (order.mineLocation != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            [
+                              if (order.mineLocation != null)
+                                order.mineLocation!,
+                              if (order.mineOwner != null) order.mineOwner!,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontSize: dense ? 9 : 10,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

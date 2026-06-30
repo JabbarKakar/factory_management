@@ -13,6 +13,8 @@ class JobWorkOrder extends Equatable {
     required this.customerName,
     required this.status,
     required this.receivedDate,
+    this.mineLocation,
+    this.mineOwner,
     required this.marbleVariety,
     required this.blockCount,
     required this.totalTons,
@@ -54,6 +56,10 @@ class JobWorkOrder extends Equatable {
   final JobWorkStatus status;
   final DateTime receivedDate;
   final DateTime? expectedCompletionDate;
+
+  // Mine source
+  final String? mineLocation;
+  final String? mineOwner;
 
   // Input
   final String marbleVariety;
@@ -117,6 +123,8 @@ class JobWorkOrder extends Equatable {
     JobWorkStatus? status,
     DateTime? receivedDate,
     DateTime? expectedCompletionDate,
+    String? mineLocation,
+    String? mineOwner,
     String? marbleVariety,
     int? blockCount,
     double? totalTons,
@@ -158,6 +166,8 @@ class JobWorkOrder extends Equatable {
       receivedDate: receivedDate ?? this.receivedDate,
       expectedCompletionDate:
           expectedCompletionDate ?? this.expectedCompletionDate,
+      mineLocation: mineLocation ?? this.mineLocation,
+      mineOwner: mineOwner ?? this.mineOwner,
       marbleVariety: marbleVariety ?? this.marbleVariety,
       blockCount: blockCount ?? this.blockCount,
       totalTons: totalTons ?? this.totalTons,
@@ -202,6 +212,8 @@ class JobWorkOrder extends Equatable {
         status,
         receivedDate,
         expectedCompletionDate,
+        mineLocation,
+        mineOwner,
         marbleVariety,
         blockCount,
         totalTons,
