@@ -191,7 +191,9 @@ enum CuttingStrategy {
   bridgeSaw,
   wireSaw,
   waterJet,
-  mixed;
+  mixed,
+  fourPiller,
+  vertical;
 
   String get firestoreValue => name;
 
@@ -201,6 +203,8 @@ enum CuttingStrategy {
         CuttingStrategy.wireSaw => 'Wire Saw',
         CuttingStrategy.waterJet => 'Water Jet',
         CuttingStrategy.mixed => 'Mixed',
+        CuttingStrategy.fourPiller => 'Four Piller',
+        CuttingStrategy.vertical => 'Vertical',
       };
 
   static CuttingStrategy fromString(String? value) {

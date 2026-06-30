@@ -280,7 +280,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
       cuttingStrategy: CuttingStrategy.gangSaw,
       targetProduct: TargetProduct.slabs,
       sizes: const [],
-      thickness: MarbleData.thicknesses[2],
+      thickness: MarbleData.jobWorkThicknesses.first,
       finish: FinishType.unpolished,
       pricingModel: PricingModel.perTon,
       agreedRate: 0,

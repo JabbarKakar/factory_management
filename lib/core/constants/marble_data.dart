@@ -10,6 +10,7 @@ abstract final class MarbleData {
     'Thar White',
     'Mughal Pink',
     'Badal Grey',
+    'Travertine',
     'Custom',
   ];
 
@@ -28,5 +29,11 @@ abstract final class MarbleData {
     '20mm',
     '30mm',
     'Custom',
+  ];
+
+  /// Thickness options for job work cutting specification.
+  static const List<String> jobWorkThicknesses = [
+    '13.5 Sutar',
+    '14 Sutar',
   ];
 }

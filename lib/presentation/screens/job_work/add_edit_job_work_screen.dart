@@ -40,7 +40,7 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
   CuttingStrategy _cuttingStrategy = CuttingStrategy.gangSaw;
   TargetProduct _targetProduct = TargetProduct.slabs;
   final Set<String> _selectedSizes = {};
-  String _thickness = MarbleData.thicknesses[2];
+  String _thickness = MarbleData.jobWorkThicknesses.first;
   FinishType _finish = FinishType.unpolished;
   PricingModel _pricingModel = PricingModel.perTon;
   PaymentTerms _paymentTerms = PaymentTerms.cash;
@@ -112,9 +112,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     _cuttingStrategy = order.cuttingStrategy;
     _targetProduct = order.targetProduct;
     _selectedSizes.addAll(order.sizes);
-    _thickness = MarbleData.thicknesses.contains(order.thickness)
+    _thickness = order.thickness.isNotEmpty
         ? order.thickness
-        : MarbleData.thicknesses[2];
+        : MarbleData.jobWorkThicknesses.first;
     _finish = order.finish;
     _pricingModel = order.pricingModel;
     _paymentTerms = order.paymentTerms;
@@ -149,6 +149,14 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
       _parse(_negotiatedAmountController.text) - _parse(_advanceController.text);
 
   List<String> get _mineOwnerOptions => MineOwners.forLocation(_mineLocation);
+
+  List<String> _thicknessItems(String selected) {
+    final options = List<String>.from(MarbleData.jobWorkThicknesses);
+    if (selected.isNotEmpty && !options.contains(selected)) {
+      options.insert(0, selected);
+    }
+    return options;
+  }
 
   void _onMineLocationChanged(String? location) {
     setState(() {
@@ -709,7 +717,7 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                           context,
                           label: AppStrings.thickness,
                         ),
-                        items: MarbleData.thicknesses
+                        items: _thicknessItems(_thickness)
                             .map(
                               (t) => DropdownMenuItem(
                                 value: t,
