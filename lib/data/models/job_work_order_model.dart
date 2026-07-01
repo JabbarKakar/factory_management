@@ -29,6 +29,8 @@ class JobWorkOrderModel {
     required this.finish,
     required this.pricingModel,
     required this.agreedRate,
+    this.smallStockPrice = 0,
+    this.largeStockPrice = 0,
     required this.estimatedTotal,
     required this.negotiatedFinalAmount,
     required this.advanceReceived,
@@ -80,6 +82,8 @@ class JobWorkOrderModel {
   final String? specialInstructions;
   final PricingModel pricingModel;
   final double agreedRate;
+  final double smallStockPrice;
+  final double largeStockPrice;
   final double estimatedTotal;
   final double negotiatedFinalAmount;
   final double advanceReceived;
@@ -140,6 +144,8 @@ class JobWorkOrderModel {
       specialInstructions: cuttingSpec['specialInstructions'] as String?,
       pricingModel: PricingModel.fromString(pricing['model'] as String?),
       agreedRate: (pricing['agreedRate'] as num?)?.toDouble() ?? 0,
+      smallStockPrice: (pricing['smallStockPrice'] as num?)?.toDouble() ?? 0,
+      largeStockPrice: (pricing['largeStockPrice'] as num?)?.toDouble() ?? 0,
       estimatedTotal: (pricing['estimatedTotal'] as num?)?.toDouble() ?? 0,
       negotiatedFinalAmount:
           (pricing['negotiatedFinalAmount'] as num?)?.toDouble() ?? 0,
@@ -250,6 +256,8 @@ class JobWorkOrderModel {
       'pricing': {
         'model': pricingModel.name,
         'agreedRate': agreedRate,
+        'smallStockPrice': smallStockPrice,
+        'largeStockPrice': largeStockPrice,
         'estimatedTotal': estimatedTotal,
         'negotiatedFinalAmount': negotiatedFinalAmount,
         'advanceReceived': advanceReceived,
@@ -379,6 +387,8 @@ class JobWorkOrderModel {
       specialInstructions: specialInstructions,
       pricingModel: pricingModel,
       agreedRate: agreedRate,
+      smallStockPrice: smallStockPrice,
+      largeStockPrice: largeStockPrice,
       estimatedTotal: estimatedTotal,
       negotiatedFinalAmount: negotiatedFinalAmount,
       advanceReceived: advanceReceived,
@@ -426,6 +436,8 @@ class JobWorkOrderModel {
       specialInstructions: order.specialInstructions,
       pricingModel: order.pricingModel,
       agreedRate: order.agreedRate,
+      smallStockPrice: order.smallStockPrice,
+      largeStockPrice: order.largeStockPrice,
       estimatedTotal: order.estimatedTotal,
       negotiatedFinalAmount: order.negotiatedFinalAmount,
       advanceReceived: order.advanceReceived,

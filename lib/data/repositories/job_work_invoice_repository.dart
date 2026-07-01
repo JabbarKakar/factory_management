@@ -193,6 +193,16 @@ class JobWorkInvoiceRepository {
     if (order.mineOwner != null && order.mineOwner!.isNotEmpty) {
       details.add(order.mineOwner!);
     }
+    if (order.smallSizes.isNotEmpty && order.smallStockPrice > 0) {
+      details.add(
+        'Small ${order.smallSizes.length}× PKR ${order.smallStockPrice.toStringAsFixed(0)}',
+      );
+    }
+    if (order.largeSizes.isNotEmpty && order.largeStockPrice > 0) {
+      details.add(
+        'Large ${order.largeSizes.length}× PKR ${order.largeStockPrice.toStringAsFixed(0)}',
+      );
+    }
     return details.join(' · ');
   }
 

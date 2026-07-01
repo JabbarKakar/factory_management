@@ -56,7 +56,8 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
   final _vehicleController = TextEditingController();
   final _expectedOutputController = TextEditingController();
   final _specialInstructionsController = TextEditingController();
-  final _agreedRateController = TextEditingController();
+  final _smallStockPriceController = TextEditingController();
+  final _largeStockPriceController = TextEditingController();
   final _negotiatedAmountController = TextEditingController();
   final _advanceController = TextEditingController(text: '0');
 
@@ -74,7 +75,8 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     _vehicleController.dispose();
     _expectedOutputController.dispose();
     _specialInstructionsController.dispose();
-    _agreedRateController.dispose();
+    _smallStockPriceController.dispose();
+    _largeStockPriceController.dispose();
     _negotiatedAmountController.dispose();
     _advanceController.dispose();
     super.dispose();
@@ -132,7 +134,16 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     _vehicleController.text = order.vehicleNumber ?? '';
     _expectedOutputController.text = order.expectedOutputSqFt?.toString() ?? '';
     _specialInstructionsController.text = order.specialInstructions ?? '';
-    _agreedRateController.text = order.agreedRate.toStringAsFixed(0);
+    if (order.smallStockPrice > 0) {
+      _smallStockPriceController.text = order.smallStockPrice.toStringAsFixed(0);
+    } else if (order.agreedRate > 0 && order.smallSizes.isNotEmpty) {
+      _smallStockPriceController.text = order.agreedRate.toStringAsFixed(0);
+    }
+    if (order.largeStockPrice > 0) {
+      _largeStockPriceController.text = order.largeStockPrice.toStringAsFixed(0);
+    } else if (order.agreedRate > 0 && order.largeSizes.isNotEmpty) {
+      _largeStockPriceController.text = order.agreedRate.toStringAsFixed(0);
+    }
     _negotiatedAmountController.text =
         order.negotiatedFinalAmount.toStringAsFixed(0);
     _advanceController.text = order.advanceReceived.toStringAsFixed(0);
@@ -142,13 +153,29 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
 
   int _parseInt(String value) => int.tryParse(value.trim()) ?? 0;
 
-  double get _estimatedTotal => JobWorkOrder.calculateEstimatedTotal(
-        model: _pricingModel,
-        agreedRate: _parse(_agreedRateController.text),
-        totalTons: _parse(_totalTonsController.text),
-        blockCount: _parseInt(_blockCountController.text),
-        expectedOutputSqFt: _parse(_expectedOutputController.text),
+  double get _estimatedTotal {
+    final hasSizes = _selectedSmallSizes.isNotEmpty ||
+        _selectedLargeSizes.isNotEmpty ||
+        _selectedLegacySizes.isNotEmpty;
+
+    if (hasSizes) {
+      return JobWorkOrder.calculateEstimatedTotalFromStockPrices(
+        smallStockPrice: _parse(_smallStockPriceController.text),
+        largeStockPrice: _parse(_largeStockPriceController.text),
+        smallSizeCount: _selectedSmallSizes.length,
+        largeSizeCount: _selectedLargeSizes.length,
+        legacySizeCount: _selectedLegacySizes.length,
       );
+    }
+
+    return JobWorkOrder.calculateEstimatedTotal(
+      model: _pricingModel,
+      agreedRate: 0,
+      totalTons: _parse(_totalTonsController.text),
+      blockCount: _parseInt(_blockCountController.text),
+      expectedOutputSqFt: _parse(_expectedOutputController.text),
+    );
+  }
 
   double get _balanceDue =>
       _parse(_negotiatedAmountController.text) - _parse(_advanceController.text);
@@ -247,7 +274,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
           ? null
           : _specialInstructionsController.text.trim(),
       pricingModel: _pricingModel,
-      agreedRate: _parse(_agreedRateController.text),
+      agreedRate: 0,
+      smallStockPrice: _parse(_smallStockPriceController.text),
+      largeStockPrice: _parse(_largeStockPriceController.text),
       estimatedTotal: _estimatedTotal,
       negotiatedFinalAmount: negotiated,
       advanceReceived: advance,
@@ -825,16 +854,39 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                       ),
                       AppFormFields.gap,
                       TextFormField(
-                        controller: _agreedRateController,
+                        controller: _smallStockPriceController,
                         keyboardType: TextInputType.number,
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
-                          label: AppStrings.agreedRate,
+                          label: AppStrings.smallStockPrice,
                         ),
                         validator: (v) {
-                          if (_parse(v ?? '') <= 0) {
-                            return 'Enter agreed rate';
+                          if (_selectedSmallSizes.isNotEmpty ||
+                              _selectedLegacySizes.isNotEmpty) {
+                            if (_parse(v ?? '') <= 0) {
+                              return AppStrings.smallStockPriceRequired;
+                            }
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _largeStockPriceController,
+                        keyboardType: TextInputType.number,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.largeStockPrice,
+                        ),
+                        validator: (v) {
+                          if (_selectedLargeSizes.isNotEmpty) {
+                            if (_parse(v ?? '') <= 0) {
+                              return AppStrings.largeStockPriceRequired;
+                            }
                           }
                           return null;
                         },

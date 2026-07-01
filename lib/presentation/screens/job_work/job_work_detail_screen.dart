@@ -215,6 +215,21 @@ class JobWorkDetailScreen extends StatelessWidget {
                 icon: Icons.payments_outlined,
                 child: JobWorkDetailRows(
                   rows: [
+                    if (order.smallStockPrice > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.smallStockPrice,
+                        value: Formatters.currencyPkr(order.smallStockPrice),
+                      ),
+                    if (order.largeStockPrice > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.largeStockPrice,
+                        value: Formatters.currencyPkr(order.largeStockPrice),
+                      ),
+                    if (order.estimatedTotal > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.estimatedTotal,
+                        value: Formatters.currencyPkr(order.estimatedTotal),
+                      ),
                     JobWorkDetailRow(
                       label: AppStrings.negotiatedAmount,
                       value: Formatters.currencyPkr(order.negotiatedFinalAmount),

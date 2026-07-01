@@ -158,6 +158,12 @@ abstract final class AppStrings {
   static const String specialInstructions = 'Special Instructions';
   static const String pricingModel = 'Pricing Model';
   static const String agreedRate = 'Agreed Rate (PKR)';
+  static const String smallStockPrice = 'Small Stock Price (PKR)';
+  static const String largeStockPrice = 'Large Stock Price (PKR)';
+  static const String smallStockPriceRequired =
+      'Enter small stock price for selected small sizes';
+  static const String largeStockPriceRequired =
+      'Enter large stock price for selected large sizes';
   static const String estimatedTotal = 'Estimated Total';
   static const String negotiatedAmount = 'Negotiated Final Amount (PKR)';
   static const String advanceReceived = 'Advance Received (PKR)';

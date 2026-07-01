@@ -27,6 +27,8 @@ class JobWorkOrder extends Equatable {
     required this.finish,
     required this.pricingModel,
     required this.agreedRate,
+    this.smallStockPrice = 0,
+    this.largeStockPrice = 0,
     required this.estimatedTotal,
     required this.negotiatedFinalAmount,
     required this.advanceReceived,
@@ -88,6 +90,8 @@ class JobWorkOrder extends Equatable {
   // Pricing
   final PricingModel pricingModel;
   final double agreedRate;
+  final double smallStockPrice;
+  final double largeStockPrice;
   final double estimatedTotal;
   final double negotiatedFinalAmount;
   final double advanceReceived;
@@ -112,6 +116,18 @@ class JobWorkOrder extends Equatable {
       ];
 
   bool get hasAnySize => allSizes.isNotEmpty;
+
+  static double calculateEstimatedTotalFromStockPrices({
+    required double smallStockPrice,
+    required double largeStockPrice,
+    required int smallSizeCount,
+    required int largeSizeCount,
+    int legacySizeCount = 0,
+  }) {
+    return (smallStockPrice * smallSizeCount) +
+        (largeStockPrice * largeSizeCount) +
+        (smallStockPrice * legacySizeCount);
+  }
 
   static double calculateEstimatedTotal({
     required PricingModel model,
@@ -157,6 +173,8 @@ class JobWorkOrder extends Equatable {
     String? specialInstructions,
     PricingModel? pricingModel,
     double? agreedRate,
+    double? smallStockPrice,
+    double? largeStockPrice,
     double? estimatedTotal,
     double? negotiatedFinalAmount,
     double? advanceReceived,
@@ -202,6 +220,8 @@ class JobWorkOrder extends Equatable {
       specialInstructions: specialInstructions ?? this.specialInstructions,
       pricingModel: pricingModel ?? this.pricingModel,
       agreedRate: agreedRate ?? this.agreedRate,
+      smallStockPrice: smallStockPrice ?? this.smallStockPrice,
+      largeStockPrice: largeStockPrice ?? this.largeStockPrice,
       estimatedTotal: estimatedTotal ?? this.estimatedTotal,
       negotiatedFinalAmount:
           negotiatedFinalAmount ?? this.negotiatedFinalAmount,
@@ -250,6 +270,8 @@ class JobWorkOrder extends Equatable {
         specialInstructions,
         pricingModel,
         agreedRate,
+        smallStockPrice,
+        largeStockPrice,
         estimatedTotal,
         negotiatedFinalAmount,
         advanceReceived,

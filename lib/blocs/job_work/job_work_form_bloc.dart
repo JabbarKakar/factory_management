@@ -285,6 +285,8 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
       finish: FinishType.unpolished,
       pricingModel: PricingModel.perTon,
       agreedRate: 0,
+      smallStockPrice: 0,
+      largeStockPrice: 0,
       estimatedTotal: 0,
       negotiatedFinalAmount: 0,
       advanceReceived: 0,
