@@ -4,6 +4,7 @@ import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
+import '../../core/constants/job_work_sizes.dart';
 
 class JobWorkOrderModel {
   const JobWorkOrderModel({
@@ -21,7 +22,9 @@ class JobWorkOrderModel {
     required this.totalTons,
     required this.cuttingStrategy,
     required this.targetProduct,
-    required this.sizes,
+    this.smallSizes = const [],
+    this.largeSizes = const [],
+    this.legacySizes = const [],
     required this.thickness,
     required this.finish,
     required this.pricingModel,
@@ -68,7 +71,9 @@ class JobWorkOrderModel {
   final String? vehicleNumber;
   final CuttingStrategy cuttingStrategy;
   final TargetProduct targetProduct;
-  final List<String> sizes;
+  final List<String> smallSizes;
+  final List<String> largeSizes;
+  final List<String> legacySizes;
   final String thickness;
   final FinishType finish;
   final double? expectedOutputSqFt;
@@ -97,6 +102,7 @@ class JobWorkOrderModel {
     final outputData = data['output'] as Map<String, dynamic>?;
     final executionData = data['execution'] as Map<String, dynamic>?;
     final shiftLogsData = data['outputShifts'] as List?;
+    final parsedSizes = JobWorkSizes.fromCuttingSpec(cuttingSpec);
 
     return JobWorkOrderModel(
       id: id,
@@ -124,7 +130,9 @@ class JobWorkOrderModel {
       targetProduct: TargetProduct.fromString(
         cuttingSpec['targetProduct'] as String?,
       ),
-      sizes: (cuttingSpec['sizes'] as List?)?.cast<String>() ?? const [],
+      smallSizes: parsedSizes.smallSizes,
+      largeSizes: parsedSizes.largeSizes,
+      legacySizes: parsedSizes.legacySizes,
       thickness: cuttingSpec['thickness'] as String? ?? '',
       finish: FinishType.fromString(cuttingSpec['finish'] as String?),
       expectedOutputSqFt:
@@ -229,7 +237,9 @@ class JobWorkOrderModel {
       'cuttingSpec': {
         'strategy': cuttingStrategy.firestoreValue,
         'targetProduct': targetProduct.name,
-        'sizes': sizes,
+        'smallSizes': smallSizes,
+        'largeSizes': largeSizes,
+        if (legacySizes.isNotEmpty) 'legacySizes': legacySizes,
         'thickness': thickness,
         'finish': finish.name,
         if (expectedOutputSqFt != null)
@@ -360,7 +370,9 @@ class JobWorkOrderModel {
       vehicleNumber: vehicleNumber,
       cuttingStrategy: cuttingStrategy,
       targetProduct: targetProduct,
-      sizes: sizes,
+      smallSizes: smallSizes,
+      largeSizes: largeSizes,
+      legacySizes: legacySizes,
       thickness: thickness,
       finish: finish,
       expectedOutputSqFt: expectedOutputSqFt,
@@ -405,7 +417,9 @@ class JobWorkOrderModel {
       vehicleNumber: order.vehicleNumber,
       cuttingStrategy: order.cuttingStrategy,
       targetProduct: order.targetProduct,
-      sizes: order.sizes,
+      smallSizes: order.smallSizes,
+      largeSizes: order.largeSizes,
+      legacySizes: order.legacySizes,
       thickness: order.thickness,
       finish: order.finish,
       expectedOutputSqFt: order.expectedOutputSqFt,

@@ -17,6 +17,7 @@ import '../../widgets/job_work/job_work_detail_hero.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
+import '../../widgets/job_work/job_work_size_detail_rows.dart';
 import '../../widgets/quality/qc_reference_section.dart';
 
 class JobWorkDetailScreen extends StatelessWidget {
@@ -303,9 +304,10 @@ class JobWorkDetailScreen extends StatelessWidget {
                       label: AppStrings.targetProduct,
                       value: order.targetProduct.label,
                     ),
-                    JobWorkDetailRow(
-                      label: AppStrings.tileSlabSizes,
-                      value: order.sizes.join(', '),
+                    ...buildJobWorkSizeDetailRows(
+                      smallSizes: order.smallSizes,
+                      largeSizes: order.largeSizes,
+                      legacySizes: order.legacySizes,
                     ),
                     JobWorkDetailRow(
                       label: AppStrings.thickness,

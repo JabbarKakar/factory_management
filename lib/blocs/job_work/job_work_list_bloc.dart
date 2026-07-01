@@ -185,6 +185,9 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         order.mineLocation,
         order.mineOwner,
         order.status.label,
+        ...order.smallSizes,
+        ...order.largeSizes,
+        ...order.legacySizes,
       ].join(' ').toLowerCase();
 
       return haystack.contains(normalizedQuery);

@@ -20,7 +20,9 @@ class JobWorkOrder extends Equatable {
     required this.totalTons,
     required this.cuttingStrategy,
     required this.targetProduct,
-    required this.sizes,
+    this.smallSizes = const [],
+    this.largeSizes = const [],
+    this.legacySizes = const [],
     required this.thickness,
     required this.finish,
     required this.pricingModel,
@@ -73,7 +75,11 @@ class JobWorkOrder extends Equatable {
   // Cutting spec
   final CuttingStrategy cuttingStrategy;
   final TargetProduct targetProduct;
-  final List<String> sizes;
+  final List<String> smallSizes;
+  final List<String> largeSizes;
+
+  /// Pre-catalog values from older `cuttingSpec.sizes` documents.
+  final List<String> legacySizes;
   final String thickness;
   final FinishType finish;
   final double? expectedOutputSqFt;
@@ -98,6 +104,14 @@ class JobWorkOrder extends Equatable {
 
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  List<String> get allSizes => [
+        ...smallSizes,
+        ...largeSizes,
+        ...legacySizes,
+      ];
+
+  bool get hasAnySize => allSizes.isNotEmpty;
 
   static double calculateEstimatedTotal({
     required PricingModel model,
@@ -134,7 +148,9 @@ class JobWorkOrder extends Equatable {
     String? vehicleNumber,
     CuttingStrategy? cuttingStrategy,
     TargetProduct? targetProduct,
-    List<String>? sizes,
+    List<String>? smallSizes,
+    List<String>? largeSizes,
+    List<String>? legacySizes,
     String? thickness,
     FinishType? finish,
     double? expectedOutputSqFt,
@@ -177,7 +193,9 @@ class JobWorkOrder extends Equatable {
       vehicleNumber: vehicleNumber ?? this.vehicleNumber,
       cuttingStrategy: cuttingStrategy ?? this.cuttingStrategy,
       targetProduct: targetProduct ?? this.targetProduct,
-      sizes: sizes ?? this.sizes,
+      smallSizes: smallSizes ?? this.smallSizes,
+      largeSizes: largeSizes ?? this.largeSizes,
+      legacySizes: legacySizes ?? this.legacySizes,
       thickness: thickness ?? this.thickness,
       finish: finish ?? this.finish,
       expectedOutputSqFt: expectedOutputSqFt ?? this.expectedOutputSqFt,
@@ -223,7 +241,9 @@ class JobWorkOrder extends Equatable {
         vehicleNumber,
         cuttingStrategy,
         targetProduct,
-        sizes,
+        smallSizes,
+        largeSizes,
+        legacySizes,
         thickness,
         finish,
         expectedOutputSqFt,

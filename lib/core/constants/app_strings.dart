@@ -116,7 +116,7 @@ abstract final class AppStrings {
       'This order will be marked as cancelled.';
   static const String cancelOrder = 'Cancel Order';
   static const String searchJobWork =
-      'Search order #, customer, variety, mine...';
+      'Search order #, customer, variety, mine, size...';
   static const String noJobWorkYet = 'No job work orders yet';
   static const String noJobWorkFound = 'No job work orders found';
   static const String addFirstJobWork =
@@ -146,7 +146,12 @@ abstract final class AppStrings {
   static const String vehicleNumber = 'Vehicle / Challan #';
   static const String cuttingStrategy = 'Cutting Strategy';
   static const String targetProduct = 'Target Product';
+  static const String sizes = 'Sizes';
+  static const String smallSize = 'Small Size';
+  static const String largeSize = 'Large Size';
+  static const String legacySizes = 'Other Sizes';
   static const String tileSlabSizes = 'Tile / Slab Sizes';
+  static const String selectAtLeastOneSize = 'Select at least one size';
   static const String thickness = 'Thickness';
   static const String finishRequired = 'Finish Required';
   static const String expectedOutput = 'Expected Output (sq. ft)';

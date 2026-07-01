@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/constants/job_work_sizes.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
@@ -165,7 +166,13 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
     final order = current.selectedOrder;
     if (order != null) {
       final output = order.output!;
-      final sizeLabel = order.sizes.isEmpty ? null : order.sizes.join(', ');
+      final sizeLabel = order.hasAnySize
+          ? JobWorkSizes.joinForDisplay(
+              smallSizes: order.smallSizes,
+              largeSizes: order.largeSizes,
+              legacySizes: order.legacySizes,
+            )
+          : null;
       return current.copyWith(
         prefill: QcFormPrefill(
           productLabel: order.targetProduct.label,

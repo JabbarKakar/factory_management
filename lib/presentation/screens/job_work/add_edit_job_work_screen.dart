@@ -15,6 +15,7 @@ import '../../../domain/enums/job_work_enums.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/job_work/job_work_size_selector.dart';
 
 class AddEditJobWorkScreen extends StatefulWidget {
   const AddEditJobWorkScreen({this.jobWorkId, super.key});
@@ -39,7 +40,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
   String _marbleVariety = MarbleData.varieties.first;
   CuttingStrategy _cuttingStrategy = CuttingStrategy.gangSaw;
   TargetProduct _targetProduct = TargetProduct.slabs;
-  final Set<String> _selectedSizes = {};
+  final Set<String> _selectedSmallSizes = {};
+  final Set<String> _selectedLargeSizes = {};
+  final Set<String> _selectedLegacySizes = {};
   String _thickness = MarbleData.jobWorkThicknesses.first;
   FinishType _finish = FinishType.unpolished;
   PricingModel _pricingModel = PricingModel.perTon;
@@ -111,7 +114,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
         : MarbleData.varieties.first;
     _cuttingStrategy = order.cuttingStrategy;
     _targetProduct = order.targetProduct;
-    _selectedSizes.addAll(order.sizes);
+    _selectedSmallSizes.addAll(order.smallSizes);
+    _selectedLargeSizes.addAll(order.largeSizes);
+    _selectedLegacySizes.addAll(order.legacySizes);
     _thickness = order.thickness.isNotEmpty
         ? order.thickness
         : MarbleData.jobWorkThicknesses.first;
@@ -230,7 +235,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
           : _vehicleController.text.trim(),
       cuttingStrategy: _cuttingStrategy,
       targetProduct: _targetProduct,
-      sizes: _selectedSizes.toList(),
+      smallSizes: _selectedSmallSizes.toList(),
+      largeSizes: _selectedLargeSizes.toList(),
+      legacySizes: _selectedLegacySizes.toList(),
       thickness: _thickness,
       finish: _finish,
       expectedOutputSqFt: _expectedOutputController.text.trim().isEmpty
@@ -259,9 +266,11 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
       );
       return;
     }
-    if (_selectedSizes.isEmpty) {
+    if (_selectedSmallSizes.isEmpty &&
+        _selectedLargeSizes.isEmpty &&
+        _selectedLegacySizes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one tile/slab size')),
+        const SnackBar(content: Text(AppStrings.selectAtLeastOneSize)),
       );
       return;
     }
@@ -693,17 +702,22 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                             : (v) => setState(() => _targetProduct = v!),
                       ),
                       AppFormFields.gap,
-                      AppFormChipGroup(
-                        label: AppStrings.tileSlabSizes,
-                        options: MarbleData.commonSizes,
-                        selected: _selectedSizes,
+                      JobWorkSizeSelector(
+                        selectedSmall: _selectedSmallSizes,
+                        selectedLarge: _selectedLargeSizes,
+                        selectedLegacy: _selectedLegacySizes,
                         enabled: !isSaving,
-                        onToggle: (size, value) {
+                        onToggle: (size, value, category) {
                           setState(() {
+                            final target = switch (category) {
+                              JobWorkSizeCategory.small => _selectedSmallSizes,
+                              JobWorkSizeCategory.large => _selectedLargeSizes,
+                              JobWorkSizeCategory.legacy => _selectedLegacySizes,
+                            };
                             if (value) {
-                              _selectedSizes.add(size);
+                              target.add(size);
                             } else {
-                              _selectedSizes.remove(size);
+                              target.remove(size);
                             }
                           });
                         },
