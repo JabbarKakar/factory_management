@@ -216,6 +216,8 @@ enum CuttingStrategy {
 }
 
 enum TargetProduct {
+  sizeCutting,
+  counterCutting,
   slabs,
   tiles,
   strips,
@@ -223,6 +225,8 @@ enum TargetProduct {
   custom;
 
   String get label => switch (this) {
+        TargetProduct.sizeCutting => 'Size Cutting',
+        TargetProduct.counterCutting => 'Counter Cutting',
         TargetProduct.slabs => 'Slabs',
         TargetProduct.tiles => 'Tiles',
         TargetProduct.strips => 'Strips',
