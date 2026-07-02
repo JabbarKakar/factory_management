@@ -184,6 +184,9 @@ class _StockSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _SectionTotalsBar(
+          sectionLabel: title == AppStrings.smallSizes
+              ? AppStrings.smallStock
+              : AppStrings.largeStock,
           totalPieces: totalPieces,
           totalSquareFeet: totalSquareFeet,
           totalAmount: totalAmount,
@@ -229,6 +232,9 @@ class _ReadOnlyStockSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _SectionTotalsBar(
+          sectionLabel: title == AppStrings.smallSizes
+              ? AppStrings.smallStock
+              : AppStrings.largeStock,
           totalPieces: totalPieces,
           totalSquareFeet: totalSquareFeet,
           totalAmount: totalAmount,
@@ -548,52 +554,54 @@ abstract final class _StockTableFormat {
 
 class _SectionTotalsBar extends StatelessWidget {
   const _SectionTotalsBar({
+    required this.sectionLabel,
     required this.totalPieces,
     required this.totalSquareFeet,
     required this.totalAmount,
   });
 
+  final String sectionLabel;
   final int totalPieces;
   final double totalSquareFeet;
   final double totalAmount;
 
   @override
   Widget build(BuildContext context) {
+    final outline =
+        Theme.of(context).colorScheme.outline.withValues(alpha: 0.2);
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Theme.of(context)
             .colorScheme
             .secondaryContainer
-            .withValues(alpha: 0.3),
+            .withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: outline),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
           children: [
-            Expanded(
-              child: _SectionTotalItem(
-                label: AppStrings.sectionTotalPieces,
-                value: totalPieces.toString(),
-              ),
+            _SectionTotalsRow(
+              cells: [
+                sectionLabel,
+                AppStrings.totalPieces,
+                AppStrings.totalSqFtLabel,
+                AppStrings.totalAmountLabel,
+              ],
+              isHeader: true,
             ),
-            _SectionDivider(),
-            Expanded(
-              child: _SectionTotalItem(
-                label: AppStrings.sectionTotalSqFt,
-                value: '${totalSquareFeet.toStringAsFixed(2)} sq. ft',
-              ),
-            ),
-            _SectionDivider(),
-            Expanded(
-              child: _SectionTotalItem(
-                label: AppStrings.sectionTotalAmount,
-                value: _StockTableFormat.amount(totalAmount),
-                highlight: true,
-              ),
+            Divider(height: 1, thickness: 1, color: outline),
+            _SectionTotalsRow(
+              cells: [
+                sectionLabel,
+                totalPieces.toString(),
+                totalSquareFeet.toStringAsFixed(2),
+                _StockTableFormat.amount(totalAmount),
+              ],
+              isHeader: false,
+              highlightLast: true,
             ),
           ],
         ),
@@ -602,57 +610,74 @@ class _SectionTotalsBar extends StatelessWidget {
   }
 }
 
-class _SectionDivider extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 26,
-      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-    );
-  }
-}
-
-class _SectionTotalItem extends StatelessWidget {
-  const _SectionTotalItem({
-    required this.label,
-    required this.value,
-    this.highlight = false,
+class _SectionTotalsRow extends StatelessWidget {
+  const _SectionTotalsRow({
+    required this.cells,
+    required this.isHeader,
+    this.highlightLast = false,
   });
 
-  final String label;
-  final String value;
-  final bool highlight;
+  final List<String> cells;
+  final bool isHeader;
+  final bool highlightLast;
+
+  static const _flex = [16, 14, 15, 15];
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+    final headerStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
+          height: 1.15,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        );
+    final valueStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          height: 1.15,
+        );
+
+    return Container(
+      color: isHeader
+          ? Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withValues(alpha: 0.5)
+          : null,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
+      child: Row(
+        children: [
+          for (var i = 0; i < cells.length; i++) ...[
+            if (i > 0)
+              Container(
+                width: 1,
+                height: isHeader ? 22 : 20,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                color:
+                    Theme.of(context).colorScheme.outline.withValues(alpha: 0.22),
               ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 3),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: 12,
-                  fontWeight: highlight ? FontWeight.w700 : FontWeight.w600,
-                  color: highlight
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
+            Expanded(
+              flex: _flex[i],
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  cells[i],
+                  style: isHeader
+                      ? headerStyle
+                      : valueStyle?.copyWith(
+                          fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w600,
+                          color: highlightLast && i == cells.length - 1
+                              ? Theme.of(context).colorScheme.primary
+                              : null,
+                        ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
                 ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

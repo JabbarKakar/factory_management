@@ -237,6 +237,10 @@ abstract final class AppStrings {
   static const String totalPieces = 'Total Pieces';
   static const String totalSquareFeet = 'Total Square Feet';
   static const String grandCuttingTotal = 'Grand Cutting Total';
+  static const String smallStock = 'Small Stock';
+  static const String largeStock = 'Large Stock';
+  static const String totalSqFtLabel = 'Total Sq. Ft';
+  static const String totalAmountLabel = 'Total Amount';
   static const String sectionTotalPieces = 'Section Total Pieces';
   static const String sectionTotalSqFt = 'Section Total Sq. Ft';
   static const String sectionTotalAmount = 'Section Total Amount';
