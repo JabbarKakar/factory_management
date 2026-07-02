@@ -71,8 +71,10 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     _stockController = StockOutputFormController(
       smallSizes: _smallSizesFor(order),
       largeSizes: order.largeSizes,
-      defaultSmallPrice: JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
-      defaultLargePrice: JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
+      smallPricePerSqFt:
+          JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
+      largePricePerSqFt:
+          JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
       initialSmall: output?.smallStockOutputs ?? const [],
       initialLarge: output?.largeStockOutputs ?? const [],
     );
@@ -168,9 +170,9 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       builder: (_) => AddShiftLogDialog(
         smallSizes: _smallSizesFor(order),
         largeSizes: order.largeSizes,
-        defaultSmallPrice:
+        smallPricePerSqFt:
             JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
-        defaultLargePrice:
+        largePricePerSqFt:
             JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
       ),
     );

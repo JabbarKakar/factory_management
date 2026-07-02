@@ -8,54 +8,53 @@ class StockOutputFormController {
   StockOutputFormController({
     required List<String> smallSizes,
     required List<String> largeSizes,
-    required double defaultSmallPrice,
-    required double defaultLargePrice,
+    required double smallPricePerSqFt,
+    required double largePricePerSqFt,
     List<StockOutput> initialSmall = const [],
     List<StockOutput> initialLarge = const [],
   })  : _smallSizes = List<String>.from(smallSizes),
-        _largeSizes = List<String>.from(largeSizes) {
+        _largeSizes = List<String>.from(largeSizes),
+        _smallPricePerSqFt = smallPricePerSqFt,
+        _largePricePerSqFt = largePricePerSqFt,
+        _smallSizeSet = smallSizes.toSet(),
+        _largeSizeSet = largeSizes.toSet() {
     final smallBySize = StockOutputCalculator.indexBySize(initialSmall);
     final largeBySize = StockOutputCalculator.indexBySize(initialLarge);
 
     for (final size in _smallSizes) {
-      _initRow(size, smallBySize[size], defaultSmallPrice);
+      _initRow(size, smallBySize[size]);
     }
     for (final size in _largeSizes) {
-      _initRow(size, largeBySize[size], defaultLargePrice);
+      _initRow(size, largeBySize[size]);
     }
   }
 
   final List<String> _smallSizes;
   final List<String> _largeSizes;
+  final double _smallPricePerSqFt;
+  final double _largePricePerSqFt;
+  final Set<String> _smallSizeSet;
+  final Set<String> _largeSizeSet;
   final Map<String, TextEditingController> _piecesControllers = {};
-  final Map<String, TextEditingController> _priceControllers = {};
   final List<VoidCallback> _listeners = [];
 
   List<String> get smallSizes => List.unmodifiable(_smallSizes);
   List<String> get largeSizes => List.unmodifiable(_largeSizes);
+  double get smallPricePerSqFt => _smallPricePerSqFt;
+  double get largePricePerSqFt => _largePricePerSqFt;
 
   void addListener(VoidCallback listener) => _listeners.add(listener);
 
   void removeListener(VoidCallback listener) => _listeners.remove(listener);
 
-  void _initRow(String size, StockOutput? existing, double defaultPrice) {
+  void _initRow(String size, StockOutput? existing) {
     final pieces = TextEditingController(
       text: existing != null && existing.pieces > 0
           ? existing.pieces.toString()
           : '',
     );
-    final price = TextEditingController(
-      text: _formatPrice(existing?.pricePerSqFt ?? defaultPrice),
-    );
     pieces.addListener(_notify);
-    price.addListener(_notify);
     _piecesControllers[size] = pieces;
-    _priceControllers[size] = price;
-  }
-
-  String _formatPrice(double value) {
-    if (value <= 0) return '';
-    return value % 1 == 0 ? value.toStringAsFixed(0) : value.toString();
   }
 
   void _notify() {
@@ -70,17 +69,19 @@ class StockOutputFormController {
     return value;
   }
 
-  double _parsePrice(String size) {
-    final value = double.tryParse(_priceControllers[size]!.text.trim());
-    if (value == null || value < 0) return 0;
-    return value;
+  double pricePerSqFtFor(String size) {
+    if (_smallSizeSet.contains(size)) return _smallPricePerSqFt;
+    if (_largeSizeSet.contains(size)) return _largePricePerSqFt;
+    return 0;
   }
+
+  bool isSmallSize(String size) => _smallSizeSet.contains(size);
 
   StockOutput outputForSize(String size) {
     return StockOutputCalculator.compute(
       size: size,
       pieces: _parsePieces(size),
-      pricePerSqFt: _parsePrice(size),
+      pricePerSqFt: pricePerSqFtFor(size),
     );
   }
 
@@ -90,18 +91,39 @@ class StockOutputFormController {
   List<StockOutput> buildLargeOutputs() =>
       _largeSizes.map(outputForSize).toList();
 
-  List<StockOutput> get allOutputs => [
-        ...buildSmallOutputs(),
-        ...buildLargeOutputs(),
+  List<StockOutput> get activeSmallOutputs =>
+      buildSmallOutputs().where((output) => output.hasProduction).toList();
+
+  List<StockOutput> get activeLargeOutputs =>
+      buildLargeOutputs().where((output) => output.hasProduction).toList();
+
+  List<StockOutput> get activeOutputs => [
+        ...activeSmallOutputs,
+        ...activeLargeOutputs,
       ];
 
-  List<StockOutput> get activeOutputs =>
-      allOutputs.where((output) => output.hasProduction).toList();
+  int get smallTotalPieces =>
+      StockOutputCalculator.totalPieces(activeSmallOutputs);
 
-  int get totalPieces => StockOutputCalculator.totalPieces(activeOutputs);
+  int get largeTotalPieces =>
+      StockOutputCalculator.totalPieces(activeLargeOutputs);
+
+  int get totalPieces => smallTotalPieces + largeTotalPieces;
+
+  double get smallTotalSquareFeet =>
+      StockOutputCalculator.totalSquareFeet(activeSmallOutputs);
+
+  double get largeTotalSquareFeet =>
+      StockOutputCalculator.totalSquareFeet(activeLargeOutputs);
 
   double get totalSquareFeet =>
       StockOutputCalculator.totalSquareFeet(activeOutputs);
+
+  double get smallTotalAmount =>
+      StockOutputCalculator.grandTotal(activeSmallOutputs);
+
+  double get largeTotalAmount =>
+      StockOutputCalculator.grandTotal(activeLargeOutputs);
 
   double get grandCuttingTotal =>
       StockOutputCalculator.grandTotal(activeOutputs);
@@ -111,14 +133,8 @@ class StockOutputFormController {
   TextEditingController piecesControllerFor(String size) =>
       _piecesControllers[size]!;
 
-  TextEditingController priceControllerFor(String size) =>
-      _priceControllers[size]!;
-
   void dispose() {
     for (final controller in _piecesControllers.values) {
-      controller.dispose();
-    }
-    for (final controller in _priceControllers.values) {
       controller.dispose();
     }
     _listeners.clear();

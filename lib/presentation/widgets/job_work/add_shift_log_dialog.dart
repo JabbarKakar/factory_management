@@ -13,15 +13,15 @@ class AddShiftLogDialog extends StatefulWidget {
   const AddShiftLogDialog({
     required this.smallSizes,
     required this.largeSizes,
-    required this.defaultSmallPrice,
-    required this.defaultLargePrice,
+    required this.smallPricePerSqFt,
+    required this.largePricePerSqFt,
     super.key,
   });
 
   final List<String> smallSizes;
   final List<String> largeSizes;
-  final double defaultSmallPrice;
-  final double defaultLargePrice;
+  final double smallPricePerSqFt;
+  final double largePricePerSqFt;
 
   @override
   State<AddShiftLogDialog> createState() => _AddShiftLogDialogState();
@@ -41,8 +41,8 @@ class _AddShiftLogDialogState extends State<AddShiftLogDialog> {
     _stockController = StockOutputFormController(
       smallSizes: widget.smallSizes,
       largeSizes: widget.largeSizes,
-      defaultSmallPrice: widget.defaultSmallPrice,
-      defaultLargePrice: widget.defaultLargePrice,
+      smallPricePerSqFt: widget.smallPricePerSqFt,
+      largePricePerSqFt: widget.largePricePerSqFt,
     );
     _stockController.addListener(_onStockChanged);
     if (JobWorkShifts.all.isNotEmpty) {
