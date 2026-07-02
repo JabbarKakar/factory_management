@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../blocs/job_work/job_work_output_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/job_work_block_progress.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/job_work_output.dart';
@@ -13,6 +14,7 @@ import '../../../domain/enums/job_work_enums.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/add_shift_log_dialog.dart';
+import '../../widgets/job_work/job_work_block_progress_section.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/stock_output_form_controller.dart';
 import '../../widgets/job_work/stock_output_recording_panel.dart';
@@ -176,6 +178,8 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
             JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
         largePricePerSqFt:
             JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
+        totalBlocks: order.blockCount,
+        blocksAlreadyCut: JobWorkBlockProgress.totalBlocksCut(_shiftLogs),
       ),
     );
     if (shift == null) return;
@@ -201,15 +205,25 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   }
 
   String _shiftSubtitle(JobWorkShiftLog shift) {
-    if (shift.hasStockOutputs) {
-      return '${shift.totalPieces} pcs · '
-          '${shift.totalUsableSqFt.toStringAsFixed(2)} sq. ft · '
-          '${Formatters.currencyPkr(shift.grandCuttingTotal)}';
+    final parts = <String>[];
+    if (shift.blocksCut > 0) {
+      parts.add('${shift.blocksCut} blk');
     }
-    return 'A ${shift.gradeASqFt.toStringAsFixed(0)} · '
-        'B ${shift.gradeBSqFt.toStringAsFixed(0)} · '
-        'C ${shift.gradeCSqFt.toStringAsFixed(0)} · '
-        'Reject ${shift.rejectSqFt.toStringAsFixed(0)} sq. ft';
+    if (shift.hasStockOutputs) {
+      parts.addAll([
+        '${shift.totalPieces} pcs',
+        '${shift.totalUsableSqFt.toStringAsFixed(2)} sq. ft',
+        Formatters.currencyPkr(shift.grandCuttingTotal),
+      ]);
+    } else {
+      parts.addAll([
+        'A ${shift.gradeASqFt.toStringAsFixed(0)}',
+        'B ${shift.gradeBSqFt.toStringAsFixed(0)}',
+        'C ${shift.gradeCSqFt.toStringAsFixed(0)}',
+        'Reject ${shift.rejectSqFt.toStringAsFixed(0)} sq. ft',
+      ]);
+    }
+    return parts.join(' · ');
   }
 
   JobWorkExecution _buildExecution() {
@@ -246,6 +260,14 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     if (!hasProduction && output.wasteAmount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.outputProductionRequired)),
+      );
+      return;
+    }
+
+    if (_shiftLogs.isNotEmpty &&
+        JobWorkBlockProgress.totalBlocksCut(_shiftLogs) > baseOrder.blockCount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.blocksCutTotalExceeded)),
       );
       return;
     }
@@ -366,6 +388,10 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
             child: ListView(
               padding: const EdgeInsets.only(top: 12, bottom: 12),
               children: [
+                if (order.blockCount > 0)
+                  JobWorkBlockProgressSection(
+                    order: order.copyWith(shiftLogs: _shiftLogs),
+                  ),
                 JobWorkDetailSection(
                   title: AppStrings.shiftLogs,
                   icon: Icons.schedule_outlined,

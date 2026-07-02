@@ -9,6 +9,7 @@ class JobWorkShiftLog extends Equatable {
     required this.id,
     required this.shiftDate,
     this.shiftName,
+    this.blocksCut = 0,
     this.smallStockOutputs = const [],
     this.largeStockOutputs = const [],
     this.gradeASqFt = 0,
@@ -24,6 +25,7 @@ class JobWorkShiftLog extends Equatable {
   final String id;
   final DateTime shiftDate;
   final String? shiftName;
+  final int blocksCut;
   final List<StockOutput> smallStockOutputs;
   final List<StockOutput> largeStockOutputs;
   final double gradeASqFt;
@@ -60,11 +62,15 @@ class JobWorkShiftLog extends Equatable {
   double get totalOutputSqFt => totalUsableSqFt + rejectSqFt;
 
   bool get hasOutput =>
-      hasStockOutputs || totalOutputSqFt > 0 || wasteAmount > 0;
+      blocksCut > 0 ||
+      hasStockOutputs ||
+      totalOutputSqFt > 0 ||
+      wasteAmount > 0;
 
   factory JobWorkShiftLog.create({
     required DateTime shiftDate,
     String? shiftName,
+    int blocksCut = 0,
     List<StockOutput> smallStockOutputs = const [],
     List<StockOutput> largeStockOutputs = const [],
     double gradeASqFt = 0,
@@ -79,6 +85,7 @@ class JobWorkShiftLog extends Equatable {
       id: const Uuid().v4(),
       shiftDate: shiftDate,
       shiftName: shiftName,
+      blocksCut: blocksCut,
       smallStockOutputs: smallStockOutputs,
       largeStockOutputs: largeStockOutputs,
       gradeASqFt: gradeASqFt,
@@ -96,6 +103,7 @@ class JobWorkShiftLog extends Equatable {
     String? id,
     DateTime? shiftDate,
     String? shiftName,
+    int? blocksCut,
     List<StockOutput>? smallStockOutputs,
     List<StockOutput>? largeStockOutputs,
     double? gradeASqFt,
@@ -111,6 +119,7 @@ class JobWorkShiftLog extends Equatable {
       id: id ?? this.id,
       shiftDate: shiftDate ?? this.shiftDate,
       shiftName: shiftName ?? this.shiftName,
+      blocksCut: blocksCut ?? this.blocksCut,
       smallStockOutputs: smallStockOutputs ?? this.smallStockOutputs,
       largeStockOutputs: largeStockOutputs ?? this.largeStockOutputs,
       gradeASqFt: gradeASqFt ?? this.gradeASqFt,
@@ -129,6 +138,7 @@ class JobWorkShiftLog extends Equatable {
         id,
         shiftDate,
         shiftName,
+        blocksCut,
         smallStockOutputs,
         largeStockOutputs,
         gradeASqFt,

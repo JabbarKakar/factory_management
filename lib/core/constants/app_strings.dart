@@ -262,6 +262,18 @@ abstract final class AppStrings {
   static const String shiftNotes = 'Shift Notes';
   static const String shiftLogsHint =
       'Add one entry per shift for multi-day jobs. Totals are calculated automatically.';
+  static const String blocksCut = 'Blocks Cut';
+  static const String blocksCutLabel = 'blocks cut';
+  static const String remainingBlocks = 'Remaining Blocks';
+  static const String totalBlocks = 'Total Blocks';
+  static const String blockCuttingProgress = 'Block Cutting Progress';
+  static const String completed = 'Completed';
+  static const String blocksCutRequired = 'Enter blocks cut for this shift';
+  static const String blocksCutCannotBeNegative = 'Blocks cut cannot be negative';
+  static String blocksCutExceedsRemaining(int remaining) =>
+      'Only $remaining blocks remain';
+  static const String blocksCutTotalExceeded =
+      'Total blocks cut exceeds the order block count';
   static const String manualTotals = 'Manual Totals';
   static const String manualTotalsLocked =
       'Totals are calculated from shift logs below.';

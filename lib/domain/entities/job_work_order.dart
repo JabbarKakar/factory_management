@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../enums/customer_enums.dart';
 import '../enums/job_work_enums.dart';
+import '../../core/utils/job_work_block_progress.dart';
 import 'job_work_output.dart';
 
 class JobWorkOrder extends Equatable {
@@ -116,6 +117,18 @@ class JobWorkOrder extends Equatable {
   bool get hasAnySize => allSizes.isNotEmpty;
 
   bool get hasFinalCuttingCharges => finalCuttingCharges > 0;
+
+  int get totalBlocksCut => JobWorkBlockProgress.totalBlocksCut(shiftLogs);
+
+  int get remainingBlocks => JobWorkBlockProgress.remainingBlocks(
+        totalBlocks: blockCount,
+        shifts: shiftLogs,
+      );
+
+  double get blockCompletionPercent => JobWorkBlockProgress.completionPercent(
+        totalBlocks: blockCount,
+        blocksCut: totalBlocksCut,
+      );
 
   JobWorkOrder copyWith({
     String? id,

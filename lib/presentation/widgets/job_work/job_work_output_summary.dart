@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/job_work_output.dart';
+import 'job_work_block_progress_section.dart';
 import 'job_work_detail_row.dart';
 import 'job_work_detail_section.dart';
 import 'job_work_shift_logs_section.dart';
@@ -21,49 +22,62 @@ class JobWorkOutputSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final output = order.output;
     if (output == null || !output.isRecorded) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Theme.of(context)
-                .colorScheme
-                .primaryContainer
-                .withValues(alpha: 0.25),
-            borderRadius: const BorderRadius.only(
-              topRight: Radius.circular(14),
-              bottomRight: Radius.circular(14),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (order.blockCount > 0)
+            JobWorkBlockProgressSection(order: order),
+          if (order.shiftLogs.isNotEmpty)
+            JobWorkShiftLogsSection(
+              shiftLogs: order.shiftLogs,
+              totalBlocks: order.blockCount,
             ),
-            border: Border.all(
-              color: Theme.of(context)
-                  .colorScheme
-                  .outline
-                  .withValues(alpha: 0.25),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withValues(alpha: 0.25),
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(14),
+                  bottomRight: Radius.circular(14),
+                ),
+                border: Border.all(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.25),
+                ),
+              ),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        AppStrings.outputNotRecordedYet,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontSize: 12,
+                              height: 1.35,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    AppStrings.outputNotRecordedYet,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                          height: 1.35,
-                        ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        ],
       );
     }
 
@@ -100,6 +114,8 @@ class JobWorkOutputSummary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (order.blockCount > 0)
+          JobWorkBlockProgressSection(order: order),
         JobWorkDetailSection(
           title: AppStrings.outputRecording,
           icon: Icons.analytics_outlined,
@@ -160,7 +176,10 @@ class JobWorkOutputSummary extends StatelessWidget {
           ),
         ),
         if (order.shiftLogs.isNotEmpty)
-          JobWorkShiftLogsSection(shiftLogs: order.shiftLogs),
+          JobWorkShiftLogsSection(
+            shiftLogs: order.shiftLogs,
+            totalBlocks: order.blockCount,
+          ),
       ],
     );
   }

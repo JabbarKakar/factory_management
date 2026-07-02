@@ -207,6 +207,7 @@ class JobWorkOrderModel {
       shiftDate:
           (data['shiftDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       shiftName: data['shiftName'] as String?,
+      blocksCut: (data['blocksCut'] as num?)?.toInt() ?? 0,
       smallStockOutputs: _stockOutputsFromList(data['smallStockOutputs']),
       largeStockOutputs: _stockOutputsFromList(data['largeStockOutputs']),
       gradeASqFt: (data['gradeASqFt'] as num?)?.toDouble() ?? 0,
@@ -332,6 +333,7 @@ class JobWorkOrderModel {
       'id': shift.id,
       'shiftDate': Timestamp.fromDate(shift.shiftDate),
       if (shift.shiftName != null) 'shiftName': shift.shiftName,
+      'blocksCut': shift.blocksCut,
       if (shift.hasStockOutputs) ...{
         'smallStockOutputs':
             shift.smallStockOutputs.map((item) => item.toMap()).toList(),

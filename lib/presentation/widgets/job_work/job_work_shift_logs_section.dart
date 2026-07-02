@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/job_work_block_progress.dart';
 import '../../../domain/entities/job_work_output.dart';
 import 'job_work_detail_row.dart';
 import 'job_work_detail_section.dart';
@@ -10,10 +11,12 @@ import 'stock_output_recording_panel.dart';
 class JobWorkShiftLogsSection extends StatelessWidget {
   const JobWorkShiftLogsSection({
     required this.shiftLogs,
+    this.totalBlocks = 0,
     super.key,
   });
 
   final List<JobWorkShiftLog> shiftLogs;
+  final int totalBlocks;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +54,21 @@ class JobWorkShiftLogsSection extends StatelessWidget {
                   ),
                 ),
                 children: [
+                  if (shiftLogs[i].blocksCut > 0 || totalBlocks > 0)
+                    JobWorkDetailRows(
+                      rows: [
+                        JobWorkDetailRow(
+                          label: AppStrings.blocksCut,
+                          value: '${shiftLogs[i].blocksCut}',
+                          bold: true,
+                        ),
+                        if (totalBlocks > 0)
+                          JobWorkDetailRow(
+                            label: AppStrings.remainingBlocks,
+                            value: '${_remainingAfterShift(i)}',
+                          ),
+                      ],
+                    ),
                   if (shiftLogs[i].hasStockOutputs)
                     StockOutputReadOnlyPanel(
                       smallOutputs: shiftLogs[i].smallStockOutputs,
@@ -113,12 +131,31 @@ class JobWorkShiftLogsSection extends StatelessWidget {
   }
 
   String _shiftSubtitle(JobWorkShiftLog shift) {
-    if (shift.hasStockOutputs) {
-      return '${shift.totalPieces} pcs · '
-          '${shift.totalUsableSqFt.toStringAsFixed(2)} sq. ft · '
-          'Rs ${_formatAmount(shift.grandCuttingTotal)}';
+    final parts = <String>[];
+    if (shift.blocksCut > 0) {
+      parts.add('${shift.blocksCut} blk');
     }
-    return '${shift.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable';
+    if (shift.hasStockOutputs) {
+      parts.addAll([
+        '${shift.totalPieces} pcs',
+        '${shift.totalUsableSqFt.toStringAsFixed(2)} sq. ft',
+        'Rs ${_formatAmount(shift.grandCuttingTotal)}',
+      ]);
+    } else {
+      parts.add('${shift.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable');
+    }
+    return parts.join(' · ');
+  }
+
+  int _remainingAfterShift(int shiftIndex) {
+    final cutThroughShift = shiftLogs
+        .take(shiftIndex + 1)
+        .fold<int>(0, (sum, shift) => sum + shift.blocksCut);
+    return JobWorkBlockProgress.remainingAfterShift(
+      totalBlocks: totalBlocks,
+      blocksAlreadyCut: 0,
+      blocksCutThisShift: cutThroughShift,
+    );
   }
 
   String _formatAmount(double value) {

@@ -160,6 +160,33 @@ class JobWorkListTile extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            if (order.shiftLogs.isNotEmpty &&
+                                order.blockCount > 0) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondary
+                                      .withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${order.totalBlocksCut} / ${order.blockCount} '
+                                  '${AppStrings.blocksCutLabel} · '
+                                  '${order.blockCompletionPercent.toStringAsFixed(0)}% '
+                                  '${AppStrings.completed.toLowerCase()}',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.secondary,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ),
+                            ],
                             if (order.output?.isRecorded == true) ...[
                               const SizedBox(height: 8),
                               Container(
