@@ -115,16 +115,18 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     if (order.finalCuttingCharges > 0) {
       _finalChargesController.text =
           order.finalCuttingCharges.toStringAsFixed(0);
-      _chargesManuallyEdited = true;
     }
   }
 
   void _syncCalculatedCharges(JobWorkOrder order, JobWorkOutput output) {
     if (_chargesManuallyEdited) return;
-    final charges =
-        JobWorkChargesCalculator.calculate(order: order, output: output);
+    final charges = JobWorkChargesCalculator.calculate(
+      order: order,
+      output: output,
+      shiftLogs: _shiftLogs,
+    );
     _finalChargesController.text =
-        charges > 0 ? charges.toStringAsFixed(0) : '';
+        charges > 0 ? charges.toStringAsFixed(2) : '';
   }
 
   String _formatNum(double value) {
@@ -177,7 +179,10 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       ),
     );
     if (shift == null) return;
-    setState(() => _shiftLogs = [..._shiftLogs, shift]);
+    setState(() {
+      _shiftLogs = [..._shiftLogs, shift];
+      _chargesManuallyEdited = false;
+    });
   }
 
   Future<void> _removeShiftLog(JobWorkShiftLog shift) async {
@@ -189,9 +194,10 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       destructive: true,
     );
     if (!confirmed) return;
-    setState(
-      () => _shiftLogs = _shiftLogs.where((log) => log.id != shift.id).toList(),
-    );
+    setState(() {
+      _shiftLogs = _shiftLogs.where((log) => log.id != shift.id).toList();
+      _chargesManuallyEdited = false;
+    });
   }
 
   String _shiftSubtitle(JobWorkShiftLog shift) {
@@ -244,7 +250,19 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       return;
     }
 
-    final charges = _parse(_finalChargesController.text);
+    final charges = _shiftLogs.isNotEmpty
+        ? JobWorkChargesCalculator.calculate(
+            order: baseOrder,
+            output: output,
+            shiftLogs: _shiftLogs,
+          )
+        : JobWorkChargesCalculator.resolveFinalCuttingCharges(
+            order: baseOrder,
+            output: output,
+            manualOverride: _chargesManuallyEdited
+                ? _parse(_finalChargesController.text)
+                : null,
+          );
     if (charges <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.finalCuttingChargesRequired)),

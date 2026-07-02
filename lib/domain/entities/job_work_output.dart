@@ -324,13 +324,13 @@ class JobWorkOutput extends Equatable {
       final pieces = current.pieces + output.pieces;
       final pricePerSqFt =
           output.pricePerSqFt > 0 ? output.pricePerSqFt : current.pricePerSqFt;
-      final squareFeet = _squareFeetFor(output.size, pieces);
+      final squareFeet = _roundSqFt(current.squareFeet + output.squareFeet);
       merged[output.size] = StockOutput(
         size: output.size,
         pieces: pieces,
         squareFeet: squareFeet,
         pricePerSqFt: pricePerSqFt,
-        amount: _roundAmount(squareFeet * pricePerSqFt),
+        amount: _roundAmount(current.amount + output.amount),
       );
     }
     return merged.values.toList();

@@ -38,12 +38,61 @@ abstract final class JobWorkChargesCalculator {
   static double calculate({
     required JobWorkOrder order,
     required JobWorkOutput output,
+    List<JobWorkShiftLog> shiftLogs = const [],
   }) {
+    return resolveFinalCuttingCharges(
+      order: order,
+      output: output,
+      shiftLogs: shiftLogs,
+    );
+  }
+
+  /// Final cutting charges from shift totals, stock output, or pricing model.
+  static double resolveFinalCuttingCharges({
+    required JobWorkOrder order,
+    required JobWorkOutput output,
+    List<JobWorkShiftLog> shiftLogs = const [],
+    double? manualOverride,
+  }) {
+    if (shiftLogs.isNotEmpty) {
+      final shiftTotal = _roundAmount(
+        shiftLogs.fold<double>(0, (sum, shift) => sum + shift.grandCuttingTotal),
+      );
+      if (shiftTotal > 0) return shiftTotal;
+    }
+
     if (output.hasStockOutputs) {
       return output.grandCuttingTotal;
     }
+
+    if (manualOverride != null && manualOverride > 0) {
+      return manualOverride;
+    }
+
     return breakdown(order: order, output: output)
         .fold<double>(0, (sum, line) => sum + line.amount);
+  }
+
+  static double _roundAmount(double value) =>
+      double.parse(value.toStringAsFixed(2));
+
+  static double effectiveFinalCuttingCharges(JobWorkOrder order) {
+    final output = order.output;
+    if (output == null || !output.isRecorded) {
+      return order.finalCuttingCharges;
+    }
+
+    final calculated = calculate(
+      order: order,
+      output: output,
+      shiftLogs: order.shiftLogs,
+    );
+    if (calculated > 0) return calculated;
+    return order.finalCuttingCharges;
+  }
+
+  static double effectiveBalanceDue(JobWorkOrder order) {
+    return effectiveFinalCuttingCharges(order) - order.advanceReceived;
   }
 
   static List<JobWorkChargeLine> _stockOutputBreakdown(JobWorkOutput output) {

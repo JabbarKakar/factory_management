@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_strings.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/job_work_output.dart';
-import '../../../domain/entities/stock_output.dart';
 import 'job_work_detail_row.dart';
 import 'job_work_detail_section.dart';
+import 'job_work_shift_logs_section.dart';
+import 'stock_output_recording_panel.dart';
 
 class JobWorkOutputSummary extends StatelessWidget {
   const JobWorkOutputSummary({
@@ -68,33 +68,7 @@ class JobWorkOutputSummary extends StatelessWidget {
     }
 
     final wastePct = output.wastePercent(order.totalTons);
-    final rows = <JobWorkDetailRow>[
-      if (output.hasStockOutputs) ...[
-        ..._stockRows(output.smallStockOutputs, AppStrings.smallSizes),
-        ..._stockRows(output.largeStockOutputs, AppStrings.largeSizes),
-        JobWorkDetailRow(
-          label: AppStrings.totalPieces,
-          value: output.totalPieces.toString(),
-        ),
-      ] else ...[
-        JobWorkDetailRow(label: AppStrings.gradeA, value: _sqFt(output.gradeASqFt)),
-        JobWorkDetailRow(label: AppStrings.gradeB, value: _sqFt(output.gradeBSqFt)),
-        JobWorkDetailRow(label: AppStrings.gradeC, value: _sqFt(output.gradeCSqFt)),
-        JobWorkDetailRow(label: AppStrings.reject, value: _sqFt(output.rejectSqFt)),
-      ],
-      JobWorkDetailRow(
-        label: AppStrings.totalUsableOutput,
-        value: _sqFt(output.totalUsableSqFt),
-        bold: true,
-        highlight: true,
-      ),
-      if (output.hasStockOutputs)
-        JobWorkDetailRow(
-          label: AppStrings.grandCuttingTotal,
-          value: Formatters.currencyPkr(output.grandCuttingTotal),
-          bold: true,
-          highlight: true,
-        ),
+    final metaRows = <JobWorkDetailRow>[
       if (output.wasteAmount > 0) ...[
         JobWorkDetailRow(
           label: AppStrings.wasteGenerated,
@@ -111,13 +85,6 @@ class JobWorkOutputSummary extends StatelessWidget {
           label: AppStrings.wastePercent,
           value: '${wastePct.toStringAsFixed(1)}%',
         ),
-      if (order.hasFinalCuttingCharges)
-        JobWorkDetailRow(
-          label: AppStrings.finalCuttingCharges,
-          value: Formatters.currencyPkr(order.finalCuttingCharges),
-          bold: true,
-          highlight: true,
-        ),
       if (output.slurryDust != null && output.slurryDust!.isNotEmpty)
         JobWorkDetailRow(
           label: AppStrings.slurryDust,
@@ -130,76 +97,72 @@ class JobWorkOutputSummary extends StatelessWidget {
         ),
     ];
 
-    return JobWorkDetailSection(
-      title: AppStrings.outputRecording,
-      icon: Icons.analytics_outlined,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          JobWorkDetailRows(rows: rows),
-          if (order.shiftLogs.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Divider(
-                height: 1,
-                color: Theme.of(context)
-                    .colorScheme
-                    .outline
-                    .withValues(alpha: 0.22),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              child: Text(
-                AppStrings.shiftLogs,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-              ),
-            ),
-            JobWorkDetailRows(
-              rows: order.shiftLogs
-                  .map(
-                    (shift) => JobWorkDetailRow(
-                      label: [
-                        DateFormat.yMMMd().format(shift.shiftDate),
-                        if (shift.shiftName != null) shift.shiftName!,
-                      ].join(' · '),
-                      value: shift.hasStockOutputs
-                          ? '${shift.totalPieces} pcs · '
-                              '${shift.totalUsableSqFt.toStringAsFixed(2)} sq. ft'
-                          : '${shift.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
-                    ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        JobWorkDetailSection(
+          title: AppStrings.outputRecording,
+          icon: Icons.analytics_outlined,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (output.hasStockOutputs)
+                  StockOutputReadOnlyPanel(
+                    smallOutputs: output.smallStockOutputs,
+                    largeOutputs: output.largeStockOutputs,
                   )
-                  .toList(),
+                else
+                  JobWorkDetailRows(
+                    rows: [
+                      JobWorkDetailRow(
+                        label: AppStrings.gradeA,
+                        value: _sqFt(output.gradeASqFt),
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.gradeB,
+                        value: _sqFt(output.gradeBSqFt),
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.gradeC,
+                        value: _sqFt(output.gradeCSqFt),
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.reject,
+                        value: _sqFt(output.rejectSqFt),
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.totalUsableOutput,
+                        value: _sqFt(output.totalUsableSqFt),
+                        bold: true,
+                        highlight: true,
+                      ),
+                    ],
+                  ),
+                if (metaRows.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Divider(
+                      height: 1,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withValues(alpha: 0.22),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  JobWorkDetailRows(rows: metaRows),
+                ],
+                _ExecutionSummary(execution: order.execution),
+              ],
             ),
-          ],
-          _ExecutionSummary(execution: order.execution),
-        ],
-      ),
-    );
-  }
-
-  List<JobWorkDetailRow> _stockRows(
-    List<StockOutput> outputs,
-    String sectionLabel,
-  ) {
-    final active =
-        outputs.where((output) => output.hasProduction).toList(growable: false);
-    if (active.isEmpty) return const [];
-
-    return [
-      JobWorkDetailRow(label: sectionLabel, value: '', bold: true),
-      ...active.map(
-        (stock) => JobWorkDetailRow(
-          label: stock.size,
-          value:
-              '${stock.pieces} pcs · ${stock.squareFeet.toStringAsFixed(2)} sq. ft · '
-              '${Formatters.currencyPkr(stock.amount)}',
+          ),
         ),
-      ),
-    ];
+        if (order.shiftLogs.isNotEmpty)
+          JobWorkShiftLogsSection(shiftLogs: order.shiftLogs),
+      ],
+    );
   }
 
   String _sqFt(double value) => '${value.toStringAsFixed(2)} sq. ft';
@@ -245,14 +208,14 @@ class _ExecutionSummary extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.only(top: 10),
           child: Divider(
             height: 1,
             color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.22),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
           child: Text(
             AppStrings.cuttingExecution,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -262,7 +225,6 @@ class _ExecutionSummary extends StatelessWidget {
           ),
         ),
         JobWorkDetailRows(rows: rows),
-        const SizedBox(height: 4),
       ],
     );
   }

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/utils/job_work_charges_calculator.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
@@ -128,10 +129,28 @@ class JobWorkRepository {
             order.shiftLogs,
             wasteDisposition: manualOutput.wasteDisposition,
             slurryDust: manualOutput.slurryDust,
-          ).copyWith(recordedAt: DateTime.now())
+          ).copyWith(
+            wasteAmount: manualOutput.wasteAmount,
+            wasteUnit: manualOutput.wasteUnit,
+            recordedAt: DateTime.now(),
+          )
         : manualOutput.copyWith(recordedAt: DateTime.now());
 
-    final withOutput = order.copyWith(output: output);
+    final finalCuttingCharges = JobWorkChargesCalculator.calculate(
+      order: order,
+      output: output,
+      shiftLogs: order.shiftLogs,
+    );
+    final resolvedCharges = finalCuttingCharges > 0
+        ? finalCuttingCharges
+        : order.finalCuttingCharges;
+    final balanceDue = resolvedCharges - order.advanceReceived;
+
+    final withOutput = order.copyWith(
+      output: output,
+      finalCuttingCharges: resolvedCharges,
+      balanceDue: balanceDue,
+    );
     final newStatus = _statusAfterOutputSaved(withOutput);
     final updated = withOutput.copyWith(status: newStatus);
 

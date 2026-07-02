@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
@@ -137,6 +138,10 @@ class JobWorkDetailScreen extends StatelessWidget {
             context.userCanEdit(AppModule.jobWork);
         final isSaving = state.status == JobWorkFormStatus.saving;
         final hasOutput = order.output?.isRecorded == true;
+        final finalCharges =
+            JobWorkChargesCalculator.effectiveFinalCuttingCharges(order);
+        final balanceDue =
+            JobWorkChargesCalculator.effectiveBalanceDue(order);
 
         return Scaffold(
           appBar: AppBar(
@@ -230,10 +235,10 @@ class JobWorkDetailScreen extends StatelessWidget {
                         label: AppStrings.agreedRate,
                         value: Formatters.currencyPkr(order.agreedRate),
                       ),
-                    if (order.hasFinalCuttingCharges) ...[
+                    if (finalCharges > 0) ...[
                       JobWorkDetailRow(
                         label: AppStrings.finalCuttingCharges,
-                        value: Formatters.currencyPkr(order.finalCuttingCharges),
+                        value: Formatters.currencyPkr(finalCharges),
                         bold: true,
                         highlight: true,
                       ),
@@ -243,9 +248,9 @@ class JobWorkDetailScreen extends StatelessWidget {
                       ),
                       JobWorkDetailRow(
                         label: AppStrings.balanceDue,
-                        value: Formatters.currencyPkr(order.balanceDue),
+                        value: Formatters.currencyPkr(balanceDue),
                         bold: true,
-                        highlight: order.balanceDue > 0,
+                        highlight: balanceDue > 0,
                       ),
                     ] else ...[
                       JobWorkDetailRow(
