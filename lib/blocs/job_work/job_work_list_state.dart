@@ -2,6 +2,8 @@ part of 'job_work_list_bloc.dart';
 
 enum JobWorkListStatus { initial, loading, loaded, failure }
 
+enum JobWorkListFeedbackType { none, success, failure }
+
 class JobWorkListState extends Equatable {
   const JobWorkListState({
     this.status = JobWorkListStatus.initial,
@@ -13,6 +15,9 @@ class JobWorkListState extends Equatable {
     this.searchQuery = '',
     this.stageFilter = JobWorkListStageFilter.all,
     this.errorMessage,
+    this.deletingJobWorkId,
+    this.feedbackType = JobWorkListFeedbackType.none,
+    this.feedbackMessage,
   });
 
   final JobWorkListStatus status;
@@ -24,6 +29,9 @@ class JobWorkListState extends Equatable {
   final String searchQuery;
   final JobWorkListStageFilter stageFilter;
   final String? errorMessage;
+  final String? deletingJobWorkId;
+  final JobWorkListFeedbackType feedbackType;
+  final String? feedbackMessage;
 
   bool isAwaitingQcInspection(JobWorkOrder order) {
     return order.status == JobWorkStatus.qc &&
@@ -40,6 +48,11 @@ class JobWorkListState extends Equatable {
     String? searchQuery,
     JobWorkListStageFilter? stageFilter,
     String? errorMessage,
+    String? deletingJobWorkId,
+    JobWorkListFeedbackType? feedbackType,
+    String? feedbackMessage,
+    bool clearFeedback = false,
+    bool clearDeletingJobWorkId = false,
   }) {
     return JobWorkListState(
       status: status ?? this.status,
@@ -51,6 +64,13 @@ class JobWorkListState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       stageFilter: stageFilter ?? this.stageFilter,
       errorMessage: errorMessage,
+      deletingJobWorkId:
+          clearDeletingJobWorkId ? null : deletingJobWorkId ?? this.deletingJobWorkId,
+      feedbackType: clearFeedback
+          ? JobWorkListFeedbackType.none
+          : feedbackType ?? this.feedbackType,
+      feedbackMessage:
+          clearFeedback ? null : feedbackMessage ?? this.feedbackMessage,
     );
   }
 
@@ -65,5 +85,8 @@ class JobWorkListState extends Equatable {
         searchQuery,
         stageFilter,
         errorMessage,
+        deletingJobWorkId,
+        feedbackType,
+        feedbackMessage,
       ];
 }

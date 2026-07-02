@@ -11,12 +11,16 @@ class JobWorkListTile extends StatelessWidget {
   const JobWorkListTile({
     required this.order,
     required this.onTap,
+    this.onDelete,
+    this.isDeleting = false,
     this.awaitingQcInspection = false,
     super.key,
   });
 
   final JobWorkOrder order;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
+  final bool isDeleting;
   final bool awaitingQcInspection;
 
   @override
@@ -41,7 +45,7 @@ class JobWorkListTile extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: isDeleting ? null : onTap,
             borderRadius: cardShape,
             child: Ink(
               decoration: BoxDecoration(
@@ -59,11 +63,17 @@ class JobWorkListTile extends StatelessWidget {
                     ),
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+                        padding: EdgeInsets.fromLTRB(
+                          12,
+                          11,
+                          onDelete != null ? 2 : 6,
+                          11,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
                                   child: Text(
@@ -82,6 +92,11 @@ class JobWorkListTile extends StatelessWidget {
                                   status: order.status,
                                   compact: true,
                                 ),
+                                if (onDelete != null)
+                                  _TileOptionsButton(
+                                    isDeleting: isDeleting,
+                                    onDelete: onDelete!,
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 4),
@@ -238,14 +253,6 @@ class JobWorkListTile extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 20,
-                        color: muted.withValues(alpha: 0.7),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -267,6 +274,126 @@ class JobWorkListTile extends StatelessWidget {
       JobWorkStatus.collected || JobWorkStatus.closed => const Color(0xFF455A64),
       JobWorkStatus.cancelled => AppColors.error,
     };
+  }
+}
+
+class _TileOptionsButton extends StatelessWidget {
+  const _TileOptionsButton({
+    required this.isDeleting,
+    required this.onDelete,
+  });
+
+  final bool isDeleting;
+  final VoidCallback onDelete;
+
+  Future<void> _openMenu(BuildContext context) async {
+    final theme = Theme.of(context);
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null) return;
+
+    final offset = box.localToGlobal(Offset.zero);
+    final size = box.size;
+    final screenSize = MediaQuery.sizeOf(context);
+
+    final menuWidth = 92.0;
+    var left = offset.dx + size.width - menuWidth;
+    final top = offset.dy + size.height + 1;
+    left = left.clamp(8.0, screenSize.width - menuWidth - 8.0);
+
+    final confirmed = await showGeneralDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: AppStrings.delete,
+      barrierColor: Colors.transparent,
+      transitionDuration: Duration.zero,
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.of(dialogContext).pop(false),
+              ),
+            ),
+            Positioned(
+              left: left,
+              top: top,
+              child: Material(
+                elevation: 2,
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => Navigator.of(dialogContext).pop(true),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          size: 15,
+                          color: theme.colorScheme.error,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          AppStrings.delete,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      onDelete();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    if (isDeleting) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: iconColor,
+          ),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () => _openMenu(context),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        child: Icon(
+          Icons.more_vert_rounded,
+          size: 20,
+          color: iconColor,
+        ),
+      ),
+    );
   }
 }
 

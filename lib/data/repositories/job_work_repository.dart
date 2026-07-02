@@ -83,6 +83,10 @@ class JobWorkRepository {
         .update(model.toFirestoreWithComputedYield());
   }
 
+  Future<void> deleteJobWorkOrder(String id) async {
+    await _jobWorkCollection.doc(id).delete();
+  }
+
   Future<void> advanceJobWorkStatus(String id, JobWorkStatus status) async {
     await _jobWorkCollection.doc(id).update({
       'status': status.firestoreValue,

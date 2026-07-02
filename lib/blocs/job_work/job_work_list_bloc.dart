@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/constants/app_strings.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -23,6 +24,8 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     on<JobWorkListWatchStarted>(_onWatchStarted);
     on<JobWorkListSearchChanged>(_onSearchChanged);
     on<JobWorkListStageFilterChanged>(_onStageFilterChanged);
+    on<JobWorkListDeleteRequested>(_onDeleteRequested);
+    on<JobWorkListFeedbackCleared>(_onFeedbackCleared);
     on<_JobWorkListUpdated>(_onListUpdated);
     on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
     on<_JobWorkListStreamFailed>(_onStreamFailed);
@@ -93,6 +96,44 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         ),
       ),
     );
+  }
+
+  Future<void> _onDeleteRequested(
+    JobWorkListDeleteRequested event,
+    Emitter<JobWorkListState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        deletingJobWorkId: event.jobWorkId,
+        clearFeedback: true,
+      ),
+    );
+
+    try {
+      await _repository.deleteJobWorkOrder(event.jobWorkId);
+      emit(
+        state.copyWith(
+          clearDeletingJobWorkId: true,
+          feedbackType: JobWorkListFeedbackType.success,
+          feedbackMessage: AppStrings.jobWorkDeleted,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          clearDeletingJobWorkId: true,
+          feedbackType: JobWorkListFeedbackType.failure,
+          feedbackMessage: AppStrings.jobWorkDeleteError,
+        ),
+      );
+    }
+  }
+
+  void _onFeedbackCleared(
+    JobWorkListFeedbackCleared event,
+    Emitter<JobWorkListState> emit,
+  ) {
+    emit(state.copyWith(clearFeedback: true));
   }
 
   void _onListUpdated(

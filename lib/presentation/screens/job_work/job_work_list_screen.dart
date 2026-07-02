@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/job_work/job_work_list_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../routes/route_paths.dart';
@@ -13,6 +14,7 @@ import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/app_extended_fab.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_list_tile.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
@@ -40,9 +42,43 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     context.read<JobWorkListBloc>().add(const JobWorkListSearchChanged(''));
   }
 
+  Future<void> _confirmDelete(JobWorkOrder order) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deleteJobWorkTitle,
+      message: AppStrings.deleteJobWorkMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    context.read<JobWorkListBloc>().add(
+          JobWorkListDeleteRequested(order.id),
+        );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final canDelete = context.userCanDelete(AppModule.jobWork);
+
+    return BlocListener<JobWorkListBloc, JobWorkListState>(
+      listenWhen: (previous, current) =>
+          previous.feedbackType != current.feedbackType &&
+          current.feedbackType != JobWorkListFeedbackType.none,
+      listener: (context, state) {
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(state.feedbackMessage ?? ''),
+            backgroundColor: state.feedbackType == JobWorkListFeedbackType.failure
+                ? Theme.of(context).colorScheme.error
+                : null,
+          ),
+        );
+        context.read<JobWorkListBloc>().add(const JobWorkListFeedbackCleared());
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: BlocBuilder<JobWorkListBloc, JobWorkListState>(
           buildWhen: (prev, curr) =>
@@ -246,6 +282,10 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                         order: order,
                         awaitingQcInspection:
                             state.isAwaitingQcInspection(order),
+                        isDeleting: state.deletingJobWorkId == order.id,
+                        onDelete: canDelete
+                            ? () => _confirmDelete(order)
+                            : null,
                         onTap: () => context.push(
                           RoutePaths.jobWorkDetail(order.id),
                         ),
@@ -258,6 +298,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }
