@@ -35,19 +35,6 @@ final class JobWorkListStageFilterChanged extends JobWorkListEvent {
   List<Object?> get props => [stageFilter];
 }
 
-final class JobWorkListDeleteRequested extends JobWorkListEvent {
-  const JobWorkListDeleteRequested(this.jobWorkId);
-
-  final String jobWorkId;
-
-  @override
-  List<Object?> get props => [jobWorkId];
-}
-
-final class JobWorkListFeedbackCleared extends JobWorkListEvent {
-  const JobWorkListFeedbackCleared();
-}
-
 final class _JobWorkListUpdated extends JobWorkListEvent {
   const _JobWorkListUpdated(this.orders);
 

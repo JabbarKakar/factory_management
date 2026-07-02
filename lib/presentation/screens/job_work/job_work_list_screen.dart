@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/job_work/job_work_list_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
+import '../../../data/repositories/job_work_repository.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
@@ -30,6 +32,7 @@ class JobWorkListScreen extends StatefulWidget {
 
 class _JobWorkListScreenState extends State<JobWorkListScreen> {
   final _searchController = TextEditingController();
+  String? _deletingJobWorkId;
 
   @override
   void dispose() {
@@ -52,33 +55,38 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     );
     if (!confirmed || !mounted) return;
 
-    context.read<JobWorkListBloc>().add(
-          JobWorkListDeleteRequested(order.id),
+    setState(() => _deletingJobWorkId = order.id);
+
+    try {
+      await getIt<JobWorkRepository>().deleteJobWorkOrder(order.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text(AppStrings.jobWorkDeleted)),
         );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text(AppStrings.jobWorkDeleteError),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+    } finally {
+      if (mounted) {
+        setState(() => _deletingJobWorkId = null);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final canDelete = context.userCanDelete(AppModule.jobWork);
 
-    return BlocListener<JobWorkListBloc, JobWorkListState>(
-      listenWhen: (previous, current) =>
-          previous.feedbackType != current.feedbackType &&
-          current.feedbackType != JobWorkListFeedbackType.none,
-      listener: (context, state) {
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(state.feedbackMessage ?? ''),
-            backgroundColor: state.feedbackType == JobWorkListFeedbackType.failure
-                ? Theme.of(context).colorScheme.error
-                : null,
-          ),
-        );
-        context.read<JobWorkListBloc>().add(const JobWorkListFeedbackCleared());
-      },
-      child: Scaffold(
+    return Scaffold(
       appBar: AppBar(
         title: BlocBuilder<JobWorkListBloc, JobWorkListState>(
           buildWhen: (prev, curr) =>
@@ -282,7 +290,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                         order: order,
                         awaitingQcInspection:
                             state.isAwaitingQcInspection(order),
-                        isDeleting: state.deletingJobWorkId == order.id,
+                        isDeleting: _deletingJobWorkId == order.id,
                         onDelete: canDelete
                             ? () => _confirmDelete(order)
                             : null,
@@ -298,7 +306,6 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
           ),
         ],
       ),
-    ),
     );
   }
 }
