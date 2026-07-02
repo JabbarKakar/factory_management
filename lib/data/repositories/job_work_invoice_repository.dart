@@ -97,6 +97,11 @@ class JobWorkInvoiceRepository {
     if (order.status != JobWorkStatus.ready) {
       throw StateError('Invoice can only be generated for ready orders.');
     }
+    if (order.finalCuttingCharges <= 0) {
+      throw StateError(
+        'Record output and finalize cutting charges before invoicing.',
+      );
+    }
     if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
       final existing = await getInvoice(order.invoiceId!);
       if (existing != null) return existing;
@@ -111,7 +116,7 @@ class JobWorkInvoiceRepository {
         DateTime.now().add(const Duration(days: 7));
 
     final lineItems = _buildLineItems(order);
-    final totalAmount = order.negotiatedFinalAmount;
+    final totalAmount = order.finalCuttingCharges;
     final paidAmount = order.advanceReceived;
     final dueAmount = order.balanceDue;
 
@@ -167,7 +172,7 @@ class JobWorkInvoiceRepository {
     final items = <InvoiceLineItem>[
       InvoiceLineItem(
         description: _cuttingFeeDescription(order),
-        amount: order.negotiatedFinalAmount,
+        amount: order.finalCuttingCharges,
       ),
     ];
 

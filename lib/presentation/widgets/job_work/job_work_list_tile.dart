@@ -145,13 +145,17 @@ class JobWorkListTile extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  Formatters.currencyPkr(
-                                    order.negotiatedFinalAmount,
-                                  ),
+                                  order.hasFinalCuttingCharges
+                                      ? Formatters.currencyPkr(
+                                          order.finalCuttingCharges,
+                                        )
+                                      : AppStrings.chargesPending,
                                   style: theme.textTheme.labelLarge?.copyWith(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 12,
-                                    color: accent,
+                                    color: order.hasFinalCuttingCharges
+                                        ? accent
+                                        : muted,
                                   ),
                                 ),
                               ],
@@ -170,7 +174,6 @@ class JobWorkListTile extends StatelessWidget {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  '${AppStrings.yieldPercent}: ${order.output!.yieldPercent(order.expectedOutputSqFt).toStringAsFixed(1)}% · '
                                   '${order.output!.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
                                   style: theme.textTheme.labelSmall?.copyWith(
                                     color: theme.colorScheme.primary,

@@ -158,14 +158,24 @@ abstract final class AppStrings {
   static const String specialInstructions = 'Special Instructions';
   static const String pricingModel = 'Pricing Model';
   static const String agreedRate = 'Agreed Rate (PKR)';
+  static const String agreedRateRequired = 'Enter the agreed rate';
+  static const String ratePerTon = 'Rate Per Ton (PKR)';
+  static const String ratePerSqFt = 'Rate Per Sq. Ft (PKR)';
+  static const String ratePerBlock = 'Rate Per Block (PKR)';
+  static const String lumpSumRate = 'Lump Sum Rate (PKR)';
   static const String smallStockPrice = 'Small Stock Price (PKR)';
   static const String largeStockPrice = 'Large Stock Price (PKR)';
   static const String smallStockPriceRequired =
       'Enter small stock price for selected small sizes';
   static const String largeStockPriceRequired =
       'Enter large stock price for selected large sizes';
-  static const String estimatedTotal = 'Estimated Total';
-  static const String negotiatedAmount = 'Negotiated Final Amount (PKR)';
+  static const String finalCuttingCharges = 'Final Cutting Charges';
+  static const String chargesFinalizedOnOutput =
+      'Final cutting charges are calculated when output is recorded.';
+  static const String chargesPending = 'Charges pending output';
+  static const String finalCuttingChargesRequired =
+      'Enter or confirm final cutting charges';
+  static const String cuttingChargesBreakdown = 'Charges Breakdown';
   static const String advanceReceived = 'Advance Received (PKR)';
   static const String balanceDue = 'Balance Due';
   static const String paymentDueDate = 'Payment Due Date';
@@ -215,11 +225,29 @@ abstract final class AppStrings {
   static const String outputSaveError = 'Could not save output recording';
   static const String outputGradeRequired =
       'Enter at least one output or waste value';
+  static const String outputProductionRequired =
+      'Enter production for at least one stock size';
+  static const String stockProduction = 'Production by Stock';
+  static const String stockSize = 'Stock';
+  static const String pieces = 'Pieces';
+  static const String sqFtShort = 'Sq. Ft';
+  static const String pricePerSqFt = 'Price / Sq. Ft';
+  static const String smallSizes = 'Small Sizes';
+  static const String largeSizes = 'Large Sizes';
+  static const String totalPieces = 'Total Pieces';
+  static const String totalSquareFeet = 'Total Square Feet';
+  static const String grandCuttingTotal = 'Grand Cutting Total';
+  static const String productionLockedFromShifts =
+      'Production totals are calculated from shift logs below.';
+  static const String noStockProductionYet = 'No stock production recorded yet.';
+  static const String piecesCannotBeNegative = 'Pieces cannot be negative';
+  static const String priceCannotBeNegative = 'Price cannot be negative';
+  static const String selectShift = 'Select shift';
   static const String statusUpdated = 'Order status updated';
   static const String statusAutoAdvanced =
       'Order status updated automatically based on output';
   static const String outputNotRecordedYet =
-      'No output recorded yet. Record grades and waste when cutting is complete.';
+      'No output recorded yet. Record stock production and waste when cutting is complete.';
   static const String shiftLogs = 'Shift Logs';
   static const String addShiftLog = 'Add Shift';
   static const String shiftDate = 'Shift Date';

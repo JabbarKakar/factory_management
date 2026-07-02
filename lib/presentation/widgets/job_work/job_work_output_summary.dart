@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/job_work_output.dart';
+import '../../../domain/entities/stock_output.dart';
 import 'job_work_detail_row.dart';
 import 'job_work_detail_section.dart';
 
@@ -66,19 +68,33 @@ class JobWorkOutputSummary extends StatelessWidget {
     }
 
     final wastePct = output.wastePercent(order.totalTons);
-    final yieldPct = output.yieldPercent(order.expectedOutputSqFt);
-
     final rows = <JobWorkDetailRow>[
-      JobWorkDetailRow(label: AppStrings.gradeA, value: _sqFt(output.gradeASqFt)),
-      JobWorkDetailRow(label: AppStrings.gradeB, value: _sqFt(output.gradeBSqFt)),
-      JobWorkDetailRow(label: AppStrings.gradeC, value: _sqFt(output.gradeCSqFt)),
-      JobWorkDetailRow(label: AppStrings.reject, value: _sqFt(output.rejectSqFt)),
+      if (output.hasStockOutputs) ...[
+        ..._stockRows(output.smallStockOutputs, AppStrings.smallSizes),
+        ..._stockRows(output.largeStockOutputs, AppStrings.largeSizes),
+        JobWorkDetailRow(
+          label: AppStrings.totalPieces,
+          value: output.totalPieces.toString(),
+        ),
+      ] else ...[
+        JobWorkDetailRow(label: AppStrings.gradeA, value: _sqFt(output.gradeASqFt)),
+        JobWorkDetailRow(label: AppStrings.gradeB, value: _sqFt(output.gradeBSqFt)),
+        JobWorkDetailRow(label: AppStrings.gradeC, value: _sqFt(output.gradeCSqFt)),
+        JobWorkDetailRow(label: AppStrings.reject, value: _sqFt(output.rejectSqFt)),
+      ],
       JobWorkDetailRow(
         label: AppStrings.totalUsableOutput,
         value: _sqFt(output.totalUsableSqFt),
         bold: true,
         highlight: true,
       ),
+      if (output.hasStockOutputs)
+        JobWorkDetailRow(
+          label: AppStrings.grandCuttingTotal,
+          value: Formatters.currencyPkr(output.grandCuttingTotal),
+          bold: true,
+          highlight: true,
+        ),
       if (output.wasteAmount > 0) ...[
         JobWorkDetailRow(
           label: AppStrings.wasteGenerated,
@@ -95,10 +111,11 @@ class JobWorkOutputSummary extends StatelessWidget {
           label: AppStrings.wastePercent,
           value: '${wastePct.toStringAsFixed(1)}%',
         ),
-      if (yieldPct > 0)
+      if (order.hasFinalCuttingCharges)
         JobWorkDetailRow(
-          label: AppStrings.yieldPercent,
-          value: '${yieldPct.toStringAsFixed(1)}%',
+          label: AppStrings.finalCuttingCharges,
+          value: Formatters.currencyPkr(order.finalCuttingCharges),
+          bold: true,
           highlight: true,
         ),
       if (output.slurryDust != null && output.slurryDust!.isNotEmpty)
@@ -149,8 +166,10 @@ class JobWorkOutputSummary extends StatelessWidget {
                         DateFormat.yMMMd().format(shift.shiftDate),
                         if (shift.shiftName != null) shift.shiftName!,
                       ].join(' · '),
-                      value:
-                          '${shift.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
+                      value: shift.hasStockOutputs
+                          ? '${shift.totalPieces} pcs · '
+                              '${shift.totalUsableSqFt.toStringAsFixed(2)} sq. ft'
+                          : '${shift.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
                     ),
                   )
                   .toList(),
@@ -162,7 +181,28 @@ class JobWorkOutputSummary extends StatelessWidget {
     );
   }
 
-  String _sqFt(double value) => '${value.toStringAsFixed(0)} sq. ft';
+  List<JobWorkDetailRow> _stockRows(
+    List<StockOutput> outputs,
+    String sectionLabel,
+  ) {
+    final active =
+        outputs.where((output) => output.hasProduction).toList(growable: false);
+    if (active.isEmpty) return const [];
+
+    return [
+      JobWorkDetailRow(label: sectionLabel, value: '', bold: true),
+      ...active.map(
+        (stock) => JobWorkDetailRow(
+          label: stock.size,
+          value:
+              '${stock.pieces} pcs · ${stock.squareFeet.toStringAsFixed(2)} sq. ft · '
+              '${Formatters.currencyPkr(stock.amount)}',
+        ),
+      ),
+    ];
+  }
+
+  String _sqFt(double value) => '${value.toStringAsFixed(2)} sq. ft';
 }
 
 class _ExecutionSummary extends StatelessWidget {

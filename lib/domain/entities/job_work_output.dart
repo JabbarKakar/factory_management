@@ -2,12 +2,15 @@ import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
 
 import '../enums/job_work_enums.dart';
+import 'stock_output.dart';
 
 class JobWorkShiftLog extends Equatable {
   const JobWorkShiftLog({
     required this.id,
     required this.shiftDate,
     this.shiftName,
+    this.smallStockOutputs = const [],
+    this.largeStockOutputs = const [],
     this.gradeASqFt = 0,
     this.gradeBSqFt = 0,
     this.gradeCSqFt = 0,
@@ -21,6 +24,8 @@ class JobWorkShiftLog extends Equatable {
   final String id;
   final DateTime shiftDate;
   final String? shiftName;
+  final List<StockOutput> smallStockOutputs;
+  final List<StockOutput> largeStockOutputs;
   final double gradeASqFt;
   final double gradeBSqFt;
   final double gradeCSqFt;
@@ -30,15 +35,38 @@ class JobWorkShiftLog extends Equatable {
   final String? notes;
   final DateTime recordedAt;
 
-  double get totalUsableSqFt => gradeASqFt + gradeBSqFt + gradeCSqFt;
+  List<StockOutput> get allStockOutputs =>
+      [...smallStockOutputs, ...largeStockOutputs];
+
+  bool get hasStockOutputs =>
+      allStockOutputs.any((output) => output.hasProduction);
+
+  double get totalUsableSqFt {
+    if (hasStockOutputs) {
+      return JobWorkOutput._roundSqFt(
+        allStockOutputs.fold<double>(0, (sum, output) => sum + output.squareFeet),
+      );
+    }
+    return gradeASqFt + gradeBSqFt + gradeCSqFt;
+  }
+
+  double get grandCuttingTotal => JobWorkOutput._roundAmount(
+        allStockOutputs.fold<double>(0, (sum, output) => sum + output.amount),
+      );
+
+  int get totalPieces =>
+      allStockOutputs.fold<int>(0, (sum, output) => sum + output.pieces);
 
   double get totalOutputSqFt => totalUsableSqFt + rejectSqFt;
 
-  bool get hasOutput => totalOutputSqFt > 0 || wasteAmount > 0;
+  bool get hasOutput =>
+      hasStockOutputs || totalOutputSqFt > 0 || wasteAmount > 0;
 
   factory JobWorkShiftLog.create({
     required DateTime shiftDate,
     String? shiftName,
+    List<StockOutput> smallStockOutputs = const [],
+    List<StockOutput> largeStockOutputs = const [],
     double gradeASqFt = 0,
     double gradeBSqFt = 0,
     double gradeCSqFt = 0,
@@ -51,6 +79,8 @@ class JobWorkShiftLog extends Equatable {
       id: const Uuid().v4(),
       shiftDate: shiftDate,
       shiftName: shiftName,
+      smallStockOutputs: smallStockOutputs,
+      largeStockOutputs: largeStockOutputs,
       gradeASqFt: gradeASqFt,
       gradeBSqFt: gradeBSqFt,
       gradeCSqFt: gradeCSqFt,
@@ -66,6 +96,8 @@ class JobWorkShiftLog extends Equatable {
     String? id,
     DateTime? shiftDate,
     String? shiftName,
+    List<StockOutput>? smallStockOutputs,
+    List<StockOutput>? largeStockOutputs,
     double? gradeASqFt,
     double? gradeBSqFt,
     double? gradeCSqFt,
@@ -79,6 +111,8 @@ class JobWorkShiftLog extends Equatable {
       id: id ?? this.id,
       shiftDate: shiftDate ?? this.shiftDate,
       shiftName: shiftName ?? this.shiftName,
+      smallStockOutputs: smallStockOutputs ?? this.smallStockOutputs,
+      largeStockOutputs: largeStockOutputs ?? this.largeStockOutputs,
       gradeASqFt: gradeASqFt ?? this.gradeASqFt,
       gradeBSqFt: gradeBSqFt ?? this.gradeBSqFt,
       gradeCSqFt: gradeCSqFt ?? this.gradeCSqFt,
@@ -95,6 +129,8 @@ class JobWorkShiftLog extends Equatable {
         id,
         shiftDate,
         shiftName,
+        smallStockOutputs,
+        largeStockOutputs,
         gradeASqFt,
         gradeBSqFt,
         gradeCSqFt,
@@ -108,6 +144,8 @@ class JobWorkShiftLog extends Equatable {
 
 class JobWorkOutput extends Equatable {
   const JobWorkOutput({
+    this.smallStockOutputs = const [],
+    this.largeStockOutputs = const [],
     this.gradeASqFt = 0,
     this.gradeBSqFt = 0,
     this.gradeCSqFt = 0,
@@ -119,6 +157,8 @@ class JobWorkOutput extends Equatable {
     this.recordedAt,
   });
 
+  final List<StockOutput> smallStockOutputs;
+  final List<StockOutput> largeStockOutputs;
   final double gradeASqFt;
   final double gradeBSqFt;
   final double gradeCSqFt;
@@ -129,7 +169,27 @@ class JobWorkOutput extends Equatable {
   final WasteDisposition wasteDisposition;
   final DateTime? recordedAt;
 
-  double get totalUsableSqFt => gradeASqFt + gradeBSqFt + gradeCSqFt;
+  List<StockOutput> get allStockOutputs =>
+      [...smallStockOutputs, ...largeStockOutputs];
+
+  bool get hasStockOutputs =>
+      allStockOutputs.any((output) => output.hasProduction);
+
+  double get totalUsableSqFt {
+    if (hasStockOutputs) {
+      return _roundSqFt(
+        allStockOutputs.fold<double>(0, (sum, output) => sum + output.squareFeet),
+      );
+    }
+    return gradeASqFt + gradeBSqFt + gradeCSqFt;
+  }
+
+  double get grandCuttingTotal => _roundAmount(
+        allStockOutputs.fold<double>(0, (sum, output) => sum + output.amount),
+      );
+
+  int get totalPieces =>
+      allStockOutputs.fold<int>(0, (sum, output) => sum + output.pieces);
 
   double get totalOutputSqFt => totalUsableSqFt + rejectSqFt;
 
@@ -155,25 +215,35 @@ class JobWorkOutput extends Equatable {
   }
 
   bool get isRecorded =>
-      totalOutputSqFt > 0 || wasteAmount > 0 || recordedAt != null;
+      hasStockOutputs || totalOutputSqFt > 0 || wasteAmount > 0 || recordedAt != null;
 
   static JobWorkOutput aggregateFromShifts(
     List<JobWorkShiftLog> shifts, {
     WasteDisposition wasteDisposition = WasteDisposition.customerTakes,
     String? slurryDust,
   }) {
+    final smallOutputs = <StockOutput>[];
+    final largeOutputs = <StockOutput>[];
     var gradeA = 0.0;
     var gradeB = 0.0;
     var gradeC = 0.0;
     var reject = 0.0;
     var wasteTons = 0.0;
     var wasteSqFt = 0.0;
+    var anyStockOutputs = false;
 
     for (final shift in shifts) {
-      gradeA += shift.gradeASqFt;
-      gradeB += shift.gradeBSqFt;
-      gradeC += shift.gradeCSqFt;
-      reject += shift.rejectSqFt;
+      if (shift.hasStockOutputs) {
+        anyStockOutputs = true;
+        smallOutputs.addAll(shift.smallStockOutputs);
+        largeOutputs.addAll(shift.largeStockOutputs);
+      } else {
+        gradeA += shift.gradeASqFt;
+        gradeB += shift.gradeBSqFt;
+        gradeC += shift.gradeCSqFt;
+        reject += shift.rejectSqFt;
+      }
+
       if (shift.wasteUnit == WasteUnit.tons) {
         wasteTons += shift.wasteAmount;
       } else {
@@ -183,49 +253,40 @@ class JobWorkOutput extends Equatable {
 
     String? combinedSlurry = slurryDust;
     if (wasteTons > 0 && wasteSqFt > 0) {
-      final extra = '${wasteSqFt.toStringAsFixed(0)} sq. ft waste (shift total)';
+      final extra =
+          '${wasteSqFt.toStringAsFixed(0)} sq. ft waste (shift total)';
       combinedSlurry = combinedSlurry == null || combinedSlurry.isEmpty
           ? extra
           : '$combinedSlurry · $extra';
     }
 
-    if (wasteTons > 0) {
-      return JobWorkOutput(
-        gradeASqFt: gradeA,
-        gradeBSqFt: gradeB,
-        gradeCSqFt: gradeC,
-        rejectSqFt: reject,
-        wasteAmount: wasteTons,
-        wasteUnit: WasteUnit.tons,
-        slurryDust: combinedSlurry,
-        wasteDisposition: wasteDisposition,
-      );
-    }
-
-    if (wasteSqFt > 0) {
-      return JobWorkOutput(
-        gradeASqFt: gradeA,
-        gradeBSqFt: gradeB,
-        gradeCSqFt: gradeC,
-        rejectSqFt: reject,
-        wasteAmount: wasteSqFt,
-        wasteUnit: WasteUnit.sqFt,
-        slurryDust: combinedSlurry,
-        wasteDisposition: wasteDisposition,
-      );
-    }
-
-    return JobWorkOutput(
-      gradeASqFt: gradeA,
-      gradeBSqFt: gradeB,
-      gradeCSqFt: gradeC,
-      rejectSqFt: reject,
+    final base = JobWorkOutput(
+      smallStockOutputs:
+          anyStockOutputs ? _mergeStockOutputs(smallOutputs) : const [],
+      largeStockOutputs:
+          anyStockOutputs ? _mergeStockOutputs(largeOutputs) : const [],
+      gradeASqFt: anyStockOutputs ? 0 : gradeA,
+      gradeBSqFt: anyStockOutputs ? 0 : gradeB,
+      gradeCSqFt: anyStockOutputs ? 0 : gradeC,
+      rejectSqFt: anyStockOutputs ? 0 : reject,
       slurryDust: combinedSlurry,
       wasteDisposition: wasteDisposition,
     );
+
+    if (wasteTons > 0) {
+      return base.copyWith(wasteAmount: wasteTons, wasteUnit: WasteUnit.tons);
+    }
+
+    if (wasteSqFt > 0) {
+      return base.copyWith(wasteAmount: wasteSqFt, wasteUnit: WasteUnit.sqFt);
+    }
+
+    return base;
   }
 
   JobWorkOutput copyWith({
+    List<StockOutput>? smallStockOutputs,
+    List<StockOutput>? largeStockOutputs,
     double? gradeASqFt,
     double? gradeBSqFt,
     double? gradeCSqFt,
@@ -237,6 +298,8 @@ class JobWorkOutput extends Equatable {
     DateTime? recordedAt,
   }) {
     return JobWorkOutput(
+      smallStockOutputs: smallStockOutputs ?? this.smallStockOutputs,
+      largeStockOutputs: largeStockOutputs ?? this.largeStockOutputs,
       gradeASqFt: gradeASqFt ?? this.gradeASqFt,
       gradeBSqFt: gradeBSqFt ?? this.gradeBSqFt,
       gradeCSqFt: gradeCSqFt ?? this.gradeCSqFt,
@@ -249,8 +312,52 @@ class JobWorkOutput extends Equatable {
     );
   }
 
+  static List<StockOutput> _mergeStockOutputs(Iterable<StockOutput> outputs) {
+    final merged = <String, StockOutput>{};
+    for (final output in outputs) {
+      if (!output.hasProduction) continue;
+      final current = merged[output.size];
+      if (current == null) {
+        merged[output.size] = output;
+        continue;
+      }
+      final pieces = current.pieces + output.pieces;
+      final pricePerSqFt =
+          output.pricePerSqFt > 0 ? output.pricePerSqFt : current.pricePerSqFt;
+      final squareFeet = _squareFeetFor(output.size, pieces);
+      merged[output.size] = StockOutput(
+        size: output.size,
+        pieces: pieces,
+        squareFeet: squareFeet,
+        pricePerSqFt: pricePerSqFt,
+        amount: _roundAmount(squareFeet * pricePerSqFt),
+      );
+    }
+    return merged.values.toList();
+  }
+
+  static double _squareFeetFor(String size, int pieces) {
+    final normalized = size.toLowerCase().replaceAll('×', 'x').trim();
+    final parts = normalized.split('x');
+    if (parts.length != 2) return 0;
+    final width = double.tryParse(parts[0].trim());
+    final height = double.tryParse(parts[1].trim());
+    if (width == null || height == null || width <= 0 || height <= 0) {
+      return 0;
+    }
+    return _roundSqFt((width * height * pieces) / 144);
+  }
+
+  static double _roundSqFt(double value) =>
+      double.parse(value.toStringAsFixed(2));
+
+  static double _roundAmount(double value) =>
+      double.parse(value.toStringAsFixed(2));
+
   @override
   List<Object?> get props => [
+        smallStockOutputs,
+        largeStockOutputs,
         gradeASqFt,
         gradeBSqFt,
         gradeCSqFt,

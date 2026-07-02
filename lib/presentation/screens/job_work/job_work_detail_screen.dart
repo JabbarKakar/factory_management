@@ -225,25 +225,39 @@ class JobWorkDetailScreen extends StatelessWidget {
                         label: AppStrings.largeStockPrice,
                         value: Formatters.currencyPkr(order.largeStockPrice),
                       ),
-                    if (order.estimatedTotal > 0)
+                    if (order.agreedRate > 0)
                       JobWorkDetailRow(
-                        label: AppStrings.estimatedTotal,
-                        value: Formatters.currencyPkr(order.estimatedTotal),
+                        label: AppStrings.agreedRate,
+                        value: Formatters.currencyPkr(order.agreedRate),
                       ),
-                    JobWorkDetailRow(
-                      label: AppStrings.negotiatedAmount,
-                      value: Formatters.currencyPkr(order.negotiatedFinalAmount),
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.advanceReceived,
-                      value: Formatters.currencyPkr(order.advanceReceived),
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.balanceDue,
-                      value: Formatters.currencyPkr(order.balanceDue),
-                      bold: true,
-                      highlight: true,
-                    ),
+                    if (order.hasFinalCuttingCharges) ...[
+                      JobWorkDetailRow(
+                        label: AppStrings.finalCuttingCharges,
+                        value: Formatters.currencyPkr(order.finalCuttingCharges),
+                        bold: true,
+                        highlight: true,
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.advanceReceived,
+                        value: Formatters.currencyPkr(order.advanceReceived),
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.balanceDue,
+                        value: Formatters.currencyPkr(order.balanceDue),
+                        bold: true,
+                        highlight: order.balanceDue > 0,
+                      ),
+                    ] else ...[
+                      JobWorkDetailRow(
+                        label: AppStrings.finalCuttingCharges,
+                        value: AppStrings.chargesPending,
+                      ),
+                      if (order.advanceReceived > 0)
+                        JobWorkDetailRow(
+                          label: AppStrings.advanceReceived,
+                          value: Formatters.currencyPkr(order.advanceReceived),
+                        ),
+                    ],
                     JobWorkDetailRow(
                       label: AppStrings.paymentTerms,
                       value: order.paymentTerms.label,
@@ -332,11 +346,6 @@ class JobWorkDetailScreen extends StatelessWidget {
                       label: AppStrings.finishRequired,
                       value: order.finish.label,
                     ),
-                    if (order.expectedOutputSqFt != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.expectedOutput,
-                        value: order.expectedOutputSqFt!.toStringAsFixed(0),
-                      ),
                     if (order.specialInstructions != null)
                       JobWorkDetailRow(
                         label: AppStrings.specialInstructions,

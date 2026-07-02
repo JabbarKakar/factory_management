@@ -181,9 +181,11 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
               ? order.thickness
               : '$sizeLabel · ${order.thickness}',
           quantityInspected: output.totalOutputSqFt,
-          gradeASqFt: output.gradeASqFt,
-          gradeBSqFt: output.gradeBSqFt,
-          gradeCSqFt: output.gradeCSqFt,
+          gradeASqFt: output.hasStockOutputs
+              ? output.totalUsableSqFt
+              : output.gradeASqFt,
+          gradeBSqFt: output.hasStockOutputs ? 0 : output.gradeBSqFt,
+          gradeCSqFt: output.hasStockOutputs ? 0 : output.gradeCSqFt,
           rejectSqFt: output.rejectSqFt,
         ),
       );

@@ -29,8 +29,7 @@ class JobWorkOrder extends Equatable {
     required this.agreedRate,
     this.smallStockPrice = 0,
     this.largeStockPrice = 0,
-    required this.estimatedTotal,
-    required this.negotiatedFinalAmount,
+    this.finalCuttingCharges = 0,
     required this.advanceReceived,
     required this.balanceDue,
     required this.paymentTerms,
@@ -40,7 +39,6 @@ class JobWorkOrder extends Equatable {
     this.blockDimensions,
     this.conditionNotes,
     this.vehicleNumber,
-    this.expectedOutputSqFt,
     this.specialInstructions,
     this.paymentDueDate,
     this.output,
@@ -84,7 +82,6 @@ class JobWorkOrder extends Equatable {
   final List<String> legacySizes;
   final String thickness;
   final FinishType finish;
-  final double? expectedOutputSqFt;
   final String? specialInstructions;
 
   // Pricing
@@ -92,8 +89,9 @@ class JobWorkOrder extends Equatable {
   final double agreedRate;
   final double smallStockPrice;
   final double largeStockPrice;
-  final double estimatedTotal;
-  final double negotiatedFinalAmount;
+
+  /// Finalized when output is recorded (replaces legacy negotiated amount).
+  final double finalCuttingCharges;
   final double advanceReceived;
   final double balanceDue;
   final PaymentTerms paymentTerms;
@@ -117,32 +115,7 @@ class JobWorkOrder extends Equatable {
 
   bool get hasAnySize => allSizes.isNotEmpty;
 
-  static double calculateEstimatedTotalFromStockPrices({
-    required double smallStockPrice,
-    required double largeStockPrice,
-    required int smallSizeCount,
-    required int largeSizeCount,
-    int legacySizeCount = 0,
-  }) {
-    return (smallStockPrice * smallSizeCount) +
-        (largeStockPrice * largeSizeCount) +
-        (smallStockPrice * legacySizeCount);
-  }
-
-  static double calculateEstimatedTotal({
-    required PricingModel model,
-    required double agreedRate,
-    required double totalTons,
-    required int blockCount,
-    double? expectedOutputSqFt,
-  }) {
-    return switch (model) {
-      PricingModel.perTon => agreedRate * totalTons,
-      PricingModel.perSqFt => agreedRate * (expectedOutputSqFt ?? 0),
-      PricingModel.perBlock => agreedRate * blockCount,
-      PricingModel.lumpSum => agreedRate,
-    };
-  }
+  bool get hasFinalCuttingCharges => finalCuttingCharges > 0;
 
   JobWorkOrder copyWith({
     String? id,
@@ -169,14 +142,12 @@ class JobWorkOrder extends Equatable {
     List<String>? legacySizes,
     String? thickness,
     FinishType? finish,
-    double? expectedOutputSqFt,
     String? specialInstructions,
     PricingModel? pricingModel,
     double? agreedRate,
     double? smallStockPrice,
     double? largeStockPrice,
-    double? estimatedTotal,
-    double? negotiatedFinalAmount,
+    double? finalCuttingCharges,
     double? advanceReceived,
     double? balanceDue,
     PaymentTerms? paymentTerms,
@@ -216,15 +187,12 @@ class JobWorkOrder extends Equatable {
       legacySizes: legacySizes ?? this.legacySizes,
       thickness: thickness ?? this.thickness,
       finish: finish ?? this.finish,
-      expectedOutputSqFt: expectedOutputSqFt ?? this.expectedOutputSqFt,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       pricingModel: pricingModel ?? this.pricingModel,
       agreedRate: agreedRate ?? this.agreedRate,
       smallStockPrice: smallStockPrice ?? this.smallStockPrice,
       largeStockPrice: largeStockPrice ?? this.largeStockPrice,
-      estimatedTotal: estimatedTotal ?? this.estimatedTotal,
-      negotiatedFinalAmount:
-          negotiatedFinalAmount ?? this.negotiatedFinalAmount,
+      finalCuttingCharges: finalCuttingCharges ?? this.finalCuttingCharges,
       advanceReceived: advanceReceived ?? this.advanceReceived,
       balanceDue: balanceDue ?? this.balanceDue,
       paymentTerms: paymentTerms ?? this.paymentTerms,
@@ -266,14 +234,12 @@ class JobWorkOrder extends Equatable {
         legacySizes,
         thickness,
         finish,
-        expectedOutputSqFt,
         specialInstructions,
         pricingModel,
         agreedRate,
         smallStockPrice,
         largeStockPrice,
-        estimatedTotal,
-        negotiatedFinalAmount,
+        finalCuttingCharges,
         advanceReceived,
         balanceDue,
         paymentTerms,

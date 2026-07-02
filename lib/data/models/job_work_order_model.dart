@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
+import '../../domain/entities/stock_output.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../core/constants/job_work_sizes.dart';
@@ -31,8 +32,7 @@ class JobWorkOrderModel {
     required this.agreedRate,
     this.smallStockPrice = 0,
     this.largeStockPrice = 0,
-    required this.estimatedTotal,
-    required this.negotiatedFinalAmount,
+    this.finalCuttingCharges = 0,
     required this.advanceReceived,
     required this.balanceDue,
     required this.paymentTerms,
@@ -42,7 +42,6 @@ class JobWorkOrderModel {
     this.blockDimensions,
     this.conditionNotes,
     this.vehicleNumber,
-    this.expectedOutputSqFt,
     this.specialInstructions,
     this.paymentDueDate,
     this.output,
@@ -78,14 +77,12 @@ class JobWorkOrderModel {
   final List<String> legacySizes;
   final String thickness;
   final FinishType finish;
-  final double? expectedOutputSqFt;
   final String? specialInstructions;
   final PricingModel pricingModel;
   final double agreedRate;
   final double smallStockPrice;
   final double largeStockPrice;
-  final double estimatedTotal;
-  final double negotiatedFinalAmount;
+  final double finalCuttingCharges;
   final double advanceReceived;
   final double balanceDue;
   final PaymentTerms paymentTerms;
@@ -139,16 +136,15 @@ class JobWorkOrderModel {
       legacySizes: parsedSizes.legacySizes,
       thickness: cuttingSpec['thickness'] as String? ?? '',
       finish: FinishType.fromString(cuttingSpec['finish'] as String?),
-      expectedOutputSqFt:
-          (cuttingSpec['expectedOutputSqFt'] as num?)?.toDouble(),
       specialInstructions: cuttingSpec['specialInstructions'] as String?,
       pricingModel: PricingModel.fromString(pricing['model'] as String?),
       agreedRate: (pricing['agreedRate'] as num?)?.toDouble() ?? 0,
       smallStockPrice: (pricing['smallStockPrice'] as num?)?.toDouble() ?? 0,
       largeStockPrice: (pricing['largeStockPrice'] as num?)?.toDouble() ?? 0,
-      estimatedTotal: (pricing['estimatedTotal'] as num?)?.toDouble() ?? 0,
-      negotiatedFinalAmount:
-          (pricing['negotiatedFinalAmount'] as num?)?.toDouble() ?? 0,
+      finalCuttingCharges:
+          (pricing['finalCuttingCharges'] as num?)?.toDouble() ??
+              (pricing['negotiatedFinalAmount'] as num?)?.toDouble() ??
+              0,
       advanceReceived: (pricing['advanceReceived'] as num?)?.toDouble() ?? 0,
       balanceDue: (pricing['balanceDue'] as num?)?.toDouble() ?? 0,
       paymentTerms: PaymentTerms.fromString(pricing['paymentTerms'] as String?),
@@ -174,8 +170,12 @@ class JobWorkOrderModel {
     final wasteUnit = WasteUnit.fromString(data['wasteUnit'] as String?);
     final wasteTons = (data['wasteTons'] as num?)?.toDouble();
     final wasteSqFt = (data['wasteSqFt'] as num?)?.toDouble();
+    final smallStockOutputs = _stockOutputsFromList(data['smallStockOutputs']);
+    final largeStockOutputs = _stockOutputsFromList(data['largeStockOutputs']);
 
     return JobWorkOutput(
+      smallStockOutputs: smallStockOutputs,
+      largeStockOutputs: largeStockOutputs,
       gradeASqFt: (data['gradeASqFt'] as num?)?.toDouble() ?? 0,
       gradeBSqFt: (data['gradeBSqFt'] as num?)?.toDouble() ?? 0,
       gradeCSqFt: (data['gradeCSqFt'] as num?)?.toDouble() ?? 0,
@@ -207,6 +207,8 @@ class JobWorkOrderModel {
       shiftDate:
           (data['shiftDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       shiftName: data['shiftName'] as String?,
+      smallStockOutputs: _stockOutputsFromList(data['smallStockOutputs']),
+      largeStockOutputs: _stockOutputsFromList(data['largeStockOutputs']),
       gradeASqFt: (data['gradeASqFt'] as num?)?.toDouble() ?? 0,
       gradeBSqFt: (data['gradeBSqFt'] as num?)?.toDouble() ?? 0,
       gradeCSqFt: (data['gradeCSqFt'] as num?)?.toDouble() ?? 0,
@@ -248,8 +250,6 @@ class JobWorkOrderModel {
         if (legacySizes.isNotEmpty) 'legacySizes': legacySizes,
         'thickness': thickness,
         'finish': finish.name,
-        if (expectedOutputSqFt != null)
-          'expectedOutputSqFt': expectedOutputSqFt,
         if (specialInstructions != null)
           'specialInstructions': specialInstructions,
       },
@@ -258,8 +258,7 @@ class JobWorkOrderModel {
         'agreedRate': agreedRate,
         'smallStockPrice': smallStockPrice,
         'largeStockPrice': largeStockPrice,
-        'estimatedTotal': estimatedTotal,
-        'negotiatedFinalAmount': negotiatedFinalAmount,
+        if (finalCuttingCharges > 0) 'finalCuttingCharges': finalCuttingCharges,
         'advanceReceived': advanceReceived,
         'balanceDue': balanceDue,
         'paymentTerms': paymentTerms.name,
@@ -287,6 +286,14 @@ class JobWorkOrderModel {
     final yieldPercent = output.yieldPercent(null);
 
     return {
+      if (output.hasStockOutputs) ...{
+        'smallStockOutputs':
+            output.smallStockOutputs.map((item) => item.toMap()).toList(),
+        'largeStockOutputs':
+            output.largeStockOutputs.map((item) => item.toMap()).toList(),
+        'grandCuttingTotal': output.grandCuttingTotal,
+        'totalPieces': output.totalPieces,
+      },
       'gradeASqFt': output.gradeASqFt,
       'gradeBSqFt': output.gradeBSqFt,
       'gradeCSqFt': output.gradeCSqFt,
@@ -305,28 +312,7 @@ class JobWorkOrderModel {
     };
   }
 
-  static Map<String, dynamic> _outputToMapWithExpected(
-    JobWorkOutput output,
-    double inputTons,
-    double? expectedSqFt,
-  ) {
-    final map = _outputToMap(output, inputTons);
-    map['yieldPercent'] = output.yieldPercent(expectedSqFt);
-    return map;
-  }
-
-  Map<String, dynamic> toFirestoreWithComputedYield() {
-    final data = toFirestore();
-    final outputValue = output;
-    if (outputValue != null) {
-      data['output'] = _outputToMapWithExpected(
-        outputValue,
-        totalTons,
-        expectedOutputSqFt,
-      );
-    }
-    return data;
-  }
+  Map<String, dynamic> toFirestoreWithComputedYield() => toFirestore();
 
   static Map<String, dynamic> _executionToMap(JobWorkExecution execution) {
     return {
@@ -346,6 +332,14 @@ class JobWorkOrderModel {
       'id': shift.id,
       'shiftDate': Timestamp.fromDate(shift.shiftDate),
       if (shift.shiftName != null) 'shiftName': shift.shiftName,
+      if (shift.hasStockOutputs) ...{
+        'smallStockOutputs':
+            shift.smallStockOutputs.map((item) => item.toMap()).toList(),
+        'largeStockOutputs':
+            shift.largeStockOutputs.map((item) => item.toMap()).toList(),
+        'grandCuttingTotal': shift.grandCuttingTotal,
+        'totalPieces': shift.totalPieces,
+      },
       'gradeASqFt': shift.gradeASqFt,
       'gradeBSqFt': shift.gradeBSqFt,
       'gradeCSqFt': shift.gradeCSqFt,
@@ -355,6 +349,14 @@ class JobWorkOrderModel {
       if (shift.notes != null) 'notes': shift.notes,
       'recordedAt': Timestamp.fromDate(shift.recordedAt),
     };
+  }
+
+  static List<StockOutput> _stockOutputsFromList(dynamic data) {
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((item) => StockOutput.fromMap(item.cast<String, dynamic>()))
+        .toList();
   }
 
   JobWorkOrder toEntity() {
@@ -383,14 +385,12 @@ class JobWorkOrderModel {
       legacySizes: legacySizes,
       thickness: thickness,
       finish: finish,
-      expectedOutputSqFt: expectedOutputSqFt,
       specialInstructions: specialInstructions,
       pricingModel: pricingModel,
       agreedRate: agreedRate,
       smallStockPrice: smallStockPrice,
       largeStockPrice: largeStockPrice,
-      estimatedTotal: estimatedTotal,
-      negotiatedFinalAmount: negotiatedFinalAmount,
+      finalCuttingCharges: finalCuttingCharges,
       advanceReceived: advanceReceived,
       balanceDue: balanceDue,
       paymentTerms: paymentTerms,
@@ -432,14 +432,12 @@ class JobWorkOrderModel {
       legacySizes: order.legacySizes,
       thickness: order.thickness,
       finish: order.finish,
-      expectedOutputSqFt: order.expectedOutputSqFt,
       specialInstructions: order.specialInstructions,
       pricingModel: order.pricingModel,
       agreedRate: order.agreedRate,
       smallStockPrice: order.smallStockPrice,
       largeStockPrice: order.largeStockPrice,
-      estimatedTotal: order.estimatedTotal,
-      negotiatedFinalAmount: order.negotiatedFinalAmount,
+      finalCuttingCharges: order.finalCuttingCharges,
       advanceReceived: order.advanceReceived,
       balanceDue: order.balanceDue,
       paymentTerms: order.paymentTerms,

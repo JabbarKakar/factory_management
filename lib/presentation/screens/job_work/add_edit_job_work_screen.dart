@@ -54,11 +54,10 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
   final _blockDimensionsController = TextEditingController();
   final _conditionNotesController = TextEditingController();
   final _vehicleController = TextEditingController();
-  final _expectedOutputController = TextEditingController();
   final _specialInstructionsController = TextEditingController();
+  final _agreedRateController = TextEditingController();
   final _smallStockPriceController = TextEditingController();
   final _largeStockPriceController = TextEditingController();
-  final _negotiatedAmountController = TextEditingController();
   final _advanceController = TextEditingController(text: '0');
 
   bool _populated = false;
@@ -73,11 +72,10 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     _blockDimensionsController.dispose();
     _conditionNotesController.dispose();
     _vehicleController.dispose();
-    _expectedOutputController.dispose();
     _specialInstructionsController.dispose();
+    _agreedRateController.dispose();
     _smallStockPriceController.dispose();
     _largeStockPriceController.dispose();
-    _negotiatedAmountController.dispose();
     _advanceController.dispose();
     super.dispose();
   }
@@ -132,8 +130,10 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     _blockDimensionsController.text = order.blockDimensions ?? '';
     _conditionNotesController.text = order.conditionNotes ?? '';
     _vehicleController.text = order.vehicleNumber ?? '';
-    _expectedOutputController.text = order.expectedOutputSqFt?.toString() ?? '';
     _specialInstructionsController.text = order.specialInstructions ?? '';
+    if (order.agreedRate > 0) {
+      _agreedRateController.text = order.agreedRate.toStringAsFixed(0);
+    }
     if (order.smallStockPrice > 0) {
       _smallStockPriceController.text = order.smallStockPrice.toStringAsFixed(0);
     } else if (order.agreedRate > 0 && order.smallSizes.isNotEmpty) {
@@ -144,8 +144,6 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     } else if (order.agreedRate > 0 && order.largeSizes.isNotEmpty) {
       _largeStockPriceController.text = order.agreedRate.toStringAsFixed(0);
     }
-    _negotiatedAmountController.text =
-        order.negotiatedFinalAmount.toStringAsFixed(0);
     _advanceController.text = order.advanceReceived.toStringAsFixed(0);
   }
 
@@ -153,32 +151,17 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
 
   int _parseInt(String value) => int.tryParse(value.trim()) ?? 0;
 
-  double get _estimatedTotal {
-    final hasSizes = _selectedSmallSizes.isNotEmpty ||
-        _selectedLargeSizes.isNotEmpty ||
-        _selectedLegacySizes.isNotEmpty;
+  bool get _hasSizeSelection =>
+      _selectedSmallSizes.isNotEmpty ||
+      _selectedLargeSizes.isNotEmpty ||
+      _selectedLegacySizes.isNotEmpty;
 
-    if (hasSizes) {
-      return JobWorkOrder.calculateEstimatedTotalFromStockPrices(
-        smallStockPrice: _parse(_smallStockPriceController.text),
-        largeStockPrice: _parse(_largeStockPriceController.text),
-        smallSizeCount: _selectedSmallSizes.length,
-        largeSizeCount: _selectedLargeSizes.length,
-        legacySizeCount: _selectedLegacySizes.length,
-      );
-    }
-
-    return JobWorkOrder.calculateEstimatedTotal(
-      model: _pricingModel,
-      agreedRate: 0,
-      totalTons: _parse(_totalTonsController.text),
-      blockCount: _parseInt(_blockCountController.text),
-      expectedOutputSqFt: _parse(_expectedOutputController.text),
-    );
-  }
-
-  double get _balanceDue =>
-      _parse(_negotiatedAmountController.text) - _parse(_advanceController.text);
+  String _agreedRateLabel() => switch (_pricingModel) {
+        PricingModel.perTon => AppStrings.ratePerTon,
+        PricingModel.perSqFt => AppStrings.ratePerSqFt,
+        PricingModel.perBlock => AppStrings.ratePerBlock,
+        PricingModel.lumpSum => AppStrings.lumpSumRate,
+      };
 
   List<String> get _mineOwnerOptions => MineOwners.forLocation(_mineLocation);
 
@@ -235,7 +218,6 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     final customer = _selectedCustomer;
     if (customer == null) return null;
 
-    final negotiated = _parse(_negotiatedAmountController.text);
     final advance = _parse(_advanceController.text);
 
     return base.copyWith(
@@ -267,20 +249,18 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
       legacySizes: _selectedLegacySizes.toList(),
       thickness: _thickness,
       finish: _finish,
-      expectedOutputSqFt: _expectedOutputController.text.trim().isEmpty
-          ? null
-          : _parse(_expectedOutputController.text),
       specialInstructions: _specialInstructionsController.text.trim().isEmpty
           ? null
           : _specialInstructionsController.text.trim(),
       pricingModel: _pricingModel,
-      agreedRate: 0,
+      agreedRate: _parse(_agreedRateController.text),
       smallStockPrice: _parse(_smallStockPriceController.text),
       largeStockPrice: _parse(_largeStockPriceController.text),
-      estimatedTotal: _estimatedTotal,
-      negotiatedFinalAmount: negotiated,
+      finalCuttingCharges: base.finalCuttingCharges,
       advanceReceived: advance,
-      balanceDue: negotiated - advance,
+      balanceDue: base.finalCuttingCharges > 0
+          ? base.finalCuttingCharges - advance
+          : 0,
       paymentTerms: _paymentTerms,
       paymentDueDate: _paymentDueDate,
       status: JobWorkStatus.agreed,
@@ -798,20 +778,6 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                       ),
                       AppFormFields.gap,
                       TextFormField(
-                        controller: _expectedOutputController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        style: AppFormFields.valueStyle(context),
-                        decoration: AppFormFields.decoration(
-                          context,
-                          label: AppStrings.expectedOutput,
-                        ),
-                        enabled: !isSaving,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      AppFormFields.gap,
-                      TextFormField(
                         controller: _specialInstructionsController,
                         maxLines: 3,
                         style: AppFormFields.valueStyle(context),
@@ -852,8 +818,61 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                             ? null
                             : (v) => setState(() => _pricingModel = v!),
                       ),
-                      AppFormFields.gap,
-                      TextFormField(
+                      if (!_hasSizeSelection ||
+                          _pricingModel == PricingModel.perTon ||
+                          _pricingModel == PricingModel.perBlock ||
+                          _pricingModel == PricingModel.lumpSum) ...[
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _agreedRateController,
+                          keyboardType: TextInputType.number,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: _agreedRateLabel(),
+                          ),
+                          validator: (v) {
+                            if (!_hasSizeSelection && _parse(v ?? '') <= 0) {
+                              return AppStrings.agreedRateRequired;
+                            }
+                            if (_hasSizeSelection &&
+                                _pricingModel != PricingModel.perSqFt &&
+                                _parse(_smallStockPriceController.text) <= 0 &&
+                                _parse(_largeStockPriceController.text) <= 0 &&
+                                _parse(v ?? '') <= 0) {
+                              return AppStrings.agreedRateRequired;
+                            }
+                            return null;
+                          },
+                          enabled: !isSaving,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                      if (_pricingModel == PricingModel.perSqFt) ...[
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _agreedRateController,
+                          keyboardType: TextInputType.number,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.ratePerSqFt,
+                          ),
+                          validator: (v) {
+                            if (_parse(_smallStockPriceController.text) <= 0 &&
+                                _parse(_largeStockPriceController.text) <= 0 &&
+                                _parse(v ?? '') <= 0) {
+                              return AppStrings.agreedRateRequired;
+                            }
+                            return null;
+                          },
+                          enabled: !isSaving,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                      if (_hasSizeSelection) ...[
+                        AppFormFields.gap,
+                        TextFormField(
                         controller: _smallStockPriceController,
                         keyboardType: TextInputType.number,
                         style: AppFormFields.valueStyle(context),
@@ -893,28 +912,17 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                         enabled: !isSaving,
                         onChanged: (_) => setState(() {}),
                       ),
+                      ],
                       AppFormFields.gap,
-                      AppFormSummaryRow(
-                        label: AppStrings.estimatedTotal,
-                        value: '₨ ${_estimatedTotal.toStringAsFixed(0)}',
-                      ),
-                      AppFormFields.gap,
-                      TextFormField(
-                        controller: _negotiatedAmountController,
-                        keyboardType: TextInputType.number,
-                        style: AppFormFields.valueStyle(context),
-                        decoration: AppFormFields.decoration(
-                          context,
-                          label: AppStrings.negotiatedAmount,
-                        ),
-                        validator: (v) {
-                          if (_parse(v ?? '') <= 0) {
-                            return 'Enter final agreed amount';
-                          }
-                          return null;
-                        },
-                        enabled: !isSaving,
-                        onChanged: (_) => setState(() {}),
+                      Text(
+                        AppStrings.chargesFinalizedOnOutput,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              height: 1.35,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                            ),
                       ),
                       AppFormFields.gap,
                       TextFormField(
@@ -927,12 +935,6 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                         ),
                         enabled: !isSaving,
                         onChanged: (_) => setState(() {}),
-                      ),
-                      AppFormFields.gap,
-                      AppFormSummaryRow(
-                        label: AppStrings.balanceDue,
-                        value: '₨ ${_balanceDue.toStringAsFixed(0)}',
-                        highlight: true,
                       ),
                       AppFormFields.gap,
                       DropdownButtonFormField<PaymentTerms>(

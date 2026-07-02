@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/job_work/job_work_output_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/job_work_output.dart';
 import '../../../domain/enums/job_work_enums.dart';
@@ -12,6 +14,8 @@ import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/add_shift_log_dialog.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/job_work/stock_output_form_controller.dart';
+import '../../widgets/job_work/stock_output_recording_panel.dart';
 
 class RecordJobWorkOutputScreen extends StatefulWidget {
   const RecordJobWorkOutputScreen({required this.jobWorkId, super.key});
@@ -26,34 +30,62 @@ class RecordJobWorkOutputScreen extends StatefulWidget {
 class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _gradeAController = TextEditingController();
-  final _gradeBController = TextEditingController();
-  final _gradeCController = TextEditingController();
-  final _rejectController = TextEditingController();
   final _wasteController = TextEditingController();
   final _slurryController = TextEditingController();
   final _supervisorController = TextEditingController();
   final _notesController = TextEditingController();
+  final _finalChargesController = TextEditingController();
 
   WasteUnit _wasteUnit = WasteUnit.tons;
   WasteDisposition _wasteDisposition = WasteDisposition.customerTakes;
   DateTime? _startDate;
   DateTime? _completionDate;
   bool _populated = false;
+  bool _chargesManuallyEdited = false;
   List<JobWorkShiftLog> _shiftLogs = [];
   JobWorkStatus? _statusBeforeSubmit;
+  StockOutputFormController? _stockController;
+  String? _stockControllerOrderId;
+
+  List<String> _smallSizesFor(JobWorkOrder order) =>
+      [...order.smallSizes, ...order.legacySizes];
 
   @override
   void dispose() {
-    _gradeAController.dispose();
-    _gradeBController.dispose();
-    _gradeCController.dispose();
-    _rejectController.dispose();
     _wasteController.dispose();
     _slurryController.dispose();
     _supervisorController.dispose();
     _notesController.dispose();
+    _finalChargesController.dispose();
+    _stockController?.dispose();
     super.dispose();
+  }
+
+  void _ensureStockController(JobWorkOrder order) {
+    if (_stockControllerOrderId == order.id && _stockController != null) {
+      return;
+    }
+
+    _stockController?.dispose();
+    final output = order.output;
+    _stockController = StockOutputFormController(
+      smallSizes: _smallSizesFor(order),
+      largeSizes: order.largeSizes,
+      defaultSmallPrice: JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
+      defaultLargePrice: JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
+      initialSmall: output?.smallStockOutputs ?? const [],
+      initialLarge: output?.largeStockOutputs ?? const [],
+    );
+    _stockController!.addListener(_onStockChanged);
+    _stockControllerOrderId = order.id;
+  }
+
+  void _onStockChanged() {
+    if (mounted) {
+      setState(() {
+        _chargesManuallyEdited = false;
+      });
+    }
   }
 
   void _populate(JobWorkOrder order) {
@@ -62,10 +94,6 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
 
     final output = order.output;
     if (output != null) {
-      _gradeAController.text = _formatNum(output.gradeASqFt);
-      _gradeBController.text = _formatNum(output.gradeBSqFt);
-      _gradeCController.text = _formatNum(output.gradeCSqFt);
-      _rejectController.text = _formatNum(output.rejectSqFt);
       _wasteController.text = _formatNum(output.wasteAmount);
       _wasteUnit = output.wasteUnit;
       _wasteDisposition = output.wasteDisposition;
@@ -81,6 +109,20 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       _supervisorController.text = execution.supervisorName ?? '';
       _notesController.text = execution.progressNotes ?? '';
     }
+
+    if (order.finalCuttingCharges > 0) {
+      _finalChargesController.text =
+          order.finalCuttingCharges.toStringAsFixed(0);
+      _chargesManuallyEdited = true;
+    }
+  }
+
+  void _syncCalculatedCharges(JobWorkOrder order, JobWorkOutput output) {
+    if (_chargesManuallyEdited) return;
+    final charges =
+        JobWorkChargesCalculator.calculate(order: order, output: output);
+    _finalChargesController.text =
+        charges > 0 ? charges.toStringAsFixed(0) : '';
   }
 
   String _formatNum(double value) {
@@ -90,12 +132,11 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
 
   double _parse(String value) => double.tryParse(value.trim()) ?? 0;
 
-  JobWorkOutput _buildOutput() {
-    return JobWorkOutput(
-      gradeASqFt: _parse(_gradeAController.text),
-      gradeBSqFt: _parse(_gradeBController.text),
-      gradeCSqFt: _parse(_gradeCController.text),
-      rejectSqFt: _parse(_rejectController.text),
+  JobWorkOutput _buildDirectOutput() {
+    final controller = _stockController!;
+    return JobWorkChargesCalculator.outputFromStockRows(
+      smallStockOutputs: controller.buildSmallOutputs(),
+      largeStockOutputs: controller.buildLargeOutputs(),
       wasteAmount: _parse(_wasteController.text),
       wasteUnit: _wasteUnit,
       slurryDust: _slurryController.text.trim().isEmpty
@@ -113,15 +154,25 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
         slurryDust: _slurryController.text.trim().isEmpty
             ? null
             : _slurryController.text.trim(),
+      ).copyWith(
+        wasteAmount: _parse(_wasteController.text),
+        wasteUnit: _wasteUnit,
       );
     }
-    return _buildOutput();
+    return _buildDirectOutput();
   }
 
-  Future<void> _addShiftLog() async {
+  Future<void> _addShiftLog(JobWorkOrder order) async {
     final shift = await showDialog<JobWorkShiftLog>(
       context: context,
-      builder: (_) => const AddShiftLogDialog(),
+      builder: (_) => AddShiftLogDialog(
+        smallSizes: _smallSizesFor(order),
+        largeSizes: order.largeSizes,
+        defaultSmallPrice:
+            JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
+        defaultLargePrice:
+            JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
+      ),
     );
     if (shift == null) return;
     setState(() => _shiftLogs = [..._shiftLogs, shift]);
@@ -139,6 +190,18 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     setState(
       () => _shiftLogs = _shiftLogs.where((log) => log.id != shift.id).toList(),
     );
+  }
+
+  String _shiftSubtitle(JobWorkShiftLog shift) {
+    if (shift.hasStockOutputs) {
+      return '${shift.totalPieces} pcs · '
+          '${shift.totalUsableSqFt.toStringAsFixed(2)} sq. ft · '
+          '${Formatters.currencyPkr(shift.grandCuttingTotal)}';
+    }
+    return 'A ${shift.gradeASqFt.toStringAsFixed(0)} · '
+        'B ${shift.gradeBSqFt.toStringAsFixed(0)} · '
+        'C ${shift.gradeCSqFt.toStringAsFixed(0)} · '
+        'Reject ${shift.rejectSqFt.toStringAsFixed(0)} sq. ft';
   }
 
   JobWorkExecution _buildExecution() {
@@ -170,10 +233,19 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   void _submit(JobWorkOrder baseOrder) {
     if (!_formKey.currentState!.validate()) return;
 
-    final output = _effectiveOutput();
-    if (output.totalOutputSqFt <= 0 && output.wasteAmount <= 0) {
+    final output = _effectiveOutput().copyWith(recordedAt: DateTime.now());
+    final hasProduction = output.hasStockOutputs || output.totalOutputSqFt > 0;
+    if (!hasProduction && output.wasteAmount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.outputGradeRequired)),
+        const SnackBar(content: Text(AppStrings.outputProductionRequired)),
+      );
+      return;
+    }
+
+    final charges = _parse(_finalChargesController.text);
+    if (charges <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.finalCuttingChargesRequired)),
       );
       return;
     }
@@ -181,14 +253,11 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     _statusBeforeSubmit = baseOrder.status;
 
     final updated = baseOrder.copyWith(
-      output: _shiftLogs.isEmpty ? output : _buildOutput().copyWith(
-        wasteDisposition: _wasteDisposition,
-        slurryDust: _slurryController.text.trim().isEmpty
-            ? null
-            : _slurryController.text.trim(),
-      ),
+      output: output,
       shiftLogs: _shiftLogs,
       execution: _buildExecution(),
+      finalCuttingCharges: charges,
+      balanceDue: charges - baseOrder.advanceReceived,
     );
 
     context.read<JobWorkOutputBloc>().add(JobWorkOutputSubmitted(updated));
@@ -243,13 +312,21 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
         }
 
         _populate(order);
+        _ensureStockController(order);
 
         final previewOutput = _effectiveOutput();
+        _syncCalculatedCharges(order, previewOutput);
+        final chargeLines = JobWorkChargesCalculator.breakdown(
+          order: order,
+          output: previewOutput,
+        );
+        final balanceDue =
+            _parse(_finalChargesController.text) - order.advanceReceived;
         final wastePct = previewOutput.wastePercent(order.totalTons);
-        final yieldPct = previewOutput.yieldPercent(order.expectedOutputSqFt);
         final isSaving = state.status == JobWorkOutputStatus.saving;
         final isEditing = order.output?.isRecorded == true;
         final usesShiftLogs = _shiftLogs.isNotEmpty;
+        final hasSizes = order.hasAnySize;
 
         final subtitleParts = <String>[
           order.jobWorkNumber,
@@ -298,12 +375,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                                   if (shift.shiftName != null) shift.shiftName,
                                 ].join(' · '),
                               ),
-                              subtitle: Text(
-                                'A ${shift.gradeASqFt.toStringAsFixed(0)} · '
-                                'B ${shift.gradeBSqFt.toStringAsFixed(0)} · '
-                                'C ${shift.gradeCSqFt.toStringAsFixed(0)} · '
-                                'Reject ${shift.rejectSqFt.toStringAsFixed(0)} sq. ft',
-                              ),
+                              subtitle: Text(_shiftSubtitle(shift)),
                               trailing: IconButton(
                                 icon: const Icon(Icons.delete_outline),
                                 onPressed: isSaving
@@ -315,7 +387,9 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                         ),
                       AppFormFields.gap,
                       OutlinedButton.icon(
-                        onPressed: isSaving ? null : _addShiftLog,
+                        onPressed: isSaving || !hasSizes
+                            ? null
+                            : () => _addShiftLog(order),
                         icon: const Icon(Icons.add),
                         label: const Text(AppStrings.addShiftLog),
                       ),
@@ -323,42 +397,34 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                   ),
                 ),
                 JobWorkDetailSection(
-                  title: AppStrings.manualTotals,
-                  icon: Icons.calculate_outlined,
+                  title: AppStrings.stockProduction,
+                  icon: Icons.grid_on_outlined,
                   child: AppFormSectionBody(
                     children: [
-                      if (usesShiftLogs)
+                      if (!hasSizes)
                         Text(
-                          AppStrings.manualTotalsLocked,
+                          AppStrings.noStockProductionYet,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        )
+                      else if (usesShiftLogs) ...[
+                        Text(
+                          AppStrings.productionLockedFromShifts,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 fontSize: 11,
                                 color: Theme.of(context).colorScheme.primary,
                               ),
                         ),
-                      if (usesShiftLogs) AppFormFields.gap,
-                      _numberField(
-                        _gradeAController,
-                        AppStrings.gradeA,
-                        enabled: !isSaving && !usesShiftLogs,
-                      ),
-                      AppFormFields.gap,
-                      _numberField(
-                        _gradeBController,
-                        AppStrings.gradeB,
-                        enabled: !isSaving && !usesShiftLogs,
-                      ),
-                      AppFormFields.gap,
-                      _numberField(
-                        _gradeCController,
-                        AppStrings.gradeC,
-                        enabled: !isSaving && !usesShiftLogs,
-                      ),
-                      AppFormFields.gap,
-                      _numberField(
-                        _rejectController,
-                        AppStrings.reject,
-                        enabled: !isSaving && !usesShiftLogs,
-                      ),
+                        AppFormFields.gap,
+                        StockOutputReadOnlyPanel(
+                          smallOutputs: previewOutput.smallStockOutputs,
+                          largeOutputs: previewOutput.largeStockOutputs,
+                        ),
+                      ] else
+                        StockOutputRecordingPanel(
+                          controller: _stockController!,
+                          enabled: !isSaving,
+                          onChanged: _onStockChanged,
+                        ),
                     ],
                   ),
                 ),
@@ -367,41 +433,39 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                   icon: Icons.recycling_outlined,
                   child: AppFormSectionBody(
                     children: [
-                      if (!usesShiftLogs) ...[
-                        _numberField(
-                          _wasteController,
-                          AppStrings.wasteGenerated,
-                          enabled: !isSaving,
+                      _numberField(
+                        _wasteController,
+                        AppStrings.wasteGenerated,
+                        enabled: !isSaving,
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<WasteUnit>(
+                        key: ValueKey(_wasteUnit),
+                        initialValue: _wasteUnit,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.wasteUnit,
                         ),
-                        AppFormFields.gap,
-                        DropdownButtonFormField<WasteUnit>(
-                          key: ValueKey(_wasteUnit),
-                          initialValue: _wasteUnit,
-                          style: AppFormFields.valueStyle(context),
-                          decoration: AppFormFields.decoration(
-                            context,
-                            label: AppStrings.wasteUnit,
-                          ),
-                          items: WasteUnit.values
-                              .map(
-                                (unit) => DropdownMenuItem(
-                                  value: unit,
-                                  child: Text(
-                                    unit.label,
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
+                        items: WasteUnit.values
+                            .map(
+                              (unit) => DropdownMenuItem(
+                                value: unit,
+                                child: Text(
+                                  unit.label,
+                                  style: const TextStyle(fontSize: 13),
                                 ),
-                              )
-                              .toList(),
-                          onChanged: isSaving
-                              ? null
-                              : (value) {
-                                  if (value == null) return;
-                                  setState(() => _wasteUnit = value);
-                                },
-                        ),
-                        AppFormFields.gap,
-                      ],
+                              ),
+                            )
+                            .toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (value) {
+                                if (value == null) return;
+                                setState(() => _wasteUnit = value);
+                              },
+                      ),
+                      AppFormFields.gap,
                       DropdownButtonFormField<WasteDisposition>(
                         key: ValueKey(_wasteDisposition),
                         initialValue: _wasteDisposition,
@@ -498,14 +562,86 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                   ),
                 ),
                 JobWorkDetailSection(
+                  title: AppStrings.pricingAgreement,
+                  icon: Icons.payments_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      if (chargeLines.isNotEmpty) ...[
+                        Text(
+                          AppStrings.cuttingChargesBreakdown,
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...chargeLines.map(
+                          (line) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: AppFormSummaryRow(
+                              label: '${line.label} (${line.detail})',
+                              value: Formatters.currencyPkr(line.amount),
+                            ),
+                          ),
+                        ),
+                        AppFormFields.gap,
+                      ],
+                      TextFormField(
+                        controller: _finalChargesController,
+                        keyboardType: TextInputType.number,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.finalCuttingCharges,
+                        ),
+                        validator: (v) {
+                          if (_parse(v ?? '') <= 0) {
+                            return AppStrings.finalCuttingChargesRequired;
+                          }
+                          return null;
+                        },
+                        enabled: !isSaving,
+                        onChanged: (_) {
+                          setState(() => _chargesManuallyEdited = true);
+                        },
+                      ),
+                      if (order.advanceReceived > 0) ...[
+                        AppFormFields.gap,
+                        AppFormSummaryRow(
+                          label: AppStrings.advanceReceived,
+                          value: Formatters.currencyPkr(order.advanceReceived),
+                        ),
+                      ],
+                      AppFormFields.gap,
+                      AppFormSummaryRow(
+                        label: AppStrings.balanceDue,
+                        value: Formatters.currencyPkr(balanceDue),
+                        highlight: true,
+                      ),
+                    ],
+                  ),
+                ),
+                JobWorkDetailSection(
                   title: AppStrings.outputRecording,
                   icon: Icons.analytics_outlined,
                   child: AppFormSectionBody(
                     children: [
                       AppFormSummaryRow(
+                        label: AppStrings.totalPieces,
+                        value: previewOutput.totalPieces.toString(),
+                      ),
+                      AppFormFields.gap,
+                      AppFormSummaryRow(
                         label: AppStrings.totalUsableOutput,
                         value:
-                            '${previewOutput.totalUsableSqFt.toStringAsFixed(0)} sq. ft',
+                            '${previewOutput.totalUsableSqFt.toStringAsFixed(2)} sq. ft',
+                        highlight: true,
+                      ),
+                      AppFormFields.gap,
+                      AppFormSummaryRow(
+                        label: AppStrings.grandCuttingTotal,
+                        value: Formatters.currencyPkr(previewOutput.grandCuttingTotal),
                         highlight: true,
                       ),
                       if (wastePct > 0) ...[
@@ -513,13 +649,6 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                         AppFormSummaryRow(
                           label: AppStrings.wastePercent,
                           value: '${wastePct.toStringAsFixed(1)}%',
-                        ),
-                      ],
-                      if (yieldPct > 0) ...[
-                        AppFormFields.gap,
-                        AppFormSummaryRow(
-                          label: AppStrings.yieldPercent,
-                          value: '${yieldPct.toStringAsFixed(1)}%',
                         ),
                       ],
                     ],
@@ -549,7 +678,9 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       style: AppFormFields.valueStyle(context),
       decoration: AppFormFields.decoration(context, label: label),
-      onChanged: (_) => setState(() {}),
+      onChanged: (_) => setState(() {
+        _chargesManuallyEdited = false;
+      }),
     );
   }
 }
