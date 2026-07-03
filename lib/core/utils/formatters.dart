@@ -18,6 +18,12 @@ abstract final class Formatters {
     return '$prefix₨ $formatted';
   }
 
+  static String currencyPkrWhole(double amount) {
+    final value = amount.round();
+    final prefix = value < 0 ? '- ' : '';
+    return '$prefix₨ ${value.abs()}';
+  }
+
   /// ASCII-safe currency for PDF/Excel exports (Helvetica fallback friendly).
   static String currencyForExport(double amount) {
     final formatted =

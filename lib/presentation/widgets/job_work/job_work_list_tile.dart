@@ -37,6 +37,9 @@ class JobWorkListTile extends StatelessWidget {
       topRight: cardRadius,
       bottomRight: cardRadius,
     );
+    final hasBlocksStrip =
+        order.shiftLogs.isNotEmpty && order.blockCount > 0;
+    final hasOutputStrip = order.output?.isRecorded == true;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -159,70 +162,50 @@ class JobWorkListTile extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  order.hasFinalCuttingCharges
-                                      ? Formatters.currencyPkr(
-                                          order.finalCuttingCharges,
-                                        )
-                                      : AppStrings.chargesPending,
-                                  style: theme.textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 12,
-                                    color: order.hasFinalCuttingCharges
-                                        ? accent
-                                        : muted,
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Text(
+                                    order.hasFinalCuttingCharges
+                                        ? Formatters.currencyPkrWhole(
+                                            order.finalCuttingCharges,
+                                          )
+                                        : AppStrings.chargesPending,
+                                    style: theme.textTheme.labelLarge?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                      color: order.hasFinalCuttingCharges
+                                          ? accent
+                                          : muted,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                            if (order.shiftLogs.isNotEmpty &&
-                                order.blockCount > 0) ...[
+                            if (hasBlocksStrip || hasOutputStrip) ...[
                               const SizedBox(height: 8),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.secondary
-                                      .withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${order.totalBlocksCut} / ${order.blockCount} '
-                                  '${AppStrings.blocksCutLabel} · '
-                                  '${order.blockCompletionPercent.toStringAsFixed(0)}% '
-                                  '${AppStrings.completed.toLowerCase()}',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.secondary,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (order.output?.isRecorded == true) ...[
-                              const SizedBox(height: 8),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary
-                                      .withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${order.output!.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.primary,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 10,
-                                  ),
-                                ),
+                              Row(
+                                children: [
+                                  if (hasBlocksStrip)
+                                    Expanded(
+                                      child: _SummaryStrip(
+                                        label:
+                                            '${order.totalBlocksCut}/${order.blockCount} '
+                                            '${AppStrings.blocksCutLabel} · '
+                                            '${order.blockCompletionPercent.toStringAsFixed(0)}%',
+                                        color: theme.colorScheme.secondary,
+                                      ),
+                                    ),
+                                  if (hasBlocksStrip && hasOutputStrip)
+                                    const SizedBox(width: 6),
+                                  if (hasOutputStrip)
+                                    Expanded(
+                                      child: _SummaryStrip(
+                                        label:
+                                            '${order.output!.totalUsableSqFt.toStringAsFixed(0)} sq. ft',
+                                        color: theme.colorScheme.primary,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                             if (awaitingQcInspection) ...[
@@ -274,6 +257,37 @@ class JobWorkListTile extends StatelessWidget {
       JobWorkStatus.collected || JobWorkStatus.closed => const Color(0xFF455A64),
       JobWorkStatus.cancelled => AppColors.error,
     };
+  }
+}
+
+class _SummaryStrip extends StatelessWidget {
+  const _SummaryStrip({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+            ),
+      ),
+    );
   }
 }
 
