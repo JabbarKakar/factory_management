@@ -178,7 +178,9 @@ void setupDependencies() {
       paymentRepository: getIt<PaymentRepository>(),
     ),
   );
-  getIt.registerLazySingleton<InvoicePdfExporter>(InvoicePdfExporter.new);
+  getIt.registerLazySingleton<InvoicePdfExporter>(
+    () => InvoicePdfExporter(factoryRepository: getIt<FactoryRepository>()),
+  );
   getIt.registerLazySingleton<InvoiceExcelExporter>(InvoiceExcelExporter.new);
   getIt.registerLazySingleton<PlReportPdfExporter>(PlReportPdfExporter.new);
   getIt.registerLazySingleton<PlReportExcelExporter>(PlReportExcelExporter.new);
