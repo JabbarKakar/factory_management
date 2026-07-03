@@ -59,6 +59,8 @@ abstract final class AppStrings {
   static const String customerDeleted = 'Customer deleted';
   static const String customerDeleteError =
       'Could not delete customer. Please try again.';
+  static const String copyPhoneNumber = 'Copy Phone Number';
+  static const String phoneNumberCopied = 'Phone number copied';
   static const String deleteCustomerTitle = 'Delete customer?';
   static const String deleteCustomerMessage =
       'This will permanently remove the customer and all linked job work and sales orders.';

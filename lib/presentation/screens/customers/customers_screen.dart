@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -89,6 +90,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
     }
   }
 
+  Future<void> _copyPhoneNumber(Customer customer) async {
+    await Clipboard.setData(ClipboardData(text: customer.phone.trim()));
+    if (!mounted) return;
+    _showSnack(AppStrings.phoneNumberCopied);
+  }
+
   List<TileMenuAction> _menuActionsFor(
     Customer customer, {
     required bool canEdit,
@@ -115,6 +122,16 @@ class _CustomersScreenState extends State<CustomersScreen> {
             context.push(RoutePaths.customerStatement(customer.id)),
       ),
     );
+
+    if (customer.phone.trim().isNotEmpty) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.copyPhoneNumber,
+          icon: Icons.copy_rounded,
+          onSelected: () => _copyPhoneNumber(customer),
+        ),
+      );
+    }
 
     if (canDelete) {
       actions.add(

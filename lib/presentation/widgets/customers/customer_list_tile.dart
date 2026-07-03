@@ -128,12 +128,15 @@ class CustomerListTile extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              Text(
-                                Formatters.currencyPkr(customer.balance),
-                                style: theme.textTheme.labelLarge?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                  color: accent,
+                              Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Text(
+                                  Formatters.currencyPkr(customer.balance),
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: accent,
+                                  ),
                                 ),
                               ),
                             ],
