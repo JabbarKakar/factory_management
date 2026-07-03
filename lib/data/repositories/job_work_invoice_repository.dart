@@ -38,6 +38,25 @@ class JobWorkInvoiceRepository {
     return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
   }
 
+  Stream<JobWorkInvoice?> watchInvoice(String id) {
+    return _collection.doc(id).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    });
+  }
+
+  Stream<JobWorkInvoice?> watchInvoiceByJobWorkId(String jobWorkId) {
+    return _collection
+        .where('jobWorkId', isEqualTo: jobWorkId)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) {
+          if (snapshot.docs.isEmpty) return null;
+          final doc = snapshot.docs.first;
+          return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
+        });
+  }
+
   Future<List<JobWorkInvoice>> getInvoicesForCustomer(String customerId) async {
     final snapshot =
         await _collection.where('customerId', isEqualTo: customerId).get();
@@ -73,6 +92,21 @@ class JobWorkInvoiceRepository {
         .where((invoice) => invoice.dueAmount > 0)
         .toList();
     return invoices;
+  }
+
+  Stream<List<JobWorkInvoice>> watchInvoicesForFactory(String factoryId) {
+    return _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .snapshots()
+        .map((snapshot) {
+          final invoices = snapshot.docs
+              .map((doc) =>
+                  JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()))
+              .map((model) => model.toEntity())
+              .toList();
+          invoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return invoices;
+        });
   }
 
   Stream<List<JobWorkInvoice>> watchOpenInvoicesForFactory(String factoryId) {

@@ -14,6 +14,8 @@ class JobWorkFormState extends Equatable {
   const JobWorkFormState({
     this.status = JobWorkFormStatus.initial,
     this.order,
+    this.invoice,
+    this.payments = const [],
     this.eligibleCustomers = const [],
     this.qualityChecks = const [],
     this.errorMessage,
@@ -23,6 +25,8 @@ class JobWorkFormState extends Equatable {
 
   final JobWorkFormStatus status;
   final JobWorkOrder? order;
+  final JobWorkInvoice? invoice;
+  final List<Payment> payments;
   final List<Customer> eligibleCustomers;
   final List<QualityCheck> qualityChecks;
   final String? errorMessage;
@@ -32,6 +36,9 @@ class JobWorkFormState extends Equatable {
   JobWorkFormState copyWith({
     JobWorkFormStatus? status,
     JobWorkOrder? order,
+    JobWorkInvoice? invoice,
+    bool clearInvoice = false,
+    List<Payment>? payments,
     List<Customer>? eligibleCustomers,
     List<QualityCheck>? qualityChecks,
     String? errorMessage,
@@ -42,6 +49,8 @@ class JobWorkFormState extends Equatable {
     return JobWorkFormState(
       status: status ?? this.status,
       order: order ?? this.order,
+      invoice: clearInvoice ? null : (invoice ?? this.invoice),
+      payments: payments ?? this.payments,
       eligibleCustomers: eligibleCustomers ?? this.eligibleCustomers,
       qualityChecks: qualityChecks ?? this.qualityChecks,
       errorMessage: clearMessages ? null : errorMessage,
@@ -54,6 +63,8 @@ class JobWorkFormState extends Equatable {
   List<Object?> get props => [
         status,
         order,
+        invoice,
+        payments,
         eligibleCustomers,
         qualityChecks,
         errorMessage,

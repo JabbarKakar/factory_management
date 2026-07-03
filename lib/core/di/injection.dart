@@ -297,12 +297,15 @@ void setupDependencies() {
   getIt.registerFactory<JobWorkListBloc>(
     () => JobWorkListBloc(
       repository: getIt<JobWorkRepository>(),
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
     ),
   );
   getIt.registerFactory<JobWorkFormBloc>(
     () => JobWorkFormBloc(
       repository: getIt<JobWorkRepository>(),
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      paymentRepository: getIt<PaymentRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
       operationalAlertScannerService: getIt<OperationalAlertScannerService>(),
     ),

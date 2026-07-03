@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -28,17 +30,23 @@ class JobWorkInvoiceBloc
     on<JobWorkInvoiceLoadById>(_onLoadById);
     on<JobWorkInvoiceGenerateRequested>(_onGenerate);
     on<JobWorkInvoicePaymentSubmitted>(_onPaymentSubmitted);
+    on<_JobWorkInvoiceStreamUpdated>(_onInvoiceStreamUpdated);
+    on<_JobWorkInvoicePaymentsUpdated>(_onPaymentsStreamUpdated);
   }
 
   final JobWorkInvoiceRepository _invoiceRepository;
   final PaymentRepository _paymentRepository;
   final CustomerLedgerService _ledgerService;
   final PaymentDueScannerService _scannerService;
+  StreamSubscription<JobWorkInvoice?>? _invoiceSubscription;
+  StreamSubscription<List<Payment>>? _paymentsSubscription;
+  String? _watchedInvoiceId;
 
   Future<void> _onLoadByJobWork(
     JobWorkInvoiceLoadByJobWork event,
     Emitter<JobWorkInvoiceState> emit,
   ) async {
+    await _cancelSubscriptions();
     emit(state.copyWith(status: JobWorkInvoiceStatus.loading));
     try {
       final invoice =
@@ -50,9 +58,15 @@ class JobWorkInvoiceBloc
             jobWorkId: event.jobWorkId,
           ),
         );
+        _invoiceSubscription = _invoiceRepository
+            .watchInvoiceByJobWorkId(event.jobWorkId)
+            .listen(
+              (updated) => add(_JobWorkInvoiceStreamUpdated(updated)),
+              onError: (_) {},
+            );
         return;
       }
-      await _emitWithPayments(invoice, emit);
+      await _startWatching(invoice, emit);
     } catch (_) {
       emit(
         state.copyWith(
@@ -67,6 +81,7 @@ class JobWorkInvoiceBloc
     JobWorkInvoiceLoadById event,
     Emitter<JobWorkInvoiceState> emit,
   ) async {
+    await _cancelSubscriptions();
     emit(state.copyWith(status: JobWorkInvoiceStatus.loading));
     try {
       final invoice = await _invoiceRepository.getInvoice(event.invoiceId);
@@ -79,7 +94,7 @@ class JobWorkInvoiceBloc
         );
         return;
       }
-      await _emitWithPayments(invoice, emit);
+      await _startWatching(invoice, emit);
     } catch (_) {
       emit(
         state.copyWith(
@@ -104,7 +119,7 @@ class JobWorkInvoiceBloc
       );
       await _ledgerService.syncCustomerBalance(invoice.customerId);
       await _scannerService.scan(invoice.factoryId);
-      await _emitWithPayments(invoice, emit, saved: true);
+      await _startWatching(invoice, emit, saved: true);
     } catch (e) {
       emit(
         state.copyWith(
@@ -141,7 +156,7 @@ class JobWorkInvoiceBloc
         );
         return;
       }
-      await _emitWithPayments(invoice, emit, paymentRecorded: true);
+      await _startWatching(invoice, emit, paymentRecorded: true);
     } catch (e) {
       emit(
         state.copyWith(
@@ -151,6 +166,77 @@ class JobWorkInvoiceBloc
         ),
       );
     }
+  }
+
+  Future<void> _onInvoiceStreamUpdated(
+    _JobWorkInvoiceStreamUpdated event,
+    Emitter<JobWorkInvoiceState> emit,
+  ) async {
+    final invoice = event.invoice;
+    if (invoice == null) return;
+
+    await _paymentRepository.ensureInvoicePaidAmountRecorded(
+      invoiceId: invoice.id,
+      invoiceType: InvoiceType.jobWork,
+    );
+    _ensurePaymentsWatch(invoice.id);
+
+    emit(
+      state.copyWith(
+        status: JobWorkInvoiceStatus.loaded,
+        invoice: invoice,
+        jobWorkId: invoice.jobWorkId,
+        errorMessage: null,
+      ),
+    );
+  }
+
+  void _onPaymentsStreamUpdated(
+    _JobWorkInvoicePaymentsUpdated event,
+    Emitter<JobWorkInvoiceState> emit,
+  ) {
+    emit(state.copyWith(payments: event.payments));
+  }
+
+  Future<void> _startWatching(
+    JobWorkInvoice invoice,
+    Emitter<JobWorkInvoiceState> emit, {
+    bool saved = false,
+    bool paymentRecorded = false,
+  }) async {
+    await _emitWithPayments(
+      invoice,
+      emit,
+      saved: saved,
+      paymentRecorded: paymentRecorded,
+    );
+
+    _invoiceSubscription?.cancel();
+    _invoiceSubscription = _invoiceRepository.watchInvoice(invoice.id).listen(
+          (updated) => add(_JobWorkInvoiceStreamUpdated(updated)),
+          onError: (_) {},
+        );
+    _ensurePaymentsWatch(invoice.id);
+  }
+
+  void _ensurePaymentsWatch(String invoiceId) {
+    if (_watchedInvoiceId == invoiceId) return;
+    _paymentsSubscription?.cancel();
+    _watchedInvoiceId = invoiceId;
+    _paymentsSubscription = _paymentRepository
+        .watchPaymentsForInvoice(invoiceId)
+        .listen(
+          (payments) => add(_JobWorkInvoicePaymentsUpdated(payments)),
+          onError: (_) {},
+        );
+  }
+
+  Future<void> _cancelSubscriptions() async {
+    await _invoiceSubscription?.cancel();
+    await _paymentsSubscription?.cancel();
+    _invoiceSubscription = null;
+    _paymentsSubscription = null;
+    _watchedInvoiceId = null;
   }
 
   Future<void> _emitWithPayments(
@@ -179,5 +265,11 @@ class JobWorkInvoiceBloc
         errorMessage: null,
       ),
     );
+  }
+
+  @override
+  Future<void> close() {
+    _cancelSubscriptions();
+    return super.close();
   }
 }

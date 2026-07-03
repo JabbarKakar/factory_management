@@ -46,6 +46,13 @@ class JobWorkRepository {
     return JobWorkOrderModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
+  Stream<JobWorkOrder?> watchJobWorkOrder(String id) {
+    return _jobWorkCollection.doc(id).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return JobWorkOrderModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    });
+  }
+
   Future<List<Customer>> fetchJobWorkEligibleCustomers(String factoryId) async {
     final snapshot =
         await _customerCollection.where('factoryId', isEqualTo: factoryId).get();

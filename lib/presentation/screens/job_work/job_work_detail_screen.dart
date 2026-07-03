@@ -17,6 +17,7 @@ import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/job_work/job_work_detail_hero.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/job_work/job_work_invoice_payment_history_section.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
 import '../../widgets/job_work/job_work_size_detail_rows.dart';
 import '../../widgets/quality/qc_reference_section.dart';
@@ -131,6 +132,8 @@ class JobWorkDetailScreen extends StatelessWidget {
           );
         }
 
+        final invoice = state.invoice;
+        final hasInvoice = invoice != null;
         final canEditIntake = (order.status == JobWorkStatus.agreed ||
                 order.status == JobWorkStatus.received) &&
             context.userCanEdit(AppModule.jobWork);
@@ -140,8 +143,12 @@ class JobWorkDetailScreen extends StatelessWidget {
         final hasOutput = order.output?.isRecorded == true;
         final finalCharges =
             JobWorkChargesCalculator.effectiveFinalCuttingCharges(order);
-        final balanceDue =
-            JobWorkChargesCalculator.effectiveBalanceDue(order);
+        final balanceDue = hasInvoice
+            ? invoice.dueAmount
+            : JobWorkChargesCalculator.effectiveBalanceDue(order);
+        final amountPaid = hasInvoice
+            ? invoice.paidAmount
+            : order.advanceReceived;
 
         return Scaffold(
           appBar: AppBar(
@@ -235,7 +242,24 @@ class JobWorkDetailScreen extends StatelessWidget {
                         label: AppStrings.agreedRate,
                         value: Formatters.currencyPkr(order.agreedRate),
                       ),
-                    if (finalCharges > 0) ...[
+                    if (hasInvoice) ...[
+                      JobWorkDetailRow(
+                        label: AppStrings.invoiceTotal,
+                        value: Formatters.currencyPkr(invoice.totalAmount),
+                        bold: true,
+                        highlight: true,
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.amountPaid,
+                        value: Formatters.currencyPkr(amountPaid),
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.balanceDue,
+                        value: Formatters.currencyPkr(balanceDue),
+                        bold: true,
+                        highlight: balanceDue > 0,
+                      ),
+                    ] else if (finalCharges > 0) ...[
                       JobWorkDetailRow(
                         label: AppStrings.finalCuttingCharges,
                         value: Formatters.currencyPkr(finalCharges),
@@ -275,6 +299,10 @@ class JobWorkDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              if (hasInvoice || order.invoiceId != null)
+                JobWorkInvoicePaymentHistorySection(
+                  payments: state.payments,
+                ),
               JobWorkDetailSection(
                 title: AppStrings.inputMaterial,
                 icon: Icons.inventory_2_outlined,
@@ -398,7 +426,8 @@ class JobWorkDetailScreen extends StatelessWidget {
               if (order.invoiceId != null && order.invoiceId!.isNotEmpty)
                 _InvoicePromptCard(
                   showViewInvoice: true,
-                  showRecordPayment: order.status != JobWorkStatus.paid &&
+                  showRecordPayment: (hasInvoice ? invoice.dueAmount > 0 : true) &&
+                      order.status != JobWorkStatus.paid &&
                       order.status != JobWorkStatus.collected &&
                       order.status != JobWorkStatus.closed,
                   onViewInvoice: () => _openInvoice(context),

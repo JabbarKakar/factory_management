@@ -94,6 +94,20 @@ class PaymentRepository {
     return payments;
   }
 
+  Stream<List<Payment>> watchPaymentsForInvoice(String invoiceId) {
+    return _collection
+        .where('invoiceId', isEqualTo: invoiceId)
+        .snapshots()
+        .map((snapshot) {
+          final payments = snapshot.docs
+              .map((doc) =>
+                  PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
+              .toList();
+          payments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+          return payments;
+        });
+  }
+
   /// Records invoice paid amount in the payments ledger when advance was taken
   /// at booking and no payment row exists yet (feeds dashboard revenue + ledger).
   Future<void> ensureInvoicePaidAmountRecorded({

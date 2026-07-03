@@ -6,6 +6,7 @@ import '../../../blocs/job_work/job_work_list_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../data/repositories/job_work_repository.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
@@ -197,6 +198,23 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     }
 
     return actions;
+  }
+
+  ({double paid, double remaining})? _paymentSummaryFor(
+    JobWorkOrder order,
+    JobWorkListState state,
+  ) {
+    final invoice = state.invoicesByJobWorkId[order.id];
+    final showPayment = invoice != null ||
+        order.hasFinalCuttingCharges ||
+        order.advanceReceived > 0;
+    if (!showPayment) return null;
+
+    return (
+      paid: invoice?.paidAmount ?? order.advanceReceived,
+      remaining: invoice?.dueAmount ??
+          JobWorkChargesCalculator.effectiveBalanceDue(order),
+    );
   }
 
   @override
@@ -404,11 +422,14 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                     itemCount: state.visibleOrders.length,
                     itemBuilder: (context, index) {
                       final order = state.visibleOrders[index];
+                      final paymentSummary = _paymentSummaryFor(order, state);
                       return JobWorkListTile(
                         order: order,
                         awaitingQcInspection:
                             state.isAwaitingQcInspection(order),
                         isBusy: _busyJobWorkId == order.id,
+                        paidAmount: paymentSummary?.paid,
+                        remainingAmount: paymentSummary?.remaining,
                         menuActions: _menuActionsFor(
                           order,
                           canEdit: canEdit,

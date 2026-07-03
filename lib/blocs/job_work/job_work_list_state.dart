@@ -13,6 +13,7 @@ class JobWorkListState extends Equatable {
     this.searchQuery = '',
     this.stageFilter = JobWorkListStageFilter.all,
     this.errorMessage,
+    this.invoicesByJobWorkId = const {},
   });
 
   final JobWorkListStatus status;
@@ -24,6 +25,7 @@ class JobWorkListState extends Equatable {
   final String searchQuery;
   final JobWorkListStageFilter stageFilter;
   final String? errorMessage;
+  final Map<String, JobWorkInvoice> invoicesByJobWorkId;
 
   bool isAwaitingQcInspection(JobWorkOrder order) {
     return order.status == JobWorkStatus.qc &&
@@ -40,6 +42,7 @@ class JobWorkListState extends Equatable {
     String? searchQuery,
     JobWorkListStageFilter? stageFilter,
     String? errorMessage,
+    Map<String, JobWorkInvoice>? invoicesByJobWorkId,
   }) {
     return JobWorkListState(
       status: status ?? this.status,
@@ -51,6 +54,7 @@ class JobWorkListState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       stageFilter: stageFilter ?? this.stageFilter,
       errorMessage: errorMessage,
+      invoicesByJobWorkId: invoicesByJobWorkId ?? this.invoicesByJobWorkId,
     );
   }
 
@@ -65,5 +69,6 @@ class JobWorkListState extends Equatable {
         searchQuery,
         stageFilter,
         errorMessage,
+        invoicesByJobWorkId,
       ];
 }

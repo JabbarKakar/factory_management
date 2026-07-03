@@ -15,6 +15,8 @@ class JobWorkListTile extends StatelessWidget {
     this.menuActions = const [],
     this.isBusy = false,
     this.awaitingQcInspection = false,
+    this.paidAmount,
+    this.remainingAmount,
     super.key,
   });
 
@@ -23,6 +25,11 @@ class JobWorkListTile extends StatelessWidget {
   final List<TileMenuAction> menuActions;
   final bool isBusy;
   final bool awaitingQcInspection;
+  final double? paidAmount;
+  final double? remainingAmount;
+
+  bool get _showPaymentStrip =>
+      paidAmount != null && remainingAmount != null;
 
   @override
   Widget build(BuildContext context) {
@@ -206,6 +213,30 @@ class JobWorkListTile extends StatelessWidget {
                                         color: theme.colorScheme.primary,
                                       ),
                                     ),
+                                ],
+                              ),
+                            ],
+                            if (_showPaymentStrip) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _SummaryStrip(
+                                      label:
+                                          '${AppStrings.amountPaid}: ${Formatters.currencyPkrWhole(paidAmount!)}',
+                                      color: AppColors.success,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: _SummaryStrip(
+                                      label:
+                                          '${AppStrings.balanceDue}: ${Formatters.currencyPkrWhole(remainingAmount!)}',
+                                      color: remainingAmount! > 0
+                                          ? AppColors.warning
+                                          : AppColors.success,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],

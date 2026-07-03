@@ -61,3 +61,21 @@ final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
         notes,
       ];
 }
+
+final class _JobWorkInvoiceStreamUpdated extends JobWorkInvoiceEvent {
+  const _JobWorkInvoiceStreamUpdated(this.invoice);
+
+  final JobWorkInvoice? invoice;
+
+  @override
+  List<Object?> get props => [invoice];
+}
+
+final class _JobWorkInvoicePaymentsUpdated extends JobWorkInvoiceEvent {
+  const _JobWorkInvoicePaymentsUpdated(this.payments);
+
+  final List<Payment> payments;
+
+  @override
+  List<Object?> get props => [payments];
+}

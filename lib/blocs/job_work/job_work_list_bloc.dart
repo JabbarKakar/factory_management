@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
+import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/enums/job_work_enums.dart';
@@ -16,21 +18,26 @@ part 'job_work_list_state.dart';
 class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
   JobWorkListBloc({
     required JobWorkRepository repository,
+    required JobWorkInvoiceRepository invoiceRepository,
     required QualityCheckRepository qualityCheckRepository,
   })  : _repository = repository,
+        _invoiceRepository = invoiceRepository,
         _qualityCheckRepository = qualityCheckRepository,
         super(const JobWorkListState()) {
     on<JobWorkListWatchStarted>(_onWatchStarted);
     on<JobWorkListSearchChanged>(_onSearchChanged);
     on<JobWorkListStageFilterChanged>(_onStageFilterChanged);
     on<_JobWorkListUpdated>(_onListUpdated);
+    on<_JobWorkInvoicesUpdated>(_onInvoicesUpdated);
     on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
     on<_JobWorkListStreamFailed>(_onStreamFailed);
   }
 
   final JobWorkRepository _repository;
+  final JobWorkInvoiceRepository _invoiceRepository;
   final QualityCheckRepository _qualityCheckRepository;
   StreamSubscription<List<JobWorkOrder>>? _subscription;
+  StreamSubscription<List<JobWorkInvoice>>? _invoicesSubscription;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
 
   Future<void> _onWatchStarted(
@@ -44,6 +51,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
       ),
     );
     await _subscription?.cancel();
+    await _invoicesSubscription?.cancel();
     await _qualityChecksSubscription?.cancel();
 
     _subscription = _repository.watchJobWorkOrders(event.factoryId).listen(
@@ -54,6 +62,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
             ),
           ),
         );
+
+    _invoicesSubscription =
+        _invoiceRepository.watchInvoicesForFactory(event.factoryId).listen(
+      (invoices) => add(_JobWorkInvoicesUpdated(invoices)),
+      onError: (_) {},
+    );
 
     _qualityChecksSubscription = _qualityCheckRepository
         .watchQualityChecks(event.factoryId)
@@ -114,6 +128,16 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         errorMessage: null,
       ),
     );
+  }
+
+  void _onInvoicesUpdated(
+    _JobWorkInvoicesUpdated event,
+    Emitter<JobWorkListState> emit,
+  ) {
+    final invoicesByJobWorkId = {
+      for (final invoice in event.invoices) invoice.jobWorkId: invoice,
+    };
+    emit(state.copyWith(invoicesByJobWorkId: invoicesByJobWorkId));
   }
 
   void _onQualityChecksUpdated(
@@ -205,9 +229,19 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
   @override
   Future<void> close() {
     _subscription?.cancel();
+    _invoicesSubscription?.cancel();
     _qualityChecksSubscription?.cancel();
     return super.close();
   }
+}
+
+final class _JobWorkInvoicesUpdated extends JobWorkListEvent {
+  const _JobWorkInvoicesUpdated(this.invoices);
+
+  final List<JobWorkInvoice> invoices;
+
+  @override
+  List<Object?> get props => [invoices];
 }
 
 final class _JobWorkQualityChecksUpdated extends JobWorkListEvent {
