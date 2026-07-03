@@ -4,6 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/customer/customer_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
+import '../../../data/repositories/customer_repository.dart';
+import '../../../data/repositories/job_work_repository.dart';
+import '../../../data/repositories/sales_invoice_repository.dart';
+import '../../../data/repositories/sales_order_repository.dart';
+import '../../../domain/entities/customer.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
@@ -12,9 +18,11 @@ import '../../widgets/account_menu_button.dart';
 import '../../widgets/customers/customer_list_tile.dart';
 import '../../widgets/customers/customer_service_type_filter_bar.dart';
 import '../../widgets/app_extended_fab.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
+import '../../widgets/tile_options_menu.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -25,6 +33,7 @@ class CustomersScreen extends StatefulWidget {
 
 class _CustomersScreenState extends State<CustomersScreen> {
   final _searchController = TextEditingController();
+  String? _busyCustomerId;
 
   @override
   void dispose() {
@@ -37,8 +46,95 @@ class _CustomersScreenState extends State<CustomersScreen> {
     context.read<CustomerListBloc>().add(const CustomerListSearchChanged(''));
   }
 
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              isError ? Theme.of(context).colorScheme.error : null,
+        ),
+      );
+  }
+
+  Future<void> _confirmDelete(Customer customer) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deleteCustomerTitle,
+      message: AppStrings.deleteCustomerMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyCustomerId = customer.id);
+
+    try {
+      // Same cascade as CustomerFormBloc: remove dependent records first.
+      await getIt<SalesInvoiceRepository>()
+          .deleteInvoicesForCustomer(customer.id);
+      await getIt<SalesOrderRepository>().deleteOrdersForCustomer(customer.id);
+      await getIt<JobWorkRepository>().deleteOrdersForCustomer(customer.id);
+      await getIt<CustomerRepository>().deleteCustomer(customer.id);
+      if (!mounted) return;
+      _showSnack(AppStrings.customerDeleted);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(AppStrings.customerDeleteError, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _busyCustomerId = null);
+      }
+    }
+  }
+
+  List<TileMenuAction> _menuActionsFor(
+    Customer customer, {
+    required bool canEdit,
+    required bool canDelete,
+  }) {
+    final actions = <TileMenuAction>[];
+
+    if (canEdit) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.editCustomer,
+          icon: Icons.edit_outlined,
+          onSelected: () =>
+              context.push(RoutePaths.customerEdit(customer.id)),
+        ),
+      );
+    }
+
+    actions.add(
+      TileMenuAction(
+        label: AppStrings.customerStatement,
+        icon: Icons.receipt_long_outlined,
+        onSelected: () =>
+            context.push(RoutePaths.customerStatement(customer.id)),
+      ),
+    );
+
+    if (canDelete) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.delete,
+          icon: Icons.delete_outline_rounded,
+          destructive: true,
+          onSelected: () => _confirmDelete(customer),
+        ),
+      );
+    }
+
+    return actions;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canEdit = context.userCanEdit(AppModule.customers);
+    final canDelete = context.userCanDelete(AppModule.customers);
+
     return Scaffold(
       appBar: AppBar(
         title: BlocBuilder<CustomerListBloc, CustomerListState>(
@@ -176,6 +272,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       final customer = state.visibleCustomers[index];
                       return CustomerListTile(
                         customer: customer,
+                        isBusy: _busyCustomerId == customer.id,
+                        menuActions: _menuActionsFor(
+                          customer,
+                          canEdit: canEdit,
+                          canDelete: canDelete,
+                        ),
                         onTap: () => context.push(
                           RoutePaths.customerDetail(customer.id),
                         ),

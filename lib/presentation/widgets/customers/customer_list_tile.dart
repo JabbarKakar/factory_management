@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/customer.dart';
 import '../../../domain/enums/customer_enums.dart';
+import '../tile_options_menu.dart';
 import 'customer_balance_indicator.dart';
 import 'service_type_chip.dart';
 
@@ -11,11 +12,15 @@ class CustomerListTile extends StatelessWidget {
   const CustomerListTile({
     required this.customer,
     required this.onTap,
+    this.menuActions = const [],
+    this.isBusy = false,
     super.key,
   });
 
   final Customer customer;
   final VoidCallback onTap;
+  final List<TileMenuAction> menuActions;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +40,7 @@ class CustomerListTile extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: isBusy ? null : onTap,
           borderRadius: cardShape,
           child: Ink(
             decoration: BoxDecoration(
@@ -50,11 +55,17 @@ class CustomerListTile extends StatelessWidget {
                   Container(width: 3, color: accent),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+                      padding: EdgeInsets.fromLTRB(
+                        12,
+                        11,
+                        menuActions.isNotEmpty ? 2 : 10,
+                        11,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Expanded(
                                 child: Text(
@@ -72,6 +83,11 @@ class CustomerListTile extends StatelessWidget {
                                 status: customer.balanceStatus,
                                 compact: true,
                               ),
+                              if (menuActions.isNotEmpty)
+                                TileOptionsButton(
+                                  isBusy: isBusy,
+                                  actions: menuActions,
+                                ),
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -126,14 +142,15 @@ class CustomerListTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: muted.withValues(alpha: 0.7),
+                  if (menuActions.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: muted.withValues(alpha: 0.7),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

@@ -22,6 +22,7 @@ import '../../widgets/job_work/job_work_list_tile.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/job_work/job_work_stage_filter_bar.dart';
 import '../../widgets/notification_bell.dart';
+import '../../widgets/tile_options_menu.dart';
 
 class JobWorkListScreen extends StatefulWidget {
   const JobWorkListScreen({super.key});
@@ -109,19 +110,19 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     }
   }
 
-  List<JobWorkTileMenuAction> _menuActionsFor(
+  List<TileMenuAction> _menuActionsFor(
     JobWorkOrder order, {
     required bool canEdit,
     required bool canDelete,
   }) {
     final status = order.status;
     final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
-    final actions = <JobWorkTileMenuAction>[];
+    final actions = <TileMenuAction>[];
 
     if (canEdit &&
         (status == JobWorkStatus.received || status == JobWorkStatus.agreed)) {
       actions.add(
-        JobWorkTileMenuAction(
+        TileMenuAction(
           label: AppStrings.editJobWorkOrder,
           icon: Icons.edit_outlined,
           onSelected: () => context.push(RoutePaths.jobWorkEdit(order.id)),
@@ -131,7 +132,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
 
     if (canEdit && status.canRecordOutput) {
       actions.add(
-        JobWorkTileMenuAction(
+        TileMenuAction(
           label: order.output?.isRecorded == true
               ? AppStrings.editOutput
               : AppStrings.recordOutput,
@@ -144,7 +145,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
 
     if (status == JobWorkStatus.ready && !hasInvoice) {
       actions.add(
-        JobWorkTileMenuAction(
+        TileMenuAction(
           label: AppStrings.generateInvoice,
           icon: Icons.receipt_long_outlined,
           onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
@@ -154,7 +155,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
 
     if (hasInvoice) {
       actions.add(
-        JobWorkTileMenuAction(
+        TileMenuAction(
           label: AppStrings.viewInvoice,
           icon: Icons.receipt_long_outlined,
           onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
@@ -164,7 +165,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
           status != JobWorkStatus.collected &&
           status != JobWorkStatus.closed) {
         actions.add(
-          JobWorkTileMenuAction(
+          TileMenuAction(
             label: AppStrings.recordPayment,
             icon: Icons.payments_outlined,
             onSelected: () =>
@@ -176,7 +177,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
 
     if (canEdit && status.isInProduction) {
       actions.add(
-        JobWorkTileMenuAction(
+        TileMenuAction(
           label: AppStrings.cancelOrder,
           icon: Icons.cancel_outlined,
           onSelected: () => _confirmCancel(order),
@@ -186,7 +187,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
 
     if (canDelete) {
       actions.add(
-        JobWorkTileMenuAction(
+        TileMenuAction(
           label: AppStrings.delete,
           icon: Icons.delete_outline_rounded,
           destructive: true,
