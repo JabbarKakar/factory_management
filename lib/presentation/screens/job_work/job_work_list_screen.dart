@@ -32,7 +32,7 @@ class JobWorkListScreen extends StatefulWidget {
 
 class _JobWorkListScreenState extends State<JobWorkListScreen> {
   final _searchController = TextEditingController();
-  String? _deletingJobWorkId;
+  String? _busyJobWorkId;
 
   @override
   void dispose() {
@@ -45,6 +45,18 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     context.read<JobWorkListBloc>().add(const JobWorkListSearchChanged(''));
   }
 
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              isError ? Theme.of(context).colorScheme.error : null,
+        ),
+      );
+  }
+
   Future<void> _confirmDelete(JobWorkOrder order) async {
     final confirmed = await AppConfirmDialog.show(
       context,
@@ -55,35 +67,140 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     );
     if (!confirmed || !mounted) return;
 
-    setState(() => _deletingJobWorkId = order.id);
+    setState(() => _busyJobWorkId = order.id);
 
     try {
       await getIt<JobWorkRepository>().deleteJobWorkOrder(order.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text(AppStrings.jobWorkDeleted)),
-        );
+      _showSnack(AppStrings.jobWorkDeleted);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: const Text(AppStrings.jobWorkDeleteError),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+      _showSnack(AppStrings.jobWorkDeleteError, isError: true);
     } finally {
       if (mounted) {
-        setState(() => _deletingJobWorkId = null);
+        setState(() => _busyJobWorkId = null);
       }
     }
   }
 
+  Future<void> _confirmCancel(JobWorkOrder order) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.cancelJobWorkTitle,
+      message: AppStrings.cancelJobWorkMessage,
+      confirmLabel: AppStrings.cancelOrder,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyJobWorkId = order.id);
+
+    try {
+      await getIt<JobWorkRepository>().cancelJobWorkOrder(order.id);
+      if (!mounted) return;
+      _showSnack(AppStrings.jobWorkCancelled);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(AppStrings.jobWorkCancelError, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _busyJobWorkId = null);
+      }
+    }
+  }
+
+  List<JobWorkTileMenuAction> _menuActionsFor(
+    JobWorkOrder order, {
+    required bool canEdit,
+    required bool canDelete,
+  }) {
+    final status = order.status;
+    final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
+    final actions = <JobWorkTileMenuAction>[];
+
+    if (canEdit &&
+        (status == JobWorkStatus.received || status == JobWorkStatus.agreed)) {
+      actions.add(
+        JobWorkTileMenuAction(
+          label: AppStrings.editJobWorkOrder,
+          icon: Icons.edit_outlined,
+          onSelected: () => context.push(RoutePaths.jobWorkEdit(order.id)),
+        ),
+      );
+    }
+
+    if (canEdit && status.canRecordOutput) {
+      actions.add(
+        JobWorkTileMenuAction(
+          label: order.output?.isRecorded == true
+              ? AppStrings.editOutput
+              : AppStrings.recordOutput,
+          icon: Icons.analytics_outlined,
+          onSelected: () =>
+              context.push(RoutePaths.jobWorkRecordOutput(order.id)),
+        ),
+      );
+    }
+
+    if (status == JobWorkStatus.ready && !hasInvoice) {
+      actions.add(
+        JobWorkTileMenuAction(
+          label: AppStrings.generateInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
+        ),
+      );
+    }
+
+    if (hasInvoice) {
+      actions.add(
+        JobWorkTileMenuAction(
+          label: AppStrings.viewInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
+        ),
+      );
+      if (status != JobWorkStatus.paid &&
+          status != JobWorkStatus.collected &&
+          status != JobWorkStatus.closed) {
+        actions.add(
+          JobWorkTileMenuAction(
+            label: AppStrings.recordPayment,
+            icon: Icons.payments_outlined,
+            onSelected: () =>
+                context.push(RoutePaths.recordPayment(order.invoiceId!)),
+          ),
+        );
+      }
+    }
+
+    if (canEdit && status.isInProduction) {
+      actions.add(
+        JobWorkTileMenuAction(
+          label: AppStrings.cancelOrder,
+          icon: Icons.cancel_outlined,
+          onSelected: () => _confirmCancel(order),
+        ),
+      );
+    }
+
+    if (canDelete) {
+      actions.add(
+        JobWorkTileMenuAction(
+          label: AppStrings.delete,
+          icon: Icons.delete_outline_rounded,
+          destructive: true,
+          onSelected: () => _confirmDelete(order),
+        ),
+      );
+    }
+
+    return actions;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canEdit = context.userCanEdit(AppModule.jobWork);
     final canDelete = context.userCanDelete(AppModule.jobWork);
 
     return Scaffold(
@@ -290,10 +407,12 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                         order: order,
                         awaitingQcInspection:
                             state.isAwaitingQcInspection(order),
-                        isDeleting: _deletingJobWorkId == order.id,
-                        onDelete: canDelete
-                            ? () => _confirmDelete(order)
-                            : null,
+                        isBusy: _busyJobWorkId == order.id,
+                        menuActions: _menuActionsFor(
+                          order,
+                          canEdit: canEdit,
+                          canDelete: canDelete,
+                        ),
                         onTap: () => context.push(
                           RoutePaths.jobWorkDetail(order.id),
                         ),

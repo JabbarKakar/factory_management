@@ -111,6 +111,8 @@ abstract final class AppStrings {
   static const String jobWorkCreated = 'Job work order created';
   static const String jobWorkUpdated = 'Job work order updated';
   static const String jobWorkCancelled = 'Job work order cancelled';
+  static const String jobWorkCancelError =
+      'Could not cancel job work order. Please try again.';
   static const String jobWorkDeleted = 'Job work order deleted';
   static const String jobWorkDeleteError =
       'Could not delete job work order. Please try again.';

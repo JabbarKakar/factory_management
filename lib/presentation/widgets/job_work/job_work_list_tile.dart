@@ -7,20 +7,34 @@ import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import 'job_work_status_badge.dart';
 
+class JobWorkTileMenuAction {
+  const JobWorkTileMenuAction({
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    this.destructive = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onSelected;
+  final bool destructive;
+}
+
 class JobWorkListTile extends StatelessWidget {
   const JobWorkListTile({
     required this.order,
     required this.onTap,
-    this.onDelete,
-    this.isDeleting = false,
+    this.menuActions = const [],
+    this.isBusy = false,
     this.awaitingQcInspection = false,
     super.key,
   });
 
   final JobWorkOrder order;
   final VoidCallback onTap;
-  final VoidCallback? onDelete;
-  final bool isDeleting;
+  final List<JobWorkTileMenuAction> menuActions;
+  final bool isBusy;
   final bool awaitingQcInspection;
 
   @override
@@ -48,7 +62,7 @@ class JobWorkListTile extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: isDeleting ? null : onTap,
+            onTap: isBusy ? null : onTap,
             borderRadius: cardShape,
             child: Ink(
               decoration: BoxDecoration(
@@ -69,7 +83,7 @@ class JobWorkListTile extends StatelessWidget {
                         padding: EdgeInsets.fromLTRB(
                           12,
                           11,
-                          onDelete != null ? 2 : 6,
+                          menuActions.isNotEmpty ? 2 : 6,
                           11,
                         ),
                         child: Column(
@@ -95,10 +109,10 @@ class JobWorkListTile extends StatelessWidget {
                                   status: order.status,
                                   compact: true,
                                 ),
-                                if (onDelete != null)
+                                if (menuActions.isNotEmpty)
                                   _TileOptionsButton(
-                                    isDeleting: isDeleting,
-                                    onDelete: onDelete!,
+                                    isBusy: isBusy,
+                                    actions: menuActions,
                                   ),
                               ],
                             ),
@@ -293,12 +307,12 @@ class _SummaryStrip extends StatelessWidget {
 
 class _TileOptionsButton extends StatelessWidget {
   const _TileOptionsButton({
-    required this.isDeleting,
-    required this.onDelete,
+    required this.isBusy,
+    required this.actions,
   });
 
-  final bool isDeleting;
-  final VoidCallback onDelete;
+  final bool isBusy;
+  final List<JobWorkTileMenuAction> actions;
 
   Future<void> _openMenu(BuildContext context) async {
     final theme = Theme.of(context);
@@ -309,24 +323,73 @@ class _TileOptionsButton extends StatelessWidget {
     final size = box.size;
     final screenSize = MediaQuery.sizeOf(context);
 
-    final menuWidth = 92.0;
+    const menuWidth = 168.0;
     var left = offset.dx + size.width - menuWidth;
     final top = offset.dy + size.height + 1;
     left = left.clamp(8.0, screenSize.width - menuWidth - 8.0);
 
-    final confirmed = await showGeneralDialog<bool>(
+    final selected = await showGeneralDialog<JobWorkTileMenuAction>(
       context: context,
       barrierDismissible: true,
-      barrierLabel: AppStrings.delete,
+      barrierLabel: 'Actions',
       barrierColor: Colors.transparent,
       transitionDuration: Duration.zero,
       pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        final rows = <Widget>[];
+        for (final action in actions) {
+          if (action.destructive && rows.isNotEmpty) {
+            rows.add(
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: theme.colorScheme.outline.withValues(alpha: 0.18),
+              ),
+            );
+          }
+          final color = action.destructive
+              ? theme.colorScheme.error
+              : theme.colorScheme.onSurface;
+          rows.add(
+            InkWell(
+              onTap: () => Navigator.of(dialogContext).pop(action),
+              child: SizedBox(
+                width: menuWidth,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(action.icon, size: 16, color: color),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          action.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         return Stack(
           children: [
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: () => Navigator.of(dialogContext).pop(false),
+                onTap: () => Navigator.of(dialogContext).pop(),
               ),
             ),
             Positioned(
@@ -337,34 +400,9 @@ class _TileOptionsButton extends StatelessWidget {
                 color: theme.colorScheme.surface,
                 borderRadius: BorderRadius.circular(8),
                 clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () => Navigator.of(dialogContext).pop(true),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.delete_outline_rounded,
-                          size: 15,
-                          color: theme.colorScheme.error,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          AppStrings.delete,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.error,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                            height: 1.1,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: rows,
                 ),
               ),
             ),
@@ -373,16 +411,14 @@ class _TileOptionsButton extends StatelessWidget {
       },
     );
 
-    if (confirmed == true) {
-      onDelete();
-    }
+    selected?.onSelected();
   }
 
   @override
   Widget build(BuildContext context) {
     final iconColor = Theme.of(context).colorScheme.onSurfaceVariant;
 
-    if (isDeleting) {
+    if (isBusy) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: SizedBox(
