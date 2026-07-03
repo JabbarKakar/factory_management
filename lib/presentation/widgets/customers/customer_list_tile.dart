@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/customer.dart';
 import '../../../domain/enums/customer_enums.dart';
@@ -14,6 +15,8 @@ class CustomerListTile extends StatelessWidget {
     required this.onTap,
     this.menuActions = const [],
     this.isBusy = false,
+    this.jobWorkCount = 0,
+    this.salesCount = 0,
     super.key,
   });
 
@@ -21,6 +24,20 @@ class CustomerListTile extends StatelessWidget {
   final VoidCallback onTap;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
+  final int jobWorkCount;
+  final int salesCount;
+
+  bool get _showJobWorkCount => switch (customer.serviceType) {
+        CustomerServiceType.jobWork || CustomerServiceType.both => true,
+        CustomerServiceType.other => jobWorkCount > 0,
+        CustomerServiceType.buyer => false,
+      };
+
+  bool get _showSalesCount => switch (customer.serviceType) {
+        CustomerServiceType.buyer || CustomerServiceType.both => true,
+        CustomerServiceType.other => salesCount > 0,
+        CustomerServiceType.jobWork => false,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -113,6 +130,17 @@ class CustomerListTile extends StatelessWidget {
                                 icon: Icons.location_on_outlined,
                                 label: customer.displayLocation,
                               ),
+                              if (_showJobWorkCount)
+                                _MetaChip(
+                                  icon: Icons.content_cut_outlined,
+                                  label:
+                                      '${AppStrings.jobWork}: $jobWorkCount',
+                                ),
+                              if (_showSalesCount)
+                                _MetaChip(
+                                  icon: Icons.shopping_cart_outlined,
+                                  label: '${AppStrings.sales}: $salesCount',
+                                ),
                             ],
                           ),
                           const SizedBox(height: 8),

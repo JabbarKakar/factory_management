@@ -192,6 +192,20 @@ class JobWorkRepository {
     });
   }
 
+  /// Live count of non-cancelled job work orders for a customer.
+  Stream<int> watchActiveOrderCountForCustomer(String customerId) {
+    return _jobWorkCollection
+        .where('customerId', isEqualTo: customerId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .where((doc) =>
+                  doc.data()['status'] !=
+                  JobWorkStatus.cancelled.firestoreValue)
+              .length,
+        );
+  }
+
   Future<int> countOrdersForCustomer(String customerId) async {
     final snapshot = await _jobWorkCollection
         .where('customerId', isEqualTo: customerId)

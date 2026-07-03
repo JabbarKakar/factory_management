@@ -12,6 +12,7 @@ import '../../utils/user_permissions_context.dart';
 import '../../widgets/customers/customer_balance_indicator.dart';
 import '../../widgets/customers/customer_detail_hero.dart';
 import '../../widgets/customers/customer_ledger_section.dart';
+import '../../widgets/customers/customer_orders_summary_section.dart';
 import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
@@ -87,6 +88,7 @@ class CustomerDetailScreen extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 24),
             children: [
               CustomerDetailHero(customer: customer),
+              CustomerOrdersSummarySection(customer: customer),
               JobWorkDetailSection(
                 title: AppStrings.accountSummary,
                 icon: Icons.payments_outlined,

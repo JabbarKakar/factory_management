@@ -10,6 +10,8 @@ class CustomerListState extends Equatable {
     this.searchQuery = '',
     this.serviceTypeFilter,
     this.errorMessage,
+    this.jobWorkCounts = const {},
+    this.salesCounts = const {},
   });
 
   final CustomerListStatus status;
@@ -18,6 +20,8 @@ class CustomerListState extends Equatable {
   final String searchQuery;
   final CustomerServiceType? serviceTypeFilter;
   final String? errorMessage;
+  final Map<String, int> jobWorkCounts;
+  final Map<String, int> salesCounts;
 
   CustomerListState copyWith({
     CustomerListStatus? status,
@@ -27,6 +31,8 @@ class CustomerListState extends Equatable {
     CustomerServiceType? serviceTypeFilter,
     bool clearServiceTypeFilter = false,
     String? errorMessage,
+    Map<String, int>? jobWorkCounts,
+    Map<String, int>? salesCounts,
   }) {
     return CustomerListState(
       status: status ?? this.status,
@@ -37,6 +43,8 @@ class CustomerListState extends Equatable {
           ? null
           : (serviceTypeFilter ?? this.serviceTypeFilter),
       errorMessage: errorMessage,
+      jobWorkCounts: jobWorkCounts ?? this.jobWorkCounts,
+      salesCounts: salesCounts ?? this.salesCounts,
     );
   }
 
@@ -48,5 +56,7 @@ class CustomerListState extends Equatable {
         searchQuery,
         serviceTypeFilter,
         errorMessage,
+        jobWorkCounts,
+        salesCounts,
       ];
 }

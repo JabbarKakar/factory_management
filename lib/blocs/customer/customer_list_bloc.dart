@@ -4,26 +4,43 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/customer_repository.dart';
+import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/sales_order_repository.dart';
 import '../../domain/entities/customer.dart';
+import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/customer_enums.dart';
+import '../../domain/enums/job_work_enums.dart';
+import '../../domain/enums/sales_enums.dart';
 
 part 'customer_list_event.dart';
 part 'customer_list_state.dart';
 
 class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
-  CustomerListBloc({required CustomerRepository repository})
-      : _repository = repository,
+  CustomerListBloc({
+    required CustomerRepository repository,
+    required JobWorkRepository jobWorkRepository,
+    required SalesOrderRepository salesOrderRepository,
+  })  : _repository = repository,
+        _jobWorkRepository = jobWorkRepository,
+        _salesOrderRepository = salesOrderRepository,
         super(const CustomerListState()) {
     on<CustomerListWatchStarted>(_onWatchStarted);
     on<CustomerListWatchStopped>(_onWatchStopped);
     on<CustomerListSearchChanged>(_onSearchChanged);
     on<CustomerListFilterChanged>(_onFilterChanged);
     on<_CustomerListUpdated>(_onListUpdated);
+    on<_CustomerJobWorkCountsUpdated>(_onJobWorkCountsUpdated);
+    on<_CustomerSalesCountsUpdated>(_onSalesCountsUpdated);
     on<_CustomerListStreamFailed>(_onStreamFailed);
   }
 
   final CustomerRepository _repository;
+  final JobWorkRepository _jobWorkRepository;
+  final SalesOrderRepository _salesOrderRepository;
   StreamSubscription<List<Customer>>? _subscription;
+  StreamSubscription<List<JobWorkOrder>>? _jobWorkSubscription;
+  StreamSubscription<List<SalesOrder>>? _salesSubscription;
 
   Future<void> _onWatchStarted(
     CustomerListWatchStarted event,
@@ -31,6 +48,9 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
   ) async {
     emit(state.copyWith(status: CustomerListStatus.loading));
     await _subscription?.cancel();
+    await _jobWorkSubscription?.cancel();
+    await _salesSubscription?.cancel();
+
     _subscription = _repository.watchCustomers(event.factoryId).listen(
           (customers) => add(_CustomerListUpdated(customers)),
           onError: (_) => add(
@@ -39,6 +59,32 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
             ),
           ),
         );
+
+    _jobWorkSubscription =
+        _jobWorkRepository.watchJobWorkOrders(event.factoryId).listen(
+      (orders) {
+        final counts = <String, int>{};
+        for (final order in orders) {
+          if (order.status == JobWorkStatus.cancelled) continue;
+          counts[order.customerId] = (counts[order.customerId] ?? 0) + 1;
+        }
+        add(_CustomerJobWorkCountsUpdated(counts));
+      },
+      onError: (_) {},
+    );
+
+    _salesSubscription =
+        _salesOrderRepository.watchSalesOrders(event.factoryId).listen(
+      (orders) {
+        final counts = <String, int>{};
+        for (final order in orders) {
+          if (order.status == SalesOrderStatus.cancelled) continue;
+          counts[order.customerId] = (counts[order.customerId] ?? 0) + 1;
+        }
+        add(_CustomerSalesCountsUpdated(counts));
+      },
+      onError: (_) {},
+    );
   }
 
   Future<void> _onWatchStopped(
@@ -47,6 +93,10 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
   ) async {
     await _subscription?.cancel();
     _subscription = null;
+    await _jobWorkSubscription?.cancel();
+    _jobWorkSubscription = null;
+    await _salesSubscription?.cancel();
+    _salesSubscription = null;
   }
 
   void _onSearchChanged(
@@ -103,6 +153,20 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     );
   }
 
+  void _onJobWorkCountsUpdated(
+    _CustomerJobWorkCountsUpdated event,
+    Emitter<CustomerListState> emit,
+  ) {
+    emit(state.copyWith(jobWorkCounts: event.counts));
+  }
+
+  void _onSalesCountsUpdated(
+    _CustomerSalesCountsUpdated event,
+    Emitter<CustomerListState> emit,
+  ) {
+    emit(state.copyWith(salesCounts: event.counts));
+  }
+
   void _onStreamFailed(
     _CustomerListStreamFailed event,
     Emitter<CustomerListState> emit,
@@ -147,6 +211,8 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
   @override
   Future<void> close() {
     _subscription?.cancel();
+    _jobWorkSubscription?.cancel();
+    _salesSubscription?.cancel();
     return super.close();
   }
 }

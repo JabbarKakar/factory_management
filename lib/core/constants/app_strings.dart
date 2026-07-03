@@ -78,6 +78,9 @@ abstract final class AppStrings {
   static const String address = 'Address';
   static const String contactInformation = 'Contact Information';
   static const String accountSummary = 'Account Summary';
+  static const String ordersSummary = 'Orders Summary';
+  static const String jobWorkOrdersLabel = 'Job Work Orders';
+  static const String salesOrdersLabel = 'Sales Orders';
   static const String customerType = 'Customer Type';
   static const String companyName = 'Company Name';
   static const String fullName = 'Full Name';

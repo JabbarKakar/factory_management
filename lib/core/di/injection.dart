@@ -258,7 +258,11 @@ void setupDependencies() {
     ),
   );
   getIt.registerFactory<CustomerListBloc>(
-    () => CustomerListBloc(repository: getIt<CustomerRepository>()),
+    () => CustomerListBloc(
+      repository: getIt<CustomerRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+      salesOrderRepository: getIt<SalesOrderRepository>(),
+    ),
   );
   getIt.registerFactory<DashboardBloc>(
     () => DashboardBloc(

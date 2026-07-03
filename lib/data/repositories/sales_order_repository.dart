@@ -158,6 +158,20 @@ class SalesOrderRepository {
     });
   }
 
+  /// Live count of non-cancelled sales orders for a customer.
+  Stream<int> watchActiveOrderCountForCustomer(String customerId) {
+    return _ordersCollection
+        .where('customerId', isEqualTo: customerId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .where((doc) =>
+                  doc.data()['status'] !=
+                  SalesOrderStatus.cancelled.firestoreValue)
+              .length,
+        );
+  }
+
   Future<void> deleteOrdersForCustomer(String customerId) async {
     final snapshot = await _ordersCollection
         .where('customerId', isEqualTo: customerId)

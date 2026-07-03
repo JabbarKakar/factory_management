@@ -290,6 +290,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       return CustomerListTile(
                         customer: customer,
                         isBusy: _busyCustomerId == customer.id,
+                        jobWorkCount: state.jobWorkCounts[customer.id] ?? 0,
+                        salesCount: state.salesCounts[customer.id] ?? 0,
                         menuActions: _menuActionsFor(
                           customer,
                           canEdit: canEdit,
