@@ -4,17 +4,22 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/sales_enums.dart';
+import '../tile_options_menu.dart';
 import 'sales_order_status_badge.dart';
 
 class SalesOrderListTile extends StatelessWidget {
   const SalesOrderListTile({
     required this.order,
     required this.onTap,
+    this.menuActions = const [],
+    this.isBusy = false,
     super.key,
   });
 
   final SalesOrder order;
   final VoidCallback onTap;
+  final List<TileMenuAction> menuActions;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +49,7 @@ class SalesOrderListTile extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: isBusy ? null : onTap,
             borderRadius: cardShape,
             child: Ink(
               decoration: BoxDecoration(
@@ -59,11 +64,17 @@ class SalesOrderListTile extends StatelessWidget {
                     Container(width: 3, color: accent),
                     Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+                        padding: EdgeInsets.fromLTRB(
+                          12,
+                          11,
+                          menuActions.isNotEmpty ? 2 : 10,
+                          11,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
                                   child: Text(
@@ -81,6 +92,11 @@ class SalesOrderListTile extends StatelessWidget {
                                   status: order.status,
                                   compact: true,
                                 ),
+                                if (menuActions.isNotEmpty)
+                                  TileOptionsButton(
+                                    isBusy: isBusy,
+                                    actions: menuActions,
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 4),
@@ -134,12 +150,15 @@ class SalesOrderListTile extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  Formatters.currencyPkr(order.grandTotal),
-                                  style: theme.textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 12,
-                                    color: accent,
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Text(
+                                    Formatters.currencyPkr(order.grandTotal),
+                                    style: theme.textTheme.labelLarge?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12,
+                                      color: accent,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -148,14 +167,15 @@ class SalesOrderListTile extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 20,
-                        color: muted.withValues(alpha: 0.7),
+                    if (menuActions.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: muted.withValues(alpha: 0.7),
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

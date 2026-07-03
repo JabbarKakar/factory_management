@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/sales/sales_order_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
+import '../../../data/repositories/sales_order_repository.dart';
+import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/sales_enums.dart';
 import '../../routes/route_paths.dart';
@@ -11,11 +14,13 @@ import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/app_extended_fab.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
 import '../../widgets/sales/sales_order_list_tile.dart';
 import '../../widgets/sales/sales_order_stage_filter_bar.dart';
+import '../../widgets/tile_options_menu.dart';
 
 class SalesOrderListScreen extends StatefulWidget {
   const SalesOrderListScreen({super.key});
@@ -26,6 +31,7 @@ class SalesOrderListScreen extends StatefulWidget {
 
 class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
   final _searchController = TextEditingController();
+  String? _busyOrderId;
 
   @override
   void dispose() {
@@ -38,8 +44,166 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
     context.read<SalesOrderListBloc>().add(const SalesOrderListSearchChanged(''));
   }
 
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              isError ? Theme.of(context).colorScheme.error : null,
+        ),
+      );
+  }
+
+  Future<void> _confirmDelete(SalesOrder order) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deleteSalesOrderTitle,
+      message: AppStrings.deleteSalesOrderMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyOrderId = order.id);
+
+    try {
+      await getIt<SalesOrderRepository>().deleteSalesOrder(order.id);
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderDeleted);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderDeleteError, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _busyOrderId = null);
+      }
+    }
+  }
+
+  Future<void> _confirmCancel(SalesOrder order) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.cancelSalesOrderTitle,
+      message: AppStrings.cancelSalesOrderMessage,
+      confirmLabel: AppStrings.cancelOrder,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyOrderId = order.id);
+
+    try {
+      await getIt<SalesOrderRepository>().cancelSalesOrder(order.id);
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderCancelled);
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderCancelError, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _busyOrderId = null);
+      }
+    }
+  }
+
+  List<TileMenuAction> _menuActionsFor(
+    SalesOrder order, {
+    required bool canEdit,
+    required bool canDelete,
+  }) {
+    final status = order.status;
+    final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
+    final canInvoice = status == SalesOrderStatus.ready ||
+        status == SalesOrderStatus.invoiced ||
+        status == SalesOrderStatus.paid;
+    final actions = <TileMenuAction>[];
+
+    if (canEdit && status == SalesOrderStatus.received) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.editSalesOrder,
+          icon: Icons.edit_outlined,
+          onSelected: () => context.push(RoutePaths.salesEdit(order.id)),
+        ),
+      );
+    }
+
+    if (status == SalesOrderStatus.ready && !hasInvoice) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.generateInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () => context.push(RoutePaths.salesInvoice(order.id)),
+        ),
+      );
+    }
+
+    if (hasInvoice) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.viewInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () => context.push(RoutePaths.salesInvoice(order.id)),
+        ),
+      );
+      if (order.balanceDue > 0 &&
+          status != SalesOrderStatus.closed &&
+          status != SalesOrderStatus.cancelled) {
+        actions.add(
+          TileMenuAction(
+            label: AppStrings.recordPayment,
+            icon: Icons.payments_outlined,
+            onSelected: () => context.push(
+              RoutePaths.salesRecordPayment(order.invoiceId!),
+            ),
+          ),
+        );
+      }
+    }
+
+    if (canInvoice) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.scheduleDelivery,
+          icon: Icons.local_shipping_outlined,
+          onSelected: () => context.push(
+            RoutePaths.deliveriesAddForOrder(order.id),
+          ),
+        ),
+      );
+    }
+
+    if (canEdit && status.isActive) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.cancelOrder,
+          icon: Icons.cancel_outlined,
+          onSelected: () => _confirmCancel(order),
+        ),
+      );
+    }
+
+    if (canDelete) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.delete,
+          icon: Icons.delete_outline_rounded,
+          destructive: true,
+          onSelected: () => _confirmDelete(order),
+        ),
+      );
+    }
+
+    return actions;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canEdit = context.userCanEdit(AppModule.sales);
+    final canDelete = context.userCanDelete(AppModule.sales);
+
     return Scaffold(
       appBar: AppBar(
         title: BlocBuilder<SalesOrderListBloc, SalesOrderListState>(
@@ -175,6 +339,12 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
                       final order = state.visibleOrders[index];
                       return SalesOrderListTile(
                         order: order,
+                        isBusy: _busyOrderId == order.id,
+                        menuActions: _menuActionsFor(
+                          order,
+                          canEdit: canEdit,
+                          canDelete: canDelete,
+                        ),
                         onTap: () => context.push(
                           RoutePaths.salesDetail(order.id),
                         ),

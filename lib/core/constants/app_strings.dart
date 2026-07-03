@@ -435,6 +435,14 @@ abstract final class AppStrings {
   static const String cancelSalesOrderTitle = 'Cancel sales order?';
   static const String cancelSalesOrderMessage =
       'This order will be marked as cancelled.';
+  static const String salesOrderCancelError =
+      'Could not cancel sales order. Please try again.';
+  static const String salesOrderDeleted = 'Sales order deleted';
+  static const String salesOrderDeleteError =
+      'Could not delete sales order. Please try again.';
+  static const String deleteSalesOrderTitle = 'Delete sales order?';
+  static const String deleteSalesOrderMessage =
+      'This will permanently remove the order. This action cannot be undone.';
   static const String searchSalesOrders = 'Search order #, customer, variety...';
   static const String noSalesOrdersYet = 'No sales orders yet';
   static const String noSalesOrdersFound = 'No sales orders found';

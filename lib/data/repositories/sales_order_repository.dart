@@ -151,6 +151,10 @@ class SalesOrderRepository {
     });
   }
 
+  Future<void> deleteSalesOrder(String id) async {
+    await _ordersCollection.doc(id).delete();
+  }
+
   Future<void> cancelSalesOrder(String id) async {
     await _ordersCollection.doc(id).update({
       'status': SalesOrderStatus.cancelled.firestoreValue,
