@@ -127,6 +127,7 @@ class CustomerDetailScreen extends StatelessWidget {
                 ),
               ),
               CustomerLedgerSection(
+                factoryId: customer.factoryId,
                 customerId: customer.id,
                 customerName: customer.name,
               ),

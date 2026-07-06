@@ -8,12 +8,16 @@ sealed class JobWorkInvoiceEvent extends Equatable {
 }
 
 final class JobWorkInvoiceLoadByJobWork extends JobWorkInvoiceEvent {
-  const JobWorkInvoiceLoadByJobWork(this.jobWorkId);
+  const JobWorkInvoiceLoadByJobWork({
+    required this.factoryId,
+    required this.jobWorkId,
+  });
 
+  final String factoryId;
   final String jobWorkId;
 
   @override
-  List<Object?> get props => [jobWorkId];
+  List<Object?> get props => [factoryId, jobWorkId];
 }
 
 final class JobWorkInvoiceLoadById extends JobWorkInvoiceEvent {

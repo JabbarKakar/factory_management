@@ -20,9 +20,15 @@ class CustomerLedgerService {
     if (customer == null) return;
 
     final jobWorkInvoices =
-        await _jobWorkInvoiceRepository.getInvoicesForCustomer(customerId);
+        await _jobWorkInvoiceRepository.getInvoicesForCustomer(
+      factoryId: customer.factoryId,
+      customerId: customerId,
+    );
     final salesInvoices =
-        await _salesInvoiceRepository.getInvoicesForCustomer(customerId);
+        await _salesInvoiceRepository.getInvoicesForCustomer(
+      factoryId: customer.factoryId,
+      customerId: customerId,
+    );
 
     final openDue = jobWorkInvoices
             .where((invoice) => invoice.dueAmount > 0)

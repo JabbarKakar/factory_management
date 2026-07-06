@@ -31,8 +31,12 @@ class SalesInvoiceRepository {
     return SalesInvoiceModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
-  Future<SalesInvoice?> getInvoiceBySalesOrderId(String salesOrderId) async {
+  Future<SalesInvoice?> getInvoiceBySalesOrderId({
+    required String factoryId,
+    required String salesOrderId,
+  }) async {
     final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('salesOrderId', isEqualTo: salesOrderId)
         .limit(1)
         .get();
@@ -41,9 +45,14 @@ class SalesInvoiceRepository {
     return SalesInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
   }
 
-  Future<List<SalesInvoice>> getInvoicesForCustomer(String customerId) async {
-    final snapshot =
-        await _collection.where('customerId', isEqualTo: customerId).get();
+  Future<List<SalesInvoice>> getInvoicesForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
+    final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('customerId', isEqualTo: customerId)
+        .get();
     final invoices = snapshot.docs
         .map((doc) => SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
         .map((model) => model.toEntity())
@@ -52,8 +61,12 @@ class SalesInvoiceRepository {
     return invoices;
   }
 
-  Stream<List<SalesInvoice>> watchInvoicesForCustomer(String customerId) {
+  Stream<List<SalesInvoice>> watchInvoicesForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) {
     return _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('customerId', isEqualTo: customerId)
         .snapshots()
         .map((snapshot) {
@@ -104,7 +117,10 @@ class SalesInvoiceRepository {
       if (existing != null) return existing;
     }
 
-    final existingByOrder = await getInvoiceBySalesOrderId(salesOrderId);
+    final existingByOrder = await getInvoiceBySalesOrderId(
+      factoryId: order.factoryId,
+      salesOrderId: salesOrderId,
+    );
     if (existingByOrder != null) return existingByOrder;
 
     final id = _uuid.v4();

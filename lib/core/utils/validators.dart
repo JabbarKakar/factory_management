@@ -38,6 +38,21 @@ abstract final class Validators {
     return null;
   }
 
+  static String? optionalPhone(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    return phone(value);
+  }
+
+  static String? confirmPassword(String? value, String originalPassword) {
+    if (value == null || value.isEmpty) {
+      return 'Confirm your password';
+    }
+    if (value != originalPassword) {
+      return 'Passwords do not match';
+    }
+    return null;
+  }
+
   static String? optionalEmail(String? value) {
     if (value == null || value.trim().isEmpty) return null;
     return email(value);

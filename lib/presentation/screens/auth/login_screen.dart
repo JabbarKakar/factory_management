@@ -167,6 +167,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
+                              TextButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () => context.push(RoutePaths.signUp),
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                ),
+                                child: Text(
+                                  AppStrings.createFactoryAccount,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
                               FilledButton(
                                 onPressed: isLoading ? null : _submit,
                                 style: FilledButton.styleFrom(

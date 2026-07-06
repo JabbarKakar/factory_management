@@ -23,6 +23,54 @@
         { "fieldPath": "factoryId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "jobWorkInvoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "jobWorkId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "jobWorkInvoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "customerId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "salesInvoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "salesOrderId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "salesInvoices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "customerId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "invoiceId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "customerId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -30,9 +30,15 @@ class JobWorkInvoiceRepository {
     return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
-  Future<JobWorkInvoice?> getInvoiceByJobWorkId(String jobWorkId) async {
-    final snapshot =
-        await _collection.where('jobWorkId', isEqualTo: jobWorkId).limit(1).get();
+  Future<JobWorkInvoice?> getInvoiceByJobWorkId({
+    required String factoryId,
+    required String jobWorkId,
+  }) async {
+    final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkId', isEqualTo: jobWorkId)
+        .limit(1)
+        .get();
     if (snapshot.docs.isEmpty) return null;
     final doc = snapshot.docs.first;
     return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
@@ -45,8 +51,12 @@ class JobWorkInvoiceRepository {
     });
   }
 
-  Stream<JobWorkInvoice?> watchInvoiceByJobWorkId(String jobWorkId) {
+  Stream<JobWorkInvoice?> watchInvoiceByJobWorkId({
+    required String factoryId,
+    required String jobWorkId,
+  }) {
     return _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('jobWorkId', isEqualTo: jobWorkId)
         .limit(1)
         .snapshots()
@@ -57,9 +67,14 @@ class JobWorkInvoiceRepository {
         });
   }
 
-  Future<List<JobWorkInvoice>> getInvoicesForCustomer(String customerId) async {
-    final snapshot =
-        await _collection.where('customerId', isEqualTo: customerId).get();
+  Future<List<JobWorkInvoice>> getInvoicesForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
+    final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('customerId', isEqualTo: customerId)
+        .get();
     final invoices = snapshot.docs
         .map((doc) => JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()))
         .map((model) => model.toEntity())
@@ -68,8 +83,12 @@ class JobWorkInvoiceRepository {
     return invoices;
   }
 
-  Stream<List<JobWorkInvoice>> watchInvoicesForCustomer(String customerId) {
+  Stream<List<JobWorkInvoice>> watchInvoicesForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) {
     return _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('customerId', isEqualTo: customerId)
         .snapshots()
         .map((snapshot) {
@@ -141,7 +160,10 @@ class JobWorkInvoiceRepository {
       if (existing != null) return existing;
     }
 
-    final existingByJob = await getInvoiceByJobWorkId(jobWorkId);
+    final existingByJob = await getInvoiceByJobWorkId(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
     if (existingByJob != null) return existingByJob;
 
     final id = _uuid.v4();

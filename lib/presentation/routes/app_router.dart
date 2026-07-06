@@ -1119,7 +1119,10 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                           return BlocProvider(
                             create: (_) => getIt<JobWorkInvoiceBloc>()
                               ..add(
-                                JobWorkInvoiceLoadByJobWork(jobWorkId),
+                                JobWorkInvoiceLoadByJobWork(
+                                  factoryId: readFactoryId(context)!,
+                                  jobWorkId: jobWorkId,
+                                ),
                               ),
                             child: JobWorkInvoiceScreen(jobWorkId: jobWorkId),
                           );
@@ -1304,7 +1307,12 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                               state.pathParameters['salesOrderId']!;
                           return BlocProvider(
                             create: (_) => getIt<SalesInvoiceBloc>()
-                              ..add(SalesInvoiceLoadByOrder(salesOrderId)),
+                              ..add(
+                                SalesInvoiceLoadByOrder(
+                                  factoryId: readFactoryId(context)!,
+                                  salesOrderId: salesOrderId,
+                                ),
+                              ),
                             child: SalesInvoiceScreen(salesOrderId: salesOrderId),
                           );
                         },

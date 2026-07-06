@@ -46,9 +46,14 @@ class PaymentRepository {
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('payments');
 
-  Future<List<Payment>> getPaymentsForCustomer(String customerId) async {
-    final snapshot =
-        await _collection.where('customerId', isEqualTo: customerId).get();
+  Future<List<Payment>> getPaymentsForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
+    final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('customerId', isEqualTo: customerId)
+        .get();
     final payments = snapshot.docs
         .map((doc) => PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
         .toList();
@@ -56,8 +61,12 @@ class PaymentRepository {
     return payments;
   }
 
-  Stream<List<Payment>> watchPaymentsForCustomer(String customerId) {
+  Stream<List<Payment>> watchPaymentsForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) {
     return _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('customerId', isEqualTo: customerId)
         .snapshots()
         .map((snapshot) {
@@ -84,9 +93,14 @@ class PaymentRepository {
         });
   }
 
-  Future<List<Payment>> getPaymentsForInvoice(String invoiceId) async {
-    final snapshot =
-        await _collection.where('invoiceId', isEqualTo: invoiceId).get();
+  Future<List<Payment>> getPaymentsForInvoice({
+    required String factoryId,
+    required String invoiceId,
+  }) async {
+    final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('invoiceId', isEqualTo: invoiceId)
+        .get();
     final payments = snapshot.docs
         .map((doc) => PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
         .toList();
@@ -94,8 +108,12 @@ class PaymentRepository {
     return payments;
   }
 
-  Stream<List<Payment>> watchPaymentsForInvoice(String invoiceId) {
+  Stream<List<Payment>> watchPaymentsForInvoice({
+    required String factoryId,
+    required String invoiceId,
+  }) {
     return _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('invoiceId', isEqualTo: invoiceId)
         .snapshots()
         .map((snapshot) {
@@ -114,12 +132,14 @@ class PaymentRepository {
     required String invoiceId,
     required InvoiceType invoiceType,
   }) async {
-    final existing = await getPaymentsForInvoice(invoiceId);
-    if (existing.isNotEmpty) return;
-
     if (invoiceType == InvoiceType.sales) {
       final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
       if (invoice == null || invoice.paidAmount <= 0) return;
+      final existing = await getPaymentsForInvoice(
+        factoryId: invoice.factoryId,
+        invoiceId: invoiceId,
+      );
+      if (existing.isNotEmpty) return;
       await _createStandalonePayment(
         factoryId: invoice.factoryId,
         customerId: invoice.customerId,
@@ -136,6 +156,11 @@ class PaymentRepository {
 
     final invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
     if (invoice == null || invoice.paidAmount <= 0) return;
+    final existing = await getPaymentsForInvoice(
+      factoryId: invoice.factoryId,
+      invoiceId: invoiceId,
+    );
+    if (existing.isNotEmpty) return;
     await _createStandalonePayment(
       factoryId: invoice.factoryId,
       customerId: invoice.customerId,

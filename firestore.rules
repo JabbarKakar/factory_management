@@ -42,6 +42,43 @@ service cloud.firestore {
       return myStatus() != 'disabled';
     }
 
+    function userProfileExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function ownerFactoryBootstrap() {
+      return signedIn() &&
+        !userProfileExists() &&
+        request.resource.data.ownerUserId == request.auth.uid &&
+        request.resource.data.status == 'active' &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.keys().hasAll([
+          'name', 'ownerUserId', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        !request.resource.data.keys().hasAny(['id']);
+    }
+
+    function ownerUserBootstrap(userId) {
+      return signedIn() &&
+        request.auth.uid == userId &&
+        !userProfileExists() &&
+        request.resource.data.role == 'owner' &&
+        request.resource.data.status == 'active' &&
+        request.resource.data.onboardingComplete == true &&
+        request.resource.data.email is string &&
+        request.resource.data.name is string &&
+        request.resource.data.factoryId is string &&
+        request.resource.data.factoryId.size() > 0 &&
+        request.resource.data.keys().hasAll([
+          'email', 'name', 'role', 'factoryId', 'status',
+          'onboardingComplete', 'createdAt'
+        ]) &&
+        !request.resource.data.keys().hasAny(['employeeId', 'photoUrl']) &&
+        exists(/databases/$(database)/documents/factories/$(request.resource.data.factoryId)) &&
+        get(/databases/$(database)/documents/factories/$(request.resource.data.factoryId)).data.ownerUserId == request.auth.uid;
+    }
+
     function sameFactoryExisting() {
       return resource.data.factoryId == myFactory();
     }
@@ -114,7 +151,7 @@ service cloud.firestore {
         request.auth.uid == userId ||
         (isOwner() && resource.data.factoryId == myFactory())
       );
-      allow create: if signedIn() && request.auth.uid == userId;
+      allow create: if ownerUserBootstrap(userId);
       allow update: if signedIn() && isActiveUser() && (
         request.auth.uid == userId ||
         (isOwner() &&
@@ -123,11 +160,11 @@ service cloud.firestore {
       );
     }
 
-    // Factory bootstrap: new owners create factories via Cloud Function (S32+).
-    // Client create remains owner-only for profile updates after bootstrap.
+    // Owner bootstrap: first-time signup writes factory + user via client batch (S32).
     match /factories/{factoryId} {
       allow read: if signedIn() && isActiveUser() && factoryId == myFactory();
-      allow create, update: if isOwner() && isActiveUser() && factoryId == myFactory();
+      allow create: if ownerFactoryBootstrap();
+      allow update: if isOwner() && isActiveUser() && factoryId == myFactory();
       allow delete: if false;
     }
 

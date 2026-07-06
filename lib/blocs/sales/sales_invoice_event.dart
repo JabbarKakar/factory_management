@@ -8,12 +8,16 @@ sealed class SalesInvoiceEvent extends Equatable {
 }
 
 final class SalesInvoiceLoadByOrder extends SalesInvoiceEvent {
-  const SalesInvoiceLoadByOrder(this.salesOrderId);
+  const SalesInvoiceLoadByOrder({
+    required this.factoryId,
+    required this.salesOrderId,
+  });
 
+  final String factoryId;
   final String salesOrderId;
 
   @override
-  List<Object?> get props => [salesOrderId];
+  List<Object?> get props => [factoryId, salesOrderId];
 }
 
 final class SalesInvoiceLoadById extends SalesInvoiceEvent {

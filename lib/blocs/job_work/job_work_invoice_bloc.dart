@@ -49,8 +49,10 @@ class JobWorkInvoiceBloc
     await _cancelSubscriptions();
     emit(state.copyWith(status: JobWorkInvoiceStatus.loading));
     try {
-      final invoice =
-          await _invoiceRepository.getInvoiceByJobWorkId(event.jobWorkId);
+      final invoice = await _invoiceRepository.getInvoiceByJobWorkId(
+        factoryId: event.factoryId,
+        jobWorkId: event.jobWorkId,
+      );
       if (invoice == null) {
         emit(
           state.copyWith(
@@ -59,7 +61,10 @@ class JobWorkInvoiceBloc
           ),
         );
         _invoiceSubscription = _invoiceRepository
-            .watchInvoiceByJobWorkId(event.jobWorkId)
+            .watchInvoiceByJobWorkId(
+              factoryId: event.factoryId,
+              jobWorkId: event.jobWorkId,
+            )
             .listen(
               (updated) => add(_JobWorkInvoiceStreamUpdated(updated)),
               onError: (_) {},
@@ -179,7 +184,7 @@ class JobWorkInvoiceBloc
       invoiceId: invoice.id,
       invoiceType: InvoiceType.jobWork,
     );
-    _ensurePaymentsWatch(invoice.id);
+    _ensurePaymentsWatch(invoice);
 
     emit(
       state.copyWith(
@@ -216,15 +221,18 @@ class JobWorkInvoiceBloc
           (updated) => add(_JobWorkInvoiceStreamUpdated(updated)),
           onError: (_) {},
         );
-    _ensurePaymentsWatch(invoice.id);
+    _ensurePaymentsWatch(invoice);
   }
 
-  void _ensurePaymentsWatch(String invoiceId) {
-    if (_watchedInvoiceId == invoiceId) return;
+  void _ensurePaymentsWatch(JobWorkInvoice invoice) {
+    if (_watchedInvoiceId == invoice.id) return;
     _paymentsSubscription?.cancel();
-    _watchedInvoiceId = invoiceId;
+    _watchedInvoiceId = invoice.id;
     _paymentsSubscription = _paymentRepository
-        .watchPaymentsForInvoice(invoiceId)
+        .watchPaymentsForInvoice(
+          factoryId: invoice.factoryId,
+          invoiceId: invoice.id,
+        )
         .listen(
           (payments) => add(_JobWorkInvoicePaymentsUpdated(payments)),
           onError: (_) {},
@@ -249,8 +257,10 @@ class JobWorkInvoiceBloc
       invoiceId: invoice.id,
       invoiceType: InvoiceType.jobWork,
     );
-    final invoicePayments =
-        await _paymentRepository.getPaymentsForInvoice(invoice.id);
+    final invoicePayments = await _paymentRepository.getPaymentsForInvoice(
+      factoryId: invoice.factoryId,
+      invoiceId: invoice.id,
+    );
 
     emit(
       state.copyWith(

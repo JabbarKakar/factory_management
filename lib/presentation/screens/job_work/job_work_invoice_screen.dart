@@ -12,6 +12,7 @@ import '../../../domain/enums/invoice_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/export_actions.dart';
 import '../../utils/export_factory_name.dart';
+import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/export_menu_button.dart';
@@ -36,8 +37,13 @@ class JobWorkInvoiceScreen extends StatelessWidget {
       RoutePaths.recordPayment(invoice.id),
     );
     if (recorded == true && context.mounted) {
+      final factoryId = readFactoryId(context);
+      if (factoryId == null) return;
       context.read<JobWorkInvoiceBloc>().add(
-            JobWorkInvoiceLoadByJobWork(jobWorkId),
+            JobWorkInvoiceLoadByJobWork(
+              factoryId: factoryId,
+              jobWorkId: jobWorkId,
+            ),
           );
     }
   }

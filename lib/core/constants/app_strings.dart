@@ -7,6 +7,13 @@ abstract final class AppStrings {
   static const String loginSubtitle = 'Sign in to manage your factory';
   static const String signUp = 'Create Account';
   static const String signUpSubtitle = 'Register your factory and become the owner';
+  static const String createFactoryAccount = 'Create factory account';
+  static const String alreadyHaveAccount = 'Already have an account? Sign in';
+  static const String yourName = 'Your name';
+  static const String factoryName = 'Factory name';
+  static const String factoryPhoneOptional = 'Factory phone (optional)';
+  static const String confirmPassword = 'Confirm password';
+  static const String passwordsDoNotMatch = 'Passwords do not match';
   static const String acceptInvite = 'Accept Invite';
   static const String acceptInviteSubtitle =
       'Join your factory team with the invite link';

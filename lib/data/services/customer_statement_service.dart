@@ -38,10 +38,19 @@ class CustomerStatementService {
     if (to.isBefore(from)) return null;
 
     final jobWorkInvoices =
-        await _jobWorkInvoiceRepository.getInvoicesForCustomer(customerId);
+        await _jobWorkInvoiceRepository.getInvoicesForCustomer(
+      factoryId: customer.factoryId,
+      customerId: customerId,
+    );
     final salesInvoices =
-        await _salesInvoiceRepository.getInvoicesForCustomer(customerId);
-    final payments = await _paymentRepository.getPaymentsForCustomer(customerId);
+        await _salesInvoiceRepository.getInvoicesForCustomer(
+      factoryId: customer.factoryId,
+      customerId: customerId,
+    );
+    final payments = await _paymentRepository.getPaymentsForCustomer(
+      factoryId: customer.factoryId,
+      customerId: customerId,
+    );
 
     final transactions = <_StatementTxn>[
       ...jobWorkInvoices

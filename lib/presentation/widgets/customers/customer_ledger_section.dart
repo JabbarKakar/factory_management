@@ -17,11 +17,13 @@ import '../payment_reminder_action_bar.dart';
 
 class CustomerLedgerSection extends StatelessWidget {
   const CustomerLedgerSection({
+    required this.factoryId,
     required this.customerId,
     required this.customerName,
     super.key,
   });
 
+  final String factoryId;
   final String customerId;
   final String customerName;
 
@@ -51,15 +53,22 @@ class CustomerLedgerSection extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             StreamBuilder<List<JobWorkInvoice>>(
-              stream: jobWorkInvoiceRepository.watchInvoicesForCustomer(customerId),
+              stream: jobWorkInvoiceRepository.watchInvoicesForCustomer(
+                factoryId: factoryId,
+                customerId: customerId,
+              ),
               builder: (context, jobWorkSnapshot) {
                 return StreamBuilder<List<SalesInvoice>>(
-                  stream:
-                      salesInvoiceRepository.watchInvoicesForCustomer(customerId),
+                  stream: salesInvoiceRepository.watchInvoicesForCustomer(
+                    factoryId: factoryId,
+                    customerId: customerId,
+                  ),
                   builder: (context, salesSnapshot) {
                     return StreamBuilder<List<Payment>>(
-                      stream:
-                          paymentRepository.watchPaymentsForCustomer(customerId),
+                      stream: paymentRepository.watchPaymentsForCustomer(
+                        factoryId: factoryId,
+                        customerId: customerId,
+                      ),
                       builder: (context, paymentSnapshot) {
                         final jobWorkInvoices = jobWorkSnapshot.data ?? const [];
                         final salesInvoices = salesSnapshot.data ?? const [];

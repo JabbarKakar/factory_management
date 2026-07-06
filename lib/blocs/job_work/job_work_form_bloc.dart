@@ -139,7 +139,10 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
           );
 
       _invoiceSubscription = _invoiceRepository
-          .watchInvoiceByJobWorkId(event.jobWorkId)
+          .watchInvoiceByJobWorkId(
+            factoryId: order.factoryId,
+            jobWorkId: event.jobWorkId,
+          )
           .listen(
             (invoice) => add(_JobWorkInvoiceUpdated(invoice)),
             onError: (_) {},
@@ -204,7 +207,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
       invoiceId: invoice.id,
       invoiceType: InvoiceType.jobWork,
     );
-    _ensurePaymentsWatch(invoice.id);
+    _ensurePaymentsWatch(invoice);
   }
 
   void _onPaymentsUpdated(
@@ -214,12 +217,15 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     emit(state.copyWith(payments: event.payments));
   }
 
-  void _ensurePaymentsWatch(String invoiceId) {
-    if (_watchedInvoiceId == invoiceId) return;
+  void _ensurePaymentsWatch(JobWorkInvoice invoice) {
+    if (_watchedInvoiceId == invoice.id) return;
     _paymentsSubscription?.cancel();
-    _watchedInvoiceId = invoiceId;
+    _watchedInvoiceId = invoice.id;
     _paymentsSubscription = _paymentRepository
-        .watchPaymentsForInvoice(invoiceId)
+        .watchPaymentsForInvoice(
+          factoryId: invoice.factoryId,
+          invoiceId: invoice.id,
+        )
         .listen(
           (payments) => add(_JobWorkPaymentsUpdated(payments)),
           onError: (_) {},

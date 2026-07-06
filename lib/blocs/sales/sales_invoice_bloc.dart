@@ -40,8 +40,10 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
   ) async {
     emit(state.copyWith(status: SalesInvoiceStatus.loading));
     try {
-      final invoice =
-          await _invoiceRepository.getInvoiceBySalesOrderId(event.salesOrderId);
+      final invoice = await _invoiceRepository.getInvoiceBySalesOrderId(
+        factoryId: event.factoryId,
+        salesOrderId: event.salesOrderId,
+      );
       if (invoice == null) {
         emit(
           state.copyWith(
@@ -161,8 +163,10 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
       invoiceId: invoice.id,
       invoiceType: InvoiceType.sales,
     );
-    final invoicePayments =
-        await _paymentRepository.getPaymentsForInvoice(invoice.id);
+    final invoicePayments = await _paymentRepository.getPaymentsForInvoice(
+      factoryId: invoice.factoryId,
+      invoiceId: invoice.id,
+    );
 
     emit(
       state.copyWith(
