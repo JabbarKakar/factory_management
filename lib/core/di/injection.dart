@@ -64,6 +64,7 @@ import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/repositories/supplier_repository.dart';
 import '../../data/repositories/user_repository.dart';
+import '../../data/repositories/invite_repository.dart';
 import '../../data/repositories/theme_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
 import '../../data/services/customer_statement_service.dart';
@@ -108,6 +109,7 @@ void setupDependencies() {
     ),
   );
   getIt.registerLazySingleton<UserRepository>(UserRepository.new);
+  getIt.registerLazySingleton<InviteRepository>(InviteRepository.new);
   getIt.registerLazySingleton<NotificationRepository>(NotificationRepository.new);
   getIt.registerLazySingleton<CustomerLedgerService>(
     () => CustomerLedgerService(

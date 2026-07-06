@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entities/app_user.dart';
 import '../../domain/enums/factory_role_enums.dart';
+import '../../domain/enums/user_enums.dart';
 import '../models/user_model.dart';
 
 class UserRepository {
@@ -65,6 +66,15 @@ class UserRepository {
 
     await _collection.doc(userId).update({
       'employeeId': employeeId,
+    });
+  }
+
+  Future<void> setUserStatus({
+    required String userId,
+    required UserAccountStatus status,
+  }) async {
+    await _collection.doc(userId).update({
+      'status': status.firestoreValue,
     });
   }
 }

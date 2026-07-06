@@ -27,6 +27,14 @@ Sprints **S1–S24** delivered a production-usable factory app:
 
 **v1.0 exit criteria met:** A factory can run job work + sales + own production with money visibility, operational modules, exports, and manual WhatsApp payment reminders.
 
+### Phase 1 — Identity & onboarding (recommended first)
+
+Before other v1.1 sprints, complete **owner signup, factory creation, team invites, and factory profile** — detailed in:
+
+- [`MFMS_Phase1_Identity_Onboarding_Sprints.md`](./MFMS_Phase1_Identity_Onboarding_Sprints.md) — **S31–S35** (~5 weeks)
+
+This unblocks self-service deployment and supersedes roadmap items **30.1–30.3** (invite flow, disable user, factory profile editor).
+
 ---
 
 ## 2. v1.1 goals
@@ -231,6 +239,7 @@ Legend: **Done** = v1.0 MVP · **Partial** = core exists, doc gaps remain · **P
 
 | Sprint | Focus | Duration (guide) |
 |--------|--------|------------------|
+| **S31–S35** | **Phase 1: Identity & onboarding** (signup, factory, invites) | **~5 weeks** — see [Phase 1 doc](./MFMS_Phase1_Identity_Onboarding_Sprints.md) |
 | **S25** | Release hardening + deploy docs | 1 week |
 | **S26** | FCM + notification settings | 2 weeks |
 | **S27** | Waste & scrap module | 2 weeks |

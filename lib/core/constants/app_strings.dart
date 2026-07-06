@@ -5,6 +5,17 @@ abstract final class AppStrings {
   // Auth
   static const String login = 'Login';
   static const String loginSubtitle = 'Sign in to manage your factory';
+  static const String signUp = 'Create Account';
+  static const String signUpSubtitle = 'Register your factory and become the owner';
+  static const String acceptInvite = 'Accept Invite';
+  static const String acceptInviteSubtitle =
+      'Join your factory team with the invite link';
+  static const String onboarding = 'Complete Setup';
+  static const String onboardingSubtitle =
+      'Finish factory setup to start using MFMS';
+  static const String factorySettings = 'Factory Profile';
+  static const String factorySettingsSubtitle =
+      'Update factory name and contact details for exports';
   static const String logout = 'Logout';
   static const String email = 'Email';
   static const String password = 'Password';

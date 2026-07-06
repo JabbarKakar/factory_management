@@ -56,6 +56,8 @@ import '../../domain/enums/sales_enums.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
+import '../screens/auth/sign_up_screen.dart';
+import '../screens/auth/accept_invite_screen.dart';
 import '../screens/customers/customer_statement_screen.dart';
 import '../screens/customers/add_edit_customer_screen.dart';
 import '../screens/customers/customer_detail_screen.dart';
@@ -107,6 +109,8 @@ import '../screens/suppliers/supplier_detail_screen.dart';
 import '../screens/suppliers/suppliers_screen.dart';
 import '../screens/access_denied_screen.dart';
 import '../screens/settings/team_screen.dart';
+import '../screens/settings/onboarding_screen.dart';
+import '../screens/settings/factory_settings_screen.dart';
 import '../screens/more/more_screen.dart';
 import '../screens/notifications/notification_center_screen.dart';
 import '../screens/shell/main_shell.dart';
@@ -131,7 +135,9 @@ GoRouter createAppRouter(AuthBloc authBloc) {
           authState is AuthInitial || authState is AuthLoading;
       final isSplash = state.matchedLocation == RoutePaths.splash;
       final isAuthRoute = state.matchedLocation == RoutePaths.login ||
-          state.matchedLocation == RoutePaths.forgotPassword;
+          state.matchedLocation == RoutePaths.signUp ||
+          state.matchedLocation == RoutePaths.forgotPassword ||
+          state.matchedLocation.startsWith(RoutePaths.acceptInvite);
 
       if (isSplash) {
         return null;
@@ -176,6 +182,21 @@ GoRouter createAppRouter(AuthBloc authBloc) {
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
+        path: RoutePaths.signUp,
+        builder: (context, state) => const SignUpScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.acceptInvite,
+        builder: (context, state) => AcceptInviteScreen(
+          inviteId: state.uri.queryParameters['id'],
+        ),
+      ),
+      GoRoute(
+        path: RoutePaths.onboarding,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
         path: RoutePaths.accessDenied,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const AccessDeniedScreen(),
@@ -201,6 +222,11 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             child: const TeamScreen(),
           );
         },
+      ),
+      GoRoute(
+        path: RoutePaths.factorySettings,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const FactorySettingsScreen(),
       ),
       GoRoute(
         path: RoutePaths.notifications,

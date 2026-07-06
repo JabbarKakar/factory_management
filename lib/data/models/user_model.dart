@@ -1,4 +1,5 @@
 import '../../domain/entities/app_user.dart';
+import '../../domain/enums/user_enums.dart';
 
 class UserModel {
   const UserModel({
@@ -10,6 +11,8 @@ class UserModel {
     required this.createdAt,
     this.photoUrl,
     this.employeeId,
+    this.status = UserAccountStatus.active,
+    this.onboardingComplete = false,
   });
 
   final String id;
@@ -20,6 +23,8 @@ class UserModel {
   final DateTime? createdAt;
   final String? photoUrl;
   final String? employeeId;
+  final UserAccountStatus status;
+  final bool onboardingComplete;
 
   factory UserModel.fromFirestore(
     String id,
@@ -37,6 +42,8 @@ class UserModel {
       createdAt: (data['createdAt'] as dynamic)?.toDate() as DateTime?,
       photoUrl: _resolvePhotoUrl(storedPhoto, authPhotoUrl),
       employeeId: employeeId != null && employeeId.isNotEmpty ? employeeId : null,
+      status: UserAccountStatus.fromString(data['status'] as String?),
+      onboardingComplete: data['onboardingComplete'] as bool? ?? false,
     );
   }
 
@@ -48,6 +55,8 @@ class UserModel {
       'factoryId': factoryId,
       if (photoUrl != null) 'photoUrl': photoUrl,
       if (employeeId != null && employeeId!.isNotEmpty) 'employeeId': employeeId,
+      'status': status.firestoreValue,
+      'onboardingComplete': onboardingComplete,
       'createdAt': createdAt,
     };
   }
@@ -61,6 +70,8 @@ class UserModel {
       factoryId: factoryId,
       photoUrl: photoUrl,
       employeeId: employeeId,
+      status: status,
+      onboardingComplete: onboardingComplete,
     );
   }
 

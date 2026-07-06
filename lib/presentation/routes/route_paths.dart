@@ -10,7 +10,13 @@ import '../../domain/enums/raw_material_enums.dart';
 abstract final class RoutePaths {
   static const String splash = '/';
   static const String login = '/login';
+  static const String signUp = '/sign-up';
   static const String forgotPassword = '/forgot-password';
+  static const String acceptInvite = '/invite/accept';
+  static const String onboarding = '/onboarding';
+  static const String factorySettings = '/settings/factory';
+  static String acceptInviteWithId(String inviteId) =>
+      '$acceptInvite?id=$inviteId';
   static const String dashboard = '/dashboard';
   static const String jobWork = '/job-work';
   static const String jobWorkAdd = '/job-work/add';

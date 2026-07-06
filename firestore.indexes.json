@@ -15,6 +15,14 @@
         { "fieldPath": "factoryId", "order": "ASCENDING" },
         { "fieldPath": "dedupeKey", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "invites",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

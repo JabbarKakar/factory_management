@@ -34,6 +34,14 @@ service cloud.firestore {
       return myRole() == 'driver';
     }
 
+    function myStatus() {
+      return me().get('status', 'active');
+    }
+
+    function isActiveUser() {
+      return myStatus() != 'disabled';
+    }
+
     function sameFactoryExisting() {
       return resource.data.factoryId == myFactory();
     }
@@ -43,11 +51,11 @@ service cloud.firestore {
     }
 
     function canReadFactoryDoc() {
-      return signedIn() && sameFactoryExisting();
+      return signedIn() && isActiveUser() && sameFactoryExisting();
     }
 
     function canWriteFactoryDoc() {
-      return signedIn() && !isViewer() && sameFactoryIncoming();
+      return signedIn() && isActiveUser() && !isViewer() && sameFactoryIncoming();
     }
 
     function canReadFinancial() {
@@ -86,13 +94,13 @@ service cloud.firestore {
     }
 
     function canReadDelivery() {
-      return signedIn() && sameFactoryExisting() && (
+      return signedIn() && isActiveUser() && sameFactoryExisting() && (
         !isDriver() || resource.data.driverEmployeeId == myEmployeeId()
       );
     }
 
     function canWriteDelivery() {
-      return signedIn() && sameFactoryIncoming() && !isViewer() && (
+      return signedIn() && isActiveUser() && sameFactoryIncoming() && !isViewer() && (
         isOwner() ||
         myRole() in ['factoryManager', 'salesStaff'] ||
         (isDriver() &&
@@ -107,7 +115,7 @@ service cloud.firestore {
         (isOwner() && resource.data.factoryId == myFactory())
       );
       allow create: if signedIn() && request.auth.uid == userId;
-      allow update: if signedIn() && (
+      allow update: if signedIn() && isActiveUser() && (
         request.auth.uid == userId ||
         (isOwner() &&
           resource.data.factoryId == myFactory() &&
@@ -115,9 +123,28 @@ service cloud.firestore {
       );
     }
 
+    // Factory bootstrap: new owners create factories via Cloud Function (S32+).
+    // Client create remains owner-only for profile updates after bootstrap.
     match /factories/{factoryId} {
-      allow read: if signedIn() && factoryId == myFactory();
-      allow create, update: if isOwner() && factoryId == myFactory();
+      allow read: if signedIn() && isActiveUser() && factoryId == myFactory();
+      allow create, update: if isOwner() && isActiveUser() && factoryId == myFactory();
+      allow delete: if false;
+    }
+
+    match /invites/{inviteId} {
+      allow read: if signedIn() && isActiveUser() && (
+        (isOwner() && resource.data.factoryId == myFactory()) ||
+        (resource.data.email == request.auth.token.email &&
+          resource.data.status == 'pending')
+      );
+      allow create: if false;
+      allow update: if signedIn() && isActiveUser() && isOwner() &&
+        resource.data.factoryId == myFactory() &&
+        request.resource.data.factoryId == resource.data.factoryId &&
+        request.resource.data.email == resource.data.email &&
+        request.resource.data.role == resource.data.role &&
+        request.resource.data.invitedBy == resource.data.invitedBy &&
+        request.resource.data.status == 'revoked';
       allow delete: if false;
     }
 
@@ -225,7 +252,7 @@ service cloud.firestore {
 
     match /deliveries/{deliveryId} {
       allow read: if canReadDelivery();
-      allow create: if signedIn() && sameFactoryIncoming() && !isViewer() && !isDriver() &&
+      allow create: if signedIn() && isActiveUser() && sameFactoryIncoming() && !isViewer() && !isDriver() &&
         myRole() in ['owner', 'factoryManager', 'salesStaff'];
       allow update: if canWriteDelivery();
       allow delete: if isOwner() && sameFactoryExisting();

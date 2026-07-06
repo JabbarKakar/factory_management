@@ -113,6 +113,9 @@ class PermissionRouteGuard {
     if (location.startsWith(RoutePaths.team)) {
       return AppModule.team;
     }
+    if (location.startsWith(RoutePaths.factorySettings)) {
+      return AppModule.team;
+    }
     if (location.startsWith(RoutePaths.accessDenied)) {
       return null;
     }
