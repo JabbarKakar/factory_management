@@ -232,18 +232,27 @@ class MoreScreen extends StatelessWidget {
       ],
     );
 
-    if (user.canManageTeam) {
+    if (user.canManageTeam || user.canViewFactoryProfile) {
       addSection(
         title: 'Administration',
         icon: Icons.admin_panel_settings_outlined,
         items: [
-          _MoreMenuItem(
-            icon: Icons.shield_outlined,
-            color: AppColors.error,
-            title: AppStrings.teamManagement,
-            subtitle: AppStrings.teamManagementSubtitle,
-            onTap: () => context.push(RoutePaths.team),
-          ),
+          if (user.canViewFactoryProfile)
+            _MoreMenuItem(
+              icon: Icons.business_outlined,
+              color: AppColors.primary,
+              title: AppStrings.factorySettings,
+              subtitle: AppStrings.factorySettingsSubtitle,
+              onTap: () => context.push(RoutePaths.factorySettings),
+            ),
+          if (user.canManageTeam)
+            _MoreMenuItem(
+              icon: Icons.shield_outlined,
+              color: AppColors.error,
+              title: AppStrings.teamManagement,
+              subtitle: AppStrings.teamManagementSubtitle,
+              onTap: () => context.push(RoutePaths.team),
+            ),
         ],
       );
     }

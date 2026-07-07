@@ -20,4 +20,10 @@ extension AppUserPermissions on AppUser {
   bool canExport(AppModule module) => can(module, PermissionAction.export);
 
   bool get canManageTeam => factoryRole == FactoryRole.owner;
+
+  bool get canViewFactoryProfile =>
+      factoryRole == FactoryRole.owner ||
+      factoryRole == FactoryRole.factoryManager;
+
+  bool get canEditFactoryProfile => factoryRole == FactoryRole.owner;
 }

@@ -17,6 +17,14 @@ class PermissionRouteGuard {
       return user.canView(AppModule.customers);
     }
 
+    if (location.startsWith(RoutePaths.factorySettings)) {
+      return user.canViewFactoryProfile;
+    }
+
+    if (location.startsWith(RoutePaths.onboarding)) {
+      return true;
+    }
+
     final module = moduleForLocation(location);
     if (module == null) return true;
 
@@ -114,7 +122,10 @@ class PermissionRouteGuard {
       return AppModule.team;
     }
     if (location.startsWith(RoutePaths.factorySettings)) {
-      return AppModule.team;
+      return null;
+    }
+    if (location.startsWith(RoutePaths.onboarding)) {
+      return null;
     }
     if (location.startsWith(RoutePaths.accessDenied)) {
       return null;

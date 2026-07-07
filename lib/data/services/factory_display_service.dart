@@ -19,4 +19,8 @@ class FactoryDisplayService {
     _cache[factoryId] = resolved;
     return resolved;
   }
+
+  void invalidateCache(String factoryId) {
+    _cache.remove(factoryId);
+  }
 }

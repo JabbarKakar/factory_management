@@ -38,6 +38,7 @@ import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
 import '../../blocs/supplier/supplier_form_bloc.dart';
 import '../../blocs/supplier/supplier_list_bloc.dart';
+import '../../blocs/factory_profile/factory_profile_bloc.dart';
 import '../../blocs/team/team_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
@@ -259,6 +260,12 @@ void setupDependencies() {
     () => TeamBloc(
       repository: getIt<UserRepository>(),
       employeeRepository: getIt<EmployeeRepository>(),
+    ),
+  );
+  getIt.registerFactory<FactoryProfileBloc>(
+    () => FactoryProfileBloc(
+      repository: getIt<FactoryRepository>(),
+      displayService: getIt<FactoryDisplayService>(),
     ),
   );
   getIt.registerFactory<CustomerListBloc>(

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/auth/auth_bloc.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../domain/extensions/app_user_tenancy.dart';
+import '../../routes/permission_route_guard.dart';
 import '../../routes/route_paths.dart';
 import '../../widgets/splash/animated_splash_content.dart';
 
@@ -79,7 +81,12 @@ class _SplashScreenState extends State<SplashScreen>
     final authState = context.read<AuthBloc>().state;
 
     if (authState is AuthAuthenticated) {
-      context.go(RoutePaths.dashboard);
+      final user = authState.user;
+      if (user.needsOnboarding) {
+        context.go(RoutePaths.onboarding);
+        return;
+      }
+      context.go(PermissionRouteGuard.homeLocationFor(user));
       return;
     }
 

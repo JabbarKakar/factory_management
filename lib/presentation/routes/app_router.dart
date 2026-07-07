@@ -37,6 +37,7 @@ import '../../blocs/production/production_list_bloc.dart';
 import '../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
+import '../../blocs/factory_profile/factory_profile_bloc.dart';
 import '../../blocs/team/team_bloc.dart';
 import '../../blocs/supplier/supplier_form_bloc.dart';
 import '../../blocs/supplier/supplier_list_bloc.dart';
@@ -44,6 +45,7 @@ import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
+import '../../domain/extensions/app_user_tenancy.dart';
 import '../../domain/enums/delivery_enums.dart';
 import '../../domain/enums/equipment_enums.dart';
 import '../../domain/enums/quality_enums.dart';
@@ -139,6 +141,8 @@ GoRouter createAppRouter(AuthBloc authBloc) {
           state.matchedLocation == RoutePaths.forgotPassword ||
           state.matchedLocation.startsWith(RoutePaths.acceptInvite);
 
+      final isOnboardingRoute = state.matchedLocation == RoutePaths.onboarding;
+
       if (isSplash) {
         return null;
       }
@@ -152,14 +156,28 @@ GoRouter createAppRouter(AuthBloc authBloc) {
       }
 
       if (isAuthenticated && isAuthRoute) {
-        return PermissionRouteGuard.homeLocationFor(
-          (authState as AuthAuthenticated).user,
-        );
+        final user = (authState as AuthAuthenticated).user;
+        if (user.needsOnboarding) {
+          return RoutePaths.onboarding;
+        }
+        return PermissionRouteGuard.homeLocationFor(user);
       }
 
       if (isAuthenticated) {
         final user = (authState as AuthAuthenticated).user;
         final location = state.matchedLocation;
+
+        if (user.needsOnboarding) {
+          if (!isOnboardingRoute) {
+            return RoutePaths.onboarding;
+          }
+          return null;
+        }
+
+        if (isOnboardingRoute) {
+          return PermissionRouteGuard.homeLocationFor(user);
+        }
+
         if (location != RoutePaths.accessDenied &&
             !PermissionRouteGuard.canAccessLocation(user, location)) {
           return RoutePaths.accessDenied;
@@ -226,7 +244,19 @@ GoRouter createAppRouter(AuthBloc authBloc) {
       GoRoute(
         path: RoutePaths.factorySettings,
         parentNavigatorKey: rootNavigatorKey,
-        builder: (context, state) => const FactorySettingsScreen(),
+        builder: (context, state) {
+          final factoryId = readFactoryId(context);
+          return BlocProvider(
+            create: (_) {
+              final bloc = getIt<FactoryProfileBloc>();
+              if (factoryId != null) {
+                bloc.add(FactoryProfileWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: const FactorySettingsScreen(),
+          );
+        },
       ),
       GoRoute(
         path: RoutePaths.notifications,

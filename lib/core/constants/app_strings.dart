@@ -19,10 +19,21 @@ abstract final class AppStrings {
       'Join your factory team with the invite link';
   static const String onboarding = 'Complete Setup';
   static const String onboardingSubtitle =
-      'Finish factory setup to start using MFMS';
+      'Your account is not linked to a factory yet';
+  static const String onboardingBody =
+      'Ask your factory owner for a team invite, or create a new factory account if you are the owner.';
   static const String factorySettings = 'Factory Profile';
   static const String factorySettingsSubtitle =
       'Update factory name and contact details for exports';
+  static const String factoryNameLabel = 'Factory name';
+  static const String ownerNameLabel = 'Owner name';
+  static const String factoryAddress = 'Factory address';
+  static const String factoryPhone = 'Factory phone';
+  static const String factoryProfileSaved = 'Factory profile saved.';
+  static const String factoryProfileLoadError = 'Could not load factory profile.';
+  static const String factoryProfileSaveError = 'Could not save factory profile.';
+  static const String readOnlyProfileNote =
+      'You can view factory details. Only the owner can edit them.';
   static const String logout = 'Logout';
   static const String email = 'Email';
   static const String password = 'Password';
