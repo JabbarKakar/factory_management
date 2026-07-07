@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../core/utils/date_keys.dart';
 import '../../core/utils/dashboard_job_work_metrics.dart';
@@ -85,7 +86,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<DashboardWatchStopped>(_onWatchStopped);
     on<_DashboardDataUpdated>(_onDataUpdated);
     on<_DashboardRecomputeRequested>(_onRecomputeRequested);
-    on<_DashboardStreamFailed>(_onStreamFailed);
   }
 
   final PaymentRepository _paymentRepository;
@@ -137,11 +137,25 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   Timer? _recomputeDebounce;
 
+  void _handleStreamError(String streamName, void Function() reset) {
+    if (kDebugMode) {
+      debugPrint('Dashboard stream failed ($streamName); continuing with empty data.');
+    }
+    reset();
+    add(const _DashboardDataUpdated());
+  }
+
   Future<void> _onWatchStarted(
     DashboardWatchStarted event,
     Emitter<DashboardState> emit,
   ) async {
-    emit(state.copyWith(status: DashboardStatus.loading, factoryId: event.factoryId));
+    emit(
+      state.copyWith(
+        status: DashboardStatus.loading,
+        factoryId: event.factoryId,
+        errorMessage: null,
+      ),
+    );
     await _cancelSubscriptions();
 
     _paymentsSub = _paymentRepository
@@ -151,9 +165,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _payments = payments;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) => _handleStreamError('payments', () => _payments = const []),
         );
 
     _jobWorkSub = _jobWorkRepository
@@ -163,9 +175,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _orders = orders;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) => _handleStreamError('jobWork', () => _orders = const []),
         );
 
     _salesSub = _salesOrderRepository
@@ -175,9 +185,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _salesOrders = orders;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) => _handleStreamError('salesOrders', () => _salesOrders = const []),
         );
 
     _customersSub = _customerRepository
@@ -187,9 +195,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _customers = customers;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) => _handleStreamError('customers', () => _customers = const []),
         );
 
     _jobWorkInvoicesSub = _jobWorkInvoiceRepository
@@ -199,9 +205,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _jobWorkInvoices = invoices;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) =>
+              _handleStreamError('jobWorkInvoices', () => _jobWorkInvoices = const []),
         );
 
     _salesInvoicesSub = _salesInvoiceRepository
@@ -211,9 +216,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _salesInvoices = invoices;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) =>
+              _handleStreamError('salesInvoices', () => _salesInvoices = const []),
         );
 
     _expensesSub = _expenseRepository
@@ -223,9 +227,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _expenses = expenses;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) => _handleStreamError('expenses', () => _expenses = const []),
         );
 
     _rawMaterialsSub = _rawMaterialRepository
@@ -235,9 +237,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _rawMaterials = materials;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) =>
+              _handleStreamError('rawMaterials', () => _rawMaterials = const []),
         );
 
     _employeesSub = _employeeRepository.watchEmployees(event.factoryId).listen(
@@ -245,9 +246,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _employees = employees;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) => _handleStreamError('employees', () => _employees = const []),
         );
 
     final today = DateKeys.dateOnly(DateTime.now());
@@ -258,9 +257,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _attendanceToday = records;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) =>
+              _handleStreamError('attendance', () => _attendanceToday = const []),
         );
 
     _deliveriesSub = _deliveryRepository
@@ -270,9 +268,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _deliveries = deliveries;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) => _handleStreamError('deliveries', () => _deliveries = const []),
         );
 
     _equipmentSub = _equipmentRepository.watchEquipment(event.factoryId).listen(
@@ -280,9 +276,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             _equipment = equipment;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => add(
-            const _DashboardStreamFailed('Could not load dashboard data.'),
-          ),
+          onError: (_) => _handleStreamError('equipment', () => _equipment = const []),
         );
 
     _qualityChecksSub =
@@ -291,9 +285,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
                 _qualityChecks = checks;
                 add(const _DashboardDataUpdated());
               },
-              onError: (_) => add(
-                const _DashboardStreamFailed('Could not load dashboard data.'),
-              ),
+              onError: (_) =>
+                  _handleStreamError('qualityChecks', () => _qualityChecks = const []),
             );
 
     _productionBatchesSub =
@@ -302,8 +295,9 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
                 _productionBatches = batches;
                 add(const _DashboardDataUpdated());
               },
-              onError: (_) => add(
-                const _DashboardStreamFailed('Could not load dashboard data.'),
+              onError: (_) => _handleStreamError(
+                'productionBatches',
+                () => _productionBatches = const [],
               ),
             );
   }
@@ -517,18 +511,6 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     );
   }
 
-  void _onStreamFailed(
-    _DashboardStreamFailed event,
-    Emitter<DashboardState> emit,
-  ) {
-    emit(
-      state.copyWith(
-        status: DashboardStatus.failure,
-        errorMessage: event.message,
-      ),
-    );
-  }
-
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
@@ -578,13 +560,4 @@ final class _DashboardDataUpdated extends DashboardEvent {
 
 final class _DashboardRecomputeRequested extends DashboardEvent {
   const _DashboardRecomputeRequested();
-}
-
-final class _DashboardStreamFailed extends DashboardEvent {
-  const _DashboardStreamFailed(this.message);
-
-  final String message;
-
-  @override
-  List<Object?> get props => [message];
 }

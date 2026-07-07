@@ -22,16 +22,20 @@ service cloud.firestore {
       return me().get('employeeId', '');
     }
 
+    function effectiveRole() {
+      return myRole() == 'manager' ? 'factoryManager' : myRole();
+    }
+
     function isOwner() {
-      return myRole() == 'owner';
+      return effectiveRole() == 'owner';
     }
 
     function isViewer() {
-      return myRole() == 'viewer';
+      return effectiveRole() == 'viewer';
     }
 
     function isDriver() {
-      return myRole() == 'driver';
+      return effectiveRole() == 'driver';
     }
 
     function myStatus() {
@@ -96,38 +100,38 @@ service cloud.firestore {
     }
 
     function canReadFinancial() {
-      return myRole() in ['owner', 'accountant', 'factoryManager', 'salesStaff', 'jobWorkClerk'];
+      return effectiveRole() in ['owner', 'accountant', 'factoryManager', 'salesStaff', 'jobWorkClerk'];
     }
 
     function canWriteFinancial() {
-      return myRole() in ['owner', 'accountant', 'salesStaff'];
+      return effectiveRole() in ['owner', 'accountant', 'salesStaff'];
     }
 
     function canReadOperations() {
-      return myRole() in [
+      return effectiveRole() in [
         'owner', 'factoryManager', 'supervisor', 'storeKeeper',
         'jobWorkClerk', 'salesStaff', 'accountant'
       ];
     }
 
     function canWriteOperations() {
-      return myRole() in ['owner', 'factoryManager', 'supervisor', 'storeKeeper', 'jobWorkClerk'];
+      return effectiveRole() in ['owner', 'factoryManager', 'supervisor', 'storeKeeper', 'jobWorkClerk'];
     }
 
     function canReadProduction() {
-      return myRole() in ['owner', 'factoryManager', 'supervisor', 'storeKeeper', 'jobWorkClerk', 'accountant'];
+      return effectiveRole() in ['owner', 'factoryManager', 'supervisor', 'storeKeeper', 'jobWorkClerk', 'accountant'];
     }
 
     function canWriteProduction() {
-      return myRole() in ['owner', 'factoryManager', 'supervisor'];
+      return effectiveRole() in ['owner', 'factoryManager', 'supervisor'];
     }
 
     function canReadLabour() {
-      return myRole() in ['owner', 'factoryManager', 'supervisor', 'accountant'];
+      return effectiveRole() in ['owner', 'factoryManager', 'supervisor', 'accountant'];
     }
 
     function canWriteLabour() {
-      return myRole() in ['owner', 'factoryManager', 'supervisor'];
+      return effectiveRole() in ['owner', 'factoryManager', 'supervisor'];
     }
 
     function canReadDelivery() {
@@ -139,7 +143,7 @@ service cloud.firestore {
     function canWriteDelivery() {
       return signedIn() && isActiveUser() && sameFactoryIncoming() && !isViewer() && (
         isOwner() ||
-        myRole() in ['factoryManager', 'salesStaff'] ||
+        effectiveRole() in ['factoryManager', 'salesStaff'] ||
         (isDriver() &&
           resource.data.driverEmployeeId == myEmployeeId() &&
           request.resource.data.driverEmployeeId == myEmployeeId())
@@ -234,8 +238,8 @@ service cloud.firestore {
     }
 
     match /expenses/{expenseId} {
-      allow read: if canReadFactoryDoc() && myRole() in ['owner', 'accountant', 'factoryManager'];
-      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'accountant'];
+      allow read: if canReadFactoryDoc() && effectiveRole() in ['owner', 'accountant', 'factoryManager'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'accountant'];
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
@@ -247,13 +251,13 @@ service cloud.firestore {
 
     match /rawMaterials/{materialId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'storeKeeper'];
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /stockTransactions/{transactionId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'storeKeeper'];
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
@@ -265,13 +269,13 @@ service cloud.firestore {
 
     match /finishedGoods/{finishedGoodId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'storeKeeper'];
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /inventoryTransactions/{transactionId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'storeKeeper'];
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
@@ -290,26 +294,26 @@ service cloud.firestore {
     match /deliveries/{deliveryId} {
       allow read: if canReadDelivery();
       allow create: if signedIn() && isActiveUser() && sameFactoryIncoming() && !isViewer() && !isDriver() &&
-        myRole() in ['owner', 'factoryManager', 'salesStaff'];
+        effectiveRole() in ['owner', 'factoryManager', 'salesStaff'];
       allow update: if canWriteDelivery();
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /equipment/{equipmentId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'supervisor'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'supervisor'];
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /maintenanceLogs/{logId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'supervisor'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'supervisor'];
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /qualityChecks/{qcId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && myRole() in ['owner', 'factoryManager', 'supervisor', 'jobWorkClerk'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'supervisor', 'jobWorkClerk'];
       allow delete: if isOwner() && sameFactoryExisting();
     }
 

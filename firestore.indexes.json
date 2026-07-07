@@ -71,6 +71,14 @@
         { "fieldPath": "factoryId", "order": "ASCENDING" },
         { "fieldPath": "customerId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "attendanceRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "dateKey", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

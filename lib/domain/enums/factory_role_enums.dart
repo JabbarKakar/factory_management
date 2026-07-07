@@ -25,8 +25,12 @@ enum FactoryRole {
 
   static FactoryRole fromString(String? value) {
     if (value == null || value.isEmpty) return FactoryRole.owner;
+    final normalized = switch (value) {
+      'manager' => 'factoryManager',
+      _ => value,
+    };
     return FactoryRole.values.firstWhere(
-      (role) => role.name == value || role.firestoreValue == value,
+      (role) => role.name == normalized || role.firestoreValue == normalized,
       orElse: () => FactoryRole.viewer,
     );
   }
