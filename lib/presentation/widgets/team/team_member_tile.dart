@@ -4,6 +4,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/app_user.dart';
 import '../../../domain/entities/employee.dart';
 import '../../../domain/enums/factory_role_enums.dart';
+import '../../../domain/enums/user_enums.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
 import '../forms/app_form_fields.dart';
 import 'factory_role_badge.dart';
@@ -16,6 +17,7 @@ class TeamMemberTile extends StatelessWidget {
     required this.enabled,
     required this.onRoleChanged,
     required this.onEmployeeLinkChanged,
+    this.onStatusToggle,
     super.key,
   });
 
@@ -26,6 +28,9 @@ class TeamMemberTile extends StatelessWidget {
   final ValueChanged<FactoryRole> onRoleChanged;
   final ValueChanged<String?> onEmployeeLinkChanged;
 
+  /// Owner-only toggle to disable/enable this member. Null for self.
+  final VoidCallback? onStatusToggle;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -34,7 +39,9 @@ class TeamMemberTile extends StatelessWidget {
     final outline =
         theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.45);
     final role = member.factoryRole;
-    final accent = factoryRoleAccent(role);
+    final isDisabled = member.status == UserAccountStatus.disabled;
+    final accent =
+        isDisabled ? theme.colorScheme.outline : factoryRoleAccent(role);
     final isDriver = role == FactoryRole.driver;
     const cardShape = BorderRadius.only(
       topRight: Radius.circular(14),
@@ -106,30 +113,15 @@ class TeamMemberTile extends StatelessWidget {
                                           ),
                                         ),
                                       ),
+                                      if (isDisabled)
+                                        _StatusChip(
+                                          label: AppStrings.disabledLabel,
+                                          color: theme.colorScheme.error,
+                                        ),
                                       if (isSelf)
-                                        Container(
-                                          margin:
-                                              const EdgeInsets.only(left: 6),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 7,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.primary
-                                                .withValues(alpha: 0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            'You',
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                              color:
-                                                  theme.colorScheme.primary,
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 10,
-                                            ),
-                                          ),
+                                        _StatusChip(
+                                          label: 'You',
+                                          color: theme.colorScheme.primary,
                                         ),
                                     ],
                                   ),
@@ -224,6 +216,39 @@ class TeamMemberTile extends StatelessWidget {
                               ),
                             ),
                         ],
+                        if (!isSelf && onStatusToggle != null) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: enabled ? onStatusToggle : null,
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                foregroundColor: isDisabled
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.error,
+                              ),
+                              icon: Icon(
+                                isDisabled
+                                    ? Icons.lock_open_outlined
+                                    : Icons.block_outlined,
+                                size: 16,
+                              ),
+                              label: Text(
+                                isDisabled
+                                    ? AppStrings.enableMember
+                                    : AppStrings.disableMember,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -232,6 +257,33 @@ class TeamMemberTile extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+            ),
       ),
     );
   }

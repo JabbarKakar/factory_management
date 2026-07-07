@@ -138,8 +138,11 @@ service cloud.firestore {
       return signedIn() && isActiveUser() && !isViewer() && sameFactoryIncoming();
     }
 
+    // Read-only visibility of customer/sales/financial docs. Supervisor is
+    // included so the Customers, Sales, and Dashboard views work; write access
+    // to these collections stays restricted via canWriteFinancial().
     function canReadFinancial() {
-      return effectiveRole() in ['owner', 'accountant', 'factoryManager', 'salesStaff', 'jobWorkClerk'];
+      return effectiveRole() in ['owner', 'accountant', 'factoryManager', 'salesStaff', 'jobWorkClerk', 'supervisor'];
     }
 
     function canWriteFinancial() {
@@ -195,11 +198,24 @@ service cloud.firestore {
         (isOwner() && resource.data.factoryId == myFactory())
       );
       allow create: if ownerUserBootstrap(userId) || inviteAcceptBootstrap(userId);
+
+      // Self may edit profile fields only (never role, tenancy, status, or the
+      // driver employee link). Owner manages OTHER members in the same factory
+      // (role/status/employee link); factory and email stay fixed. This blocks
+      // privilege escalation and stops an owner from disabling/demoting self.
       allow update: if signedIn() && isActiveUser() && (
-        request.auth.uid == userId ||
+        (request.auth.uid == userId &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.factoryId == resource.data.factoryId &&
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.email == resource.data.email &&
+          request.resource.data.get('employeeId', '') ==
+            resource.data.get('employeeId', '')) ||
         (isOwner() &&
+          userId != request.auth.uid &&
           resource.data.factoryId == myFactory() &&
-          request.resource.data.factoryId == myFactory())
+          request.resource.data.factoryId == resource.data.factoryId &&
+          request.resource.data.email == resource.data.email)
       );
     }
 

@@ -27,6 +27,7 @@ class TeamBloc extends Bloc<TeamEvent, TeamState> {
     on<TeamWatchStopped>(_onWatchStopped);
     on<TeamRoleChangeRequested>(_onRoleChangeRequested);
     on<TeamEmployeeLinkRequested>(_onEmployeeLinkRequested);
+    on<TeamStatusChangeRequested>(_onStatusChangeRequested);
     on<TeamInviteRequested>(_onInviteRequested);
     on<TeamInviteRevokeRequested>(_onInviteRevokeRequested);
     on<TeamInviteShareHandled>(_onInviteShareHandled);
@@ -84,6 +85,39 @@ class TeamBloc extends Bloc<TeamEvent, TeamState> {
     _usersSubscription = null;
     _employeesSubscription = null;
     _invitesSubscription = null;
+  }
+
+  Future<void> _onStatusChangeRequested(
+    TeamStatusChangeRequested event,
+    Emitter<TeamState> emit,
+  ) async {
+    // Never let the owner disable themselves and get locked out.
+    if (event.userId == state.currentUserId) return;
+
+    emit(state.copyWith(isSaving: true, clearMessage: true));
+    try {
+      if (event.disable) {
+        await _repository.disableUser(event.userId);
+      } else {
+        await _repository.enableUser(event.userId);
+      }
+      emit(
+        state.copyWith(
+          isSaving: false,
+          successMessage:
+              event.disable ? 'Member access disabled.' : 'Member access restored.',
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: event.disable
+              ? 'Could not disable member.'
+              : 'Could not enable member.',
+        ),
+      );
+    }
   }
 
   Future<void> _onInviteRequested(

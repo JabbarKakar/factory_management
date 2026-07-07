@@ -8,6 +8,7 @@ abstract final class AppStrings {
   static const String signUp = 'Create Account';
   static const String signUpSubtitle = 'Register your factory and become the owner';
   static const String createFactoryAccount = 'Create factory account';
+  static const String haveInviteAccept = 'Have an invite code? Join a team';
   static const String alreadyHaveAccount = 'Already have an account? Sign in';
   static const String yourName = 'Your name';
   static const String factoryName = 'Factory name';
@@ -447,9 +448,10 @@ abstract final class AppStrings {
   static const String backToDashboard = 'Go to Home';
   static const String teamManagement = 'Team & Roles';
   static const String teamManagementSubtitle =
-      'Assign factory roles to signed-in users';
+      'Invite teammates, assign roles, and manage access';
   static const String teamLoadError = 'Could not load team members.';
-  static const String teamEmpty = 'No users found for this factory.';
+  static const String teamEmpty =
+      'No team members yet. Invite someone to get started.';
   static const String role = 'Role';
   static const String linkedEmployee = 'Linked Employee';
   static const String noEmployeeLinked = 'Not linked';
@@ -476,6 +478,26 @@ abstract final class AppStrings {
   static const String shareInvite = 'Share';
   static const String inviteCopied = 'Invite code copied.';
   static const String inviteExpiresPrefix = 'Expires';
+
+  // Member enable/disable & owner safeguards (S35)
+  static const String disabledLabel = 'Disabled';
+  static const String disableMember = 'Disable';
+  static const String enableMember = 'Enable';
+  static const String disableMemberTitle = 'Disable member?';
+  static const String disableMemberMessage =
+      'They will be signed out of factory data until you re-enable them. '
+      'Their history is kept.';
+  static const String promoteOwnerTitle = 'Make this member an owner?';
+  static const String promoteOwnerMessage =
+      'Owners have full control of the factory, including managing other '
+      'members. This cannot be undone by them.';
+  static const String promoteOwnerConfirm = 'Make owner';
+
+  // Disabled account runtime screen (S35)
+  static const String accountDisabledTitle = 'Account disabled';
+  static const String accountDisabledMessage =
+      'Your access to this factory has been disabled by the owner. '
+      'Please contact them if you think this is a mistake.';
 
   // Sales (Sprint 8)
   static const String newSalesOrder = 'New Sales Order';

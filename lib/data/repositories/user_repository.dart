@@ -77,4 +77,12 @@ class UserRepository {
       'status': status.firestoreValue,
     });
   }
+
+  /// Owner blocks a member's access without deleting their history (S35).
+  Future<void> disableUser(String userId) =>
+      setUserStatus(userId: userId, status: UserAccountStatus.disabled);
+
+  /// Owner restores a previously disabled member (S35).
+  Future<void> enableUser(String userId) =>
+      setUserStatus(userId: userId, status: UserAccountStatus.active);
 }

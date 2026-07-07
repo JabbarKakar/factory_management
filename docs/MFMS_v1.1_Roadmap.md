@@ -177,9 +177,9 @@ Items marked **v1.2+** in Section 8 are intentionally **out of v1.1 scope**.
 
 | # | Task | Description | Acceptance criteria |
 |---|------|-------------|---------------------|
-| 30.1 | Invite user flow | Owner sends invite email / temp password | New user appears in team list |
-| 30.2 | Disable / deactivate user | Soft-disable without deleting Firestore history | Cannot login when disabled |
-| 30.3 | Factory profile editor | Name, address, logo on `factories/{id}` | Used on PDFs and reminders |
+| 30.1 | Invite user flow | ✅ **Delivered in Phase 1 (S34–S35)** — client-side invite code flow (Spark plan, no email/Function); see [Phase 1 doc](./MFMS_Phase1_Identity_Onboarding_Sprints.md) §10–§11 | New user appears in team list |
+| 30.2 | Disable / deactivate user | ✅ **Delivered in Phase 1 (S35)** — soft-disable via `status: disabled`, rule-enforced lockout + Account Disabled screen; see [Phase 1 doc](./MFMS_Phase1_Identity_Onboarding_Sprints.md) §11 | Blocked from data when disabled |
+| 30.3 | Factory profile editor | ✅ **Delivered in Phase 1 (S33)** — name/address/phone on `factories/{id}`; see [Phase 1 doc](./MFMS_Phase1_Identity_Onboarding_Sprints.md) §9 | Used on PDFs and reminders |
 | 30.4 | QC defect photos | `image_picker` + Firebase Storage | Photos on QC detail |
 | 30.5 | QC edit / delete | Correct mistaken inspections | Owner or QC role only |
 | 30.6 | Customer complaint log | Basic CRUD linked to customer | Module 14 §18.2 |

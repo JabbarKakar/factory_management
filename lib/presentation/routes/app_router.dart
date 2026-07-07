@@ -110,6 +110,7 @@ import '../screens/suppliers/add_edit_supplier_screen.dart';
 import '../screens/suppliers/supplier_detail_screen.dart';
 import '../screens/suppliers/suppliers_screen.dart';
 import '../screens/access_denied_screen.dart';
+import '../screens/account_disabled_screen.dart';
 import '../screens/settings/team_screen.dart';
 import '../screens/settings/onboarding_screen.dart';
 import '../screens/settings/factory_settings_screen.dart';
@@ -155,8 +156,31 @@ GoRouter createAppRouter(AuthBloc authBloc) {
         return RoutePaths.login;
       }
 
+      final isAccountDisabledRoute =
+          state.matchedLocation == RoutePaths.accountDisabled;
+
+      // A member disabled by the owner keeps an Auth session but must be locked
+      // out of all app data (rules already deny it). Route them to a dead-end.
+      if (isAuthenticated) {
+        final user = authState.user;
+        if (!user.isActive) {
+          return isAccountDisabledRoute ? null : RoutePaths.accountDisabled;
+        }
+      }
+
+      if (isAccountDisabledRoute) {
+        // Active (or signed-out) users have no business here.
+        if (isAuthenticated) {
+          final user = authState.user;
+          return user.needsOnboarding
+              ? RoutePaths.onboarding
+              : PermissionRouteGuard.homeLocationFor(user);
+        }
+        return RoutePaths.login;
+      }
+
       if (isAuthenticated && isAuthRoute) {
-        final user = (authState as AuthAuthenticated).user;
+        final user = authState.user;
         if (user.needsOnboarding) {
           return RoutePaths.onboarding;
         }
@@ -164,7 +188,7 @@ GoRouter createAppRouter(AuthBloc authBloc) {
       }
 
       if (isAuthenticated) {
-        final user = (authState as AuthAuthenticated).user;
+        final user = authState.user;
         final location = state.matchedLocation;
 
         if (user.needsOnboarding) {
@@ -218,6 +242,11 @@ GoRouter createAppRouter(AuthBloc authBloc) {
         path: RoutePaths.accessDenied,
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) => const AccessDeniedScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.accountDisabled,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const AccountDisabledScreen(),
       ),
       GoRoute(
         path: RoutePaths.team,

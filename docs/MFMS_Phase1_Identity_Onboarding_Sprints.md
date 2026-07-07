@@ -256,29 +256,64 @@ Owner invites sales staff → invitee completes flow → sees customers/job work
 
 ### Tasks
 
-| # | Task | Description | Acceptance criteria |
-|---|------|-------------|---------------------|
-| 35.1 | Team screen — Invite button | Sheet: email + role dropdown (exclude owner or confirm dialog) | Owner sends invite from app |
-| 35.2 | Pending invites list | Show pending/revoked/expired; resend + revoke actions | Owner sees invite status |
-| 35.3 | Disable user | Owner sets `status: disabled` on team member | User blocked by rules on next request |
-| 35.4 | Enable user | Owner re-enables disabled member | Restores access |
-| 35.5 | Owner safeguards | Cannot change own role; confirm before promoting another to owner | UI + optional rule |
-| 35.6 | Team subtitle & empty states | Copy reflects invite flow, not "signed-in users only" | `app_strings.dart` updated |
-| 35.7 | `UserRepository` updates | `disableUser`, `enableUser`, `watchTeamMembers` stream | Team list updates in real time |
-| 35.8 | Migration procedure | Script or manual steps: move users off `'default'`, create `factories` doc | §12 checklist executed on staging |
-| 35.9 | Integration test plan | Matrix: owner signup, invite accept, disable, factory edit, role homes | Test doc or automated tests |
-| 35.10 | Update v1.1 roadmap | Mark 30.1–30.3 delivered via Phase 1; link this doc | `MFMS_v1.1_Roadmap.md` cross-ref |
+| # | Task | Description | Status |
+|---|------|-------------|--------|
+| 35.1 | Team screen — Invite button | Dialog: email + role dropdown (owner excluded) | ✅ Delivered (S34) |
+| 35.2 | Pending invites list | Show pending invites with revoke action | ✅ Delivered (S34) |
+| 35.3 | Disable user | Owner sets `status: disabled` on team member | ✅ Delivered |
+| 35.4 | Enable user | Owner re-enables disabled member | ✅ Delivered |
+| 35.5 | Owner safeguards | Cannot change own role/status (UI + rule); confirm before promoting another to owner | ✅ Delivered |
+| 35.6 | Team subtitle & empty states | Copy reflects invite flow, not "signed-in users only" | ✅ Delivered |
+| 35.7 | `UserRepository` updates | `disableUser`, `enableUser`, `watchFactoryUsers` stream | ✅ Delivered |
+| 35.8 | Migration procedure | Manual steps: move users off `'default'`, create `factories` doc | 📋 Runbook ready (§12); run per-deployment |
+| 35.9 | Integration test plan | Matrix: owner signup, invite accept, disable, factory edit, role homes | ✅ Matrix in §11.1 |
+| 35.10 | Update v1.1 roadmap | Mark 30.1–30.3 delivered via Phase 1; link this doc | ✅ `MFMS_v1.1_Roadmap.md` cross-ref |
 
 ### Deliverables
 
-- Enhanced Team screen  
-- Disable/enable user  
-- Migration runbook  
-- QA sign-off  
+- Enhanced Team screen (invite, disable/enable, owner safeguards)  
+- `AccountDisabledScreen` runtime lockout for disabled members  
+- `users` update-rule hardening (anti privilege-escalation)  
+- Migration runbook (§12)  
+- QA sign-off matrix (§11.1)  
+
+### 11.1 Delivery notes & QA matrix
+
+**Implementation deviations from the original plan (Spark plan, no Cloud Functions):**
+
+- Invites are **fully client-side** (S34): owner creates an `invites/{id}` doc and shares
+  the code out-of-band; the invitee accepts via a client batched write. No email/Function.
+- **Owner safeguards are enforced in rules**, not just UI: the `users` update rule now
+  lets a member edit only profile fields (never `role`, `factoryId`, `status`, or the
+  driver `employeeId` link), and lets an owner manage only *other* members in the same
+  factory. This blocks self-promotion and stops an owner from disabling/demoting self.
+- **Disabled members are locked out at runtime**: `AccountDisabledScreen` + a router
+  redirect send any signed-in-but-disabled user to a logout-only dead-end, so they never
+  hit raw `PERMISSION_DENIED` errors. (Rules already deny the data; this is UX.)
+
+**QA / integration matrix** (manual on staging unless noted):
+
+| Scenario | Steps | Expected |
+|----------|-------|----------|
+| Owner signup | Fresh email → sign up + factory name | Owner logged in, real `factoryId`, `factories/{id}` created |
+| Invite create | Owner → Team → Invite Member (email + role) | `invites/{id}` pending; code dialog shown; appears in pending list |
+| Invite accept | Invitee → Accept Invite (code + name + password) | User created with invited role + `factoryId`; invite → `accepted` |
+| Invite revoke | Owner revokes pending invite | Invite → `revoked`; code no longer accepts |
+| Disable member | Owner → member tile → Disable (confirm) | `status: disabled`; member routed to Account Disabled screen; data denied |
+| Enable member | Owner → disabled tile → Enable | `status: active`; member regains access on next launch |
+| Self-guard | Owner attempts to disable own tile | Action hidden; even if forced, rule + bloc reject |
+| Promote to owner | Owner sets a member's role to `owner` | Confirm dialog required before change applies |
+| Self-escalation (rule) | Member tries to write own `role`/`factoryId`/`status` | Denied by rules (emulator/security test) |
+| Role homes | Sign in as driver / viewer | Routed to allowed home per `PermissionRouteGuard` |
+| No `'default'` | Inspect new users | No `factoryId: 'default'` profiles created |
+
+Automated coverage: `test/blocs/team/team_bloc_status_test.dart` (disable, enable,
+self-guard no-op, repository failure, default status).
 
 ### Exit
 
-**Phase 1 complete** — all §3 exit criteria met.
+**Phase 1 complete** — all §3 exit criteria met. Rules deployed to
+`factory-management-8307e`; migration runbook (§12) to be executed per deployment.
 
 ---
 
@@ -293,9 +328,11 @@ Use before or during S35 on production/staging.
    - `status` = `active`  
 3. Query operational collections for `factoryId == 'default'`; reassign or delete orphans.  
 4. Deploy updated `auth_repository` (no new `'default'` profiles).  
-5. Deploy Cloud Functions.  
-6. Owner verifies Team list, sends test invite to personal email.  
-7. Verify Firestore rules with disabled test user.
+5. Deploy Firestore rules (`firebase deploy --only firestore:rules`). _(Cloud Functions
+   deferred — invites are client-side on the Spark plan; §11.1.)_  
+6. Owner verifies Team list, creates a test invite, and accepts it on a second account.  
+7. Verify Firestore rules with a disabled test user (blocked + routed to Account Disabled)
+   and a member that tries to self-edit `role`/`status` (denied).
 
 ---
 

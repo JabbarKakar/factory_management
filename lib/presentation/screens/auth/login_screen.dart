@@ -211,6 +211,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                         ),
                                       ),
                               ),
+                              const SizedBox(height: 4),
+                              TextButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () => context.push(RoutePaths.acceptInvite),
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                ),
+                                child: Text(
+                                  AppStrings.haveInviteAccept,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
                             ],
                           ),
                         ),

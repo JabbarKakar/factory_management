@@ -50,6 +50,19 @@ final class TeamEmployeeLinkRequested extends TeamEvent {
   List<Object?> get props => [userId, employeeId];
 }
 
+final class TeamStatusChangeRequested extends TeamEvent {
+  const TeamStatusChangeRequested({
+    required this.userId,
+    required this.disable,
+  });
+
+  final String userId;
+  final bool disable;
+
+  @override
+  List<Object?> get props => [userId, disable];
+}
+
 final class TeamInviteRequested extends TeamEvent {
   const TeamInviteRequested({
     required this.email,

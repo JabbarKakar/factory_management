@@ -6,6 +6,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/app_user.dart';
 import '../../../domain/entities/team_invite.dart';
 import '../../../domain/enums/factory_role_enums.dart';
+import '../../../domain/enums/user_enums.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/empty_state_view.dart';
@@ -38,6 +39,45 @@ class TeamScreen extends StatelessWidget {
     );
     if (!confirmed) return;
     bloc.add(TeamInviteRevokeRequested(invite.id));
+  }
+
+  Future<void> _handleRoleChange(
+    BuildContext context,
+    AppUser member,
+    FactoryRole role,
+  ) async {
+    final bloc = context.read<TeamBloc>();
+    // Promoting someone to full owner is high-impact: confirm first.
+    if (role == FactoryRole.owner) {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: AppStrings.promoteOwnerTitle,
+        message: '${member.name}\n\n${AppStrings.promoteOwnerMessage}',
+        confirmLabel: AppStrings.promoteOwnerConfirm,
+        destructive: true,
+      );
+      if (!confirmed) return;
+    }
+    bloc.add(TeamRoleChangeRequested(userId: member.id, role: role));
+  }
+
+  Future<void> _confirmStatusToggle(
+    BuildContext context,
+    AppUser member,
+  ) async {
+    final bloc = context.read<TeamBloc>();
+    final disable = member.status == UserAccountStatus.active;
+    if (disable) {
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: AppStrings.disableMemberTitle,
+        message: '${member.name}\n\n${AppStrings.disableMemberMessage}',
+        confirmLabel: AppStrings.disableMember,
+        destructive: true,
+      );
+      if (!confirmed) return;
+    }
+    bloc.add(TeamStatusChangeRequested(userId: member.id, disable: disable));
   }
 
   @override
@@ -168,14 +208,8 @@ class TeamScreen extends StatelessWidget {
                   employees: state.employees,
                   isSelf: member.id == state.currentUserId,
                   enabled: !state.isSaving,
-                  onRoleChanged: (role) {
-                    context.read<TeamBloc>().add(
-                          TeamRoleChangeRequested(
-                            userId: member.id,
-                            role: role,
-                          ),
-                        );
-                  },
+                  onRoleChanged: (role) =>
+                      _handleRoleChange(context, member, role),
                   onEmployeeLinkChanged: (employeeId) {
                     context.read<TeamBloc>().add(
                           TeamEmployeeLinkRequested(
@@ -184,6 +218,9 @@ class TeamScreen extends StatelessWidget {
                           ),
                         );
                   },
+                  onStatusToggle: member.id == state.currentUserId
+                      ? null
+                      : () => _confirmStatusToggle(context, member),
                 ),
             ],
           ),
