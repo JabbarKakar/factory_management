@@ -260,6 +260,7 @@ void setupDependencies() {
     () => TeamBloc(
       repository: getIt<UserRepository>(),
       employeeRepository: getIt<EmployeeRepository>(),
+      inviteRepository: getIt<InviteRepository>(),
     ),
   );
   getIt.registerFactory<FactoryProfileBloc>(

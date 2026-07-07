@@ -17,6 +17,14 @@ abstract interface class AuthRepositoryContract {
     String? factoryAddress,
   });
 
+  /// Invitee joins an existing factory using an invite code (S34, client-side).
+  Future<AppUser> acceptInvite({
+    required String inviteCode,
+    required String email,
+    required String password,
+    required String name,
+  });
+
   Future<void> signOut();
 
   Future<void> sendPasswordResetEmail(String email);

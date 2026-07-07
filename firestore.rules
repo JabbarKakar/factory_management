@@ -83,6 +83,45 @@ service cloud.firestore {
         get(/databases/$(database)/documents/factories/$(request.resource.data.factoryId)).data.ownerUserId == request.auth.uid;
     }
 
+    // Invitee has an Auth session but no user profile yet; joins via a valid invite.
+    function inviteAcceptBootstrap(userId) {
+      return signedIn() &&
+        request.auth.uid == userId &&
+        !userProfileExists() &&
+        request.resource.data.role is string &&
+        request.resource.data.role != 'owner' &&
+        request.resource.data.status == 'active' &&
+        request.resource.data.onboardingComplete == true &&
+        request.resource.data.email == request.auth.token.email &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.factoryId is string &&
+        request.resource.data.factoryId.size() > 0 &&
+        request.resource.data.inviteId is string &&
+        request.resource.data.keys().hasAll([
+          'email', 'name', 'role', 'factoryId', 'status',
+          'onboardingComplete', 'createdAt', 'inviteId'
+        ]) &&
+        !request.resource.data.keys().hasAny(['employeeId', 'photoUrl']) &&
+        inviteGrantsMembership() &&
+        exists(/databases/$(database)/documents/factories/$(request.resource.data.factoryId));
+    }
+
+    function inviteGrantsMembership() {
+      return exists(/databases/$(database)/documents/invites/$(request.resource.data.inviteId)) &&
+        inviteMatchesNewUser(
+          get(/databases/$(database)/documents/invites/$(request.resource.data.inviteId)).data
+        );
+    }
+
+    function inviteMatchesNewUser(invite) {
+      return invite.status == 'pending' &&
+        invite.email == request.auth.token.email &&
+        invite.factoryId == request.resource.data.factoryId &&
+        invite.role == request.resource.data.role &&
+        request.time < invite.expiresAt;
+    }
+
     function sameFactoryExisting() {
       return resource.data.factoryId == myFactory();
     }
@@ -155,7 +194,7 @@ service cloud.firestore {
         request.auth.uid == userId ||
         (isOwner() && resource.data.factoryId == myFactory())
       );
-      allow create: if ownerUserBootstrap(userId);
+      allow create: if ownerUserBootstrap(userId) || inviteAcceptBootstrap(userId);
       allow update: if signedIn() && isActiveUser() && (
         request.auth.uid == userId ||
         (isOwner() &&
@@ -173,19 +212,45 @@ service cloud.firestore {
     }
 
     match /invites/{inviteId} {
-      allow read: if signedIn() && isActiveUser() && (
-        (isOwner() && resource.data.factoryId == myFactory()) ||
+      // Owner reads all factory invites; an invitee reads their own pending invite
+      // by id before their user profile exists (no me() lookup on that branch).
+      allow read: if signedIn() && (
+        (isActiveUser() && isOwner() && resource.data.factoryId == myFactory()) ||
         (resource.data.email == request.auth.token.email &&
           resource.data.status == 'pending')
       );
-      allow create: if false;
-      allow update: if signedIn() && isActiveUser() && isOwner() &&
-        resource.data.factoryId == myFactory() &&
-        request.resource.data.factoryId == resource.data.factoryId &&
-        request.resource.data.email == resource.data.email &&
-        request.resource.data.role == resource.data.role &&
-        request.resource.data.invitedBy == resource.data.invitedBy &&
-        request.resource.data.status == 'revoked';
+
+      allow create: if signedIn() && isActiveUser() && isOwner() &&
+        request.resource.data.factoryId == myFactory() &&
+        request.resource.data.invitedBy == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 0 &&
+        request.resource.data.role is string &&
+        request.resource.data.role != 'owner' &&
+        request.resource.data.expiresAt is timestamp &&
+        !request.resource.data.keys().hasAny(['acceptedBy', 'acceptedAt']);
+
+      // Owner revokes a pending invite, OR the invited user accepts it.
+      allow update: if signedIn() && (
+        (isActiveUser() && isOwner() &&
+          resource.data.factoryId == myFactory() &&
+          request.resource.data.factoryId == resource.data.factoryId &&
+          request.resource.data.email == resource.data.email &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.invitedBy == resource.data.invitedBy &&
+          request.resource.data.status == 'revoked') ||
+        (resource.data.email == request.auth.token.email &&
+          resource.data.status == 'pending' &&
+          request.time < resource.data.expiresAt &&
+          request.resource.data.status == 'accepted' &&
+          request.resource.data.acceptedBy == request.auth.uid &&
+          request.resource.data.email == resource.data.email &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.factoryId == resource.data.factoryId &&
+          request.resource.data.invitedBy == resource.data.invitedBy)
+      );
+
       allow delete: if false;
     }
 

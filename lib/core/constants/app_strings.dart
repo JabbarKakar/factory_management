@@ -16,7 +16,14 @@ abstract final class AppStrings {
   static const String passwordsDoNotMatch = 'Passwords do not match';
   static const String acceptInvite = 'Accept Invite';
   static const String acceptInviteSubtitle =
-      'Join your factory team with the invite link';
+      'Join your factory team with an invite code';
+  static const String acceptInviteHeadline = 'Join your factory';
+  static const String acceptInviteBody =
+      'Enter the invite code your factory owner shared with you, then set up '
+      'your account to join their team.';
+  static const String inviteCode = 'Invite code';
+  static const String inviteCodeHint = 'Paste the code from your owner';
+  static const String joinFactory = 'Join Factory';
   static const String onboarding = 'Complete Setup';
   static const String onboardingSubtitle =
       'Your account is not linked to a factory yet';
@@ -448,6 +455,27 @@ abstract final class AppStrings {
   static const String noEmployeeLinked = 'Not linked';
   static const String driverEmployeeLinkHint =
       'Link this driver to an employee record to show only their deliveries.';
+
+  // Team invites (S34, client-side code flow)
+  static const String inviteMember = 'Invite Member';
+  static const String inviteMemberSubtitle =
+      'Create an invite code and share it with your teammate';
+  static const String memberEmail = 'Member email';
+  static const String sendInvite = 'Create Invite';
+  static const String pendingInvites = 'Pending invites';
+  static const String noPendingInvites = 'No pending invites.';
+  static const String revokeInvite = 'Revoke';
+  static const String revokeInviteTitle = 'Revoke invite?';
+  static const String revokeInviteMessage =
+      'The code will stop working and the person will not be able to join.';
+  static const String inviteCreatedTitle = 'Invite ready to share';
+  static const String inviteCreatedBody =
+      'Share this code and the invited email with your teammate. They enter it '
+      'in the app under "Accept Invite" to join. The code expires in 7 days.';
+  static const String copyCode = 'Copy code';
+  static const String shareInvite = 'Share';
+  static const String inviteCopied = 'Invite code copied.';
+  static const String inviteExpiresPrefix = 'Expires';
 
   // Sales (Sprint 8)
   static const String newSalesOrder = 'New Sales Order';

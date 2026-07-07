@@ -17,6 +17,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthCheckRequested>(_onAuthCheckRequested);
     on<AuthLoginRequested>(_onLoginRequested);
     on<AuthSignUpRequested>(_onSignUpRequested);
+    on<AuthInviteAcceptRequested>(_onInviteAcceptRequested);
     on<AuthLogoutRequested>(_onLogoutRequested);
     on<AuthPasswordResetRequested>(_onPasswordResetRequested);
     on<_AuthUserChanged>(_onUserChanged);
@@ -76,6 +77,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
+  Future<void> _onInviteAcceptRequested(
+    AuthInviteAcceptRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(const AuthLoading());
+    try {
+      final user = await _authRepository.acceptInvite(
+        inviteCode: event.inviteCode,
+        email: event.email,
+        password: event.password,
+        name: event.name,
+      );
+      emit(AuthAuthenticated(user));
+    } on FirebaseAuthException catch (e) {
+      emit(AuthFailure(_mapFirebaseError(e)));
+    } catch (_) {
+      emit(const AuthFailure('Could not join the factory. Please try again.'));
+    }
+  }
+
   Future<void> _onLogoutRequested(
     AuthLogoutRequested event,
     Emitter<AuthState> emit,
@@ -121,6 +142,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       'profile-not-found' =>
         'Account profile not found. Complete registration or contact support.',
       'user-disabled' => 'This account has been disabled.',
+      'invite-not-found' =>
+        e.message ?? 'Invite code not found. Check the code and try again.',
+      'invite-email-mismatch' =>
+        e.message ?? 'This invite was sent to a different email address.',
+      'invite-not-pending' => e.message ?? 'This invite is no longer active.',
+      'invite-expired' =>
+        e.message ?? 'This invite has expired. Ask the owner for a new one.',
       'user-not-found' => 'No account found for this email.',
       'wrong-password' => 'Incorrect password.',
       'invalid-credential' => 'Invalid email or password.',

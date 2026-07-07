@@ -49,3 +49,30 @@ final class TeamEmployeeLinkRequested extends TeamEvent {
   @override
   List<Object?> get props => [userId, employeeId];
 }
+
+final class TeamInviteRequested extends TeamEvent {
+  const TeamInviteRequested({
+    required this.email,
+    required this.role,
+  });
+
+  final String email;
+  final FactoryRole role;
+
+  @override
+  List<Object?> get props => [email, role];
+}
+
+final class TeamInviteRevokeRequested extends TeamEvent {
+  const TeamInviteRevokeRequested(this.inviteId);
+
+  final String inviteId;
+
+  @override
+  List<Object?> get props => [inviteId];
+}
+
+/// UI acknowledged the freshly created invite (share sheet shown); clear it.
+final class TeamInviteShareHandled extends TeamEvent {
+  const TeamInviteShareHandled();
+}

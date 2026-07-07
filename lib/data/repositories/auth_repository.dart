@@ -3,8 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../domain/entities/app_user.dart';
 import '../../domain/enums/factory_enums.dart';
+import '../../domain/enums/factory_role_enums.dart';
+import '../../domain/enums/invite_enums.dart';
 import '../../domain/enums/user_enums.dart';
 import '../models/factory_model.dart';
+import '../models/team_invite_model.dart';
 import '../models/user_model.dart';
 import 'auth_repository_contract.dart';
 
@@ -144,6 +147,138 @@ class AuthRepository implements AuthRepositoryContract {
       throw FirebaseAuthException(
         code: 'internal',
         message: 'Registration failed. Please try again.',
+      );
+    }
+  }
+
+  @override
+  Future<AppUser> acceptInvite({
+    required String inviteCode,
+    required String email,
+    required String password,
+    required String name,
+  }) async {
+    final code = inviteCode.trim();
+    final trimmedEmail = email.trim().toLowerCase();
+    final trimmedName = name.trim();
+
+    if (code.isEmpty) {
+      throw FirebaseAuthException(
+        code: 'invalid-argument',
+        message: 'Enter the invite code your factory owner shared with you.',
+      );
+    }
+
+    User? authUser;
+
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: trimmedEmail,
+        password: password,
+      );
+      authUser = credential.user;
+      if (authUser == null) {
+        throw FirebaseAuthException(
+          code: 'internal',
+          message: 'Could not join the factory. Please try again.',
+        );
+      }
+
+      // Refresh the token so Firestore rules see request.auth.token.email.
+      await authUser.getIdToken(true);
+
+      final inviteRef = _firestore.collection('invites').doc(code);
+      final inviteSnap = await inviteRef.get();
+      if (!inviteSnap.exists || inviteSnap.data() == null) {
+        throw FirebaseAuthException(
+          code: 'invite-not-found',
+          message: 'Invite code not found. Check the code and try again.',
+        );
+      }
+
+      final invite =
+          TeamInviteModel.fromFirestore(inviteSnap.id, inviteSnap.data()!)
+              .toEntity();
+
+      if (invite.email != trimmedEmail) {
+        throw FirebaseAuthException(
+          code: 'invite-email-mismatch',
+          message:
+              'This invite was sent to a different email address. Use the '
+              'email your factory owner invited.',
+        );
+      }
+      if (invite.status != InviteStatus.pending) {
+        throw FirebaseAuthException(
+          code: 'invite-not-pending',
+          message: 'This invite is no longer active.',
+        );
+      }
+      if (invite.isExpired) {
+        throw FirebaseAuthException(
+          code: 'invite-expired',
+          message: 'This invite has expired. Ask the owner for a new one.',
+        );
+      }
+      if (invite.role == FactoryRole.owner) {
+        throw FirebaseAuthException(
+          code: 'invalid-argument',
+          message: 'This invite is invalid.',
+        );
+      }
+
+      final uid = authUser.uid;
+      final userRef = _firestore.collection('users').doc(uid);
+
+      final batch = _firestore.batch();
+      batch.set(userRef, {
+        'email': trimmedEmail,
+        'name': trimmedName,
+        'role': invite.role.firestoreValue,
+        'factoryId': invite.factoryId,
+        'status': UserAccountStatus.active.firestoreValue,
+        'onboardingComplete': true,
+        'inviteId': code,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      batch.update(inviteRef, {
+        'status': InviteStatus.accepted.firestoreValue,
+        'acceptedBy': uid,
+        'acceptedAt': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
+
+      if (authUser.displayName != trimmedName) {
+        await authUser.updateDisplayName(trimmedName);
+      }
+
+      return UserModel(
+        id: uid,
+        email: trimmedEmail,
+        name: trimmedName,
+        role: invite.role.firestoreValue,
+        factoryId: invite.factoryId,
+        createdAt: null,
+        status: UserAccountStatus.active,
+        onboardingComplete: true,
+      ).toEntity();
+    } on FirebaseAuthException {
+      await _rollbackAuthUser(authUser);
+      rethrow;
+    } on FirebaseException catch (e) {
+      await _rollbackAuthUser(authUser);
+      throw FirebaseAuthException(
+        code: e.code == 'permission-denied' ? 'permission-denied' : 'internal',
+        message: e.code == 'permission-denied'
+            ? 'Joining was blocked by security rules. Ask the owner to deploy '
+                'the latest Firestore rules, then try again.'
+            : 'Could not join the factory. Please try again.',
+      );
+    } catch (_) {
+      await _rollbackAuthUser(authUser);
+      throw FirebaseAuthException(
+        code: 'internal',
+        message: 'Could not join the factory. Please try again.',
       );
     }
   }

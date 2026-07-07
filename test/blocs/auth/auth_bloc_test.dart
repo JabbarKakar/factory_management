@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeAuthRepository implements AuthRepositoryContract {
-  FakeAuthRepository({this.signUpImpl});
+  FakeAuthRepository({this.signUpImpl, this.acceptInviteImpl});
 
   final Future<AppUser> Function({
     required String email,
@@ -15,6 +15,13 @@ class FakeAuthRepository implements AuthRepositoryContract {
     String? factoryPhone,
     String? factoryAddress,
   })? signUpImpl;
+
+  final Future<AppUser> Function({
+    required String inviteCode,
+    required String email,
+    required String password,
+    required String name,
+  })? acceptInviteImpl;
 
   @override
   Stream<AppUser?> get authStateChanges => const Stream.empty();
@@ -47,6 +54,25 @@ class FakeAuthRepository implements AuthRepositoryContract {
       factoryName: factoryName,
       factoryPhone: factoryPhone,
       factoryAddress: factoryAddress,
+    );
+  }
+
+  @override
+  Future<AppUser> acceptInvite({
+    required String inviteCode,
+    required String email,
+    required String password,
+    required String name,
+  }) {
+    final handler = acceptInviteImpl;
+    if (handler == null) {
+      throw StateError('acceptInviteImpl is required');
+    }
+    return handler(
+      inviteCode: inviteCode,
+      email: email,
+      password: password,
+      name: name,
     );
   }
 
@@ -136,6 +162,90 @@ void main() {
           password: 'secret1',
           name: 'Owner',
           factoryName: 'Test Factory',
+        ),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      await bloc.close();
+    });
+  });
+
+  group('AuthBloc accept invite', () {
+    const member = AppUser(
+      id: 'member-1',
+      email: 'member@test.com',
+      name: 'Member',
+      role: 'accountant',
+      factoryId: 'factory-1',
+      onboardingComplete: true,
+    );
+
+    test('emits authenticated when invite is accepted', () async {
+      final repository = FakeAuthRepository(
+        acceptInviteImpl: ({
+          required inviteCode,
+          required email,
+          required password,
+          required name,
+        }) async {
+          return member;
+        },
+      );
+      final bloc = AuthBloc(authRepository: repository);
+
+      expectLater(
+        bloc.stream,
+        emitsInOrder([
+          const AuthLoading(),
+          const AuthAuthenticated(member),
+        ]),
+      );
+
+      bloc.add(
+        const AuthInviteAcceptRequested(
+          inviteCode: 'invite-code',
+          email: 'member@test.com',
+          password: 'secret1',
+          name: 'Member',
+        ),
+      );
+
+      await Future<void>.delayed(Duration.zero);
+      await bloc.close();
+    });
+
+    test('maps invite errors to friendly failure message', () async {
+      final repository = FakeAuthRepository(
+        acceptInviteImpl: ({
+          required inviteCode,
+          required email,
+          required password,
+          required name,
+        }) async {
+          throw FirebaseAuthException(
+            code: 'invite-not-found',
+            message: 'Invite code not found. Check the code and try again.',
+          );
+        },
+      );
+      final bloc = AuthBloc(authRepository: repository);
+
+      expectLater(
+        bloc.stream,
+        emitsInOrder([
+          const AuthLoading(),
+          const AuthFailure(
+            'Invite code not found. Check the code and try again.',
+          ),
+        ]),
+      );
+
+      bloc.add(
+        const AuthInviteAcceptRequested(
+          inviteCode: 'missing',
+          email: 'member@test.com',
+          password: 'secret1',
+          name: 'Member',
         ),
       );
 

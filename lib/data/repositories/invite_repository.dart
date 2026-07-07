@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../domain/entities/team_invite.dart';
+import '../../domain/enums/factory_role_enums.dart';
 import '../../domain/enums/invite_enums.dart';
 import '../models/team_invite_model.dart';
 
@@ -55,7 +56,45 @@ class InviteRepository {
     );
   }
 
-  /// Owner revokes a pending invite (client-side until S34 Function exists).
+  /// Default invite validity window (client-side flow, no Cloud Functions).
+  static const Duration defaultValidity = Duration(days: 7);
+
+  /// Owner creates a pending invite. Returns the created invite (whose [id] is
+  /// the shareable invite code the invitee enters when accepting).
+  Future<TeamInvite> createInvite({
+    required String factoryId,
+    required String email,
+    required FactoryRole role,
+    required String invitedBy,
+    Duration validFor = defaultValidity,
+  }) async {
+    if (role == FactoryRole.owner) {
+      throw ArgumentError('Cannot invite a member as owner.');
+    }
+    final normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.isEmpty) {
+      throw ArgumentError('Invite email is required.');
+    }
+
+    final docRef = _collection.doc();
+    final now = DateTime.now();
+    final model = TeamInviteModel(
+      id: docRef.id,
+      email: normalizedEmail,
+      factoryId: factoryId,
+      role: role,
+      invitedBy: invitedBy,
+      status: InviteStatus.pending,
+      createdAt: now,
+      expiresAt: now.add(validFor),
+    );
+
+    await docRef.set(model.toFirestore(isCreate: true));
+    final created = await getInvite(docRef.id);
+    return created ?? model.toEntity();
+  }
+
+  /// Owner revokes a pending invite.
   Future<void> revokeInvite(String inviteId) async {
     await _collection.doc(inviteId).update({
       'status': InviteStatus.revoked.firestoreValue,

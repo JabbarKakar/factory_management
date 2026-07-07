@@ -52,6 +52,23 @@ final class AuthSignUpRequested extends AuthEvent {
       ];
 }
 
+final class AuthInviteAcceptRequested extends AuthEvent {
+  const AuthInviteAcceptRequested({
+    required this.inviteCode,
+    required this.email,
+    required this.password,
+    required this.name,
+  });
+
+  final String inviteCode;
+  final String email;
+  final String password;
+  final String name;
+
+  @override
+  List<Object?> get props => [inviteCode, email, password, name];
+}
+
 final class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 }

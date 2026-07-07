@@ -4,9 +4,11 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/employee_repository.dart';
+import '../../data/repositories/invite_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/entities/employee.dart';
+import '../../domain/entities/team_invite.dart';
 import '../../domain/enums/factory_role_enums.dart';
 
 part 'team_event.dart';
@@ -16,22 +18,30 @@ class TeamBloc extends Bloc<TeamEvent, TeamState> {
   TeamBloc({
     required UserRepository repository,
     required EmployeeRepository employeeRepository,
+    required InviteRepository inviteRepository,
   })  : _repository = repository,
         _employeeRepository = employeeRepository,
+        _inviteRepository = inviteRepository,
         super(const TeamState()) {
     on<TeamWatchStarted>(_onWatchStarted);
     on<TeamWatchStopped>(_onWatchStopped);
     on<TeamRoleChangeRequested>(_onRoleChangeRequested);
     on<TeamEmployeeLinkRequested>(_onEmployeeLinkRequested);
+    on<TeamInviteRequested>(_onInviteRequested);
+    on<TeamInviteRevokeRequested>(_onInviteRevokeRequested);
+    on<TeamInviteShareHandled>(_onInviteShareHandled);
     on<_TeamUsersUpdated>(_onUsersUpdated);
     on<_TeamEmployeesUpdated>(_onEmployeesUpdated);
+    on<_TeamInvitesUpdated>(_onInvitesUpdated);
     on<_TeamStreamFailed>(_onStreamFailed);
   }
 
   final UserRepository _repository;
   final EmployeeRepository _employeeRepository;
+  final InviteRepository _inviteRepository;
   StreamSubscription<List<AppUser>>? _usersSubscription;
   StreamSubscription<List<Employee>>? _employeesSubscription;
+  StreamSubscription<List<TeamInvite>>? _invitesSubscription;
 
   Future<void> _onWatchStarted(
     TeamWatchStarted event,
@@ -47,6 +57,7 @@ class TeamBloc extends Bloc<TeamEvent, TeamState> {
 
     await _usersSubscription?.cancel();
     await _employeesSubscription?.cancel();
+    await _invitesSubscription?.cancel();
 
     _usersSubscription = _repository.watchFactoryUsers(event.factoryId).listen(
           (users) => add(_TeamUsersUpdated(users)),
@@ -56,6 +67,11 @@ class TeamBloc extends Bloc<TeamEvent, TeamState> {
         _employeeRepository.watchEmployees(event.factoryId).listen(
               (employees) => add(_TeamEmployeesUpdated(employees)),
             );
+    _invitesSubscription =
+        _inviteRepository.watchPendingFactoryInvites(event.factoryId).listen(
+              (invites) => add(_TeamInvitesUpdated(invites)),
+              onError: (_) => add(const _TeamInvitesUpdated([])),
+            );
   }
 
   Future<void> _onWatchStopped(
@@ -64,8 +80,73 @@ class TeamBloc extends Bloc<TeamEvent, TeamState> {
   ) async {
     await _usersSubscription?.cancel();
     await _employeesSubscription?.cancel();
+    await _invitesSubscription?.cancel();
     _usersSubscription = null;
     _employeesSubscription = null;
+    _invitesSubscription = null;
+  }
+
+  Future<void> _onInviteRequested(
+    TeamInviteRequested event,
+    Emitter<TeamState> emit,
+  ) async {
+    final factoryId = state.factoryId;
+    final invitedBy = state.currentUserId;
+    if (factoryId == null || invitedBy == null) return;
+
+    emit(state.copyWith(isSaving: true, clearMessage: true));
+    try {
+      final invite = await _inviteRepository.createInvite(
+        factoryId: factoryId,
+        email: event.email,
+        role: event.role,
+        invitedBy: invitedBy,
+      );
+      emit(
+        state.copyWith(
+          isSaving: false,
+          successMessage: 'Invite created for ${invite.email}.',
+          createdInvite: invite,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: 'Could not create invite.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onInviteRevokeRequested(
+    TeamInviteRevokeRequested event,
+    Emitter<TeamState> emit,
+  ) async {
+    emit(state.copyWith(isSaving: true, clearMessage: true));
+    try {
+      await _inviteRepository.revokeInvite(event.inviteId);
+      emit(
+        state.copyWith(
+          isSaving: false,
+          successMessage: 'Invite revoked.',
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          isSaving: false,
+          errorMessage: 'Could not revoke invite.',
+        ),
+      );
+    }
+  }
+
+  void _onInviteShareHandled(
+    TeamInviteShareHandled event,
+    Emitter<TeamState> emit,
+  ) {
+    emit(state.copyWith(clearCreatedInvite: true));
   }
 
   Future<void> _onRoleChangeRequested(
@@ -145,6 +226,14 @@ class TeamBloc extends Bloc<TeamEvent, TeamState> {
     );
   }
 
+  void _onInvitesUpdated(_TeamInvitesUpdated event, Emitter<TeamState> emit) {
+    emit(
+      state.copyWith(
+        pendingInvites: event.invites,
+      ),
+    );
+  }
+
   void _onStreamFailed(_TeamStreamFailed event, Emitter<TeamState> emit) {
     emit(
       state.copyWith(
@@ -158,6 +247,7 @@ class TeamBloc extends Bloc<TeamEvent, TeamState> {
   Future<void> close() {
     _usersSubscription?.cancel();
     _employeesSubscription?.cancel();
+    _invitesSubscription?.cancel();
     return super.close();
   }
 }
@@ -178,6 +268,15 @@ final class _TeamEmployeesUpdated extends TeamEvent {
 
   @override
   List<Object?> get props => [employees];
+}
+
+final class _TeamInvitesUpdated extends TeamEvent {
+  const _TeamInvitesUpdated(this.invites);
+
+  final List<TeamInvite> invites;
+
+  @override
+  List<Object?> get props => [invites];
 }
 
 final class _TeamStreamFailed extends TeamEvent {
