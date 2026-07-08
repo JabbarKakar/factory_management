@@ -7,6 +7,7 @@ import '../../../blocs/sales/sales_order_form_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/services/delivery_quantity_helper.dart';
 import '../../../domain/entities/delivery.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
@@ -146,6 +147,12 @@ class SalesOrderDetailScreen extends StatelessWidget {
             order.invoiceId != null && order.invoiceId!.isNotEmpty;
         final showDeliveries = state.deliveries.isNotEmpty ||
             (canInvoice && order.status != SalesOrderStatus.closed);
+        final dispatchTotals = DeliveryQuantityHelper.orderTotals(
+          order,
+          state.deliveries,
+        );
+        final showDispatchSummary =
+            canInvoice && order.status != SalesOrderStatus.closed;
 
         return Scaffold(
           appBar: AppBar(
@@ -230,9 +237,49 @@ class SalesOrderDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (showDispatchSummary)
+                JobWorkDetailSection(
+                  title: AppStrings.stockDispatchSummary,
+                  icon: Icons.inventory_2_outlined,
+                  child: JobWorkDetailRows(
+                    rows: [
+                      JobWorkDetailRow(
+                        label: AppStrings.totalPieces,
+                        value: '${dispatchTotals.totalPieces}',
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.piecesDispatched,
+                        value: '${dispatchTotals.dispatchedPieces}',
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.piecesRemaining,
+                        value: '${dispatchTotals.remainingPieces}',
+                        bold: true,
+                        highlight: dispatchTotals.remainingPieces > 0,
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.totalSquareFeet,
+                        value:
+                            '${dispatchTotals.totalSquareFeet.toStringAsFixed(2)} sq. ft',
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.squareFeetDispatched,
+                        value:
+                            '${dispatchTotals.dispatchedSquareFeet.toStringAsFixed(2)} sq. ft',
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.squareFeetRemaining,
+                        value:
+                            '${dispatchTotals.remainingSquareFeet.toStringAsFixed(2)} sq. ft',
+                        bold: true,
+                        highlight: dispatchTotals.remainingSquareFeet > 0,
+                      ),
+                    ],
+                  ),
+                ),
               if (showDeliveries)
                 JobWorkDetailSection(
-                  title: AppStrings.orderDeliveries,
+                  title: AppStrings.dispatchHistory,
                   icon: Icons.local_shipping_outlined,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
@@ -435,7 +482,14 @@ class _DeliveryRow extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final accent = _accentFor(delivery.status);
-    final dateLabel = DateFormat.yMMMd().format(delivery.scheduledDate);
+    final dateLabel = DateFormat.yMMMd().format(
+      delivery.actualDeliveryDate ?? delivery.scheduledDate,
+    );
+    final quantityLabel = delivery.status.isTerminal
+        ? '${delivery.effectivePieces} pcs · '
+            '${delivery.effectiveSquareFeet.toStringAsFixed(2)} sq. ft'
+        : '${delivery.totalPieces} pcs · '
+            '${delivery.totalSquareFeet.toStringAsFixed(2)} sq. ft scheduled';
 
     return Material(
       color: accent.withValues(alpha: 0.06),
@@ -472,6 +526,27 @@ class _DeliveryRow extends StatelessWidget {
                         fontSize: 11,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      quantityLabel,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: muted,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (delivery.notes != null && delivery.notes!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        delivery.notes!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: muted,
+                          fontSize: 10,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

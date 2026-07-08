@@ -6,6 +6,8 @@ import 'package:intl/intl.dart';
 import '../../../blocs/delivery/delivery_confirm_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/delivery.dart';
+import '../../widgets/delivery/dispatch_stock_form_controller.dart';
+import '../../widgets/delivery/dispatch_stock_recording_panel.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 
@@ -20,28 +22,24 @@ class ConfirmDeliveryScreen extends StatefulWidget {
 
 class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
   final _notesController = TextEditingController();
-  final List<_DeliveredQtyField> _fields = [];
+  DispatchStockFormController? _stockController;
   DateTime _actualDate = DateTime.now();
 
   @override
   void dispose() {
     _notesController.dispose();
-    for (final field in _fields) {
-      field.dispose();
-    }
+    _stockController?.dispose();
     super.dispose();
   }
 
-  void _initFields(Delivery delivery) {
-    if (_fields.isNotEmpty) return;
-    for (final item in delivery.lineItems) {
-      _fields.add(
-        _DeliveredQtyField(
-          item: item,
-          initialQuantity: item.quantity,
-        ),
-      );
-    }
+  void _initController(Delivery delivery) {
+    if (_stockController != null) return;
+    _stockController = DispatchStockFormController.forConfirm(
+      lineItems: delivery.lineItems,
+    );
+    _stockController!.addListenerSafe(() {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _pickDate() async {
@@ -55,19 +53,13 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
   }
 
   void _submit(BuildContext context) {
-    final lineItems = <DeliveryLineItem>[];
-    for (final field in _fields) {
-      final delivered = double.tryParse(field.controller.text.trim());
-      if (delivered == null) return;
-      lineItems.add(
-        field.item.copyWith(quantityDelivered: delivered),
-      );
-    }
+    final controller = _stockController;
+    if (controller == null) return;
 
     context.read<DeliveryConfirmBloc>().add(
           DeliveryConfirmSubmitted(
             actualDeliveryDate: _actualDate,
-            lineItems: lineItems,
+            lineItems: controller.buildConfirmedLineItems(),
             notes: _notesController.text.trim(),
           ),
         );
@@ -126,7 +118,7 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
           );
         }
 
-        _initFields(delivery);
+        _initController(delivery);
         final isSaving = state.status == DeliveryConfirmStatus.saving;
 
         return Scaffold(
@@ -156,45 +148,14 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
                 title: AppStrings.itemsToDeliver,
                 icon: Icons.inventory_2_outlined,
                 child: AppFormSectionBody(
-                  children: _fields.map((field) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            field.item.displayLabel,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Scheduled: ${field.item.quantity} ${field.item.quantityUnit.label}',
-                            style: AppFormFields.labelStyle(context),
-                          ),
-                          AppFormFields.gap,
-                          TextFormField(
-                            controller: field.controller,
-                            enabled: !isSaving,
-                            style: AppFormFields.valueStyle(context),
-                            decoration: AppFormFields.decoration(
-                              context,
-                              label:
-                                  '${AppStrings.deliveredQuantity} (${field.item.quantityUnit.label})',
-                            ),
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                  children: [
+                    DispatchStockRecordingPanel(
+                      controller: _stockController!,
+                      enabled: !isSaving,
+                      mode: DispatchStockPanelMode.confirm,
+                      onChanged: () => setState(() {}),
+                    ),
+                  ],
                 ),
               ),
               JobWorkDetailSection(
@@ -226,16 +187,4 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
       },
     );
   }
-}
-
-class _DeliveredQtyField {
-  _DeliveredQtyField({
-    required this.item,
-    required double initialQuantity,
-  }) : controller = TextEditingController(text: initialQuantity.toString());
-
-  final DeliveryLineItem item;
-  final TextEditingController controller;
-
-  void dispose() => controller.dispose();
 }

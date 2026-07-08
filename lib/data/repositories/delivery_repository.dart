@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/utils/stock_output_calculator.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/delivery_enums.dart';
@@ -117,17 +118,21 @@ class DeliveryRepository {
   }
 
   static List<DeliveryLineItem> lineItemsFromSalesOrder(SalesOrder order) {
-    return order.lineItems
-        .map(
-          (item) => DeliveryLineItem(
-            productType: item.productType,
-            marbleVariety: item.marbleVariety,
-            sizeThickness: item.sizeThickness,
-            quantity: item.quantity,
-            quantityUnit: item.quantityUnit,
+    final items = <DeliveryLineItem>[];
+    for (final orderLine in order.lineItems) {
+      for (final stock in orderLine.stockRows) {
+        items.add(
+          DeliveryLineItem(
+            productType: orderLine.productType,
+            marbleVariety: orderLine.marbleVariety,
+            sizeThickness: stock.size,
+            pieces: stock.pieces,
+            squareFeet: stock.squareFeet,
           ),
-        )
-        .toList();
+        );
+      }
+    }
+    return items;
   }
 
   Future<Delivery> createDelivery(Delivery delivery) async {
@@ -144,8 +149,10 @@ class DeliveryRepository {
       throw const DeliveryException('Add at least one item to deliver.');
     }
     for (final item in delivery.lineItems) {
-      if (item.quantity <= 0) {
-        throw const DeliveryException('Item quantities must be greater than zero.');
+      if (item.pieces <= 0) {
+        throw const DeliveryException(
+          'Dispatch quantities must be greater than zero.',
+        );
       }
     }
     if (delivery.deliveryAddress.trim().isEmpty) {
@@ -216,9 +223,9 @@ class DeliveryRepository {
         throw const DeliveryException('Add at least one item to deliver.');
       }
       for (final item in effectiveLineItems) {
-        if (item.quantity <= 0) {
+        if (item.pieces <= 0) {
           throw const DeliveryException(
-            'Item quantities must be greater than zero.',
+            'Dispatch quantities must be greater than zero.',
           );
         }
       }
@@ -265,19 +272,46 @@ class DeliveryRepository {
     String? excludeDeliveryId,
   }) {
     for (final item in lineItems) {
+      if (item.pieces < 0 || item.squareFeet < 0) {
+        throw const DeliveryException('Dispatch quantities cannot be negative.');
+      }
+
       final orderLine = order.lineItems.where(
-        (line) => DeliveryQuantityHelper.matchesOrderLine(item, line),
+        (line) =>
+            line.productType == item.productType &&
+            line.marbleVariety == item.marbleVariety,
       );
       if (orderLine.isEmpty) continue;
-      final remaining = DeliveryQuantityHelper.remainingForOrderLine(
+
+      final stock = DeliveryQuantityHelper.findStockRow(
         orderLine.first,
+        item.sizeThickness,
+      );
+      if (stock == null) continue;
+
+      final remainingPieces = DeliveryQuantityHelper.remainingPiecesForStockRow(
+        orderLine.first,
+        item.sizeThickness,
         existingDeliveries,
         excludeDeliveryId: excludeDeliveryId,
       );
-      if (item.quantity > remaining) {
+      final remainingSquareFeet =
+          DeliveryQuantityHelper.remainingSquareFeetForStockRow(
+        orderLine.first,
+        item.sizeThickness,
+        existingDeliveries,
+        excludeDeliveryId: excludeDeliveryId,
+      );
+
+      if (item.pieces > remainingPieces) {
         throw DeliveryException(
-          'Quantity for ${item.displayLabel} exceeds remaining '
-          '(${remaining.toStringAsFixed(1)} ${item.quantityUnit.label}).',
+          'Pieces for ${item.displayLabel} exceed remaining ($remainingPieces pcs).',
+        );
+      }
+      if (item.squareFeet > remainingSquareFeet) {
+        throw DeliveryException(
+          'Square feet for ${item.displayLabel} exceed remaining '
+          '(${remainingSquareFeet.toStringAsFixed(2)} sq. ft).',
         );
       }
     }
@@ -336,15 +370,26 @@ class DeliveryRepository {
 
     final confirmedItems = <DeliveryLineItem>[];
     for (final item in lineItems) {
-      if (item.quantityDelivered == null || item.quantityDelivered! < 0) {
-        throw const DeliveryException('Enter delivered quantity for each item.');
-      }
-      if (item.quantityDelivered! > item.quantity) {
+      if (item.piecesDelivered == null || item.piecesDelivered! < 0) {
         throw const DeliveryException(
-          'Delivered quantity cannot exceed scheduled quantity.',
+          'Enter dispatched pieces for each item.',
         );
       }
-      confirmedItems.add(item);
+      if (item.piecesDelivered! > item.pieces) {
+        throw const DeliveryException(
+          'Dispatched pieces cannot exceed scheduled pieces.',
+        );
+      }
+      confirmedItems.add(
+        item.copyWith(
+          squareFeetDelivered: item.squareFeetDelivered ??
+              StockOutputCalculator.compute(
+                size: item.sizeThickness,
+                pieces: item.piecesDelivered!,
+                pricePerSqFt: 0,
+              ).squareFeet,
+        ),
+      );
     }
 
     final isPartial = confirmedItems.any((item) => item.isPartiallyFulfilled);

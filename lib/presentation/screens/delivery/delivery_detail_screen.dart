@@ -260,13 +260,17 @@ class DeliveryDetailScreen extends StatelessWidget {
                 title: AppStrings.itemsToDeliver,
                 child: Column(
                   children: delivery.lineItems.map((item) {
-                    final delivered = item.quantityDelivered;
+                    final piecesDelivered = item.piecesDelivered;
+                    final squareFeetDelivered = item.squareFeetDelivered;
                     return ListTile(
                       title: Text(item.displayLabel),
                       subtitle: Text(
-                        delivered == null
-                            ? '${item.quantity} ${item.quantityUnit.label} scheduled'
-                            : '$delivered / ${item.quantity} ${item.quantityUnit.label} delivered',
+                        piecesDelivered == null || squareFeetDelivered == null
+                            ? '${item.pieces} pcs · '
+                                '${item.squareFeet.toStringAsFixed(2)} sq. ft scheduled'
+                            : '$piecesDelivered / ${item.pieces} pcs · '
+                                '${squareFeetDelivered.toStringAsFixed(2)} / '
+                                '${item.squareFeet.toStringAsFixed(2)} sq. ft dispatched',
                       ),
                     );
                   }).toList(),

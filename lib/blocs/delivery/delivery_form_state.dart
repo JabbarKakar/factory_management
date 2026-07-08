@@ -27,8 +27,9 @@ class DeliveryFormState extends Equatable {
   final List<DeliveryRemainingLine> remainingLines;
   final String? errorMessage;
 
-  bool get hasRemainingQuantity =>
-      remainingLines.any((line) => line.remainingQuantity > 0);
+  bool get hasRemainingQuantity => remainingLines.any(
+        (line) => line.remainingPieces > 0 || line.remainingSquareFeet > 0,
+      );
 
   DeliveryFormState copyWith({
     DeliveryFormStatus? status,

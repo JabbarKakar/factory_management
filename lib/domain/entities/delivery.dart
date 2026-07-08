@@ -8,17 +8,26 @@ class DeliveryLineItem extends Equatable {
     required this.productType,
     required this.marbleVariety,
     required this.sizeThickness,
-    required this.quantity,
-    required this.quantityUnit,
-    this.quantityDelivered,
+    required this.pieces,
+    required this.squareFeet,
+    this.piecesDelivered,
+    this.squareFeetDelivered,
   });
 
   final SalesProductType productType;
   final String marbleVariety;
   final String sizeThickness;
-  final double quantity;
-  final SalesQuantityUnit quantityUnit;
-  final double? quantityDelivered;
+  final int pieces;
+  final double squareFeet;
+  final int? piecesDelivered;
+  final double? squareFeetDelivered;
+
+  /// Legacy accessors kept for older call sites during migration.
+  double get quantity => squareFeet;
+
+  SalesQuantityUnit get quantityUnit => SalesQuantityUnit.sqFt;
+
+  double? get quantityDelivered => squareFeetDelivered;
 
   String get displayLabel {
     final parts = [
@@ -29,17 +38,26 @@ class DeliveryLineItem extends Equatable {
     return parts.join(' · ');
   }
 
-  double get effectiveDelivered => quantityDelivered ?? quantity;
+  int get effectivePieces => piecesDelivered ?? pieces;
+
+  double get effectiveSquareFeet => squareFeetDelivered ?? squareFeet;
 
   bool get isPartiallyFulfilled =>
-      quantityDelivered != null && quantityDelivered! < quantity;
+      effectivePieces < pieces || effectiveSquareFeet < squareFeet;
+
+  bool get hasScheduledQuantity => pieces > 0 || squareFeet > 0;
 
   DeliveryLineItem copyWith({
     SalesProductType? productType,
     String? marbleVariety,
     String? sizeThickness,
+    int? pieces,
+    double? squareFeet,
+    int? piecesDelivered,
+    double? squareFeetDelivered,
+    bool clearPiecesDelivered = false,
+    bool clearSquareFeetDelivered = false,
     double? quantity,
-    SalesQuantityUnit? quantityUnit,
     double? quantityDelivered,
     bool clearQuantityDelivered = false,
   }) {
@@ -47,10 +65,14 @@ class DeliveryLineItem extends Equatable {
       productType: productType ?? this.productType,
       marbleVariety: marbleVariety ?? this.marbleVariety,
       sizeThickness: sizeThickness ?? this.sizeThickness,
-      quantity: quantity ?? this.quantity,
-      quantityUnit: quantityUnit ?? this.quantityUnit,
-      quantityDelivered:
-          clearQuantityDelivered ? null : (quantityDelivered ?? this.quantityDelivered),
+      pieces: pieces ?? this.pieces,
+      squareFeet: squareFeet ?? quantity ?? this.squareFeet,
+      piecesDelivered: clearPiecesDelivered
+          ? null
+          : (piecesDelivered ?? this.piecesDelivered),
+      squareFeetDelivered: clearSquareFeetDelivered || clearQuantityDelivered
+          ? null
+          : (squareFeetDelivered ?? quantityDelivered ?? this.squareFeetDelivered),
     );
   }
 
@@ -59,9 +81,10 @@ class DeliveryLineItem extends Equatable {
         productType,
         marbleVariety,
         sizeThickness,
-        quantity,
-        quantityUnit,
-        quantityDelivered,
+        pieces,
+        squareFeet,
+        piecesDelivered,
+        squareFeetDelivered,
       ];
 }
 
@@ -108,8 +131,24 @@ class Delivery extends Equatable {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  double get totalQuantity =>
-      lineItems.fold<double>(0, (sum, item) => sum + item.quantity);
+  int get totalPieces =>
+      lineItems.fold<int>(0, (sum, item) => sum + item.pieces);
+
+  double get totalSquareFeet =>
+      lineItems.fold<double>(0, (sum, item) => sum + item.squareFeet);
+
+  int get effectivePieces => lineItems.fold<int>(
+        0,
+        (sum, item) => sum + item.effectivePieces,
+      );
+
+  double get effectiveSquareFeet => lineItems.fold<double>(
+        0,
+        (sum, item) => sum + item.effectiveSquareFeet,
+      );
+
+  /// Legacy total quantity in sq. ft.
+  double get totalQuantity => totalSquareFeet;
 
   Delivery copyWith({
     String? id,

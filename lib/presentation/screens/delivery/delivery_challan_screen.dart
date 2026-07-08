@@ -85,7 +85,8 @@ class DeliveryChallanScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                '${item.quantityDelivered ?? item.quantity} ${item.quantityUnit.label}',
+                                '${item.effectivePieces} pcs · '
+                                '${item.effectiveSquareFeet.toStringAsFixed(2)} sq. ft',
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodyMedium

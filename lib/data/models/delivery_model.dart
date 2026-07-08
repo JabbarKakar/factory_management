@@ -75,14 +75,19 @@ class DeliveryModel {
   }
 
   static DeliveryLineItem _lineItemFromMap(Map<dynamic, dynamic> data) {
+    final legacyQuantity = (data['quantity'] as num?)?.toDouble() ?? 0;
+    final squareFeet =
+        (data['squareFeet'] as num?)?.toDouble() ?? legacyQuantity;
+    final legacyDelivered = (data['quantityDelivered'] as num?)?.toDouble();
     return DeliveryLineItem(
       productType: SalesProductType.fromString(data['productType'] as String?),
       marbleVariety: data['marbleVariety'] as String? ?? '',
       sizeThickness: data['sizeThickness'] as String? ?? '',
-      quantity: (data['quantity'] as num?)?.toDouble() ?? 0,
-      quantityUnit:
-          SalesQuantityUnit.fromString(data['quantityUnit'] as String?),
-      quantityDelivered: (data['quantityDelivered'] as num?)?.toDouble(),
+      pieces: (data['pieces'] as num?)?.toInt() ?? 0,
+      squareFeet: squareFeet,
+      piecesDelivered: (data['piecesDelivered'] as num?)?.toInt(),
+      squareFeetDelivered:
+          (data['squareFeetDelivered'] as num?)?.toDouble() ?? legacyDelivered,
     );
   }
 
@@ -91,10 +96,16 @@ class DeliveryModel {
       'productType': item.productType.firestoreValue,
       'marbleVariety': item.marbleVariety,
       'sizeThickness': item.sizeThickness,
-      'quantity': item.quantity,
-      'quantityUnit': item.quantityUnit.firestoreValue,
-      if (item.quantityDelivered != null)
-        'quantityDelivered': item.quantityDelivered,
+      'pieces': item.pieces,
+      'squareFeet': item.squareFeet,
+      if (item.piecesDelivered != null) 'piecesDelivered': item.piecesDelivered,
+      if (item.squareFeetDelivered != null)
+        'squareFeetDelivered': item.squareFeetDelivered,
+      // Legacy fields for older clients.
+      'quantity': item.squareFeet,
+      'quantityUnit': SalesQuantityUnit.sqFt.firestoreValue,
+      if (item.squareFeetDelivered != null)
+        'quantityDelivered': item.squareFeetDelivered,
     };
   }
 

@@ -152,7 +152,7 @@ class SalesOrderDetailHero extends StatelessWidget {
                         if (canInvoice && onScheduleDelivery != null) ...[
                           if (nextStatus != null) const SizedBox(height: 6),
                           _ActionButton(
-                            label: AppStrings.scheduleDelivery,
+                            label: AppStrings.dispatchStock,
                             icon: Icons.local_shipping_outlined,
                             outlined: true,
                             onPressed:

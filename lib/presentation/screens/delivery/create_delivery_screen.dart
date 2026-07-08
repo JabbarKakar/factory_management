@@ -11,6 +11,8 @@ import '../../../domain/entities/employee.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/delivery_enums.dart';
 import '../../utils/auth_context.dart';
+import '../../widgets/delivery/dispatch_stock_form_controller.dart';
+import '../../widgets/delivery/dispatch_stock_recording_panel.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 
@@ -37,7 +39,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
   String? _selectedDriverId;
   String? _syncSignature;
   bool _populatedFromDelivery = false;
-  final List<_LineItemFields> _lineItems = [];
+  DispatchStockFormController? _stockController;
 
   @override
   void dispose() {
@@ -46,33 +48,37 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     _supervisorController.dispose();
     _notesController.dispose();
     _driverNameController.dispose();
-    for (final item in _lineItems) {
-      item.dispose();
-    }
+    _stockController?.dispose();
     super.dispose();
   }
 
-  void _syncFromRemaining(SalesOrder order, List<DeliveryRemainingLine> lines) {
-    for (final item in _lineItems) {
-      item.dispose();
-    }
-    _lineItems.clear();
+  void _resetStockController(DispatchStockFormController controller) {
+    _stockController?.dispose();
+    _stockController = controller;
+    _stockController!.addListenerSafe(() {
+      if (mounted) setState(() {});
+    });
+  }
 
+  void _syncFromRemaining(
+    SalesOrder order,
+    List<DeliveryRemainingLine> lines,
+    List<Delivery> existingDeliveries, {
+    String? excludeDeliveryId,
+  }) {
     _selectedOrderId = order.id;
     _addressController.text = order.deliveryAddress ?? '';
     _scheduledDate = order.expectedDeliveryDate ?? DateTime.now();
-
-    for (final line in lines) {
-      if (line.remainingQuantity <= 0) continue;
-      _lineItems.add(
-        _LineItemFields(
-          item: line.lineItem.copyWith(quantity: line.remainingQuantity),
-          initialQuantity: line.remainingQuantity,
-          maxRemaining: line.remainingQuantity,
-          orderedQuantity: line.orderedQuantity,
+    _resetStockController(
+      DispatchStockFormController.fromRemainingLines(
+        remainingLines: lines,
+        orderDispatchTotals: DeliveryQuantityHelper.orderTotals(
+          order,
+          existingDeliveries,
+          excludeDeliveryId: excludeDeliveryId,
         ),
-      );
-    }
+      ),
+    );
   }
 
   void _maybeSyncFromState(DeliveryFormState state) {
@@ -85,10 +91,15 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     if (order == null) return;
 
     final signature =
-        '${order.id}:${state.remainingLines.map((line) => line.remainingQuantity).join(',')}';
+        '${order.id}:${state.remainingLines.map((line) => '${line.remainingPieces}:${line.remainingSquareFeet}').join(',')}';
     if (_syncSignature == signature) return;
     _syncSignature = signature;
-    _syncFromRemaining(order, state.remainingLines);
+    _syncFromRemaining(
+      order,
+      state.remainingLines,
+      state.existingDeliveries,
+      excludeDeliveryId: state.editingDelivery?.id,
+    );
   }
 
   void _populateFromEditing(DeliveryFormState state) {
@@ -105,39 +116,35 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     _supervisorController.text = delivery.loadingSupervisor ?? '';
     _notesController.text = delivery.notes ?? '';
 
-    if (state.logisticsOnly) return;
-
-    for (final item in _lineItems) {
-      item.dispose();
-    }
-    _lineItems.clear();
-
-    for (final line in delivery.lineItems) {
-      DeliveryRemainingLine? remainingLine;
-      for (final candidate in state.remainingLines) {
-        if (_matchesDeliveryLine(candidate.lineItem, line)) {
-          remainingLine = candidate;
-          break;
-        }
-      }
-      final maxRemaining =
-          (remainingLine?.remainingQuantity ?? 0) + line.quantity;
-      _lineItems.add(
-        _LineItemFields(
-          item: line,
-          initialQuantity: line.quantity,
-          maxRemaining: maxRemaining,
-          orderedQuantity: remainingLine?.orderedQuantity ?? line.quantity,
+    if (state.logisticsOnly) {
+      _resetStockController(
+        DispatchStockFormController.fromDeliveryLineItems(
+          lineItems: delivery.lineItems,
+          orderDispatchTotals: state.selectedOrder == null
+              ? null
+              : DeliveryQuantityHelper.orderTotals(
+                  state.selectedOrder!,
+                  state.existingDeliveries,
+                  excludeDeliveryId: delivery.id,
+                ),
         ),
       );
+      return;
     }
-  }
 
-  bool _matchesDeliveryLine(DeliveryLineItem a, DeliveryLineItem b) {
-    return a.productType == b.productType &&
-        a.marbleVariety == b.marbleVariety &&
-        a.sizeThickness == b.sizeThickness &&
-        a.quantityUnit == b.quantityUnit;
+    _resetStockController(
+      DispatchStockFormController.fromRemainingLines(
+        remainingLines: state.remainingLines,
+        scheduledItems: delivery.lineItems,
+        orderDispatchTotals: state.selectedOrder == null
+            ? null
+            : DeliveryQuantityHelper.orderTotals(
+                state.selectedOrder!,
+                state.existingDeliveries,
+                excludeDeliveryId: delivery.id,
+              ),
+      ),
+    );
   }
 
   void _onDriverSelected(String? employeeId, List<Employee> employees) {
@@ -155,11 +162,9 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     final existing = state.editingDelivery;
     final lineItems = <DeliveryLineItem>[];
     if (!state.logisticsOnly) {
-      for (final fields in _lineItems) {
-        final quantity = double.tryParse(fields.quantityController.text.trim());
-        if (quantity == null || quantity <= 0) return null;
-        lineItems.add(fields.item.copyWith(quantity: quantity));
-      }
+      final controller = _stockController;
+      if (controller == null || !controller.hasScheduledDispatch) return null;
+      lineItems.addAll(controller.buildScheduledLineItems());
     } else if (existing != null) {
       lineItems.addAll(existing.lineItems);
     }
@@ -232,7 +237,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
   }
 
   String _appBarTitle(DeliveryFormState state) =>
-      state.isEditing ? AppStrings.editDelivery : AppStrings.scheduleDelivery;
+      state.isEditing ? AppStrings.editDelivery : AppStrings.dispatchStock;
 
   String _appBarSubtitle(DeliveryFormState state) {
     final order = state.selectedOrder;
@@ -243,7 +248,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     if (delivery != null) {
       return delivery.deliveryNumber;
     }
-    return AppStrings.scheduleDelivery;
+    return AppStrings.dispatchStock;
   }
 
   @override
@@ -333,8 +338,8 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         }
 
         final isSaving = state.status == DeliveryFormStatus.saving;
-        final hasRemaining =
-            state.logisticsOnly || state.hasRemainingQuantity;
+        final hasRemaining = state.logisticsOnly ||
+            (_stockController?.hasRows ?? false);
         final showLineItemEditor =
             _selectedOrderId != null && !state.logisticsOnly;
 
@@ -525,42 +530,23 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                     ),
                   ),
                   if (state.logisticsOnly &&
-                      state.editingDelivery != null) ...[
+                      state.editingDelivery != null &&
+                      _stockController != null)
                     JobWorkDetailSection(
                       title: AppStrings.itemsToDeliver,
                       icon: Icons.inventory_2_outlined,
                       child: AppFormSectionBody(
-                        children: state.editingDelivery!.lineItems
-                            .map(
-                              (item) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.displayLabel,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${item.quantity.toStringAsFixed(1)} ${item.quantityUnit.label}',
-                                      style: AppFormFields.labelStyle(context),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            )
-                            .toList(),
+                        children: [
+                          DispatchStockRecordingPanel(
+                            controller: _stockController!,
+                            enabled: false,
+                            mode: DispatchStockPanelMode.readOnly,
+                            onChanged: () {},
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                  if (showLineItemEditor)
+                  if (showLineItemEditor && _stockController != null)
                     JobWorkDetailSection(
                       title: AppStrings.itemsToDeliver,
                       icon: Icons.inventory_2_outlined,
@@ -570,73 +556,18 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: Text(
-                                AppStrings.noRemainingQuantity,
+                                AppStrings.noRemainingStock,
                                 style:
                                     AppFormFields.valueStyle(context).copyWith(
                                   color: Theme.of(context).colorScheme.error,
                                 ),
                               ),
                             ),
-                          ..._lineItems.map((fields) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  fields.item.displayLabel,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleSmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
-                                      ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${fields.maxRemaining.toStringAsFixed(1)} of '
-                                  '${fields.orderedQuantity.toStringAsFixed(1)} '
-                                  '${fields.item.quantityUnit.label} '
-                                  '${AppStrings.remainingQuantityHint}',
-                                  style: AppFormFields.labelStyle(context),
-                                ),
-                                AppFormFields.gap,
-                                TextFormField(
-                                  controller: fields.quantityController,
-                                  style: AppFormFields.valueStyle(context),
-                                  decoration: AppFormFields.decoration(
-                                    context,
-                                    label:
-                                        '${AppStrings.scheduledQuantity} (${fields.item.quantityUnit.label})',
-                                  ),
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                                  enabled: !isSaving,
-                                  validator: (value) {
-                                    if (value == null ||
-                                        value.trim().isEmpty) {
-                                      return 'Quantity is required';
-                                    }
-                                    final qty =
-                                        double.tryParse(value.trim());
-                                    if (qty == null || qty <= 0) {
-                                      return 'Enter a valid quantity';
-                                    }
-                                    if (qty > fields.maxRemaining) {
-                                      return 'Cannot exceed '
-                                          '${fields.maxRemaining.toStringAsFixed(1)} '
-                                          '${fields.item.quantityUnit.label}';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                          }),
+                          DispatchStockRecordingPanel(
+                            controller: _stockController!,
+                            enabled: !isSaving,
+                            onChanged: () => setState(() {}),
+                          ),
                         ],
                       ),
                     ),
@@ -661,7 +592,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                   AppFormSubmitBar(
                     label: state.isEditing
                         ? AppStrings.saveChanges
-                        : AppStrings.saveDelivery,
+                        : AppStrings.saveDispatch,
                     isLoading: isSaving,
                     onPressed: isSaving || (!state.logisticsOnly && !hasRemaining)
                         ? null
@@ -679,21 +610,4 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
       },
     );
   }
-}
-
-class _LineItemFields {
-  _LineItemFields({
-    required this.item,
-    required double initialQuantity,
-    required this.maxRemaining,
-    required this.orderedQuantity,
-  }) : quantityController =
-            TextEditingController(text: initialQuantity.toString());
-
-  final DeliveryLineItem item;
-  final double maxRemaining;
-  final double orderedQuantity;
-  final TextEditingController quantityController;
-
-  void dispose() => quantityController.dispose();
 }
