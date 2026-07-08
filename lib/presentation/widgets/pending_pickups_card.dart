@@ -243,7 +243,7 @@ class _PickupList extends StatelessWidget {
           crossAxisCount: 2,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
-          mainAxisExtent: 56,
+          mainAxisExtent: 72,
         ),
         itemCount: orders.length,
         itemBuilder: (context, index) {
@@ -251,6 +251,7 @@ class _PickupList extends StatelessWidget {
           return _PickupRow(
             order: order,
             dense: true,
+            compact: true,
             onTap: () => context.push(RoutePaths.jobWorkDetail(order.id)),
           );
         },
@@ -275,18 +276,21 @@ class _PickupRow extends StatelessWidget {
     required this.order,
     required this.onTap,
     this.dense = false,
+    this.compact = false,
   });
 
   final JobWorkOrder order;
   final VoidCallback onTap;
   final bool dense;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final initials = Formatters.userInitials(order.customerName);
     final avatarRadius = dense ? 14.0 : 18.0;
-    final barHeight = dense ? 34.0 : 40.0;
+    final showMineDetails =
+        !compact && (order.mineLocation != null || order.mineOwner != null);
 
     return Padding(
       padding: EdgeInsets.only(bottom: dense ? 6 : 8),
@@ -307,86 +311,91 @@ class _PickupRow extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: dense ? 8 : 10,
-                vertical: dense ? 7 : 9,
+                vertical: dense ? 6 : 9,
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 3,
-                    height: barHeight,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  SizedBox(width: dense ? 8 : 10),
-                  CircleAvatar(
-                    radius: avatarRadius,
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                    child: Text(
-                      initials,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: dense ? 10 : 11,
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      width: 3,
+                      decoration: BoxDecoration(
+                        color: AppColors.accent,
+                        borderRadius: BorderRadius.circular(3),
                       ),
                     ),
-                  ),
-                  SizedBox(width: dense ? 8 : 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          order.jobWorkNumber,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            fontSize: dense ? 12 : 13,
-                            height: 1.1,
-                          ),
+                    SizedBox(width: dense ? 8 : 10),
+                    CircleAvatar(
+                      radius: avatarRadius,
+                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                      child: Text(
+                        initials,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: dense ? 10 : 11,
                         ),
-                        Text(
-                          order.customerName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontSize: dense ? 10 : 11,
-                            height: 1.1,
-                          ),
-                        ),
-                        if (order.mineLocation != null) ...[
-                          const SizedBox(height: 2),
+                      ),
+                    ),
+                    SizedBox(width: dense ? 8 : 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
                           Text(
-                            [
-                              if (order.mineLocation != null)
-                                order.mineLocation!,
-                              if (order.mineOwner != null) order.mineOwner!,
-                            ].join(' · '),
+                            order.jobWorkNumber,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: dense ? 12 : 13,
+                              height: 1.1,
+                            ),
+                          ),
+                          Text(
+                            order.customerName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
-                              fontSize: dense ? 9 : 10,
+                              fontSize: dense ? 10 : 11,
+                              height: 1.1,
                             ),
                           ),
+                          if (showMineDetails) ...[
+                            const SizedBox(height: 1),
+                            Text(
+                              [
+                                if (order.mineLocation != null)
+                                  order.mineLocation!,
+                                if (order.mineOwner != null) order.mineOwner!,
+                              ].join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontSize: dense ? 9 : 10,
+                                height: 1.1,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  if (!dense) ...[
-                    const SizedBox(width: 6),
-                    JobWorkStatusBadge(status: order.status, compact: true),
+                    if (!dense) ...[
+                      const SizedBox(width: 6),
+                      JobWorkStatusBadge(status: order.status, compact: true),
+                    ],
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: dense ? 16 : 18,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ],
-                  const SizedBox(width: 2),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: dense ? 16 : 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ],
+                ),
               ),
             ),
           ),

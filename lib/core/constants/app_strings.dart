@@ -297,7 +297,7 @@ abstract final class AppStrings {
   static const String sectionTotalSqFt = 'Section Total Sq. Ft';
   static const String sectionTotalAmount = 'Section Total Amount';
   static const String productionLockedFromShifts =
-      'Production totals are calculated from shift logs below.';
+      'Production totals are calculated from shift logs. Use edit on each shift to correct stock output.';
   static const String noStockProductionYet = 'No stock production recorded yet.';
   static const String piecesCannotBeNegative = 'Pieces cannot be negative';
   static const String priceCannotBeNegative = 'Price cannot be negative';
@@ -309,11 +309,12 @@ abstract final class AppStrings {
       'No output recorded yet. Record stock production and waste when cutting is complete.';
   static const String shiftLogs = 'Shift Logs';
   static const String addShiftLog = 'Add Shift';
+  static const String editShiftLog = 'Edit Shift';
   static const String shiftDate = 'Shift Date';
   static const String shiftName = 'Shift Name';
   static const String shiftNotes = 'Shift Notes';
   static const String shiftLogsHint =
-      'Add one entry per shift for multi-day jobs. Totals are calculated automatically.';
+      'Add one entry per shift for multi-day jobs. Use edit on each shift to correct production; totals update automatically.';
   static const String blocksCut = 'Blocks Cut';
   static const String blocksCutLabel = 'blocks cut';
   static const String remainingBlocks = 'Remaining Blocks';

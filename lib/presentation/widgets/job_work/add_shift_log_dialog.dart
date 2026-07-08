@@ -19,6 +19,7 @@ class AddShiftLogDialog extends StatefulWidget {
     required this.largePricePerSqFt,
     required this.totalBlocks,
     this.blocksAlreadyCut = 0,
+    this.existingShift,
     super.key,
   });
 
@@ -28,6 +29,7 @@ class AddShiftLogDialog extends StatefulWidget {
   final double largePricePerSqFt;
   final int totalBlocks;
   final int blocksAlreadyCut;
+  final JobWorkShiftLog? existingShift;
 
   @override
   State<AddShiftLogDialog> createState() => _AddShiftLogDialogState();
@@ -56,18 +58,30 @@ class _AddShiftLogDialogState extends State<AddShiftLogDialog> {
         blocksCutThisShift: _blocksCutThisShift,
       );
 
+  bool get _isEditing => widget.existingShift != null;
+
   @override
   void initState() {
     super.initState();
+    final existing = widget.existingShift;
     _stockController = StockOutputFormController(
       smallSizes: widget.smallSizes,
       largeSizes: widget.largeSizes,
       smallPricePerSqFt: widget.smallPricePerSqFt,
       largePricePerSqFt: widget.largePricePerSqFt,
+      initialSmall: existing?.smallStockOutputs ?? const [],
+      initialLarge: existing?.largeStockOutputs ?? const [],
     );
     _stockController.addListener(_onFormChanged);
     _blocksCutController.addListener(_onFormChanged);
-    if (JobWorkShifts.all.isNotEmpty) {
+    if (existing != null) {
+      _shiftDate = existing.shiftDate;
+      _shiftName = existing.shiftName;
+      if (existing.blocksCut > 0) {
+        _blocksCutController.text = existing.blocksCut.toString();
+      }
+      _notesController.text = existing.notes ?? '';
+    } else if (JobWorkShifts.all.isNotEmpty) {
       _shiftName = JobWorkShifts.all.first;
     }
   }
@@ -113,16 +127,31 @@ class _AddShiftLogDialogState extends State<AddShiftLogDialog> {
       return;
     }
 
-    final shift = JobWorkShiftLog.create(
-      shiftDate: _shiftDate,
-      shiftName: _shiftName,
-      blocksCut: _blocksCutThisShift,
-      smallStockOutputs: _stockController.buildSmallOutputs(),
-      largeStockOutputs: _stockController.buildLargeOutputs(),
-      notes: _notesController.text.trim().isEmpty
-          ? null
-          : _notesController.text.trim(),
-    );
+    final notes = _notesController.text.trim().isEmpty
+        ? null
+        : _notesController.text.trim();
+    final smallStockOutputs = _stockController.buildSmallOutputs();
+    final largeStockOutputs = _stockController.buildLargeOutputs();
+
+    final shift = _isEditing
+        ? JobWorkShiftLog(
+            id: widget.existingShift!.id,
+            shiftDate: _shiftDate,
+            shiftName: _shiftName,
+            blocksCut: _blocksCutThisShift,
+            smallStockOutputs: smallStockOutputs,
+            largeStockOutputs: largeStockOutputs,
+            notes: notes,
+            recordedAt: widget.existingShift!.recordedAt,
+          )
+        : JobWorkShiftLog.create(
+            shiftDate: _shiftDate,
+            shiftName: _shiftName,
+            blocksCut: _blocksCutThisShift,
+            smallStockOutputs: smallStockOutputs,
+            largeStockOutputs: largeStockOutputs,
+            notes: notes,
+          );
 
     Navigator.of(context).pop(shift);
   }
@@ -151,7 +180,7 @@ class _AddShiftLogDialogState extends State<AddShiftLogDialog> {
   @override
   Widget build(BuildContext context) {
     return AppDialog(
-      title: AppStrings.addShiftLog,
+      title: _isEditing ? AppStrings.editShiftLog : AppStrings.addShiftLog,
       icon: Icons.fact_check_outlined,
       scrollable: true,
       maxWidth: 720,
@@ -224,7 +253,7 @@ class _AddShiftLogDialogState extends State<AddShiftLogDialog> {
         AppDialogActions.cancel(context),
         AppDialogActions.confirm(
           context,
-          label: AppStrings.addShiftLog,
+          label: _isEditing ? AppStrings.saveChanges : AppStrings.addShiftLog,
           onPressed: _submit,
         ),
       ],

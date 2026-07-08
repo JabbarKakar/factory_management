@@ -189,6 +189,32 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     });
   }
 
+  Future<void> _editShiftLog(JobWorkOrder order, JobWorkShiftLog shift) async {
+    final updated = await showDialog<JobWorkShiftLog>(
+      context: context,
+      builder: (_) => AddShiftLogDialog(
+        smallSizes: _smallSizesFor(order),
+        largeSizes: order.largeSizes,
+        smallPricePerSqFt:
+            JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
+        largePricePerSqFt:
+            JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
+        totalBlocks: order.blockCount,
+        blocksAlreadyCut: JobWorkBlockProgress.totalBlocksCut(
+          _shiftLogs.where((log) => log.id != shift.id),
+        ),
+        existingShift: shift,
+      ),
+    );
+    if (updated == null) return;
+    setState(() {
+      _shiftLogs = _shiftLogs
+          .map((log) => log.id == updated.id ? updated : log)
+          .toList();
+      _chargesManuallyEdited = false;
+    });
+  }
+
   Future<void> _removeShiftLog(JobWorkShiftLog shift) async {
     final confirmed = await AppConfirmDialog.show(
       context,
@@ -422,11 +448,24 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                                 ].join(' · '),
                               ),
                               subtitle: Text(_shiftSubtitle(shift)),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: isSaving
-                                    ? null
-                                    : () => _removeShiftLog(shift),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined),
+                                    tooltip: AppStrings.editShiftLog,
+                                    onPressed: isSaving
+                                        ? null
+                                        : () => _editShiftLog(order, shift),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline),
+                                    tooltip: AppStrings.delete,
+                                    onPressed: isSaving
+                                        ? null
+                                        : () => _removeShiftLog(shift),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
