@@ -80,11 +80,34 @@ class DeliveryDetailScreen extends StatelessWidget {
         final nextStatus = delivery.status.nextStatus;
         final isSaving = state.status == DeliveryDetailStatus.saving;
         final canEditDelivery = context.userCanEdit(AppModule.delivery);
+        final canEditThisDelivery =
+            canEditDelivery && delivery.status.canEditLogistics;
 
         return Scaffold(
           appBar: AppBar(
             title: const Text(AppStrings.deliveryDetails),
             actions: [
+              if (canEditThisDelivery)
+                IconButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final updated = await context.push<bool>(
+                            RoutePaths.deliveryEdit(delivery.id),
+                          );
+                          if (updated == true && context.mounted) {
+                            context.read<DeliveryDetailBloc>().add(
+                                  DeliveryDetailWatchStarted(
+                                    deliveryId,
+                                    driverEmployeeId:
+                                        readDriverEmployeeId(context),
+                                  ),
+                                );
+                          }
+                        },
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editDelivery,
+                ),
               IconButton(
                 onPressed: () => context.push(
                   RoutePaths.deliveryChallan(delivery.id),

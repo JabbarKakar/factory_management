@@ -342,6 +342,13 @@ abstract final class AppStrings {
   static const String recordPayment = 'Record Payment';
   static const String invoiceGenerated = 'Invoice generated successfully';
   static const String paymentRecorded = 'Payment recorded successfully';
+  static const String paymentUpdated = 'Payment updated successfully';
+  static const String paymentDeleted = 'Payment removed successfully';
+  static const String editPayment = 'Edit Payment';
+  static const String deletePayment = 'Delete Payment';
+  static const String deletePaymentTitle = 'Remove payment?';
+  static const String deletePaymentMessage =
+      'This payment will be removed and the invoice balance will be recalculated.';
   static const String invoiceNotReady =
       'Generate an invoice when the job work order is ready for pickup.';
   static const String invoiceNumber = 'Invoice Number';
@@ -875,6 +882,10 @@ abstract final class AppStrings {
   static const String deliveries = 'Deliveries';
   static const String deliveriesSubtitle = 'Dispatch sales orders to customers';
   static const String scheduleDelivery = 'Schedule Delivery';
+  static const String editDelivery = 'Edit Delivery';
+  static const String deliveryUpdated = 'Delivery updated';
+  static const String deliveryLogisticsOnlyHint =
+      'Quantities are locked because this delivery is already loaded or in transit. You can still update address, date, and driver details.';
   static const String newDelivery = 'New Delivery';
   static const String searchDeliveries =
       'Search delivery #, order, customer...';

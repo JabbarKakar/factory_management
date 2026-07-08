@@ -8,6 +8,9 @@ class DeliveryFormState extends Equatable {
     this.eligibleOrders = const [],
     this.employees = const [],
     this.selectedOrder,
+    this.editingDelivery,
+    this.isEditing = false,
+    this.logisticsOnly = false,
     this.existingDeliveries = const [],
     this.remainingLines = const [],
     this.errorMessage,
@@ -17,6 +20,9 @@ class DeliveryFormState extends Equatable {
   final List<SalesOrder> eligibleOrders;
   final List<Employee> employees;
   final SalesOrder? selectedOrder;
+  final Delivery? editingDelivery;
+  final bool isEditing;
+  final bool logisticsOnly;
   final List<Delivery> existingDeliveries;
   final List<DeliveryRemainingLine> remainingLines;
   final String? errorMessage;
@@ -30,6 +36,9 @@ class DeliveryFormState extends Equatable {
     List<Employee>? employees,
     SalesOrder? selectedOrder,
     bool clearSelectedOrder = false,
+    Delivery? editingDelivery,
+    bool? isEditing,
+    bool? logisticsOnly,
     List<Delivery>? existingDeliveries,
     List<DeliveryRemainingLine>? remainingLines,
     String? errorMessage,
@@ -40,6 +49,9 @@ class DeliveryFormState extends Equatable {
       employees: employees ?? this.employees,
       selectedOrder:
           clearSelectedOrder ? null : (selectedOrder ?? this.selectedOrder),
+      editingDelivery: editingDelivery ?? this.editingDelivery,
+      isEditing: isEditing ?? this.isEditing,
+      logisticsOnly: logisticsOnly ?? this.logisticsOnly,
       existingDeliveries: existingDeliveries ?? this.existingDeliveries,
       remainingLines: remainingLines ?? this.remainingLines,
       errorMessage: errorMessage,
@@ -52,6 +64,9 @@ class DeliveryFormState extends Equatable {
         eligibleOrders,
         employees,
         selectedOrder,
+        editingDelivery,
+        isEditing,
+        logisticsOnly,
         existingDeliveries,
         remainingLines,
         errorMessage,

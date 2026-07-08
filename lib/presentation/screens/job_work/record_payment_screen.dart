@@ -5,15 +5,24 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/repositories/payment_repository.dart';
+import '../../../domain/entities/payment.dart';
 import '../../../domain/enums/invoice_enums.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 
 class RecordPaymentScreen extends StatefulWidget {
-  const RecordPaymentScreen({required this.invoiceId, super.key});
+  const RecordPaymentScreen({
+    required this.invoiceId,
+    this.paymentId,
+    super.key,
+  });
 
   final String invoiceId;
+  final String? paymentId;
 
   @override
   State<RecordPaymentScreen> createState() => _RecordPaymentScreenState();
@@ -28,6 +37,33 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   PaymentMethod _method = PaymentMethod.cash;
   DateTime _paymentDate = DateTime.now();
   bool _populated = false;
+  Payment? _editingPayment;
+  bool _deletedPayment = false;
+
+  bool get _isEditing => widget.paymentId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      _loadPayment();
+    }
+  }
+
+  Future<void> _loadPayment() async {
+    final payment =
+        await getIt<PaymentRepository>().getPayment(widget.paymentId!);
+    if (!mounted || payment == null) return;
+    setState(() {
+      _editingPayment = payment;
+      _amountController.text = payment.amount.toStringAsFixed(0);
+      _method = payment.method;
+      _paymentDate = payment.paymentDate;
+      _referenceController.text = payment.reference ?? '';
+      _notesController.text = payment.notes ?? '';
+      _populated = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -38,7 +74,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   }
 
   void _populate(double dueAmount) {
-    if (_populated) return;
+    if (_populated || _isEditing) return;
     _populated = true;
     _amountController.text = dueAmount.toStringAsFixed(0);
   }
@@ -53,25 +89,60 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
     if (picked != null) setState(() => _paymentDate = picked);
   }
 
+  Future<void> _deletePayment() async {
+    final payment = _editingPayment;
+    if (payment == null) return;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deletePaymentTitle,
+      message: AppStrings.deletePaymentMessage,
+      confirmLabel: AppStrings.deletePayment,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _deletedPayment = true);
+    context.read<JobWorkInvoiceBloc>().add(
+          JobWorkInvoicePaymentDeleteRequested(payment.id),
+        );
+  }
+
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
     final amount = double.tryParse(_amountController.text.trim()) ?? 0;
     if (amount <= 0) return;
 
-    context.read<JobWorkInvoiceBloc>().add(
-          JobWorkInvoicePaymentSubmitted(
-            invoiceId: widget.invoiceId,
-            amount: amount,
-            method: _method,
-            paymentDate: _paymentDate,
-            reference: _referenceController.text.trim().isEmpty
-                ? null
-                : _referenceController.text.trim(),
-            notes: _notesController.text.trim().isEmpty
-                ? null
-                : _notesController.text.trim(),
-          ),
-        );
+    final reference = _referenceController.text.trim().isEmpty
+        ? null
+        : _referenceController.text.trim();
+    final notes = _notesController.text.trim().isEmpty
+        ? null
+        : _notesController.text.trim();
+
+    final bloc = context.read<JobWorkInvoiceBloc>();
+    if (_isEditing) {
+      bloc.add(
+        JobWorkInvoicePaymentUpdated(
+          paymentId: widget.paymentId!,
+          amount: amount,
+          method: _method,
+          paymentDate: _paymentDate,
+          reference: reference,
+          notes: notes,
+        ),
+      );
+      return;
+    }
+
+    bloc.add(
+      JobWorkInvoicePaymentSubmitted(
+        invoiceId: widget.invoiceId,
+        amount: amount,
+        method: _method,
+        paymentDate: _paymentDate,
+        reference: reference,
+        notes: notes,
+      ),
+    );
   }
 
   @override
@@ -84,7 +155,15 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         }
         if (state.status == JobWorkInvoiceStatus.paymentRecorded) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(AppStrings.paymentRecorded)),
+            SnackBar(
+              content: Text(
+                _deletedPayment
+                    ? AppStrings.paymentDeleted
+                    : _isEditing
+                        ? AppStrings.paymentUpdated
+                        : AppStrings.paymentRecorded,
+              ),
+            ),
           );
           context.pop(true);
         }
@@ -99,7 +178,11 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         if (state.status == JobWorkInvoiceStatus.loading ||
             state.status == JobWorkInvoiceStatus.initial) {
           return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.recordPayment)),
+            appBar: AppBar(
+              title: Text(
+                _isEditing ? AppStrings.editPayment : AppStrings.recordPayment,
+              ),
+            ),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
@@ -107,20 +190,37 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         final invoice = state.invoice;
         if (invoice == null) {
           return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.recordPayment)),
+            appBar: AppBar(
+              title: Text(
+                _isEditing ? AppStrings.editPayment : AppStrings.recordPayment,
+              ),
+            ),
             body: const Center(child: Text('Invoice not found')),
           );
         }
 
         _populate(invoice.dueAmount);
         final isSaving = state.status == JobWorkInvoiceStatus.saving;
+        final maxAmount = _isEditing
+            ? invoice.dueAmount + (_editingPayment?.amount ?? 0)
+            : invoice.dueAmount;
 
         return Scaffold(
           appBar: AppBar(
             title: AppFormAppBarTitle(
-              title: AppStrings.recordPayment,
+              title: _isEditing
+                  ? AppStrings.editPayment
+                  : AppStrings.recordPayment,
               subtitle: '${invoice.invoiceNumber} · ${invoice.customerName}',
             ),
+            actions: [
+              if (_isEditing)
+                IconButton(
+                  onPressed: isSaving ? null : _deletePayment,
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: AppStrings.deletePayment,
+                ),
+            ],
           ),
           body: Form(
             key: _formKey,
@@ -129,8 +229,9 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
               children: [
                 AppFormContextHeader(
                   title: invoice.invoiceNumber,
-                  subtitle:
-                      '${AppStrings.amountDue}: ${Formatters.currencyPkr(invoice.dueAmount)}',
+                  subtitle: _isEditing
+                      ? '${AppStrings.amountDue}: ${Formatters.currencyPkr(invoice.dueAmount)}'
+                      : '${AppStrings.amountDue}: ${Formatters.currencyPkr(invoice.dueAmount)}',
                 ),
                 JobWorkDetailSection(
                   title: AppStrings.paymentDetails,
@@ -151,8 +252,8 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                           final amount =
                               double.tryParse(value?.trim() ?? '') ?? 0;
                           if (amount <= 0) return 'Enter a valid amount';
-                          if (amount > invoice.dueAmount) {
-                            return 'Cannot exceed amount due';
+                          if (amount > maxAmount) {
+                            return 'Cannot exceed ${Formatters.currencyPkr(maxAmount)}';
                           }
                           return null;
                         },
@@ -220,9 +321,9 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
             ),
           ),
           bottomNavigationBar: AppFormBottomBar(
-            label: AppStrings.savePayment,
+            label: _isEditing ? AppStrings.saveChanges : AppStrings.savePayment,
             isLoading: isSaving,
-            onPressed: _submit,
+            onPressed: isSaving ? null : _submit,
           ),
         );
       },

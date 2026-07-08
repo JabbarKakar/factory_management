@@ -9,17 +9,20 @@ import '../../../data/services/export/invoice_excel_exporter.dart';
 import '../../../data/services/export/invoice_pdf_exporter.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/invoice_enums.dart';
+import '../../../domain/entities/payment.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/export_actions.dart';
 import '../../utils/export_factory_name.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/export_menu_button.dart';
 import '../../widgets/invoice_reminder_history_section.dart';
 import '../../widgets/job_work/job_work_invoice_detail_hero.dart';
 import '../../widgets/job_work/job_work_invoice_line_items_section.dart';
 import '../../widgets/job_work/job_work_invoice_payment_action_bar.dart';
+import '../../widgets/job_work/job_work_invoice_payment_history_section.dart';
 import '../../widgets/job_work/job_work_invoice_pricing_section.dart';
 import '../../widgets/send_payment_reminder_button.dart';
 
@@ -27,6 +30,17 @@ class JobWorkInvoiceScreen extends StatelessWidget {
   const JobWorkInvoiceScreen({required this.jobWorkId, super.key});
 
   final String jobWorkId;
+
+  Future<void> _reload(BuildContext context) async {
+    final factoryId = readFactoryId(context);
+    if (factoryId == null) return;
+    context.read<JobWorkInvoiceBloc>().add(
+          JobWorkInvoiceLoadByJobWork(
+            factoryId: factoryId,
+            jobWorkId: jobWorkId,
+          ),
+        );
+  }
 
   Future<void> _recordPayment(BuildContext context) async {
     final state = context.read<JobWorkInvoiceBloc>().state;
@@ -37,14 +51,49 @@ class JobWorkInvoiceScreen extends StatelessWidget {
       RoutePaths.recordPayment(invoice.id),
     );
     if (recorded == true && context.mounted) {
-      final factoryId = readFactoryId(context);
-      if (factoryId == null) return;
-      context.read<JobWorkInvoiceBloc>().add(
-            JobWorkInvoiceLoadByJobWork(
-              factoryId: factoryId,
-              jobWorkId: jobWorkId,
-            ),
-          );
+      await _reload(context);
+    }
+  }
+
+  Future<void> _editPayment(BuildContext context, Payment payment) async {
+    final state = context.read<JobWorkInvoiceBloc>().state;
+    final invoice = state.invoice;
+    if (invoice == null) return;
+
+    final updated = await context.push<bool>(
+      RoutePaths.recordPaymentEdit(invoice.id, payment.id),
+    );
+    if (updated == true && context.mounted) {
+      await _reload(context);
+    }
+  }
+
+  Future<void> _deletePayment(BuildContext context, Payment payment) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deletePaymentTitle,
+      message: AppStrings.deletePaymentMessage,
+      confirmLabel: AppStrings.deletePayment,
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    final bloc = context.read<JobWorkInvoiceBloc>();
+    bloc.add(JobWorkInvoicePaymentDeleteRequested(payment.id));
+    final next = await bloc.stream.firstWhere(
+      (state) =>
+          state.status == JobWorkInvoiceStatus.paymentRecorded ||
+          state.status == JobWorkInvoiceStatus.failure,
+    );
+    if (!context.mounted) return;
+    if (next.status == JobWorkInvoiceStatus.paymentRecorded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.paymentDeleted)),
+      );
+    } else if (next.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(next.errorMessage!)),
+      );
     }
   }
 
@@ -104,6 +153,8 @@ class JobWorkInvoiceScreen extends StatelessWidget {
         }
 
         final isSaving = state.status == JobWorkInvoiceStatus.saving;
+        final canCorrectPayments =
+            context.userCanEdit(AppModule.jobWork) && state.payments.isNotEmpty;
         final appBarForeground =
             Theme.of(context).appBarTheme.foregroundColor ??
                 Theme.of(context).colorScheme.onSurface;
@@ -199,7 +250,16 @@ class JobWorkInvoiceScreen extends StatelessWidget {
                 ),
               JobWorkInvoiceLineItemsSection(lineItems: invoice.lineItems),
               JobWorkInvoicePricingSection(invoice: invoice),
-              JobWorkInvoicePaymentHistorySection(payments: state.payments),
+              JobWorkInvoicePaymentHistorySection(
+                payments: state.payments,
+                canCorrect: canCorrectPayments,
+                onEdit: canCorrectPayments
+                    ? (payment) => _editPayment(context, payment)
+                    : null,
+                onDelete: canCorrectPayments
+                    ? (payment) => _deletePayment(context, payment)
+                    : null,
+              ),
               InvoiceReminderHistorySection(invoiceId: invoice.id),
             ],
           ),

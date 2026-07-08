@@ -65,3 +65,40 @@ final class SalesInvoicePaymentSubmitted extends SalesInvoiceEvent {
         notes,
       ];
 }
+
+final class SalesInvoicePaymentUpdated extends SalesInvoiceEvent {
+  const SalesInvoicePaymentUpdated({
+    required this.paymentId,
+    required this.amount,
+    required this.method,
+    required this.paymentDate,
+    this.reference,
+    this.notes,
+  });
+
+  final String paymentId;
+  final double amount;
+  final PaymentMethod method;
+  final DateTime paymentDate;
+  final String? reference;
+  final String? notes;
+
+  @override
+  List<Object?> get props => [
+        paymentId,
+        amount,
+        method,
+        paymentDate,
+        reference,
+        notes,
+      ];
+}
+
+final class SalesInvoicePaymentDeleteRequested extends SalesInvoiceEvent {
+  const SalesInvoicePaymentDeleteRequested(this.paymentId);
+
+  final String paymentId;
+
+  @override
+  List<Object?> get props => [paymentId];
+}

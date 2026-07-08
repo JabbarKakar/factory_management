@@ -48,6 +48,16 @@ enum DeliveryStatus {
 
   bool get canConfirmDelivery =>
       this == DeliveryStatus.inTransit || this == DeliveryStatus.loaded;
+
+  bool get canEditScheduled => this == DeliveryStatus.scheduled;
+
+  bool get canEditLogistics => switch (this) {
+        DeliveryStatus.scheduled ||
+        DeliveryStatus.loaded ||
+        DeliveryStatus.inTransit =>
+          true,
+        _ => false,
+      };
 }
 
 enum DeliveryListFilter {

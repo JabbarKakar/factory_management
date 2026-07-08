@@ -20,6 +20,15 @@ final class DeliveryFormInitialized extends DeliveryFormEvent {
   List<Object?> get props => [factoryId, salesOrderId];
 }
 
+final class DeliveryFormLoadRequested extends DeliveryFormEvent {
+  const DeliveryFormLoadRequested(this.deliveryId);
+
+  final String deliveryId;
+
+  @override
+  List<Object?> get props => [deliveryId];
+}
+
 final class DeliveryFormSalesOrderSelected extends DeliveryFormEvent {
   const DeliveryFormSalesOrderSelected(this.salesOrderId);
 

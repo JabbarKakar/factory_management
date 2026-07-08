@@ -33,6 +33,38 @@ class Payment extends Equatable {
   final String? notes;
   final DateTime createdAt;
 
+  Payment copyWith({
+    String? id,
+    String? factoryId,
+    String? customerId,
+    String? customerName,
+    String? invoiceId,
+    InvoiceType? invoiceType,
+    String? invoiceNumber,
+    double? amount,
+    PaymentMethod? method,
+    DateTime? paymentDate,
+    String? reference,
+    String? notes,
+    DateTime? createdAt,
+  }) {
+    return Payment(
+      id: id ?? this.id,
+      factoryId: factoryId ?? this.factoryId,
+      customerId: customerId ?? this.customerId,
+      customerName: customerName ?? this.customerName,
+      invoiceId: invoiceId ?? this.invoiceId,
+      invoiceType: invoiceType ?? this.invoiceType,
+      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
+      amount: amount ?? this.amount,
+      method: method ?? this.method,
+      paymentDate: paymentDate ?? this.paymentDate,
+      reference: reference,
+      notes: notes,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
   @override
   List<Object?> get props => [
         id,

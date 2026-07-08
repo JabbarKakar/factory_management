@@ -1152,6 +1152,26 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                         child: RecordPaymentScreen(invoiceId: invoiceId),
                       );
                     },
+                    routes: [
+                      GoRoute(
+                        path: ':paymentId/edit',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final invoiceId =
+                              state.pathParameters['invoiceId']!;
+                          final paymentId =
+                              state.pathParameters['paymentId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkInvoiceBloc>()
+                              ..add(JobWorkInvoiceLoadById(invoiceId)),
+                            child: RecordPaymentScreen(
+                              invoiceId: invoiceId,
+                              paymentId: paymentId,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: ':jobWorkId',
@@ -1354,6 +1374,26 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                         child: RecordSalesPaymentScreen(invoiceId: invoiceId),
                       );
                     },
+                    routes: [
+                      GoRoute(
+                        path: ':paymentId/edit',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final invoiceId =
+                              state.pathParameters['invoiceId']!;
+                          final paymentId =
+                              state.pathParameters['paymentId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<SalesInvoiceBloc>()
+                              ..add(SalesInvoiceLoadById(invoiceId)),
+                            child: RecordSalesPaymentScreen(
+                              invoiceId: invoiceId,
+                              paymentId: paymentId,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: ':salesOrderId',
@@ -1456,6 +1496,21 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                           return bloc;
                         },
                         child: CreateDeliveryScreen(salesOrderId: salesOrderId),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: ':deliveryId/edit',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final deliveryId = state.pathParameters['deliveryId']!;
+                      return BlocProvider(
+                        create: (context) {
+                          final bloc = getIt<DeliveryFormBloc>();
+                          bloc.add(DeliveryFormLoadRequested(deliveryId));
+                          return bloc;
+                        },
+                        child: CreateDeliveryScreen(deliveryId: deliveryId),
                       );
                     },
                   ),

@@ -14,6 +14,15 @@ import 'notification_repository.dart';
 import 'sales_invoice_repository.dart';
 import 'sales_order_repository.dart';
 
+class PaymentException implements Exception {
+  const PaymentException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class PaymentRepository {
   PaymentRepository({
     FirebaseFirestore? firestore,
@@ -124,6 +133,221 @@ class PaymentRepository {
           payments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
           return payments;
         });
+  }
+
+  Future<Payment?> getPayment(String id) async {
+    final doc = await _collection.doc(id).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return PaymentModel.fromFirestore(doc.id, doc.data()!).toEntity();
+  }
+
+  Future<Payment> updatePayment({
+    required String paymentId,
+    required double amount,
+    required PaymentMethod method,
+    required DateTime paymentDate,
+    String? reference,
+    String? notes,
+  }) async {
+    if (amount <= 0) {
+      throw const PaymentException('Payment amount must be greater than zero.');
+    }
+
+    final existing = await getPayment(paymentId);
+    if (existing == null) {
+      throw const PaymentException('Payment not found.');
+    }
+
+    final invoice = await _getInvoiceForPayment(existing);
+    if (invoice == null) {
+      throw const PaymentException('Invoice not found.');
+    }
+
+    final otherPayments = await getPaymentsForInvoice(
+      factoryId: existing.factoryId,
+      invoiceId: existing.invoiceId,
+    );
+    final otherTotal = otherPayments
+        .where((payment) => payment.id != paymentId)
+        .fold<double>(0, (sum, payment) => sum + payment.amount);
+    if (otherTotal + amount > invoice.totalAmount + 0.01) {
+      throw PaymentException(
+        'Payment total cannot exceed invoice amount '
+        '(${invoice.totalAmount.toStringAsFixed(0)}).',
+      );
+    }
+
+    final updated = Payment(
+      id: existing.id,
+      factoryId: existing.factoryId,
+      customerId: existing.customerId,
+      customerName: existing.customerName,
+      invoiceId: existing.invoiceId,
+      invoiceType: existing.invoiceType,
+      invoiceNumber: existing.invoiceNumber,
+      amount: amount,
+      method: method,
+      paymentDate: paymentDate,
+      reference: reference?.trim().isEmpty ?? true ? null : reference?.trim(),
+      notes: notes?.trim().isEmpty ?? true ? null : notes?.trim(),
+      createdAt: existing.createdAt,
+    );
+
+    final updates = <String, dynamic>{
+      'amount': updated.amount,
+      'method': updated.method.firestoreValue,
+      'date': Timestamp.fromDate(updated.paymentDate),
+    };
+    if (updated.reference == null) {
+      updates['reference'] = FieldValue.delete();
+    } else {
+      updates['reference'] = updated.reference;
+    }
+    if (updated.notes == null) {
+      updates['notes'] = FieldValue.delete();
+    } else {
+      updates['notes'] = updated.notes;
+    }
+
+    await _collection.doc(paymentId).update(updates);
+    await _syncInvoiceFromPayments(
+      invoiceId: existing.invoiceId,
+      invoiceType: existing.invoiceType,
+    );
+
+    return updated;
+  }
+
+  Future<void> deletePayment(String paymentId) async {
+    final existing = await getPayment(paymentId);
+    if (existing == null) {
+      throw const PaymentException('Payment not found.');
+    }
+
+    await _collection.doc(paymentId).delete();
+    await _syncInvoiceFromPayments(
+      invoiceId: existing.invoiceId,
+      invoiceType: existing.invoiceType,
+    );
+  }
+
+  Future<_InvoiceSnapshot?> _getInvoiceForPayment(Payment payment) async {
+    if (payment.invoiceType == InvoiceType.jobWork) {
+      final invoice =
+          await _jobWorkInvoiceRepository.getInvoice(payment.invoiceId);
+      if (invoice == null) return null;
+      return _InvoiceSnapshot(
+        id: invoice.id,
+        factoryId: invoice.factoryId,
+        customerId: invoice.customerId,
+        totalAmount: invoice.totalAmount,
+        dueDate: invoice.dueDate,
+        parentId: invoice.jobWorkId,
+        invoiceType: InvoiceType.jobWork,
+      );
+    }
+
+    final invoice = await _salesInvoiceRepository.getInvoice(payment.invoiceId);
+    if (invoice == null) return null;
+    return _InvoiceSnapshot(
+      id: invoice.id,
+      factoryId: invoice.factoryId,
+      customerId: invoice.customerId,
+      totalAmount: invoice.totalAmount,
+      dueDate: invoice.dueDate,
+      parentId: invoice.salesOrderId,
+      invoiceType: InvoiceType.sales,
+    );
+  }
+
+  Future<void> _syncInvoiceFromPayments({
+    required String invoiceId,
+    required InvoiceType invoiceType,
+  }) async {
+    if (invoiceType == InvoiceType.jobWork) {
+      final invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
+      if (invoice == null) return;
+
+      final payments = await getPaymentsForInvoice(
+        factoryId: invoice.factoryId,
+        invoiceId: invoiceId,
+      );
+      final paidAmount =
+          payments.fold<double>(0, (sum, payment) => sum + payment.amount);
+      final dueAmount = (invoice.totalAmount - paidAmount).clamp(0, invoice.totalAmount);
+      final status = InvoiceStatus.fromAmounts(
+        dueAmount: dueAmount.toDouble(),
+        paidAmount: paidAmount,
+        totalAmount: invoice.totalAmount,
+        dueDate: invoice.dueDate,
+      );
+
+      await _jobWorkInvoiceRepository.collection.doc(invoiceId).update({
+        'paid': paidAmount,
+        'due': dueAmount,
+        'status': status.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      final order = await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
+      if (order != null) {
+        if (dueAmount <= 0 && order.status != JobWorkStatus.paid) {
+          await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
+            'status': JobWorkStatus.paid.firestoreValue,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        } else if (dueAmount > 0 && order.status == JobWorkStatus.paid) {
+          await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
+            'status': JobWorkStatus.ready.firestoreValue,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      await _ledgerService?.syncCustomerBalance(invoice.customerId);
+      return;
+    }
+
+    final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
+    if (invoice == null) return;
+
+    final payments = await getPaymentsForInvoice(
+      factoryId: invoice.factoryId,
+      invoiceId: invoiceId,
+    );
+    final paidAmount =
+        payments.fold<double>(0, (sum, payment) => sum + payment.amount);
+    final dueAmount = (invoice.totalAmount - paidAmount).clamp(0, invoice.totalAmount);
+    final status = InvoiceStatus.fromAmounts(
+      dueAmount: dueAmount.toDouble(),
+      paidAmount: paidAmount,
+      totalAmount: invoice.totalAmount,
+      dueDate: invoice.dueDate,
+    );
+
+    await _salesInvoiceRepository.collection.doc(invoiceId).update({
+      'paid': paidAmount,
+      'due': dueAmount,
+      'status': status.firestoreValue,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final order = await _salesOrderRepository.getSalesOrder(invoice.salesOrderId);
+    if (order != null) {
+      if (dueAmount <= 0 && order.status != SalesOrderStatus.paid) {
+        await _salesOrderRepository.salesOrderDoc(invoice.salesOrderId).update({
+          'status': SalesOrderStatus.paid.firestoreValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } else if (dueAmount > 0 && order.status == SalesOrderStatus.paid) {
+        await _salesOrderRepository.salesOrderDoc(invoice.salesOrderId).update({
+          'status': SalesOrderStatus.invoiced.firestoreValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    await _ledgerService?.syncCustomerBalance(invoice.customerId);
   }
 
   /// Records invoice paid amount in the payments ledger when advance was taken
@@ -443,4 +667,24 @@ class PaymentRepository {
 
     return payment;
   }
+}
+
+class _InvoiceSnapshot {
+  const _InvoiceSnapshot({
+    required this.id,
+    required this.factoryId,
+    required this.customerId,
+    required this.totalAmount,
+    required this.parentId,
+    required this.invoiceType,
+    this.dueDate,
+  });
+
+  final String id;
+  final String factoryId;
+  final String customerId;
+  final double totalAmount;
+  final DateTime? dueDate;
+  final String parentId;
+  final InvoiceType invoiceType;
 }

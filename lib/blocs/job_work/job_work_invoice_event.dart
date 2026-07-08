@@ -66,6 +66,43 @@ final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
       ];
 }
 
+final class JobWorkInvoicePaymentUpdated extends JobWorkInvoiceEvent {
+  const JobWorkInvoicePaymentUpdated({
+    required this.paymentId,
+    required this.amount,
+    required this.method,
+    required this.paymentDate,
+    this.reference,
+    this.notes,
+  });
+
+  final String paymentId;
+  final double amount;
+  final PaymentMethod method;
+  final DateTime paymentDate;
+  final String? reference;
+  final String? notes;
+
+  @override
+  List<Object?> get props => [
+        paymentId,
+        amount,
+        method,
+        paymentDate,
+        reference,
+        notes,
+      ];
+}
+
+final class JobWorkInvoicePaymentDeleteRequested extends JobWorkInvoiceEvent {
+  const JobWorkInvoicePaymentDeleteRequested(this.paymentId);
+
+  final String paymentId;
+
+  @override
+  List<Object?> get props => [paymentId];
+}
+
 final class _JobWorkInvoiceStreamUpdated extends JobWorkInvoiceEvent {
   const _JobWorkInvoiceStreamUpdated(this.invoice);
 

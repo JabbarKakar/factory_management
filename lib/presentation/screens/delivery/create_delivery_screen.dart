@@ -15,9 +15,10 @@ import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 
 class CreateDeliveryScreen extends StatefulWidget {
-  const CreateDeliveryScreen({this.salesOrderId, super.key});
+  const CreateDeliveryScreen({this.salesOrderId, this.deliveryId, super.key});
 
   final String? salesOrderId;
+  final String? deliveryId;
 
   @override
   State<CreateDeliveryScreen> createState() => _CreateDeliveryScreenState();
@@ -35,6 +36,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
   String? _selectedOrderId;
   String? _selectedDriverId;
   String? _syncSignature;
+  bool _populatedFromDelivery = false;
   final List<_LineItemFields> _lineItems = [];
 
   @override
@@ -74,6 +76,11 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
   }
 
   void _maybeSyncFromState(DeliveryFormState state) {
+    if (state.isEditing) {
+      _populateFromEditing(state);
+      return;
+    }
+
     final order = state.selectedOrder;
     if (order == null) return;
 
@@ -82,6 +89,55 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     if (_syncSignature == signature) return;
     _syncSignature = signature;
     _syncFromRemaining(order, state.remainingLines);
+  }
+
+  void _populateFromEditing(DeliveryFormState state) {
+    final delivery = state.editingDelivery;
+    if (delivery == null || _populatedFromDelivery) return;
+    _populatedFromDelivery = true;
+
+    _selectedOrderId = delivery.salesOrderId;
+    _addressController.text = delivery.deliveryAddress;
+    _scheduledDate = delivery.scheduledDate;
+    _vehicleController.text = delivery.vehicleNumber ?? '';
+    _driverNameController.text = delivery.driverName ?? '';
+    _selectedDriverId = delivery.driverEmployeeId;
+    _supervisorController.text = delivery.loadingSupervisor ?? '';
+    _notesController.text = delivery.notes ?? '';
+
+    if (state.logisticsOnly) return;
+
+    for (final item in _lineItems) {
+      item.dispose();
+    }
+    _lineItems.clear();
+
+    for (final line in delivery.lineItems) {
+      DeliveryRemainingLine? remainingLine;
+      for (final candidate in state.remainingLines) {
+        if (_matchesDeliveryLine(candidate.lineItem, line)) {
+          remainingLine = candidate;
+          break;
+        }
+      }
+      final maxRemaining =
+          (remainingLine?.remainingQuantity ?? 0) + line.quantity;
+      _lineItems.add(
+        _LineItemFields(
+          item: line,
+          initialQuantity: line.quantity,
+          maxRemaining: maxRemaining,
+          orderedQuantity: remainingLine?.orderedQuantity ?? line.quantity,
+        ),
+      );
+    }
+  }
+
+  bool _matchesDeliveryLine(DeliveryLineItem a, DeliveryLineItem b) {
+    return a.productType == b.productType &&
+        a.marbleVariety == b.marbleVariety &&
+        a.sizeThickness == b.sizeThickness &&
+        a.quantityUnit == b.quantityUnit;
   }
 
   void _onDriverSelected(String? employeeId, List<Employee> employees) {
@@ -93,14 +149,40 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     });
   }
 
-  Delivery? _buildDelivery(String factoryId) {
+  Delivery? _buildDelivery(String factoryId, DeliveryFormState state) {
     if (_selectedOrderId == null) return null;
 
+    final existing = state.editingDelivery;
     final lineItems = <DeliveryLineItem>[];
-    for (final fields in _lineItems) {
-      final quantity = double.tryParse(fields.quantityController.text.trim());
-      if (quantity == null || quantity <= 0) return null;
-      lineItems.add(fields.item.copyWith(quantity: quantity));
+    if (!state.logisticsOnly) {
+      for (final fields in _lineItems) {
+        final quantity = double.tryParse(fields.quantityController.text.trim());
+        if (quantity == null || quantity <= 0) return null;
+        lineItems.add(fields.item.copyWith(quantity: quantity));
+      }
+    } else if (existing != null) {
+      lineItems.addAll(existing.lineItems);
+    }
+
+    if (existing != null) {
+      return existing.copyWith(
+        deliveryAddress: _addressController.text.trim(),
+        scheduledDate: _scheduledDate,
+        lineItems: lineItems,
+        vehicleNumber: _vehicleController.text.trim().isEmpty
+            ? null
+            : _vehicleController.text.trim(),
+        driverName: _driverNameController.text.trim().isEmpty
+            ? null
+            : _driverNameController.text.trim(),
+        driverEmployeeId: _selectedDriverId,
+        loadingSupervisor: _supervisorController.text.trim().isEmpty
+            ? null
+            : _supervisorController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+      );
     }
 
     return Delivery(
@@ -142,17 +224,24 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
     if (picked != null) setState(() => _scheduledDate = picked);
   }
 
-  void _submit(BuildContext context, String factoryId) {
+  void _submit(BuildContext context, String factoryId, DeliveryFormState state) {
     if (!_formKey.currentState!.validate()) return;
-    final delivery = _buildDelivery(factoryId);
+    final delivery = _buildDelivery(factoryId, state);
     if (delivery == null) return;
     context.read<DeliveryFormBloc>().add(DeliveryFormSubmitted(delivery));
   }
+
+  String _appBarTitle(DeliveryFormState state) =>
+      state.isEditing ? AppStrings.editDelivery : AppStrings.scheduleDelivery;
 
   String _appBarSubtitle(DeliveryFormState state) {
     final order = state.selectedOrder;
     if (order != null) {
       return '${order.orderNumber} · ${order.customerName}';
+    }
+    final delivery = state.editingDelivery;
+    if (delivery != null) {
+      return delivery.deliveryNumber;
     }
     return AppStrings.scheduleDelivery;
   }
@@ -163,7 +252,13 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
       listener: (context, state) {
         if (state.status == DeliveryFormStatus.saved) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(AppStrings.deliverySaved)),
+            SnackBar(
+              content: Text(
+                state.isEditing
+                    ? AppStrings.deliveryUpdated
+                    : AppStrings.deliverySaved,
+              ),
+            ),
           );
           context.pop(true);
         }
@@ -185,8 +280,8 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
           return Scaffold(
             appBar: AppBar(
               title: AppFormAppBarTitle(
-                title: AppStrings.scheduleDelivery,
-                subtitle: AppStrings.scheduleDelivery,
+                title: _appBarTitle(state),
+                subtitle: _appBarSubtitle(state),
               ),
             ),
             body: const Center(child: CircularProgressIndicator()),
@@ -194,12 +289,35 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         }
 
         if (state.status == DeliveryFormStatus.failure &&
-            state.eligibleOrders.isEmpty) {
+            state.isEditing &&
+            state.editingDelivery == null) {
           return Scaffold(
             appBar: AppBar(
               title: AppFormAppBarTitle(
-                title: AppStrings.scheduleDelivery,
-                subtitle: AppStrings.scheduleDelivery,
+                title: _appBarTitle(state),
+                subtitle: _appBarSubtitle(state),
+              ),
+            ),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  state.errorMessage ?? AppStrings.deliveryNotFound,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (state.status == DeliveryFormStatus.failure &&
+            state.eligibleOrders.isEmpty &&
+            !state.isEditing) {
+          return Scaffold(
+            appBar: AppBar(
+              title: AppFormAppBarTitle(
+                title: _appBarTitle(state),
+                subtitle: _appBarSubtitle(state),
               ),
             ),
             body: Center(
@@ -215,18 +333,25 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         }
 
         final isSaving = state.status == DeliveryFormStatus.saving;
-        final hasRemaining = state.hasRemainingQuantity;
+        final hasRemaining =
+            state.logisticsOnly || state.hasRemainingQuantity;
+        final showLineItemEditor =
+            _selectedOrderId != null && !state.logisticsOnly;
 
-        if (widget.salesOrderId != null &&
+        if ((widget.salesOrderId != null || state.isEditing) &&
             state.selectedOrder != null &&
-            _syncSignature == null) {
+            _syncSignature == null &&
+            !state.isEditing) {
           _maybeSyncFromState(state);
+        }
+        if (state.isEditing && !_populatedFromDelivery) {
+          _populateFromEditing(state);
         }
 
         return Scaffold(
           appBar: AppBar(
             title: AppFormAppBarTitle(
-              title: AppStrings.scheduleDelivery,
+              title: _appBarTitle(state),
               subtitle: _appBarSubtitle(state),
             ),
           ),
@@ -235,12 +360,37 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
             child: ListView(
               padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
+                if (state.logisticsOnly) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      AppStrings.deliveryLogisticsOnlyHint,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontSize: 11,
+                            height: 1.35,
+                          ),
+                    ),
+                  ),
+                ],
                 JobWorkDetailSection(
                   title: AppStrings.linkedSalesOrder,
                   icon: Icons.receipt_long_outlined,
                   child: AppFormSectionBody(
                     children: [
-                      if (state.eligibleOrders.isEmpty)
+                      if (state.isEditing)
+                        TextFormField(
+                          initialValue: state.selectedOrder == null
+                              ? state.editingDelivery?.salesOrderNumber
+                              : '${state.selectedOrder!.orderNumber} · ${state.selectedOrder!.customerName}',
+                          readOnly: true,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.selectSalesOrder,
+                          ),
+                        )
+                      else if (state.eligibleOrders.isEmpty)
                         Text(
                           AppStrings.noDeliveryEligibleOrders,
                           style: AppFormFields.valueStyle(context),
@@ -278,7 +428,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                     ],
                   ),
                 ),
-                if (_selectedOrderId != null) ...[
+                if (_selectedOrderId != null || state.isEditing) ...[
                   JobWorkDetailSection(
                     title: AppStrings.deliveryDetails,
                     icon: Icons.local_shipping_outlined,
@@ -374,22 +524,60 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                       ],
                     ),
                   ),
-                  JobWorkDetailSection(
-                    title: AppStrings.itemsToDeliver,
-                    icon: Icons.inventory_2_outlined,
-                    child: AppFormSectionBody(
-                      children: [
-                        if (!hasRemaining)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Text(
-                              AppStrings.noRemainingQuantity,
-                              style: AppFormFields.valueStyle(context).copyWith(
-                                color: Theme.of(context).colorScheme.error,
+                  if (state.logisticsOnly &&
+                      state.editingDelivery != null) ...[
+                    JobWorkDetailSection(
+                      title: AppStrings.itemsToDeliver,
+                      icon: Icons.inventory_2_outlined,
+                      child: AppFormSectionBody(
+                        children: state.editingDelivery!.lineItems
+                            .map(
+                              (item) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.displayLabel,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleSmall
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${item.quantity.toStringAsFixed(1)} ${item.quantityUnit.label}',
+                                      style: AppFormFields.labelStyle(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+                  ],
+                  if (showLineItemEditor)
+                    JobWorkDetailSection(
+                      title: AppStrings.itemsToDeliver,
+                      icon: Icons.inventory_2_outlined,
+                      child: AppFormSectionBody(
+                        children: [
+                          if (!hasRemaining)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Text(
+                                AppStrings.noRemainingQuantity,
+                                style:
+                                    AppFormFields.valueStyle(context).copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
                               ),
                             ),
-                          ),
-                        ..._lineItems.map((fields) {
+                          ..._lineItems.map((fields) {
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: Column(
@@ -448,12 +636,11 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                               ],
                             ),
                           );
-                        }),
-                      ],
+                          }),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (hasRemaining)
-                    JobWorkDetailSection(
+                  JobWorkDetailSection(
                       title: AppStrings.notes,
                       icon: Icons.notes_outlined,
                       child: AppFormSectionBody(
@@ -471,18 +658,19 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                         ],
                       ),
                     ),
-                  if (hasRemaining)
-                    AppFormSubmitBar(
-                      label: AppStrings.saveDelivery,
-                      isLoading: isSaving,
-                      onPressed: isSaving
-                          ? null
-                          : () {
-                              final factoryId = readFactoryId(context);
-                              if (factoryId == null) return;
-                              _submit(context, factoryId);
-                            },
-                    ),
+                  AppFormSubmitBar(
+                    label: state.isEditing
+                        ? AppStrings.saveChanges
+                        : AppStrings.saveDelivery,
+                    isLoading: isSaving,
+                    onPressed: isSaving || (!state.logisticsOnly && !hasRemaining)
+                        ? null
+                        : () {
+                            final factoryId = readFactoryId(context);
+                            if (factoryId == null) return;
+                            _submit(context, factoryId, state);
+                          },
+                  ),
                 ],
               ],
             ),

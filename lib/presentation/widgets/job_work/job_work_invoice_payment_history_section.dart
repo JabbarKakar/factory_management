@@ -5,15 +5,22 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/payment.dart';
+import '../tile_options_menu.dart';
 import 'job_work_detail_section.dart';
 
 class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
   const JobWorkInvoicePaymentHistorySection({
     required this.payments,
+    this.canCorrect = false,
+    this.onEdit,
+    this.onDelete,
     super.key,
   });
 
   final List<Payment> payments;
+  final bool canCorrect;
+  final ValueChanged<Payment>? onEdit;
+  final ValueChanged<Payment>? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +85,12 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   for (var i = 0; i < payments.length; i++) ...[
-                    _PaymentRow(payment: payments[i]),
+                    _PaymentRow(
+                      payment: payments[i],
+                      canCorrect: canCorrect,
+                      onEdit: onEdit,
+                      onDelete: onDelete,
+                    ),
                     if (i < payments.length - 1) const SizedBox(height: 8),
                   ],
                 ],
@@ -89,14 +101,50 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
 }
 
 class _PaymentRow extends StatelessWidget {
-  const _PaymentRow({required this.payment});
+  const _PaymentRow({
+    required this.payment,
+    required this.canCorrect,
+    this.onEdit,
+    this.onDelete,
+  });
 
   final Payment payment;
+  final bool canCorrect;
+  final ValueChanged<Payment>? onEdit;
+  final ValueChanged<Payment>? onDelete;
+
+  List<TileMenuAction> _menuActions() {
+    final actions = <TileMenuAction>[];
+
+    if (onEdit != null) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.editPayment,
+          icon: Icons.edit_outlined,
+          onSelected: () => onEdit!(payment),
+        ),
+      );
+    }
+
+    if (onDelete != null) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.deletePayment,
+          icon: Icons.delete_outline_rounded,
+          onSelected: () => onDelete!(payment),
+          destructive: true,
+        ),
+      );
+    }
+
+    return actions;
+  }
 
   @override
   Widget build(BuildContext context) {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     final dateLabel = DateFormat.yMMMd().format(payment.paymentDate);
+    final menuActions = canCorrect ? _menuActions() : const <TileMenuAction>[];
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -145,6 +193,8 @@ class _PaymentRow extends StatelessWidget {
                   color: AppColors.success,
                 ),
           ),
+          if (menuActions.isNotEmpty)
+            TileOptionsButton(actions: menuActions),
         ],
       ),
     );

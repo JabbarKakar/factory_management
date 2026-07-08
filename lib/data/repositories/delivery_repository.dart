@@ -145,25 +145,11 @@ class DeliveryRepository {
 
     final existingDeliveries =
         await fetchDeliveriesForSalesOrder(delivery.salesOrderId);
-    for (final item in delivery.lineItems) {
-      final orderLine = order.lineItems.where(
-        (line) => DeliveryQuantityHelper.matchesOrderLine(
-          item,
-          line,
-        ),
-      );
-      if (orderLine.isEmpty) continue;
-      final remaining = DeliveryQuantityHelper.remainingForOrderLine(
-        orderLine.first,
-        existingDeliveries,
-      );
-      if (item.quantity > remaining) {
-        throw DeliveryException(
-          'Quantity for ${item.displayLabel} exceeds remaining '
-          '(${remaining.toStringAsFixed(1)} ${item.quantityUnit.label}).',
-        );
-      }
-    }
+    _validateLineQuantities(
+      order: order,
+      lineItems: delivery.lineItems,
+      existingDeliveries: existingDeliveries,
+    );
 
     final id = delivery.id.isEmpty ? _uuid.v4() : delivery.id;
     final deliveryNumber = delivery.deliveryNumber.isEmpty
@@ -183,6 +169,105 @@ class DeliveryRepository {
     await _collection.doc(id).set(model.toFirestore(isCreate: true));
     final created = await getDelivery(id);
     return created ?? record;
+  }
+
+  Future<Delivery> updateDelivery({
+    required Delivery existing,
+    required String deliveryAddress,
+    required DateTime scheduledDate,
+    required List<DeliveryLineItem> lineItems,
+    String? vehicleNumber,
+    String? driverName,
+    String? driverEmployeeId,
+    String? loadingSupervisor,
+    String? notes,
+  }) async {
+    if (!existing.status.canEditLogistics) {
+      throw const DeliveryException(
+        'This delivery can no longer be edited.',
+      );
+    }
+    if (deliveryAddress.trim().isEmpty) {
+      throw const DeliveryException('Delivery address is required.');
+    }
+
+    final order =
+        await _salesOrderRepository.getSalesOrder(existing.salesOrderId);
+    if (order == null) {
+      throw const DeliveryException('Sales order not found.');
+    }
+
+    final isScheduledEdit = existing.status.canEditScheduled;
+    final effectiveLineItems = isScheduledEdit ? lineItems : existing.lineItems;
+
+    if (isScheduledEdit) {
+      if (effectiveLineItems.isEmpty) {
+        throw const DeliveryException('Add at least one item to deliver.');
+      }
+      for (final item in effectiveLineItems) {
+        if (item.quantity <= 0) {
+          throw const DeliveryException(
+            'Item quantities must be greater than zero.',
+          );
+        }
+      }
+
+      final existingDeliveries =
+          await fetchDeliveriesForSalesOrder(existing.salesOrderId);
+      _validateLineQuantities(
+        order: order,
+        lineItems: effectiveLineItems,
+        existingDeliveries: existingDeliveries,
+        excludeDeliveryId: existing.id,
+      );
+    }
+
+    final updated = existing.copyWith(
+      deliveryAddress: deliveryAddress.trim(),
+      scheduledDate: scheduledDate,
+      lineItems: effectiveLineItems,
+      vehicleNumber: vehicleNumber?.trim().isEmpty ?? true
+          ? null
+          : vehicleNumber?.trim(),
+      driverName:
+          driverName?.trim().isEmpty ?? true ? null : driverName?.trim(),
+      driverEmployeeId: driverEmployeeId,
+      loadingSupervisor: loadingSupervisor?.trim().isEmpty ?? true
+          ? null
+          : loadingSupervisor?.trim(),
+      notes: notes?.trim().isEmpty ?? true ? null : notes?.trim(),
+      updatedAt: DateTime.now(),
+    );
+
+    final model = DeliveryModel.fromEntity(updated);
+    await _collection.doc(existing.id).update(model.toFirestore());
+    final saved = await getDelivery(existing.id);
+    return saved ?? updated;
+  }
+
+  void _validateLineQuantities({
+    required SalesOrder order,
+    required List<DeliveryLineItem> lineItems,
+    required List<Delivery> existingDeliveries,
+    String? excludeDeliveryId,
+  }) {
+    for (final item in lineItems) {
+      final orderLine = order.lineItems.where(
+        (line) => DeliveryQuantityHelper.matchesOrderLine(item, line),
+      );
+      if (orderLine.isEmpty) continue;
+      final remaining = DeliveryQuantityHelper.remainingForOrderLine(
+        orderLine.first,
+        existingDeliveries,
+        excludeDeliveryId: excludeDeliveryId,
+      );
+      if (item.quantity > remaining) {
+        throw DeliveryException(
+          'Quantity for ${item.displayLabel} exceeds remaining '
+          '(${remaining.toStringAsFixed(1)} ${item.quantityUnit.label}).',
+        );
+      }
+    }
   }
 
   Future<void> advanceStatus(String id, DeliveryStatus status) async {

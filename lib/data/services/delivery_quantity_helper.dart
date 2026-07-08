@@ -35,10 +35,14 @@ abstract final class DeliveryQuantityHelper {
 
   static double consumedForOrderLine(
     SalesOrderLineItem orderLine,
-    List<Delivery> deliveries,
-  ) {
+    List<Delivery> deliveries, {
+    String? excludeDeliveryId,
+  }) {
     var total = 0.0;
     for (final delivery in deliveries) {
+      if (excludeDeliveryId != null && delivery.id == excludeDeliveryId) {
+        continue;
+      }
       if (delivery.status == DeliveryStatus.failed) continue;
       for (final item in delivery.lineItems) {
         if (matchesOrderLine(item, orderLine)) {
@@ -51,19 +55,29 @@ abstract final class DeliveryQuantityHelper {
 
   static double remainingForOrderLine(
     SalesOrderLineItem orderLine,
-    List<Delivery> deliveries,
-  ) {
-    final remaining =
-        orderLine.quantity - consumedForOrderLine(orderLine, deliveries);
+    List<Delivery> deliveries, {
+    String? excludeDeliveryId,
+  }) {
+    final remaining = orderLine.quantity -
+        consumedForOrderLine(
+          orderLine,
+          deliveries,
+          excludeDeliveryId: excludeDeliveryId,
+        );
     return remaining < 0 ? 0 : remaining;
   }
 
   static List<DeliveryRemainingLine> remainingLines(
     SalesOrder order,
-    List<Delivery> deliveries,
-  ) {
+    List<Delivery> deliveries, {
+    String? excludeDeliveryId,
+  }) {
     return order.lineItems.map((orderLine) {
-      final remaining = remainingForOrderLine(orderLine, deliveries);
+      final remaining = remainingForOrderLine(
+        orderLine,
+        deliveries,
+        excludeDeliveryId: excludeDeliveryId,
+      );
       return DeliveryRemainingLine(
         orderedQuantity: orderLine.quantity,
         remainingQuantity: remaining,
@@ -80,9 +94,14 @@ abstract final class DeliveryQuantityHelper {
 
   static List<DeliveryRemainingLine> remainingLinesWithStock(
     SalesOrder order,
-    List<Delivery> deliveries,
-  ) {
-    return remainingLines(order, deliveries)
+    List<Delivery> deliveries, {
+    String? excludeDeliveryId,
+  }) {
+    return remainingLines(
+      order,
+      deliveries,
+      excludeDeliveryId: excludeDeliveryId,
+    )
         .where((line) => line.remainingQuantity > 0)
         .toList();
   }

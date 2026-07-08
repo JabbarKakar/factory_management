@@ -425,6 +425,7 @@ void setupDependencies() {
     () => DeliveryFormBloc(
       deliveryRepository: getIt<DeliveryRepository>(),
       employeeRepository: getIt<EmployeeRepository>(),
+      salesOrderRepository: getIt<SalesOrderRepository>(),
     ),
   );
   getIt.registerFactory<DeliveryDetailBloc>(

@@ -27,6 +27,8 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
     on<SalesInvoiceLoadById>(_onLoadById);
     on<SalesInvoiceGenerateRequested>(_onGenerate);
     on<SalesInvoicePaymentSubmitted>(_onPaymentSubmitted);
+    on<SalesInvoicePaymentUpdated>(_onPaymentUpdated);
+    on<SalesInvoicePaymentDeleteRequested>(_onPaymentDeleteRequested);
   }
 
   final SalesInvoiceRepository _invoiceRepository;
@@ -148,6 +150,79 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
           status: SalesInvoiceStatus.failure,
           errorMessage:
               e is StateError ? e.message : 'Could not record payment.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onPaymentUpdated(
+    SalesInvoicePaymentUpdated event,
+    Emitter<SalesInvoiceState> emit,
+  ) async {
+    emit(state.copyWith(status: SalesInvoiceStatus.saving));
+    try {
+      await _paymentRepository.updatePayment(
+        paymentId: event.paymentId,
+        amount: event.amount,
+        method: event.method,
+        paymentDate: event.paymentDate,
+        reference: event.reference,
+        notes: event.notes,
+      );
+      final invoiceId = state.invoice?.id;
+      if (invoiceId == null) {
+        emit(
+          state.copyWith(
+            status: SalesInvoiceStatus.failure,
+            errorMessage: 'Invoice not found after payment update.',
+          ),
+        );
+        return;
+      }
+      final invoice = await _invoiceRepository.getInvoice(invoiceId);
+      if (invoice == null) {
+        emit(
+          state.copyWith(
+            status: SalesInvoiceStatus.failure,
+            errorMessage: 'Invoice not found after payment update.',
+          ),
+        );
+        return;
+      }
+      await _emitWithPayments(invoice, emit, paymentRecorded: true);
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: SalesInvoiceStatus.failure,
+          errorMessage: e is PaymentException
+              ? e.message
+              : e is StateError
+                  ? e.message
+                  : 'Could not update payment.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onPaymentDeleteRequested(
+    SalesInvoicePaymentDeleteRequested event,
+    Emitter<SalesInvoiceState> emit,
+  ) async {
+    emit(state.copyWith(status: SalesInvoiceStatus.saving));
+    try {
+      await _paymentRepository.deletePayment(event.paymentId);
+      final invoiceId = state.invoice?.id;
+      if (invoiceId == null) return;
+      final invoice = await _invoiceRepository.getInvoice(invoiceId);
+      if (invoice == null) return;
+      await _emitWithPayments(invoice, emit, paymentRecorded: true);
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: SalesInvoiceStatus.failure,
+          errorMessage: e is PaymentException
+              ? e.message
+              : 'Could not delete payment.',
         ),
       );
     }

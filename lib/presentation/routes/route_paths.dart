@@ -38,6 +38,9 @@ abstract final class RoutePaths {
 
   static String recordPayment(String invoiceId) =>
       '/job-work/invoices/$invoiceId/payment';
+
+  static String recordPaymentEdit(String invoiceId, String paymentId) =>
+      '/job-work/invoices/$invoiceId/payment/$paymentId/edit';
   static const String customers = '/customers';
   static const String customersAdd = '/customers/add';
 
@@ -62,6 +65,9 @@ abstract final class RoutePaths {
 
   static String salesRecordPayment(String invoiceId) =>
       '/sales/invoices/$invoiceId/payment';
+
+  static String salesRecordPaymentEdit(String invoiceId, String paymentId) =>
+      '/sales/invoices/$invoiceId/payment/$paymentId/edit';
   static const String more = '/more';
   static const String accessDenied = '/access-denied';
   static const String accountDisabled = '/account-disabled';
@@ -176,6 +182,8 @@ abstract final class RoutePaths {
   static String deliveryChallan(String id) => '/deliveries/$id/challan';
 
   static String deliveryConfirm(String id) => '/deliveries/$id/confirm';
+
+  static String deliveryEdit(String id) => '/deliveries/$id/edit';
 
   static String deliveriesList({DeliveryListFilter? filter}) {
     if (filter == null || filter == DeliveryListFilter.all) {
