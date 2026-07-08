@@ -8,6 +8,7 @@ import '../../domain/enums/inventory_enums.dart';
 import '../models/finished_good_model.dart';
 import '../models/inventory_transaction_model.dart';
 import '../services/finished_goods_stock_service.dart';
+import '../services/stock_correction_helper.dart';
 
 class FinishedGoodsRepository {
   FinishedGoodsRepository({
@@ -94,6 +95,15 @@ class FinishedGoodsRepository {
     if (snapshot.docs.isEmpty) return null;
     final doc = snapshot.docs.first;
     return FinishedGoodModel.fromFirestore(doc.id, doc.data()).toEntity();
+  }
+
+  Future<InventoryTransaction?> getTransaction(String id) async {
+    final doc = await _transactionsCollection.doc(id).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return InventoryTransactionModel.fromFirestore(
+      doc.id,
+      doc.data()!,
+    ).toEntity();
   }
 
   Future<void> reverseProductionBatchReceipts({
@@ -371,6 +381,36 @@ class FinishedGoodsRepository {
     await writeBatch.commit();
 
     return transaction;
+  }
+
+  Future<InventoryTransaction> recordCorrection({
+    required InventoryTransaction original,
+    required DateTime transactionDate,
+    required String reason,
+    String? notes,
+  }) async {
+    if (!StockCorrectionHelper.canCorrectInventoryTransaction(original)) {
+      throw const FinishedGoodsStockException(
+        'Production receipts must be corrected from the production batch.',
+      );
+    }
+
+    final inverse =
+        StockCorrectionHelper.inverseInventoryMovement(original.movementType);
+    final correctionReason =
+        '${StockCorrectionHelper.correctionReasonPrefix(original.transactionNumber)}'
+        '${reason.trim().isEmpty ? '' : ' — ${reason.trim()}'}';
+
+    return recordAdjustment(
+      factoryId: original.factoryId,
+      finishedGoodId: original.finishedGoodId,
+      movementType: inverse,
+      quantity: original.quantity,
+      transactionDate: transactionDate,
+      reason: correctionReason,
+      notes: notes,
+      unitCost: original.unitCost,
+    );
   }
 
   Future<String> _generateTransactionNumber({

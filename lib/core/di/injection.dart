@@ -33,6 +33,7 @@ import '../../blocs/production/production_list_bloc.dart';
 import '../../blocs/quality/qc_detail_bloc.dart';
 import '../../blocs/quality/qc_form_bloc.dart';
 import '../../blocs/quality/qc_list_bloc.dart';
+import '../../blocs/raw_material/raw_material_adjustment_bloc.dart';
 import '../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
@@ -375,6 +376,9 @@ void setupDependencies() {
   );
   getIt.registerFactory<StockMovementBloc>(
     () => StockMovementBloc(repository: getIt<RawMaterialRepository>()),
+  );
+  getIt.registerFactory<RawMaterialAdjustmentBloc>(
+    () => RawMaterialAdjustmentBloc(repository: getIt<RawMaterialRepository>()),
   );
   getIt.registerFactory<ProductionListBloc>(
     () => ProductionListBloc(repository: getIt<ProductionRepository>()),

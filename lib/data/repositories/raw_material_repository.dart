@@ -7,6 +7,7 @@ import '../../domain/enums/raw_material_enums.dart';
 import '../models/raw_material_model.dart';
 import '../models/stock_transaction_model.dart';
 import '../services/raw_material_stock_service.dart';
+import '../services/stock_correction_helper.dart';
 
 class RawMaterialRepository {
   RawMaterialRepository({
@@ -79,6 +80,12 @@ class RawMaterialRepository {
     if (snapshot.docs.isEmpty) return null;
     final doc = snapshot.docs.first;
     return RawMaterialModel.fromFirestore(doc.id, doc.data()).toEntity();
+  }
+
+  Future<StockTransaction?> getTransaction(String id) async {
+    final doc = await _transactionsCollection.doc(id).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return StockTransactionModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
   Future<void> updateReorderLevel({
@@ -230,12 +237,164 @@ class RawMaterialRepository {
     return transaction;
   }
 
+  Future<StockTransaction> recordAdjustment({
+    required String factoryId,
+    required RawMaterialType materialType,
+    required StockMovementType movementType,
+    required double quantity,
+    required DateTime transactionDate,
+    required String reason,
+    String? notes,
+    double? unitCost,
+    String? referenceNumber,
+  }) async {
+    if (movementType != StockMovementType.adjustmentIn &&
+        movementType != StockMovementType.adjustmentOut) {
+      throw const RawMaterialStockException('Invalid adjustment type.');
+    }
+    if (reason.trim().isEmpty) {
+      throw const RawMaterialStockException('Reason is required.');
+    }
+
+    final existing = await getMaterialByType(
+      factoryId: factoryId,
+      materialType: materialType,
+    );
+
+    if (movementType == StockMovementType.adjustmentOut) {
+      if (existing == null || existing.id.isEmpty) {
+        throw const RawMaterialStockException(
+          'No stock record found for this material.',
+        );
+      }
+      _stockService.validateStockOut(
+        currentStock: existing.currentStock,
+        quantity: quantity,
+      );
+    }
+
+    final materialId = existing?.id ?? _uuid.v4();
+    final delta = movementType == StockMovementType.adjustmentIn
+        ? quantity
+        : -quantity;
+    final newStock = (existing?.currentStock ?? 0) + delta;
+
+    double newAverageCost = existing?.averageCost ?? 0;
+    double? effectiveUnitCost;
+
+    if (movementType == StockMovementType.adjustmentIn) {
+      if ((existing?.currentStock ?? 0) <= 0 && unitCost == null) {
+        throw const RawMaterialStockException(
+          'Unit cost is required when adding stock to an empty material.',
+        );
+      }
+      effectiveUnitCost = unitCost ?? existing?.averageCost ?? 0;
+      newAverageCost = _stockService.calculateWeightedAverageCost(
+        currentStock: existing?.currentStock ?? 0,
+        currentAverageCost: existing?.averageCost ?? 0,
+        incomingQuantity: quantity,
+        incomingUnitCost: effectiveUnitCost,
+      );
+    } else {
+      effectiveUnitCost = existing?.averageCost;
+    }
+
+    final material = RawMaterial(
+      id: materialId,
+      factoryId: factoryId,
+      materialType: materialType,
+      currentStock: newStock,
+      reorderLevel: existing?.reorderLevel ?? 0,
+      averageCost: newAverageCost,
+      lastReceiptDate: movementType == StockMovementType.adjustmentIn
+          ? transactionDate
+          : existing?.lastReceiptDate,
+      createdAt: existing?.createdAt ?? DateTime.now(),
+    );
+
+    final transactionId = _uuid.v4();
+    final transactionNumber = await _generateTransactionNumber(
+      factoryId: factoryId,
+      movementType: movementType,
+    );
+
+    final transaction = StockTransaction(
+      id: transactionId,
+      transactionNumber: transactionNumber,
+      factoryId: factoryId,
+      rawMaterialId: materialId,
+      materialType: materialType,
+      movementType: movementType,
+      quantity: quantity,
+      unitCost: effectiveUnitCost,
+      totalCost: effectiveUnitCost == null ? null : effectiveUnitCost * quantity,
+      transactionDate: transactionDate,
+      referenceNumber: referenceNumber,
+      notes: [
+        reason.trim(),
+        if (notes != null && notes.trim().isNotEmpty) notes.trim(),
+      ].join('\n'),
+      createdAt: DateTime.now(),
+    );
+
+    final batch = _firestore.batch();
+    final materialModel = RawMaterialModel.fromEntity(material);
+    batch.set(
+      _materialsCollection.doc(materialId),
+      materialModel.toFirestore(isCreate: existing == null),
+      SetOptions(merge: existing != null),
+    );
+    batch.set(
+      _transactionsCollection.doc(transactionId),
+      StockTransactionModel.fromEntity(transaction).toFirestore(isCreate: true),
+    );
+    await batch.commit();
+
+    return transaction;
+  }
+
+  Future<StockTransaction> recordCorrection({
+    required StockTransaction original,
+    required DateTime transactionDate,
+    required String reason,
+    String? notes,
+  }) async {
+    if (!StockCorrectionHelper.canCorrectStockTransaction(original)) {
+      throw const RawMaterialStockException(
+        'Production-linked entries must be corrected from the production batch.',
+      );
+    }
+
+    final inverse =
+        StockCorrectionHelper.inverseStockMovement(original.movementType);
+    final correctionReason =
+        '${StockCorrectionHelper.correctionReasonPrefix(original.transactionNumber)}'
+        '${reason.trim().isEmpty ? '' : ' — ${reason.trim()}'}';
+
+    return recordAdjustment(
+      factoryId: original.factoryId,
+      materialType: original.materialType,
+      movementType: inverse,
+      quantity: original.quantity,
+      transactionDate: transactionDate,
+      reason: correctionReason,
+      notes: notes,
+      unitCost: original.unitCost,
+      referenceNumber: original.transactionNumber,
+    );
+  }
+
   Future<String> _generateTransactionNumber({
     required String factoryId,
     required StockMovementType movementType,
   }) async {
     final year = DateTime.now().year;
-    final prefix = movementType == StockMovementType.stockIn ? 'STK-IN' : 'STK-OUT';
+    final prefix = switch (movementType) {
+      StockMovementType.stockIn => 'STK-IN',
+      StockMovementType.stockOut => 'STK-OUT',
+      StockMovementType.adjustmentIn => 'STK-ADJ-IN',
+      StockMovementType.adjustmentOut => 'STK-ADJ-OUT',
+    };
     final snapshot = await _transactionsCollection
         .where('factoryId', isEqualTo: factoryId)
         .where('movementType', isEqualTo: movementType.firestoreValue)

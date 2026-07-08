@@ -8,6 +8,7 @@ enum SalesInvoiceStatus {
   saving,
   generated,
   paymentRecorded,
+  updated,
   failure,
 }
 

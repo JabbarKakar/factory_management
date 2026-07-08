@@ -6,6 +6,7 @@ import '../../domain/entities/job_work_order.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../models/job_work_invoice_model.dart';
+import 'invoice_exception.dart';
 import 'job_work_repository.dart';
 
 class JobWorkInvoiceRepository {
@@ -219,9 +220,82 @@ class JobWorkInvoiceRepository {
     return created ?? invoice;
   }
 
-  Future<void> updateInvoice(JobWorkInvoice invoice) async {
-    final model = JobWorkInvoiceModel.fromEntity(invoice);
-    await _collection.doc(invoice.id).update(model.toFirestore());
+  Future<JobWorkInvoice> updateInvoiceDetails({
+    required JobWorkInvoice existing,
+    required List<InvoiceLineItem> lineItems,
+    DateTime? dueDate,
+    String? mineLocation,
+    String? mineOwner,
+  }) async {
+    if (existing.status == InvoiceStatus.cancelled) {
+      throw const InvoiceException('Cancelled invoices cannot be edited.');
+    }
+
+    final totalAmount =
+        lineItems.fold<double>(0, (sum, item) => sum + item.amount);
+    if (totalAmount + 0.01 < existing.paidAmount) {
+      throw InvoiceException(
+        'Invoice total cannot be less than amount already paid '
+        '(${existing.paidAmount.toStringAsFixed(0)}).',
+      );
+    }
+
+    final dueAmount =
+        (totalAmount - existing.paidAmount).clamp(0, totalAmount).toDouble();
+    final effectiveDueDate = dueDate ?? existing.dueDate;
+    final status = InvoiceStatus.fromAmounts(
+      dueAmount: dueAmount,
+      paidAmount: existing.paidAmount,
+      totalAmount: totalAmount,
+      dueDate: effectiveDueDate,
+    );
+
+    final normalizedMineLocation = mineLocation?.trim();
+    final normalizedMineOwner = mineOwner?.trim();
+
+    final updated = existing.copyWith(
+      lineItems: lineItems,
+      totalAmount: totalAmount,
+      dueAmount: dueAmount,
+      dueDate: effectiveDueDate,
+      mineLocation: normalizedMineLocation == null
+          ? existing.mineLocation
+          : normalizedMineLocation.isEmpty
+              ? null
+              : normalizedMineLocation,
+      mineOwner: normalizedMineOwner == null
+          ? existing.mineOwner
+          : normalizedMineOwner.isEmpty
+              ? null
+              : normalizedMineOwner,
+      status: status,
+      updatedAt: DateTime.now(),
+    );
+
+    final batch = _firestore.batch();
+    batch.update(
+      _collection.doc(existing.id),
+      JobWorkInvoiceModel.fromEntity(updated).toFirestore(),
+    );
+
+    final order = await _jobWorkRepository.getJobWorkOrder(existing.jobWorkId);
+    if (order != null) {
+      final orderStatus = dueAmount <= 0 && totalAmount > 0
+          ? JobWorkStatus.paid
+          : order.status == JobWorkStatus.paid && dueAmount > 0
+              ? JobWorkStatus.invoiced
+              : order.status;
+      batch.update(_jobWorkRepository.jobWorkDoc(existing.jobWorkId), {
+        'finalCuttingCharges': totalAmount,
+        'balanceDue': dueAmount,
+        'status': orderStatus.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+
+    return await getInvoice(existing.id) ?? updated;
   }
 
   List<InvoiceLineItem> _buildLineItems(JobWorkOrder order) {

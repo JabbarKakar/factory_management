@@ -7,6 +7,7 @@ import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/sales_invoice_model.dart';
+import 'invoice_exception.dart';
 import 'sales_order_repository.dart';
 
 class SalesInvoiceRepository {
@@ -174,9 +175,67 @@ class SalesInvoiceRepository {
     return created ?? invoice;
   }
 
-  Future<void> updateInvoice(SalesInvoice invoice) async {
-    final model = SalesInvoiceModel.fromEntity(invoice);
-    await _collection.doc(invoice.id).update(model.toFirestore());
+  Future<SalesInvoice> updateInvoiceDetails({
+    required SalesInvoice existing,
+    required List<InvoiceLineItem> lineItems,
+    DateTime? dueDate,
+  }) async {
+    if (existing.status == InvoiceStatus.cancelled) {
+      throw const InvoiceException('Cancelled invoices cannot be edited.');
+    }
+
+    final totalAmount =
+        lineItems.fold<double>(0, (sum, item) => sum + item.amount);
+    if (totalAmount + 0.01 < existing.paidAmount) {
+      throw InvoiceException(
+        'Invoice total cannot be less than amount already paid '
+        '(${existing.paidAmount.toStringAsFixed(0)}).',
+      );
+    }
+
+    final dueAmount =
+        (totalAmount - existing.paidAmount).clamp(0, totalAmount).toDouble();
+    final effectiveDueDate = dueDate ?? existing.dueDate;
+    final status = InvoiceStatus.fromAmounts(
+      dueAmount: dueAmount,
+      paidAmount: existing.paidAmount,
+      totalAmount: totalAmount,
+      dueDate: effectiveDueDate,
+    );
+
+    final updated = existing.copyWith(
+      lineItems: lineItems,
+      totalAmount: totalAmount,
+      dueAmount: dueAmount,
+      dueDate: effectiveDueDate,
+      status: status,
+      updatedAt: DateTime.now(),
+    );
+
+    final batch = _firestore.batch();
+    batch.update(
+      _collection.doc(existing.id),
+      SalesInvoiceModel.fromEntity(updated).toFirestore(),
+    );
+
+    final order =
+        await _salesOrderRepository.getSalesOrder(existing.salesOrderId);
+    if (order != null) {
+      final orderStatus = dueAmount <= 0 && totalAmount > 0
+          ? SalesOrderStatus.paid
+          : order.status == SalesOrderStatus.paid && dueAmount > 0
+              ? SalesOrderStatus.invoiced
+              : order.status;
+      batch.update(_salesOrderRepository.salesOrderDoc(existing.salesOrderId), {
+        'balanceDue': dueAmount,
+        'status': orderStatus.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+
+    return await getInvoice(existing.id) ?? updated;
   }
 
   Future<void> deleteInvoicesForCustomer(String customerId) async {

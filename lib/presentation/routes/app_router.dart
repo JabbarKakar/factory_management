@@ -34,6 +34,7 @@ import '../../blocs/labour/employee_list_bloc.dart';
 import '../../blocs/production/production_detail_bloc.dart';
 import '../../blocs/production/production_form_bloc.dart';
 import '../../blocs/production/production_list_bloc.dart';
+import '../../blocs/raw_material/raw_material_adjustment_bloc.dart';
 import '../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
@@ -71,8 +72,13 @@ import '../screens/job_work/job_work_invoice_screen.dart';
 import '../screens/job_work/job_work_list_screen.dart';
 import '../screens/job_work/record_job_work_output_screen.dart';
 import '../screens/job_work/record_payment_screen.dart';
-import '../screens/sales/add_edit_sales_order_screen.dart';
+import '../screens/job_work/edit_job_work_invoice_screen.dart';
+import '../screens/sales/edit_sales_invoice_screen.dart';
 import '../screens/sales/record_sales_payment_screen.dart';
+import '../screens/raw_materials/record_raw_material_adjustment_screen.dart';
+import '../screens/raw_materials/record_raw_material_correction_screen.dart';
+import '../screens/finished_goods/record_inventory_correction_screen.dart';
+import '../screens/sales/add_edit_sales_order_screen.dart';
 import '../screens/sales/sales_invoice_screen.dart';
 import '../screens/sales/sales_order_detail_screen.dart';
 import '../screens/sales/sales_order_list_screen.dart';
@@ -565,6 +571,129 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                   );
                 },
               ),
+              GoRoute(
+                path: 'adjust-in',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final materialType = state.pathParameters['materialType']!;
+                  final factoryId = readFactoryId(context);
+                  return MultiBlocProvider(
+                    providers: [
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = getIt<RawMaterialDetailBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              RawMaterialDetailWatchStarted(
+                                factoryId: factoryId,
+                                materialType:
+                                    RawMaterialType.fromString(materialType),
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                      ),
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = getIt<RawMaterialAdjustmentBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              RawMaterialAdjustmentInitialized(
+                                factoryId: factoryId,
+                                materialType:
+                                    RawMaterialType.fromString(materialType),
+                                movementType: StockMovementType.adjustmentIn,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                      ),
+                    ],
+                    child: RecordRawMaterialAdjustmentScreen(
+                      materialTypeName: materialType,
+                      movementTypeName: StockMovementType.adjustmentIn.name,
+                    ),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'adjust-out',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final materialType = state.pathParameters['materialType']!;
+                  final factoryId = readFactoryId(context);
+                  return MultiBlocProvider(
+                    providers: [
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = getIt<RawMaterialDetailBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              RawMaterialDetailWatchStarted(
+                                factoryId: factoryId,
+                                materialType:
+                                    RawMaterialType.fromString(materialType),
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                      ),
+                      BlocProvider(
+                        create: (_) {
+                          final bloc = getIt<RawMaterialAdjustmentBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              RawMaterialAdjustmentInitialized(
+                                factoryId: factoryId,
+                                materialType:
+                                    RawMaterialType.fromString(materialType),
+                                movementType: StockMovementType.adjustmentOut,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                      ),
+                    ],
+                    child: RecordRawMaterialAdjustmentScreen(
+                      materialTypeName: materialType,
+                      movementTypeName: StockMovementType.adjustmentOut.name,
+                    ),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'correct/:transactionId',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final materialType = state.pathParameters['materialType']!;
+                  final transactionId =
+                      state.pathParameters['transactionId']!;
+                  return BlocProvider(
+                    create: (_) {
+                      final bloc = getIt<RawMaterialDetailBloc>();
+                      final factoryId = readFactoryId(context);
+                      if (factoryId != null) {
+                        bloc.add(
+                          RawMaterialDetailWatchStarted(
+                            factoryId: factoryId,
+                            materialType:
+                                RawMaterialType.fromString(materialType),
+                          ),
+                        );
+                      }
+                      return bloc;
+                    },
+                    child: RecordRawMaterialCorrectionScreen(
+                      materialTypeName: materialType,
+                      transactionId: transactionId,
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         ],
@@ -783,6 +912,34 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                       finishedGoodId: finishedGoodId,
                       movementTypeName:
                           InventoryMovementType.adjustmentOut.name,
+                    ),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'correct/:transactionId',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final finishedGoodId = state.pathParameters['finishedGoodId']!;
+                  final transactionId =
+                      state.pathParameters['transactionId']!;
+                  return BlocProvider(
+                    create: (_) {
+                      final bloc = getIt<FinishedGoodsDetailBloc>();
+                      final factoryId = readFactoryId(context);
+                      if (factoryId != null) {
+                        bloc.add(
+                          FinishedGoodsDetailWatchStarted(
+                            factoryId: factoryId,
+                            finishedGoodId: finishedGoodId,
+                          ),
+                        );
+                      }
+                      return bloc;
+                    },
+                    child: RecordInventoryCorrectionScreen(
+                      finishedGoodId: finishedGoodId,
+                      transactionId: transactionId,
                     ),
                   );
                 },
@@ -1142,6 +1299,18 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     },
                   ),
                   GoRoute(
+                    path: 'invoices/:invoiceId/edit',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final invoiceId = state.pathParameters['invoiceId']!;
+                      return BlocProvider(
+                        create: (_) => getIt<JobWorkInvoiceBloc>()
+                          ..add(JobWorkInvoiceLoadById(invoiceId)),
+                        child: EditJobWorkInvoiceScreen(invoiceId: invoiceId),
+                      );
+                    },
+                  ),
+                  GoRoute(
                     path: 'invoices/:invoiceId/payment',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) {
@@ -1360,6 +1529,18 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                           return bloc;
                         },
                         child: const AddEditSalesOrderScreen(),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'invoices/:invoiceId/edit',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final invoiceId = state.pathParameters['invoiceId']!;
+                      return BlocProvider(
+                        create: (_) => getIt<SalesInvoiceBloc>()
+                          ..add(SalesInvoiceLoadById(invoiceId)),
+                        child: EditSalesInvoiceScreen(invoiceId: invoiceId),
                       );
                     },
                   ),

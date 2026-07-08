@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/repositories/invoice_exception.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
@@ -32,6 +33,7 @@ class JobWorkInvoiceBloc
     on<JobWorkInvoicePaymentSubmitted>(_onPaymentSubmitted);
     on<JobWorkInvoicePaymentUpdated>(_onPaymentUpdated);
     on<JobWorkInvoicePaymentDeleteRequested>(_onPaymentDeleteRequested);
+    on<JobWorkInvoiceUpdateRequested>(_onUpdateRequested);
     on<_JobWorkInvoiceStreamUpdated>(_onInvoiceStreamUpdated);
     on<_JobWorkInvoicePaymentsUpdated>(_onPaymentsStreamUpdated);
   }
@@ -248,6 +250,41 @@ class JobWorkInvoiceBloc
     }
   }
 
+  Future<void> _onUpdateRequested(
+    JobWorkInvoiceUpdateRequested event,
+    Emitter<JobWorkInvoiceState> emit,
+  ) async {
+    final invoice = state.invoice;
+    if (invoice == null) return;
+
+    emit(state.copyWith(status: JobWorkInvoiceStatus.saving));
+    try {
+      final updated = await _invoiceRepository.updateInvoiceDetails(
+        existing: invoice,
+        lineItems: event.lineItems,
+        dueDate: event.dueDate,
+        mineLocation: event.mineLocation,
+        mineOwner: event.mineOwner,
+      );
+      await _ledgerService.syncCustomerBalance(updated.customerId);
+      await _startWatching(updated, emit, updated: true);
+    } on InvoiceException catch (error) {
+      emit(
+        state.copyWith(
+          status: JobWorkInvoiceStatus.failure,
+          errorMessage: error.message,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: JobWorkInvoiceStatus.failure,
+          errorMessage: 'Could not update invoice.',
+        ),
+      );
+    }
+  }
+
   Future<void> _onInvoiceStreamUpdated(
     _JobWorkInvoiceStreamUpdated event,
     Emitter<JobWorkInvoiceState> emit,
@@ -283,12 +320,14 @@ class JobWorkInvoiceBloc
     Emitter<JobWorkInvoiceState> emit, {
     bool saved = false,
     bool paymentRecorded = false,
+    bool updated = false,
   }) async {
     await _emitWithPayments(
       invoice,
       emit,
       saved: saved,
       paymentRecorded: paymentRecorded,
+      updated: updated,
     );
 
     _invoiceSubscription?.cancel();
@@ -327,6 +366,7 @@ class JobWorkInvoiceBloc
     Emitter<JobWorkInvoiceState> emit, {
     bool saved = false,
     bool paymentRecorded = false,
+    bool updated = false,
   }) async {
     await _paymentRepository.ensureInvoicePaidAmountRecorded(
       invoiceId: invoice.id,
@@ -339,11 +379,13 @@ class JobWorkInvoiceBloc
 
     emit(
       state.copyWith(
-        status: paymentRecorded
-            ? JobWorkInvoiceStatus.paymentRecorded
-            : saved
-                ? JobWorkInvoiceStatus.generated
-                : JobWorkInvoiceStatus.loaded,
+        status: updated
+            ? JobWorkInvoiceStatus.updated
+            : paymentRecorded
+                ? JobWorkInvoiceStatus.paymentRecorded
+                : saved
+                    ? JobWorkInvoiceStatus.generated
+                    : JobWorkInvoiceStatus.loaded,
         invoice: invoice,
         payments: invoicePayments,
         jobWorkId: invoice.jobWorkId,

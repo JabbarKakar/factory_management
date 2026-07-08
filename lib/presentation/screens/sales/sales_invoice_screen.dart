@@ -155,6 +155,8 @@ class SalesInvoiceScreen extends StatelessWidget {
         final isSaving = state.status == SalesInvoiceStatus.saving;
         final canCorrectPayments =
             context.userCanEdit(AppModule.sales) && state.payments.isNotEmpty;
+        final canEditInvoice = context.userCanEdit(AppModule.sales) &&
+            invoice.status != InvoiceStatus.cancelled;
         final appBarForeground =
             Theme.of(context).appBarTheme.foregroundColor ??
                 Theme.of(context).colorScheme.onSurface;
@@ -176,6 +178,21 @@ class SalesInvoiceScreen extends StatelessWidget {
               ],
             ),
             actions: [
+              if (canEditInvoice)
+                IconButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final updated = await context.push<bool>(
+                            RoutePaths.salesInvoiceEdit(invoice.id),
+                          );
+                          if (updated == true && context.mounted) {
+                            await _reload(context);
+                          }
+                        },
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editInvoice,
+                ),
               if (context.userCanExport(AppModule.sales))
                 ExportMenuButton(
                   onExportPdf: (origin) async {

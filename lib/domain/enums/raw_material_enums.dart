@@ -82,13 +82,21 @@ enum StockUnit {
 
 enum StockMovementType {
   stockIn,
-  stockOut;
+  stockOut,
+  adjustmentIn,
+  adjustmentOut;
 
   String get firestoreValue => name;
+
+  bool get isInbound =>
+      this == StockMovementType.stockIn ||
+      this == StockMovementType.adjustmentIn;
 
   String get label => switch (this) {
         StockMovementType.stockIn => 'Stock In',
         StockMovementType.stockOut => 'Stock Out',
+        StockMovementType.adjustmentIn => 'Adjustment In',
+        StockMovementType.adjustmentOut => 'Adjustment Out',
       };
 
   static StockMovementType fromString(String? value) {

@@ -349,6 +349,15 @@ abstract final class AppStrings {
   static const String deletePaymentTitle = 'Remove payment?';
   static const String deletePaymentMessage =
       'This payment will be removed and the invoice balance will be recalculated.';
+  static const String editInvoice = 'Edit Invoice';
+  static const String invoiceUpdated = 'Invoice updated successfully';
+  static const String correctLedgerEntry = 'Correct Entry';
+  static const String ledgerCorrection = 'Ledger Correction';
+  static const String ledgerCorrectionHint =
+      'Posts a compensating stock movement to reverse the selected entry. Production-linked entries must be corrected from the production batch.';
+  static const String stockCorrectionRecorded = 'Ledger correction saved';
+  static const String rawMaterialAdjustIn = 'Adjust Stock In';
+  static const String rawMaterialAdjustOut = 'Adjust Stock Out';
   static const String invoiceNotReady =
       'Generate an invoice when the job work order is ready for pickup.';
   static const String invoiceNumber = 'Invoice Number';

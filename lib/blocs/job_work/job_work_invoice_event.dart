@@ -103,6 +103,28 @@ final class JobWorkInvoicePaymentDeleteRequested extends JobWorkInvoiceEvent {
   List<Object?> get props => [paymentId];
 }
 
+final class JobWorkInvoiceUpdateRequested extends JobWorkInvoiceEvent {
+  const JobWorkInvoiceUpdateRequested({
+    required this.lineItems,
+    this.dueDate,
+    this.mineLocation,
+    this.mineOwner,
+  });
+
+  final List<InvoiceLineItem> lineItems;
+  final DateTime? dueDate;
+  final String? mineLocation;
+  final String? mineOwner;
+
+  @override
+  List<Object?> get props => [
+        lineItems,
+        dueDate,
+        mineLocation,
+        mineOwner,
+      ];
+}
+
 final class _JobWorkInvoiceStreamUpdated extends JobWorkInvoiceEvent {
   const _JobWorkInvoiceStreamUpdated(this.invoice);
 

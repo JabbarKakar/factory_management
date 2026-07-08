@@ -41,6 +41,9 @@ abstract final class RoutePaths {
 
   static String recordPaymentEdit(String invoiceId, String paymentId) =>
       '/job-work/invoices/$invoiceId/payment/$paymentId/edit';
+
+  static String jobWorkInvoiceEdit(String invoiceId) =>
+      '/job-work/invoices/$invoiceId/edit';
   static const String customers = '/customers';
   static const String customersAdd = '/customers/add';
 
@@ -68,6 +71,9 @@ abstract final class RoutePaths {
 
   static String salesRecordPaymentEdit(String invoiceId, String paymentId) =>
       '/sales/invoices/$invoiceId/payment/$paymentId/edit';
+
+  static String salesInvoiceEdit(String invoiceId) =>
+      '/sales/invoices/$invoiceId/edit';
   static const String more = '/more';
   static const String accessDenied = '/access-denied';
   static const String accountDisabled = '/account-disabled';
@@ -126,6 +132,18 @@ abstract final class RoutePaths {
   static String rawMaterialStockOut(String materialType) =>
       '/raw-materials/$materialType/stock-out';
 
+  static String rawMaterialAdjustIn(String materialType) =>
+      '/raw-materials/$materialType/adjust-in';
+
+  static String rawMaterialAdjustOut(String materialType) =>
+      '/raw-materials/$materialType/adjust-out';
+
+  static String rawMaterialCorrectEntry(
+    String materialType,
+    String transactionId,
+  ) =>
+      '/raw-materials/$materialType/correct/$transactionId';
+
   static const String production = '/production';
   static const String productionAdd = '/production/add';
 
@@ -156,6 +174,9 @@ abstract final class RoutePaths {
 
   static String finishedGoodAdjustOut(String id) =>
       '/finished-goods/$id/adjust-out';
+
+  static String finishedGoodCorrectEntry(String id, String transactionId) =>
+      '/finished-goods/$id/correct/$transactionId';
 
   static const String employees = '/employees';
   static const String employeesAdd = '/employees/add';

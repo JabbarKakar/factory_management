@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import '../../../blocs/finished_goods/finished_goods_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_input_dialog.dart';
 import '../../widgets/dialogs/storage_location_dialog.dart';
 import '../../widgets/finished_goods/finished_good_detail_hero.dart';
@@ -133,6 +135,8 @@ class FinishedGoodDetailScreen extends StatelessWidget {
           );
         }
 
+        final canCorrect = context.userCanEdit(AppModule.finishedGoods);
+
         return Scaffold(
           appBar: AppBar(
             title: Column(
@@ -240,6 +244,10 @@ class FinishedGoodDetailScreen extends StatelessWidget {
               ),
               FinishedGoodInventoryHistorySection(
                 transactions: state.transactions,
+                canCorrect: canCorrect,
+                onCorrect: (transaction) => context.push(
+                  RoutePaths.finishedGoodCorrectEntry(item.id, transaction.id),
+                ),
               ),
             ],
           ),

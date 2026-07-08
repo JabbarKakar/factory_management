@@ -12,12 +12,17 @@ import '../../../data/repositories/supplier_repository.dart';
 import '../../../domain/entities/stock_transaction.dart';
 import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/raw_material_enums.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_input_dialog.dart';
 import '../../widgets/app_extended_fab.dart';
 import '../../widgets/raw_materials/low_stock_badge.dart';
+import '../../widgets/raw_materials/raw_material_stock_actions_bar.dart';
 import '../../widgets/settings_section.dart';
+import '../../widgets/tile_options_menu.dart';
+import '../../../data/services/stock_correction_helper.dart';
 
 class RawMaterialDetailScreen extends StatelessWidget {
   const RawMaterialDetailScreen({
@@ -73,6 +78,7 @@ class RawMaterialDetailScreen extends StatelessWidget {
 
         final material = state.material;
         final factoryId = readFactoryId(context);
+        final canCorrect = context.userCanEdit(AppModule.rawMaterials);
 
         return Scaffold(
           appBar: AppBar(
@@ -137,6 +143,14 @@ class RawMaterialDetailScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+              ),
+              RawMaterialStockActionsBar(
+                onAdjustIn: () => context.push(
+                  RoutePaths.rawMaterialAdjustIn(materialType.name),
+                ),
+                onAdjustOut: () => context.push(
+                  RoutePaths.rawMaterialAdjustOut(materialType.name),
                 ),
               ),
               SettingsSection(
@@ -217,8 +231,15 @@ class RawMaterialDetailScreen extends StatelessWidget {
                             children: state.transactions
                                 .map(
                                   (transaction) => _TransactionTile(
-                                    transaction: transaction,
+                                  transaction: transaction,
+                                  canCorrect: canCorrect,
+                                  onCorrect: (txn) => context.push(
+                                    RoutePaths.rawMaterialCorrectEntry(
+                                      materialType.name,
+                                      txn.id,
+                                    ),
                                   ),
+                                ),
                                 )
                                 .toList(),
                           )
@@ -242,6 +263,13 @@ class RawMaterialDetailScreen extends StatelessWidget {
                                             ? supplierNames[
                                                 transaction.supplierId]
                                             : null,
+                                        canCorrect: canCorrect,
+                                        onCorrect: (txn) => context.push(
+                                          RoutePaths.rawMaterialCorrectEntry(
+                                            materialType.name,
+                                            txn.id,
+                                          ),
+                                        ),
                                       ),
                                     )
                                     .toList(),
@@ -288,17 +316,24 @@ class _TransactionTile extends StatelessWidget {
   const _TransactionTile({
     required this.transaction,
     this.supplierName,
+    this.canCorrect = false,
+    this.onCorrect,
   });
 
   final StockTransaction transaction;
   final String? supplierName;
+  final bool canCorrect;
+  final ValueChanged<StockTransaction>? onCorrect;
 
   @override
   Widget build(BuildContext context) {
-    final isIn = transaction.movementType == StockMovementType.stockIn;
+    final isIn = transaction.movementType.isInbound;
     final color = isIn ? AppColors.success : AppColors.error;
     final prefix = isIn ? '+' : '−';
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final showCorrect = canCorrect &&
+        onCorrect != null &&
+        StockCorrectionHelper.canCorrectStockTransaction(transaction);
 
     final subtitleParts = <String>[
       DateFormat.yMMMd().format(transaction.transactionDate),
@@ -319,12 +354,27 @@ class _TransactionTile extends StatelessWidget {
         subtitleParts.join(' · '),
         style: TextStyle(color: muted),
       ),
-      trailing: Text(
-        '$prefix${Formatters.stockQuantity(transaction.quantity, transaction.unit.label)}',
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$prefix${Formatters.stockQuantity(transaction.quantity, transaction.unit.label)}',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          if (showCorrect)
+            TileOptionsButton(
+              actions: [
+                TileMenuAction(
+                  label: AppStrings.correctLedgerEntry,
+                  icon: Icons.edit_outlined,
+                  onSelected: () => onCorrect!(transaction),
+                ),
+              ],
             ),
+        ],
       ),
     );
   }

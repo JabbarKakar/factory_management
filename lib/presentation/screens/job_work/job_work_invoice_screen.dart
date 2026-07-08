@@ -155,6 +155,8 @@ class JobWorkInvoiceScreen extends StatelessWidget {
         final isSaving = state.status == JobWorkInvoiceStatus.saving;
         final canCorrectPayments =
             context.userCanEdit(AppModule.jobWork) && state.payments.isNotEmpty;
+        final canEditInvoice = context.userCanEdit(AppModule.jobWork) &&
+            invoice.status != InvoiceStatus.cancelled;
         final appBarForeground =
             Theme.of(context).appBarTheme.foregroundColor ??
                 Theme.of(context).colorScheme.onSurface;
@@ -176,6 +178,21 @@ class JobWorkInvoiceScreen extends StatelessWidget {
               ],
             ),
             actions: [
+              if (canEditInvoice)
+                IconButton(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final updated = await context.push<bool>(
+                            RoutePaths.jobWorkInvoiceEdit(invoice.id),
+                          );
+                          if (updated == true && context.mounted) {
+                            await _reload(context);
+                          }
+                        },
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editInvoice,
+                ),
               if (context.userCanExport(AppModule.jobWork))
                 ExportMenuButton(
                   onExportPdf: (origin) async {

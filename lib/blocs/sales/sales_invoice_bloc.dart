@@ -1,10 +1,12 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/repositories/invoice_exception.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
+import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/enums/invoice_enums.dart';
@@ -29,6 +31,7 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
     on<SalesInvoicePaymentSubmitted>(_onPaymentSubmitted);
     on<SalesInvoicePaymentUpdated>(_onPaymentUpdated);
     on<SalesInvoicePaymentDeleteRequested>(_onPaymentDeleteRequested);
+    on<SalesInvoiceUpdateRequested>(_onUpdateRequested);
   }
 
   final SalesInvoiceRepository _invoiceRepository;
@@ -228,11 +231,45 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
     }
   }
 
+  Future<void> _onUpdateRequested(
+    SalesInvoiceUpdateRequested event,
+    Emitter<SalesInvoiceState> emit,
+  ) async {
+    final invoice = state.invoice;
+    if (invoice == null) return;
+
+    emit(state.copyWith(status: SalesInvoiceStatus.saving));
+    try {
+      final updated = await _invoiceRepository.updateInvoiceDetails(
+        existing: invoice,
+        lineItems: event.lineItems,
+        dueDate: event.dueDate,
+      );
+      await _ledgerService.syncCustomerBalance(updated.customerId);
+      await _emitWithPayments(updated, emit, updated: true);
+    } on InvoiceException catch (error) {
+      emit(
+        state.copyWith(
+          status: SalesInvoiceStatus.failure,
+          errorMessage: error.message,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: SalesInvoiceStatus.failure,
+          errorMessage: 'Could not update invoice.',
+        ),
+      );
+    }
+  }
+
   Future<void> _emitWithPayments(
     SalesInvoice invoice,
     Emitter<SalesInvoiceState> emit, {
     bool saved = false,
     bool paymentRecorded = false,
+    bool updated = false,
   }) async {
     await _paymentRepository.ensureInvoicePaidAmountRecorded(
       invoiceId: invoice.id,
@@ -245,11 +282,13 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
 
     emit(
       state.copyWith(
-        status: paymentRecorded
-            ? SalesInvoiceStatus.paymentRecorded
-            : saved
-                ? SalesInvoiceStatus.generated
-                : SalesInvoiceStatus.loaded,
+        status: updated
+            ? SalesInvoiceStatus.updated
+            : paymentRecorded
+                ? SalesInvoiceStatus.paymentRecorded
+                : saved
+                    ? SalesInvoiceStatus.generated
+                    : SalesInvoiceStatus.loaded,
         invoice: invoice,
         payments: invoicePayments,
         salesOrderId: invoice.salesOrderId,

@@ -7,16 +7,22 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/inventory_transaction.dart';
 import '../../../domain/enums/inventory_enums.dart';
+import '../../../data/services/stock_correction_helper.dart';
 import '../../routes/route_paths.dart';
+import '../tile_options_menu.dart';
 import '../job_work/job_work_detail_section.dart';
 
 class FinishedGoodInventoryHistorySection extends StatelessWidget {
   const FinishedGoodInventoryHistorySection({
     required this.transactions,
+    this.canCorrect = false,
+    this.onCorrect,
     super.key,
   });
 
   final List<InventoryTransaction> transactions;
+  final bool canCorrect;
+  final ValueChanged<InventoryTransaction>? onCorrect;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +43,11 @@ class FinishedGoodInventoryHistorySection extends StatelessWidget {
             : Column(
                 children: [
                   for (var i = 0; i < transactions.length; i++) ...[
-                    _InventoryTransactionRow(transaction: transactions[i]),
+                    _InventoryTransactionRow(
+                      transaction: transactions[i],
+                      canCorrect: canCorrect,
+                      onCorrect: onCorrect,
+                    ),
                     if (i < transactions.length - 1) const SizedBox(height: 8),
                   ],
                 ],
@@ -48,9 +58,15 @@ class FinishedGoodInventoryHistorySection extends StatelessWidget {
 }
 
 class _InventoryTransactionRow extends StatelessWidget {
-  const _InventoryTransactionRow({required this.transaction});
+  const _InventoryTransactionRow({
+    required this.transaction,
+    required this.canCorrect,
+    this.onCorrect,
+  });
 
   final InventoryTransaction transaction;
+  final bool canCorrect;
+  final ValueChanged<InventoryTransaction>? onCorrect;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +98,9 @@ class _InventoryTransactionRow extends StatelessWidget {
               RoutePaths.productionDetail(transaction.productionBatchId!),
             )
         : null;
+    final showCorrect = canCorrect &&
+        onCorrect != null &&
+        StockCorrectionHelper.canCorrectInventoryTransaction(transaction);
 
     return Material(
       color: Colors.transparent,
@@ -127,6 +146,16 @@ class _InventoryTransactionRow extends StatelessWidget {
                       fontSize: 12,
                     ),
               ),
+              if (showCorrect)
+                TileOptionsButton(
+                  actions: [
+                    TileMenuAction(
+                      label: AppStrings.correctLedgerEntry,
+                      icon: Icons.edit_outlined,
+                      onSelected: () => onCorrect!(transaction),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

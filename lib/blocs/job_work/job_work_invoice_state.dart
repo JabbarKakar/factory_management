@@ -8,6 +8,7 @@ enum JobWorkInvoiceStatus {
   saving,
   generated,
   paymentRecorded,
+  updated,
   failure,
 }
 

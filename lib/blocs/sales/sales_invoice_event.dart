@@ -102,3 +102,16 @@ final class SalesInvoicePaymentDeleteRequested extends SalesInvoiceEvent {
   @override
   List<Object?> get props => [paymentId];
 }
+
+final class SalesInvoiceUpdateRequested extends SalesInvoiceEvent {
+  const SalesInvoiceUpdateRequested({
+    required this.lineItems,
+    this.dueDate,
+  });
+
+  final List<InvoiceLineItem> lineItems;
+  final DateTime? dueDate;
+
+  @override
+  List<Object?> get props => [lineItems, dueDate];
+}
