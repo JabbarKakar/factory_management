@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/constants/job_work_sizes.dart';
 import '../../domain/entities/sales_order.dart';
+import '../../domain/entities/stock_output.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/sales_enums.dart';
+import '../../core/utils/stock_output_calculator.dart';
 
 class SalesOrderModel {
   const SalesOrderModel({
@@ -89,16 +92,89 @@ class SalesOrderModel {
   }
 
   static SalesOrderLineItem _lineItemFromMap(Map<dynamic, dynamic> data) {
+    final smallOutputs = _stockOutputsFromList(data['smallStockOutputs']);
+    final largeOutputs = _stockOutputsFromList(data['largeStockOutputs']);
+
+    if (smallOutputs.isNotEmpty || largeOutputs.isNotEmpty) {
+      return SalesOrderLineItem(
+        productType:
+            SalesProductType.fromString(data['productType'] as String?),
+        marbleVariety: data['marbleVariety'] as String? ?? '',
+        smallStockOutputs: smallOutputs,
+        largeStockOutputs: largeOutputs,
+        smallPricePerSqFt:
+            (data['smallPricePerSqFt'] as num?)?.toDouble() ?? 0,
+        largePricePerSqFt:
+            (data['largePricePerSqFt'] as num?)?.toDouble() ?? 0,
+      );
+    }
+
+    // Legacy flat line item → single stock row when size is catalog-sized.
+    final size = data['sizeThickness'] as String? ?? '';
+    final quantity = (data['quantity'] as num?)?.toDouble() ?? 0;
+    final unit = SalesQuantityUnit.fromString(data['quantityUnit'] as String?);
+    final rate = (data['unitRate'] as num?)?.toDouble() ?? 0;
+    final discount = (data['discountPercent'] as num?)?.toDouble() ?? 0;
+    final gross = quantity * rate;
+    final lineTotal =
+        (data['lineTotal'] as num?)?.toDouble() ?? gross - (gross * discount / 100);
+
+    StockOutput? legacyOutput;
+    if (size.isNotEmpty && quantity > 0) {
+      if (unit == SalesQuantityUnit.pieces) {
+        legacyOutput = StockOutputCalculator.compute(
+          size: size,
+          pieces: quantity.round(),
+          pricePerSqFt: rate,
+        );
+      } else if (JobWorkSizes.isCatalogSize(size)) {
+        legacyOutput = StockOutputCalculator.computeFromSquareFeet(
+          size: size,
+          squareFeet: quantity,
+          pricePerSqFt: rate,
+        );
+      } else {
+        legacyOutput = StockOutput(
+          size: size,
+          squareFeet: quantity,
+          pricePerSqFt: rate,
+          amount: lineTotal,
+          pieces: 0,
+        );
+      }
+    }
+
+    final isSmall = JobWorkSizes.isSmall(size);
     return SalesOrderLineItem(
       productType: SalesProductType.fromString(data['productType'] as String?),
       marbleVariety: data['marbleVariety'] as String? ?? '',
-      sizeThickness: data['sizeThickness'] as String? ?? '',
-      quantity: (data['quantity'] as num?)?.toDouble() ?? 0,
-      quantityUnit:
-          SalesQuantityUnit.fromString(data['quantityUnit'] as String?),
-      unitRate: (data['unitRate'] as num?)?.toDouble() ?? 0,
-      discountPercent: (data['discountPercent'] as num?)?.toDouble() ?? 0,
+      smallStockOutputs:
+          legacyOutput != null && isSmall ? [legacyOutput] : const [],
+      largeStockOutputs:
+          legacyOutput != null && !isSmall && size.isNotEmpty
+              ? [legacyOutput]
+              : const [],
+      smallPricePerSqFt: isSmall ? rate : 0,
+      largePricePerSqFt: !isSmall && size.isNotEmpty ? rate : 0,
     );
+  }
+
+  static List<StockOutput> _stockOutputsFromList(dynamic value) {
+    final list = (value as List?) ?? const [];
+    return list
+        .whereType<Map>()
+        .map((entry) => StockOutput.fromMap(Map<String, dynamic>.from(entry)))
+        .where((output) => output.size.isNotEmpty)
+        .toList();
+  }
+
+  static List<Map<String, dynamic>> _stockOutputsToList(
+    List<StockOutput> outputs,
+  ) {
+    return outputs
+        .where((output) => output.hasEntry)
+        .map((output) => output.toMap())
+        .toList();
   }
 
   Map<String, dynamic> toFirestore({bool isCreate = false}) {
@@ -118,11 +194,12 @@ class SalesOrderModel {
             (item) => {
               'productType': item.productType.firestoreValue,
               'marbleVariety': item.marbleVariety,
-              'sizeThickness': item.sizeThickness,
-              'quantity': item.quantity,
-              'quantityUnit': item.quantityUnit.firestoreValue,
-              'unitRate': item.unitRate,
-              'discountPercent': item.discountPercent,
+              'smallPricePerSqFt': item.smallPricePerSqFt,
+              'largePricePerSqFt': item.largePricePerSqFt,
+              'smallStockOutputs':
+                  _stockOutputsToList(item.smallStockOutputs),
+              'largeStockOutputs':
+                  _stockOutputsToList(item.largeStockOutputs),
               'lineTotal': item.lineTotal,
             },
           )

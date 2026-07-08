@@ -1,41 +1,97 @@
 import 'package:equatable/equatable.dart';
 
+import '../../core/constants/job_work_sizes.dart';
+import '../../core/utils/stock_output_calculator.dart';
 import '../enums/customer_enums.dart';
 import '../enums/sales_enums.dart';
+import 'stock_output.dart';
 
 class SalesOrderLineItem extends Equatable {
   const SalesOrderLineItem({
     required this.productType,
     required this.marbleVariety,
-    required this.sizeThickness,
-    required this.quantity,
-    required this.quantityUnit,
-    required this.unitRate,
-    this.discountPercent = 0,
+    this.smallStockOutputs = const [],
+    this.largeStockOutputs = const [],
+    this.smallPricePerSqFt = 0,
+    this.largePricePerSqFt = 0,
   });
 
   final SalesProductType productType;
   final String marbleVariety;
-  final String sizeThickness;
-  final double quantity;
-  final SalesQuantityUnit quantityUnit;
-  final double unitRate;
-  final double discountPercent;
+  final List<StockOutput> smallStockOutputs;
+  final List<StockOutput> largeStockOutputs;
+  final double smallPricePerSqFt;
+  final double largePricePerSqFt;
 
-  double get lineTotal {
-    final gross = quantity * unitRate;
-    return gross - (gross * discountPercent / 100);
+  List<StockOutput> get activeSmallOutputs =>
+      smallStockOutputs.where((output) => output.hasEntry).toList();
+
+  List<StockOutput> get activeLargeOutputs =>
+      largeStockOutputs.where((output) => output.hasEntry).toList();
+
+  List<StockOutput> get activeOutputs => [
+        ...activeSmallOutputs,
+        ...activeLargeOutputs,
+      ];
+
+  int get totalPieces => StockOutputCalculator.totalPieces(activeOutputs);
+
+  double get totalSquareFeet =>
+      StockOutputCalculator.totalSquareFeet(activeOutputs);
+
+  double get smallTotalAmount =>
+      StockOutputCalculator.grandTotal(activeSmallOutputs);
+
+  double get largeTotalAmount =>
+      StockOutputCalculator.grandTotal(activeLargeOutputs);
+
+  double get lineTotal => StockOutputCalculator.grandTotal(activeOutputs);
+
+  bool get hasContent => activeOutputs.isNotEmpty && lineTotal > 0;
+
+  /// Legacy delivery/invoice helpers — aggregate sq ft at line level.
+  double get quantity => totalSquareFeet;
+
+  SalesQuantityUnit get quantityUnit => SalesQuantityUnit.sqFt;
+
+  String get sizeThickness => JobWorkSizes.joinForDisplay(
+        smallSizes: activeSmallOutputs.map((o) => o.size).toList(),
+        largeSizes: activeLargeOutputs.map((o) => o.size).toList(),
+      );
+
+  double get unitRate => totalSquareFeet > 0 ? lineTotal / totalSquareFeet : 0;
+
+  double get discountPercent => 0;
+
+  /// Per-size rows for delivery matching.
+  List<StockOutput> get stockRows => activeOutputs;
+
+  SalesOrderLineItem copyWith({
+    SalesProductType? productType,
+    String? marbleVariety,
+    List<StockOutput>? smallStockOutputs,
+    List<StockOutput>? largeStockOutputs,
+    double? smallPricePerSqFt,
+    double? largePricePerSqFt,
+  }) {
+    return SalesOrderLineItem(
+      productType: productType ?? this.productType,
+      marbleVariety: marbleVariety ?? this.marbleVariety,
+      smallStockOutputs: smallStockOutputs ?? this.smallStockOutputs,
+      largeStockOutputs: largeStockOutputs ?? this.largeStockOutputs,
+      smallPricePerSqFt: smallPricePerSqFt ?? this.smallPricePerSqFt,
+      largePricePerSqFt: largePricePerSqFt ?? this.largePricePerSqFt,
+    );
   }
 
   @override
   List<Object?> get props => [
         productType,
         marbleVariety,
-        sizeThickness,
-        quantity,
-        quantityUnit,
-        unitRate,
-        discountPercent,
+        smallStockOutputs,
+        largeStockOutputs,
+        smallPricePerSqFt,
+        largePricePerSqFt,
       ];
 }
 
@@ -91,6 +147,12 @@ class SalesOrder extends Equatable {
   final DateTime? closedAt;
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  int get totalPieces =>
+      lineItems.fold<int>(0, (sum, item) => sum + item.totalPieces);
+
+  double get totalSquareFeet =>
+      lineItems.fold<double>(0, (sum, item) => sum + item.totalSquareFeet);
 
   static double computeSubtotal(List<SalesOrderLineItem> items) {
     return items.fold<double>(0, (sum, item) => sum + item.lineTotal);

@@ -1,6 +1,8 @@
+import '../../core/constants/job_work_sizes.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/delivery_enums.dart';
+import '../../domain/enums/sales_enums.dart';
 
 class DeliveryRemainingLine {
   const DeliveryRemainingLine({
@@ -72,24 +74,41 @@ abstract final class DeliveryQuantityHelper {
     List<Delivery> deliveries, {
     String? excludeDeliveryId,
   }) {
-    return order.lineItems.map((orderLine) {
-      final remaining = remainingForOrderLine(
-        orderLine,
-        deliveries,
-        excludeDeliveryId: excludeDeliveryId,
-      );
-      return DeliveryRemainingLine(
-        orderedQuantity: orderLine.quantity,
-        remainingQuantity: remaining,
-        lineItem: DeliveryLineItem(
+    final lines = <DeliveryRemainingLine>[];
+    for (final orderLine in order.lineItems) {
+      for (final stock in orderLine.stockRows) {
+        final synthetic = SalesOrderLineItem(
           productType: orderLine.productType,
           marbleVariety: orderLine.marbleVariety,
-          sizeThickness: orderLine.sizeThickness,
-          quantity: remaining,
-          quantityUnit: orderLine.quantityUnit,
-        ),
-      );
-    }).toList();
+          smallStockOutputs: JobWorkSizes.isSmall(stock.size)
+              ? [stock]
+              : const [],
+          largeStockOutputs: JobWorkSizes.isLarge(stock.size)
+              ? [stock]
+              : const [],
+        );
+        final remaining = remainingForOrderLine(
+          synthetic,
+          deliveries,
+          excludeDeliveryId: excludeDeliveryId,
+        );
+        if (remaining <= 0) continue;
+        lines.add(
+          DeliveryRemainingLine(
+            orderedQuantity: stock.squareFeet,
+            remainingQuantity: remaining,
+            lineItem: DeliveryLineItem(
+              productType: orderLine.productType,
+              marbleVariety: orderLine.marbleVariety,
+              sizeThickness: stock.size,
+              quantity: remaining,
+              quantityUnit: SalesQuantityUnit.sqFt,
+            ),
+          ),
+        );
+      }
+    }
+    return lines;
   }
 
   static List<DeliveryRemainingLine> remainingLinesWithStock(

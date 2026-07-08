@@ -256,8 +256,9 @@ class SalesInvoiceRepository {
         .map(
           (item) => InvoiceLineItem(
             description:
-                '${item.productType.label} — ${item.marbleVariety} (${item.sizeThickness}) · '
-                '${item.quantity} ${item.quantityUnit.label}',
+                '${item.productType.label} — ${item.marbleVariety} · '
+                '${item.totalPieces} pcs · '
+                '${item.totalSquareFeet.toStringAsFixed(2)} sq. ft',
             amount: item.lineTotal,
           ),
         )

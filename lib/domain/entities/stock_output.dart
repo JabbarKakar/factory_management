@@ -18,6 +18,9 @@ class StockOutput extends Equatable {
 
   bool get hasProduction => pieces > 0;
 
+  /// True when either pieces or square feet have been entered (sales or job work).
+  bool get hasEntry => pieces > 0 || squareFeet > 0;
+
   StockOutput copyWith({
     String? size,
     int? pieces,

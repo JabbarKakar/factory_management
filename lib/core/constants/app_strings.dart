@@ -547,7 +547,11 @@ abstract final class AppStrings {
   static const String salesLoadError = 'Could not load sales orders';
   static const String noSalesCustomers =
       'No buyer customers found. Add a buyer customer before creating a sales order.';
-  static const String salesLineItemRequired = 'Add at least one line item with quantity and rate';
+  static const String salesLineItemRequired =
+      'Add at least one line item with stock quantities and prices';
+  static const String salesOrderTotals = 'Order Totals';
+  static const String sqFtCannotBeNegative = 'Sq. ft cannot be negative';
+  static const String pricePerSqFtRequired = 'Enter price per sq. ft';
   static const String orderDate = 'Order Date';
   static const String orderSource = 'Order Source';
   static const String orderDetails = 'Order Details';

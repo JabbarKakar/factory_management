@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/sales/sales_order_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/constants/marble_data.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/customer.dart';
 import '../../../domain/entities/sales_order.dart';
+import '../../../domain/entities/stock_output.dart';
 import '../../../domain/enums/customer_enums.dart';
 import '../../../domain/enums/sales_enums.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/job_work/stock_output_recording_panel.dart';
+import '../../widgets/sales/sales_stock_form_controller.dart';
+import '../../widgets/sales/sales_stock_recording_panel.dart';
 
 class AddEditSalesOrderScreen extends StatefulWidget {
   const AddEditSalesOrderScreen({this.salesOrderId, super.key});
@@ -35,8 +41,6 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
 
   final _deliveryAddressController = TextEditingController();
   final _specialInstructionsController = TextEditingController();
-  final _orderDiscountController = TextEditingController(text: '0');
-  final _taxController = TextEditingController(text: '0');
   final _advanceController = TextEditingController(text: '0');
 
   final List<_LineItemDraft> _lineItems = [_LineItemDraft()];
@@ -49,8 +53,6 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
   void dispose() {
     _deliveryAddressController.dispose();
     _specialInstructionsController.dispose();
-    _orderDiscountController.dispose();
-    _taxController.dispose();
     _advanceController.dispose();
     for (final item in _lineItems) {
       item.dispose();
@@ -70,8 +72,6 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
     _paymentTerms = order.paymentTerms;
     _deliveryAddressController.text = order.deliveryAddress ?? '';
     _specialInstructionsController.text = order.specialInstructions ?? '';
-    _orderDiscountController.text = order.orderDiscount.toStringAsFixed(0);
-    _taxController.text = order.tax.toStringAsFixed(0);
     _advanceController.text = order.advanceReceived.toStringAsFixed(0);
 
     _lineItems.clear();
@@ -87,19 +87,10 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
   double get _subtotal =>
       _lineItems.fold<double>(0, (sum, item) => sum + item.lineTotal);
 
-  double get _orderDiscount =>
-      double.tryParse(_orderDiscountController.text.trim()) ?? 0;
-
-  double get _tax => double.tryParse(_taxController.text.trim()) ?? 0;
-
   double get _advance =>
       double.tryParse(_advanceController.text.trim()) ?? 0;
 
-  double get _grandTotal => SalesOrder.computeGrandTotal(
-        subtotal: _subtotal,
-        orderDiscount: _orderDiscount,
-        tax: _tax,
-      );
+  double get _grandTotal => _subtotal;
 
   double get _balanceDue =>
       (_grandTotal - _advance).clamp(0, double.infinity).toDouble();
@@ -152,8 +143,8 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
       expectedDeliveryDate: _expectedDelivery,
       lineItems: lineItems,
       subtotal: _subtotal,
-      orderDiscount: _orderDiscount,
-      tax: _tax,
+      orderDiscount: 0,
+      tax: 0,
       grandTotal: _grandTotal,
       paymentTerms: _paymentTerms,
       advanceReceived: _advance,
@@ -368,6 +359,7 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
                       for (var i = 0; i < _lineItems.length; i++) ...[
                         _LineItemEditor(
                           draft: _lineItems[i],
+                          index: i,
                           enabled: fieldsEnabled,
                           onChanged: () => setState(() {}),
                           onRemove: _lineItems.length > 1 && canEdit
@@ -398,43 +390,27 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
                   ),
                 ),
                 JobWorkDetailSection(
-                  title: AppStrings.pricingAgreement,
+                  title: AppStrings.salesOrderTotals,
                   icon: Icons.payments_outlined,
                   child: AppFormSectionBody(
                     children: [
-                      AppFormSummaryRow(
-                        label: AppStrings.subtotal,
-                        value: Formatters.currencyPkr(_subtotal),
-                      ),
-                      AppFormFields.gap,
-                      TextFormField(
-                        controller: _orderDiscountController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                      if (_lineItems.any((item) => item.hasContent)) ...[
+                        for (final item in _lineItems.where((i) => i.hasContent))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: AppFormSummaryRow(
+                              label:
+                                  '${item.productType.label} — ${item.marbleVariety}',
+                              value: Formatters.currencyPkr(item.lineTotal),
+                            ),
+                          ),
+                        AppFormFields.gap,
+                        StockOutputReadOnlyPanel(
+                          smallOutputs: _aggregateSmallOutputs(),
+                          largeOutputs: _aggregateLargeOutputs(),
                         ),
-                        style: AppFormFields.valueStyle(context),
-                        decoration: AppFormFields.decoration(
-                          context,
-                          label: AppStrings.orderDiscount,
-                        ),
-                        enabled: fieldsEnabled,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      AppFormFields.gap,
-                      TextFormField(
-                        controller: _taxController,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        style: AppFormFields.valueStyle(context),
-                        decoration: AppFormFields.decoration(
-                          context,
-                          label: AppStrings.taxAmount,
-                        ),
-                        enabled: fieldsEnabled,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      AppFormFields.gap,
+                        AppFormFields.gap,
+                      ],
                       AppFormSummaryRow(
                         label: AppStrings.grandTotal,
                         value: Formatters.currencyPkr(_grandTotal),
@@ -536,17 +512,35 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
       },
     );
   }
+
+  List<StockOutput> _aggregateSmallOutputs() {
+    final outputs = <StockOutput>[];
+    for (final item in _lineItems) {
+      outputs.addAll(item.stockController.activeSmallOutputs);
+    }
+    return outputs;
+  }
+
+  List<StockOutput> _aggregateLargeOutputs() {
+    final outputs = <StockOutput>[];
+    for (final item in _lineItems) {
+      outputs.addAll(item.stockController.activeLargeOutputs);
+    }
+    return outputs;
+  }
 }
 
 class _LineItemEditor extends StatelessWidget {
   const _LineItemEditor({
     required this.draft,
+    required this.index,
     required this.enabled,
     required this.onChanged,
     this.onRemove,
   });
 
   final _LineItemDraft draft;
+  final int index;
   final bool enabled;
   final VoidCallback onChanged;
   final VoidCallback? onRemove;
@@ -569,18 +563,28 @@ class _LineItemEditor extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
                 Expanded(
                   child: Text(
-                    AppStrings.lineItem,
+                    '${AppStrings.lineItem} ${index + 1}',
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
                     ),
                   ),
                 ),
+                if (draft.hasContent)
+                  Text(
+                    Formatters.currencyPkr(draft.lineTotal),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.primary,
+                      fontSize: 11,
+                    ),
+                  ),
                 if (onRemove != null)
                   IconButton(
                     onPressed: enabled ? onRemove : null,
@@ -596,7 +600,7 @@ class _LineItemEditor extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<SalesProductType>(
-              key: ValueKey(draft.productType),
+              key: ValueKey('${index}_${draft.productType}'),
               initialValue: draft.productType,
               style: AppFormFields.valueStyle(context),
               decoration: AppFormFields.decoration(
@@ -625,7 +629,7 @@ class _LineItemEditor extends StatelessWidget {
             ),
             AppFormFields.gap,
             DropdownButtonFormField<String>(
-              key: ValueKey(draft.marbleVariety),
+              key: ValueKey('${index}_${draft.marbleVariety}'),
               initialValue: _resolveMarbleVariety(draft.marbleVariety),
               style: AppFormFields.valueStyle(context),
               decoration: AppFormFields.decoration(
@@ -654,106 +658,57 @@ class _LineItemEditor extends StatelessWidget {
             ),
             AppFormFields.gap,
             TextFormField(
-              controller: draft.sizeController,
+              controller: draft.stockController.smallPriceController,
+              enabled: enabled,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+              ],
               style: AppFormFields.valueStyle(context),
               decoration: AppFormFields.decoration(
                 context,
-                label: AppStrings.sizeThickness,
+                label: AppStrings.smallStockPrice,
               ),
-              enabled: enabled,
               onChanged: (_) => onChanged(),
+              validator: (value) {
+                if (!draft.stockController.hasSmallSqFtEntry) return null;
+                final parsed = double.tryParse(value?.trim() ?? '');
+                if (parsed == null || parsed <= 0) {
+                  return AppStrings.smallStockPriceRequired;
+                }
+                return null;
+              },
             ),
             AppFormFields.gap,
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: draft.quantityController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    style: AppFormFields.valueStyle(context),
-                    decoration: AppFormFields.decoration(
-                      context,
-                      label: AppStrings.quantity,
-                    ),
-                    enabled: enabled,
-                    onChanged: (_) => onChanged(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<SalesQuantityUnit>(
-                    key: ValueKey(draft.quantityUnit),
-                    initialValue: draft.quantityUnit,
-                    style: AppFormFields.valueStyle(context),
-                    decoration: AppFormFields.decoration(
-                      context,
-                      label: AppStrings.unit,
-                    ),
-                    items: SalesQuantityUnit.values
-                        .map(
-                          (unit) => DropdownMenuItem(
-                            value: unit,
-                            child: Text(
-                              unit.label,
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: enabled
-                        ? (value) {
-                            if (value != null) {
-                              draft.quantityUnit = value;
-                              onChanged();
-                            }
-                          }
-                        : null,
-                  ),
-                ),
+            TextFormField(
+              controller: draft.stockController.largePriceController,
+              enabled: enabled,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
               ],
+              style: AppFormFields.valueStyle(context),
+              decoration: AppFormFields.decoration(
+                context,
+                label: AppStrings.largeStockPrice,
+              ),
+              onChanged: (_) => onChanged(),
+              validator: (value) {
+                if (!draft.stockController.hasLargeSqFtEntry) return null;
+                final parsed = double.tryParse(value?.trim() ?? '');
+                if (parsed == null || parsed <= 0) {
+                  return AppStrings.largeStockPriceRequired;
+                }
+                return null;
+              },
             ),
             AppFormFields.gap,
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: draft.rateController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    style: AppFormFields.valueStyle(context),
-                    decoration: AppFormFields.decoration(
-                      context,
-                      label: AppStrings.unitRate,
-                    ),
-                    enabled: enabled,
-                    onChanged: (_) => onChanged(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    controller: draft.discountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    style: AppFormFields.valueStyle(context),
-                    decoration: AppFormFields.decoration(
-                      context,
-                      label: AppStrings.discountPercent,
-                    ),
-                    enabled: enabled,
-                    onChanged: (_) => onChanged(),
-                  ),
-                ),
-              ],
-            ),
-            AppFormFields.gap,
-            AppFormSummaryRow(
-              label: AppStrings.lineTotal,
-              value: Formatters.currencyPkr(draft.lineTotal),
+            SalesStockRecordingPanel(
+              controller: draft.stockController,
+              enabled: enabled,
+              onChanged: onChanged,
             ),
           ],
         ),
@@ -763,58 +718,48 @@ class _LineItemEditor extends StatelessWidget {
 }
 
 class _LineItemDraft {
-  _LineItemDraft();
+  _LineItemDraft()
+      : stockController = SalesStockFormController(
+          smallSizes: JobWorkSizes.smallSizes,
+          largeSizes: JobWorkSizes.largeSizes,
+        );
 
   factory _LineItemDraft.fromEntity(SalesOrderLineItem item) {
     final draft = _LineItemDraft();
     draft.productType = item.productType;
     draft.marbleVariety = _resolveMarbleVariety(item.marbleVariety);
-    draft.sizeController.text = item.sizeThickness;
-    draft.quantityController.text = item.quantity.toString();
-    draft.quantityUnit = item.quantityUnit;
-    draft.rateController.text = item.unitRate.toString();
-    draft.discountController.text = item.discountPercent.toString();
+    draft.stockController.dispose();
+    draft.stockController = SalesStockFormController(
+      smallSizes: JobWorkSizes.smallSizes,
+      largeSizes: JobWorkSizes.largeSizes,
+      smallPricePerSqFt: item.smallPricePerSqFt,
+      largePricePerSqFt: item.largePricePerSqFt,
+      initialSmall: item.smallStockOutputs,
+      initialLarge: item.largeStockOutputs,
+    );
     return draft;
   }
 
   SalesProductType productType = SalesProductType.tile;
   String marbleVariety = MarbleData.varieties.first;
-  SalesQuantityUnit quantityUnit = SalesQuantityUnit.sqFt;
-  final sizeController = TextEditingController();
-  final quantityController = TextEditingController();
-  final rateController = TextEditingController();
-  final discountController = TextEditingController(text: '0');
+  late SalesStockFormController stockController;
 
-  bool get hasContent =>
-      (double.tryParse(quantityController.text.trim()) ?? 0) > 0 &&
-      (double.tryParse(rateController.text.trim()) ?? 0) > 0;
+  bool get hasContent => stockController.hasContent;
 
-  double get lineTotal {
-    final quantity = double.tryParse(quantityController.text.trim()) ?? 0;
-    final rate = double.tryParse(rateController.text.trim()) ?? 0;
-    final discount = double.tryParse(discountController.text.trim()) ?? 0;
-    final gross = quantity * rate;
-    return gross - (gross * discount / 100);
-  }
+  double get lineTotal => stockController.grandTotal;
 
   SalesOrderLineItem toEntity() {
     return SalesOrderLineItem(
       productType: productType,
       marbleVariety: marbleVariety,
-      sizeThickness: sizeController.text.trim(),
-      quantity: double.tryParse(quantityController.text.trim()) ?? 0,
-      quantityUnit: quantityUnit,
-      unitRate: double.tryParse(rateController.text.trim()) ?? 0,
-      discountPercent: double.tryParse(discountController.text.trim()) ?? 0,
+      smallStockOutputs: stockController.activeSmallOutputs,
+      largeStockOutputs: stockController.activeLargeOutputs,
+      smallPricePerSqFt: stockController.smallPricePerSqFt,
+      largePricePerSqFt: stockController.largePricePerSqFt,
     );
   }
 
-  void dispose() {
-    sizeController.dispose();
-    quantityController.dispose();
-    rateController.dispose();
-    discountController.dispose();
-  }
+  void dispose() => stockController.dispose();
 }
 
 String _resolveMarbleVariety(String value) {

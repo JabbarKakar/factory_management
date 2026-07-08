@@ -4,7 +4,6 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/constants/app_strings.dart';
-import '../../core/constants/marble_data.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../domain/entities/customer.dart';
@@ -229,16 +228,7 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
       status: SalesOrderStatus.received,
       orderDate: DateTime.now(),
       orderSource: SalesOrderSource.walkIn,
-      lineItems: [
-        SalesOrderLineItem(
-          productType: SalesProductType.tile,
-          marbleVariety: MarbleData.varieties.first,
-          sizeThickness: '',
-          quantity: 0,
-          quantityUnit: SalesQuantityUnit.sqFt,
-          unitRate: 0,
-        ),
-      ],
+      lineItems: const [],
       subtotal: 0,
       orderDiscount: 0,
       tax: 0,

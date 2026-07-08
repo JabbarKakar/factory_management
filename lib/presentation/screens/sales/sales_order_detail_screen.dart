@@ -8,6 +8,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/delivery.dart';
+import '../../../domain/entities/sales_order.dart';
+import '../../../domain/entities/stock_output.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/delivery_enums.dart';
 import '../../../domain/enums/sales_enums.dart';
@@ -16,6 +18,7 @@ import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/sales/sales_order_detail_hero.dart';
 
 class SalesOrderDetailScreen extends StatelessWidget {
@@ -201,35 +204,19 @@ class SalesOrderDetailScreen extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (var i = 0; i < order.lineItems.length; i++) ...[
-                        JobWorkDetailRow(
-                          label:
-                              '${order.lineItems[i].productType.label} — ${order.lineItems[i].marbleVariety}',
-                          value: Formatters.currencyPkr(
-                            order.lineItems[i].lineTotal,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '${order.lineItems[i].sizeThickness} · '
-                            '${order.lineItems[i].quantity} '
-                            '${order.lineItems[i].quantityUnit.label} @ '
-                            '${Formatters.currencyPkr(order.lineItems[i].unitRate)}',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      fontSize: 11,
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
-                                      height: 1.35,
-                                    ),
-                          ),
-                        ),
+                        _SalesLineItemCard(item: order.lineItems[i]),
                         if (i < order.lineItems.length - 1)
-                          const SizedBox(height: 9),
+                          const SizedBox(height: 12),
+                      ],
+                      if (order.lineItems.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        StockOutputReadOnlyPanel(
+                          smallOutputs: _aggregateSmall(order.lineItems),
+                          largeOutputs: _aggregateLarge(order.lineItems),
+                        ),
                       ],
                     ],
                   ),
@@ -277,24 +264,18 @@ class SalesOrderDetailScreen extends StatelessWidget {
                   ),
                 ),
               JobWorkDetailSection(
-                title: AppStrings.pricingAgreement,
+                title: AppStrings.salesOrderTotals,
                 icon: Icons.payments_outlined,
                 child: JobWorkDetailRows(
                   rows: [
                     JobWorkDetailRow(
-                      label: AppStrings.subtotal,
-                      value: Formatters.currencyPkr(order.subtotal),
+                      label: AppStrings.totalPieces,
+                      value: '${order.totalPieces}',
                     ),
-                    if (order.orderDiscount > 0)
-                      JobWorkDetailRow(
-                        label: AppStrings.orderDiscount,
-                        value: '-${Formatters.currencyPkr(order.orderDiscount)}',
-                      ),
-                    if (order.tax > 0)
-                      JobWorkDetailRow(
-                        label: AppStrings.taxAmount,
-                        value: Formatters.currencyPkr(order.tax),
-                      ),
+                    JobWorkDetailRow(
+                      label: AppStrings.totalSquareFeet,
+                      value: '${order.totalSquareFeet.toStringAsFixed(2)} sq. ft',
+                    ),
                     JobWorkDetailRow(
                       label: AppStrings.grandTotal,
                       value: Formatters.currencyPkr(order.grandTotal),
@@ -366,6 +347,90 @@ class SalesOrderDetailScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+List<StockOutput> _aggregateSmall(List<SalesOrderLineItem> items) {
+  final outputs = <StockOutput>[];
+  for (final item in items) {
+    outputs.addAll(item.activeSmallOutputs);
+  }
+  return outputs;
+}
+
+List<StockOutput> _aggregateLarge(List<SalesOrderLineItem> items) {
+  final outputs = <StockOutput>[];
+  for (final item in items) {
+    outputs.addAll(item.activeLargeOutputs);
+  }
+  return outputs;
+}
+
+class _SalesLineItemCard extends StatelessWidget {
+  const _SalesLineItemCard({required this.item});
+
+  final SalesOrderLineItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${item.productType.label} — ${item.marbleVariety}',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                Text(
+                  Formatters.currencyPkr(item.lineTotal),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.primary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${item.totalPieces} pcs · '
+              '${item.totalSquareFeet.toStringAsFixed(2)} sq. ft',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+                color: muted,
+                height: 1.35,
+              ),
+            ),
+            if (item.activeOutputs.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              StockOutputReadOnlyPanel(
+                smallOutputs: item.activeSmallOutputs,
+                largeOutputs: item.activeLargeOutputs,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

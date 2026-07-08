@@ -49,6 +49,32 @@ abstract final class StockOutputCalculator {
     );
   }
 
+  /// Sales orders: user enters square feet; pieces and amount are derived.
+  ///
+  /// Keeps the entered [squareFeet] as the source of truth for totals/amount.
+  /// Pieces are estimated from size (display only) and must not rewrite sq. ft.
+  static StockOutput computeFromSquareFeet({
+    required String size,
+    required double squareFeet,
+    required double pricePerSqFt,
+  }) {
+    final safeSqFt = squareFeet < 0 ? 0.0 : _roundSqFt(squareFeet);
+    final safePrice = pricePerSqFt < 0 ? 0.0 : pricePerSqFt;
+    final sqFtPerPiece = squareFeetPerPiece(size);
+    final pieces = safeSqFt <= 0 || sqFtPerPiece <= 0
+        ? 0
+        : (safeSqFt / sqFtPerPiece).round();
+    final amount = _roundAmount(safeSqFt * safePrice);
+
+    return StockOutput(
+      size: size,
+      pieces: pieces,
+      squareFeet: safeSqFt,
+      pricePerSqFt: safePrice,
+      amount: amount,
+    );
+  }
+
   static List<StockOutput> rowsForSizes({
     required List<String> sizes,
     required Map<String, StockOutput> existing,

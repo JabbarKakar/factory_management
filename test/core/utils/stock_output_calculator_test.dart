@@ -42,5 +42,57 @@ void main() {
       expect(output.squareFeet, 0);
       expect(output.amount, 0);
     });
+
+    test('computeFromSquareFeet keeps entered sq ft and derives pieces/amount',
+        () {
+      final output = StockOutputCalculator.computeFromSquareFeet(
+        size: '4x12',
+        squareFeet: 45,
+        pricePerSqFt: 80,
+      );
+
+      expect(output.squareFeet, 45);
+      expect(output.pieces, 136); // 45 / 0.33 rounded
+      expect(output.amount, 3600); // 45 * 80
+    });
+
+    test('computeFromSquareFeet totals match sum of entered values', () {
+      final a = StockOutputCalculator.computeFromSquareFeet(
+        size: '4x12',
+        squareFeet: 45,
+        pricePerSqFt: 80,
+      );
+      final b = StockOutputCalculator.computeFromSquareFeet(
+        size: '4x24',
+        squareFeet: 45,
+        pricePerSqFt: 80,
+      );
+      final c = StockOutputCalculator.computeFromSquareFeet(
+        size: '4x36',
+        squareFeet: 23,
+        pricePerSqFt: 80,
+      );
+
+      expect(
+        StockOutputCalculator.totalSquareFeet([a, b, c]),
+        113,
+      );
+      expect(
+        StockOutputCalculator.grandTotal([a, b, c]),
+        9040, // 113 * 80
+      );
+    });
+
+    test('computeFromSquareFeet returns zero when sq ft is zero', () {
+      final output = StockOutputCalculator.computeFromSquareFeet(
+        size: '12x24',
+        squareFeet: 0,
+        pricePerSqFt: 80,
+      );
+
+      expect(output.pieces, 0);
+      expect(output.squareFeet, 0);
+      expect(output.amount, 0);
+    });
   });
 }
