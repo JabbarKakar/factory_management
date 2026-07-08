@@ -7,7 +7,9 @@ import '../../../blocs/production/production_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/quality_enums.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/production/production_batch_detail_hero.dart';
@@ -62,6 +64,23 @@ class ProductionBatchDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
+            actions: [
+              if (context.userCanEdit(AppModule.production))
+                IconButton(
+                  onPressed: () async {
+                    final updated = await context.push<bool>(
+                      RoutePaths.productionEdit(batch.id),
+                    );
+                    if (updated == true && context.mounted) {
+                      context.read<ProductionDetailBloc>().add(
+                            ProductionDetailWatchStarted(batchId),
+                          );
+                    }
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editProductionBatch,
+                ),
+            ],
           ),
           body: ListView(
             padding: const EdgeInsets.only(bottom: 24),

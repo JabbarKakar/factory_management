@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import '../../../blocs/quality/qc_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/quality/qc_detail_hero.dart';
@@ -60,6 +62,23 @@ class QcDetailScreen extends StatelessWidget {
                 ),
               ],
             ),
+            actions: [
+              if (context.userCanEdit(AppModule.qualityControl))
+                IconButton(
+                  onPressed: () async {
+                    final updated = await context.push<bool>(
+                      RoutePaths.qualityCheckEdit(check.id),
+                    );
+                    if (updated == true && context.mounted) {
+                      context.read<QcDetailBloc>().add(
+                            QcDetailWatchStarted(qcId),
+                          );
+                    }
+                  },
+                  icon: const Icon(Icons.edit_outlined),
+                  tooltip: AppStrings.editQcInspection,
+                ),
+            ],
           ),
           body: ListView(
             padding: const EdgeInsets.only(bottom: 24),

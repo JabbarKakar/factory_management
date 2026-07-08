@@ -736,6 +736,10 @@ abstract final class AppStrings {
   static const String productionBatchesSubtitle =
       'Record own-stock cutting runs and output';
   static const String recordProduction = 'Record Production';
+  static const String editProductionBatch = 'Edit Production Batch';
+  static const String productionBatchUpdated = 'Production batch updated';
+  static const String productionBatchLockedByQc =
+      'Output and material fields are locked because a QC inspection exists for this batch.';
   static const String productionBatchDetails = 'Batch Details';
   static const String productionBatchSaved = 'Production batch saved';
   static const String productionBatchNotFound = 'Production batch not found';
@@ -986,6 +990,8 @@ abstract final class AppStrings {
       'Inspect production batches and job work output';
   static const String qualityInspections = 'Quality Inspections';
   static const String recordQcInspection = 'Record QC Inspection';
+  static const String editQcInspection = 'Edit QC Inspection';
+  static const String qcUpdated = 'Quality inspection updated';
   static const String saveQcInspection = 'Save QC Inspection';
   static const String qcInspectionDetails = 'QC Inspection Details';
   static const String qcSaved = 'Quality inspection saved';

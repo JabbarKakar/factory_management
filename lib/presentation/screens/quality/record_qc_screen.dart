@@ -14,11 +14,13 @@ import '../../widgets/job_work/job_work_detail_section.dart';
 
 class RecordQcScreen extends StatefulWidget {
   const RecordQcScreen({
+    this.qcId,
     this.referenceType,
     this.referenceId,
     super.key,
   });
 
+  final String? qcId;
   final QcReferenceType? referenceType;
   final String? referenceId;
 
@@ -47,6 +49,10 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
   final _rejectController = TextEditingController();
   final _notesController = TextEditingController();
 
+  bool _populatedFromEdit = false;
+
+  bool get _isEditing => widget.qcId != null;
+
   @override
   void dispose() {
     _inspectorController.dispose();
@@ -60,6 +66,31 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
     _rejectController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  void _populateFromEditingCheck(QualityCheck check) {
+    if (_populatedFromEdit) return;
+    _populatedFromEdit = true;
+
+    _referenceType = check.referenceType;
+    _selectedReferenceId = check.referenceId;
+    _inspectionDate = check.inspectionDate;
+    _disposition = check.disposition;
+    _defects
+      ..clear()
+      ..addAll(check.defects);
+    _inspectorController.text = check.inspectorName;
+    _productController.text = check.productLabel;
+    _varietyController.text = check.marbleVariety;
+    _sizeController.text = check.sizeThickness ?? '';
+    _quantityController.text = check.quantityInspected.toString();
+    _gradeAController.text = check.gradeASqFt.toString();
+    _gradeBController.text = check.gradeBSqFt.toString();
+    _gradeCController.text = check.gradeCSqFt.toString();
+    _rejectController.text = check.rejectSqFt.toString();
+    _notesController.text = check.notes ?? '';
+    _syncSignature =
+        '${check.referenceType.name}:${check.referenceId}:${check.quantityInspected}';
   }
 
   void _syncFromState(QcFormState state) {
@@ -112,6 +143,37 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
 
     final batch = state.selectedBatch;
     final order = state.selectedOrder;
+    final existing = state.editingCheck;
+
+    if (state.isEditing && existing != null) {
+      return QualityCheck(
+        id: existing.id,
+        qcNumber: existing.qcNumber,
+        factoryId: factoryId,
+        referenceType: existing.referenceType,
+        referenceId: existing.referenceId,
+        referenceNumber: existing.referenceNumber,
+        referenceLabel: existing.referenceLabel,
+        productLabel: _productController.text.trim(),
+        marbleVariety: _varietyController.text.trim(),
+        sizeThickness: _sizeController.text.trim().isEmpty
+            ? null
+            : _sizeController.text.trim(),
+        inspectionDate: _inspectionDate,
+        inspectorName: _inspectorController.text.trim(),
+        quantityInspected: quantity,
+        gradeASqFt: gradeA,
+        gradeBSqFt: gradeB,
+        gradeCSqFt: gradeC,
+        rejectSqFt: reject,
+        defects: _defects.toList(),
+        disposition: _disposition,
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
+        createdAt: existing.createdAt,
+      );
+    }
 
     return QualityCheck(
       id: '',
@@ -184,6 +246,7 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
   }
 
   Widget _buildReferenceDropdown(QcFormState state, bool isSaving) {
+    final referenceLocked = state.isEditing;
     if (_referenceType == QcReferenceType.production) {
       return DropdownButtonFormField<String>(
         initialValue: _selectedReferenceId,
@@ -210,7 +273,7 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
               ),
             )
             .toList(),
-        onChanged: isSaving
+        onChanged: isSaving || referenceLocked
             ? null
             : (value) {
                 if (value == null) return;
@@ -245,7 +308,7 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
             ),
           )
           .toList(),
-      onChanged: isSaving
+      onChanged: isSaving || referenceLocked
           ? null
           : (value) {
               if (value == null) return;
@@ -261,14 +324,18 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
       listener: (context, state) async {
         if (state.status == QcFormStatus.saved) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(AppStrings.qcSaved)),
+            SnackBar(
+              content: Text(
+                state.isEditing ? AppStrings.qcUpdated : AppStrings.qcSaved,
+              ),
+            ),
           );
-          if (state.advancedToQc) {
+          if (!state.isEditing && state.advancedToQc) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text(AppStrings.jobWorkAdvancedToQc)),
             );
           }
-          if (state.pendingMarkReadyJobWorkId != null) {
+          if (!state.isEditing && state.pendingMarkReadyJobWorkId != null) {
             final confirmed = await AppConfirmDialog.show(
               context,
               title: AppStrings.markReadyAfterQcTitle,
@@ -308,7 +375,11 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
           );
         }
         if (state.status == QcFormStatus.ready) {
-          _syncFromState(state);
+          if (state.isEditing && state.editingCheck != null) {
+            _populateFromEditingCheck(state.editingCheck!);
+          } else {
+            _syncFromState(state);
+          }
           setState(() {});
         }
       },
@@ -317,12 +388,30 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
             state.status == QcFormStatus.initial) {
           return Scaffold(
             appBar: AppBar(
-              title: const AppFormAppBarTitle(
-                title: AppStrings.recordQcInspection,
+              title: AppFormAppBarTitle(
+                title: _isEditing
+                    ? AppStrings.editQcInspection
+                    : AppStrings.recordQcInspection,
                 subtitle: AppStrings.recordQcInspection,
               ),
             ),
             body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (state.status == QcFormStatus.failure && state.editingCheck == null) {
+          return Scaffold(
+            appBar: AppBar(
+              title: AppFormAppBarTitle(
+                title: _isEditing
+                    ? AppStrings.editQcInspection
+                    : AppStrings.recordQcInspection,
+                subtitle: AppStrings.recordQcInspection,
+              ),
+            ),
+            body: Center(
+              child: Text(state.errorMessage ?? 'Could not load inspection.'),
+            ),
           );
         }
 
@@ -334,7 +423,9 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
         return Scaffold(
           appBar: AppBar(
             title: AppFormAppBarTitle(
-              title: AppStrings.recordQcInspection,
+              title: state.isEditing
+                  ? AppStrings.editQcInspection
+                  : AppStrings.recordQcInspection,
               subtitle: _appBarSubtitle(state),
             ),
           ),
@@ -364,7 +455,7 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: isSaving
+                        onChanged: isSaving || state.isEditing
                             ? null
                             : (value) {
                                 if (value == null) return;
@@ -622,7 +713,9 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
                     ),
                   ),
                   AppFormSubmitBar(
-                    label: AppStrings.saveQcInspection,
+                    label: state.isEditing
+                        ? AppStrings.saveChanges
+                        : AppStrings.saveQcInspection,
                     isLoading: isSaving,
                     onPressed: isSaving ? null : () => _submit(context, state),
                   ),

@@ -380,7 +380,10 @@ void setupDependencies() {
     () => ProductionListBloc(repository: getIt<ProductionRepository>()),
   );
   getIt.registerFactory<ProductionFormBloc>(
-    () => ProductionFormBloc(repository: getIt<ProductionRepository>()),
+    () => ProductionFormBloc(
+      repository: getIt<ProductionRepository>(),
+      qualityCheckRepository: getIt<QualityCheckRepository>(),
+    ),
   );
   getIt.registerFactory<ProductionDetailBloc>(
     () => ProductionDetailBloc(

@@ -614,6 +614,18 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             },
           ),
           GoRoute(
+            path: ':batchId/edit',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final batchId = state.pathParameters['batchId']!;
+              return BlocProvider(
+                create: (_) => getIt<ProductionFormBloc>()
+                  ..add(ProductionFormLoadRequested(batchId)),
+                child: AddProductionBatchScreen(batchId: batchId),
+              );
+            },
+          ),
+          GoRoute(
             path: ':batchId',
             parentNavigatorKey: rootNavigatorKey,
             builder: (context, state) {
@@ -1027,6 +1039,18 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                   referenceType: referenceType,
                   referenceId: referenceId,
                 ),
+              );
+            },
+          ),
+          GoRoute(
+            path: ':qcId/edit',
+            parentNavigatorKey: rootNavigatorKey,
+            builder: (context, state) {
+              final qcId = state.pathParameters['qcId']!;
+              return BlocProvider(
+                create: (_) => getIt<QcFormBloc>()
+                  ..add(QcFormLoadRequested(qcId)),
+                child: RecordQcScreen(qcId: qcId),
               );
             },
           ),

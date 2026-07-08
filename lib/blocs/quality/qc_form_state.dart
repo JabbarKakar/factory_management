@@ -45,6 +45,8 @@ class QcFormState extends Equatable {
     this.selectedBatch,
     this.selectedOrder,
     this.prefill = const QcFormPrefill(),
+    this.editingCheck,
+    this.isEditing = false,
     this.errorMessage,
     this.pendingMarkReadyJobWorkId,
     this.advancedToQc = false,
@@ -58,6 +60,8 @@ class QcFormState extends Equatable {
   final ProductionBatch? selectedBatch;
   final JobWorkOrder? selectedOrder;
   final QcFormPrefill prefill;
+  final QualityCheck? editingCheck;
+  final bool isEditing;
   final String? errorMessage;
   final String? pendingMarkReadyJobWorkId;
   final bool advancedToQc;
@@ -76,6 +80,8 @@ class QcFormState extends Equatable {
     JobWorkOrder? selectedOrder,
     bool clearSelectedOrder = false,
     QcFormPrefill? prefill,
+    QualityCheck? editingCheck,
+    bool? isEditing,
     String? errorMessage,
     String? pendingMarkReadyJobWorkId,
     bool clearPendingMarkReady = false,
@@ -93,6 +99,8 @@ class QcFormState extends Equatable {
       selectedOrder:
           clearSelectedOrder ? null : (selectedOrder ?? this.selectedOrder),
       prefill: prefill ?? this.prefill,
+      editingCheck: editingCheck ?? this.editingCheck,
+      isEditing: isEditing ?? this.isEditing,
       errorMessage: errorMessage,
       pendingMarkReadyJobWorkId: clearWorkflow || clearPendingMarkReady
           ? null
@@ -112,6 +120,8 @@ class QcFormState extends Equatable {
         selectedBatch,
         selectedOrder,
         prefill,
+        editingCheck,
+        isEditing,
         errorMessage,
         pendingMarkReadyJobWorkId,
         advancedToQc,

@@ -24,6 +24,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         _operationalAlertScannerService = operationalAlertScannerService,
         super(const QcFormState()) {
     on<QcFormInitialized>(_onInitialized);
+    on<QcFormLoadRequested>(_onLoadRequested);
     on<QcFormReferenceTypeChanged>(_onReferenceTypeChanged);
     on<QcFormReferenceSelected>(_onReferenceSelected);
     on<QcFormSubmitted>(_onSubmitted);
@@ -83,6 +84,93 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         state.copyWith(
           status: QcFormStatus.failure,
           errorMessage: 'Could not load QC form data.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onLoadRequested(
+    QcFormLoadRequested event,
+    Emitter<QcFormState> emit,
+  ) async {
+    emit(state.copyWith(status: QcFormStatus.loading, isEditing: true));
+    try {
+      final check = await _repository.getQualityCheck(event.qcId);
+      if (check == null) {
+        emit(
+          state.copyWith(
+            status: QcFormStatus.failure,
+            errorMessage: 'Quality inspection not found.',
+          ),
+        );
+        return;
+      }
+
+      var productionBatches =
+          await _repository.fetchEligibleProductionBatches(check.factoryId);
+      var jobWorkOrders =
+          await _repository.fetchEligibleJobWorkOrders(check.factoryId);
+
+      ProductionBatch? selectedBatch;
+      JobWorkOrder? selectedOrder;
+
+      if (check.referenceType == QcReferenceType.production) {
+        for (final batch in productionBatches) {
+          if (batch.id == check.referenceId) {
+            selectedBatch = batch;
+            break;
+          }
+        }
+        selectedBatch ??= await _repository.getProductionBatchReference(
+          check.referenceId,
+        );
+        if (selectedBatch != null &&
+            !productionBatches.any((batch) => batch.id == selectedBatch!.id)) {
+          productionBatches = [selectedBatch, ...productionBatches];
+        }
+      } else {
+        for (final order in jobWorkOrders) {
+          if (order.id == check.referenceId) {
+            selectedOrder = order;
+            break;
+          }
+        }
+        selectedOrder ??= await _repository.getJobWorkReference(
+          check.referenceId,
+        );
+        if (selectedOrder != null &&
+            !jobWorkOrders.any((order) => order.id == selectedOrder!.id)) {
+          jobWorkOrders = [selectedOrder, ...jobWorkOrders];
+        }
+      }
+
+      emit(
+        QcFormState(
+          status: QcFormStatus.ready,
+          productionBatches: productionBatches,
+          jobWorkOrders: jobWorkOrders,
+          referenceType: check.referenceType,
+          selectedBatch: selectedBatch,
+          selectedOrder: selectedOrder,
+          editingCheck: check,
+          isEditing: true,
+          prefill: QcFormPrefill(
+            productLabel: check.productLabel,
+            marbleVariety: check.marbleVariety,
+            sizeThickness: check.sizeThickness,
+            quantityInspected: check.quantityInspected,
+            gradeASqFt: check.gradeASqFt,
+            gradeBSqFt: check.gradeBSqFt,
+            gradeCSqFt: check.gradeCSqFt,
+            rejectSqFt: check.rejectSqFt,
+          ),
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: QcFormStatus.failure,
+          errorMessage: 'Could not load quality inspection.',
         ),
       );
     }
@@ -200,6 +288,16 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
   ) async {
     emit(state.copyWith(status: QcFormStatus.saving, clearWorkflow: true));
     try {
+      if (state.isEditing) {
+        await _repository.updateQualityCheck(event.check);
+        emit(
+          state.copyWith(
+            status: QcFormStatus.saved,
+          ),
+        );
+        return;
+      }
+
       final created = await _repository.createQualityCheck(event.check);
       await _operationalAlertScannerService.notifyQcReject(created);
 

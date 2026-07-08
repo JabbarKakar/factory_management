@@ -16,6 +16,15 @@ class ProductionFormInitialized extends ProductionFormEvent {
   List<Object?> get props => [factoryId];
 }
 
+class ProductionFormLoadRequested extends ProductionFormEvent {
+  const ProductionFormLoadRequested(this.batchId);
+
+  final String batchId;
+
+  @override
+  List<Object?> get props => [batchId];
+}
+
 class ProductionFormSubmitted extends ProductionFormEvent {
   const ProductionFormSubmitted({
     required this.productionDate,

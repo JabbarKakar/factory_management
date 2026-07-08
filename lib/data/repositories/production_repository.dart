@@ -8,6 +8,7 @@ import '../models/production_batch_model.dart';
 import '../models/raw_material_model.dart';
 import '../models/stock_transaction_model.dart';
 import '../repositories/finished_goods_repository.dart';
+import '../services/finished_goods_stock_service.dart';
 import '../services/raw_material_stock_service.dart';
 
 class ProductionBatchException implements Exception {
@@ -205,6 +206,156 @@ class ProductionRepository {
     await writeBatch.commit();
 
     return batch;
+  }
+
+  Future<ProductionBatch> updateBatch({
+    required ProductionBatch existing,
+    required DateTime productionDate,
+    required ProductionShift shift,
+    required double materialConsumed,
+    required ProductionProductType productType,
+    required String marbleVariety,
+    required double gradeASqFt,
+    required double gradeBSqFt,
+    required double gradeCSqFt,
+    required double rejectSqFt,
+    String? thickness,
+    String? size,
+    double? wasteTons,
+    String? supervisorName,
+    String? notes,
+    bool inventoryFieldsLocked = false,
+  }) async {
+    if (materialConsumed <= 0) {
+      throw const ProductionBatchException(
+        'Material consumed must be greater than zero.',
+      );
+    }
+
+    final totalOutput = gradeASqFt + gradeBSqFt + gradeCSqFt + rejectSqFt;
+    if (totalOutput <= 0) {
+      throw const ProductionBatchException(
+        'Record at least some output (Grade A/B/C or Reject).',
+      );
+    }
+
+    if (marbleVariety.trim().isEmpty) {
+      throw const ProductionBatchException('Marble variety is required.');
+    }
+
+    final inventoryChanged = existing.materialConsumed != materialConsumed ||
+        existing.productType != productType ||
+        existing.marbleVariety != marbleVariety.trim() ||
+        existing.gradeASqFt != gradeASqFt ||
+        existing.gradeBSqFt != gradeBSqFt ||
+        existing.gradeCSqFt != gradeCSqFt ||
+        existing.rejectSqFt != rejectSqFt ||
+        existing.size != (size?.trim().isEmpty ?? true ? null : size?.trim()) ||
+        existing.thickness !=
+            (thickness?.trim().isEmpty ?? true ? null : thickness?.trim());
+
+    if (inventoryFieldsLocked && inventoryChanged) {
+      throw const ProductionBatchException(
+        'Output and material fields cannot be changed after QC inspection.',
+      );
+    }
+
+    final materialDoc = await _materialsCollection.doc(existing.rawMaterialId).get();
+    if (!materialDoc.exists || materialDoc.data() == null) {
+      throw const ProductionBatchException('Raw material record not found.');
+    }
+
+    final material = RawMaterialModel.fromFirestore(
+      materialDoc.id,
+      materialDoc.data()!,
+    ).toEntity();
+
+    final materialDelta = materialConsumed - existing.materialConsumed;
+    if (materialDelta > 0) {
+      _stockService.validateStockOut(
+        currentStock: material.currentStock,
+        quantity: materialDelta,
+      );
+    }
+
+    final updatedMaterial = material.copyWith(
+      currentStock: material.currentStock - materialDelta,
+    );
+    final materialCost = material.averageCost * materialConsumed;
+
+    final updatedBatch = ProductionBatch(
+      id: existing.id,
+      batchNumber: existing.batchNumber,
+      factoryId: existing.factoryId,
+      productionDate: productionDate,
+      shift: shift,
+      rawMaterialType: existing.rawMaterialType,
+      rawMaterialId: existing.rawMaterialId,
+      materialConsumed: materialConsumed,
+      productType: productType,
+      marbleVariety: marbleVariety.trim(),
+      thickness: thickness?.trim().isEmpty ?? true ? null : thickness?.trim(),
+      size: size?.trim().isEmpty ?? true ? null : size?.trim(),
+      gradeASqFt: gradeASqFt,
+      gradeBSqFt: gradeBSqFt,
+      gradeCSqFt: gradeCSqFt,
+      rejectSqFt: rejectSqFt,
+      wasteTons: wasteTons,
+      supervisorName:
+          supervisorName?.trim().isEmpty ?? true ? null : supervisorName?.trim(),
+      notes: notes?.trim().isEmpty ?? true ? null : notes?.trim(),
+      stockTransactionId: existing.stockTransactionId,
+      materialCost: materialCost,
+      createdAt: existing.createdAt,
+      updatedAt: DateTime.now(),
+    );
+
+    final writeBatch = _firestore.batch();
+
+    writeBatch.update(
+      _materialsCollection.doc(material.id),
+      RawMaterialModel.fromEntity(updatedMaterial).toFirestore(),
+    );
+
+    if (existing.stockTransactionId != null &&
+        existing.stockTransactionId!.isNotEmpty) {
+      final transactionDoc =
+          await _transactionsCollection.doc(existing.stockTransactionId!).get();
+      if (transactionDoc.exists && transactionDoc.data() != null) {
+        writeBatch.update(
+          transactionDoc.reference,
+          {
+            'quantity': materialConsumed,
+            'transactionDate': Timestamp.fromDate(productionDate),
+            'notes': 'Production batch ${existing.batchNumber}',
+          },
+        );
+      }
+    }
+
+    if (inventoryChanged && _finishedGoodsRepository != null) {
+      try {
+        await _finishedGoodsRepository.reverseProductionBatchReceipts(
+          writeBatch: writeBatch,
+          productionBatchId: existing.id,
+        );
+        await _finishedGoodsRepository.receiveFromProductionBatch(
+          writeBatch: writeBatch,
+          batch: updatedBatch,
+        );
+      } on FinishedGoodsStockException catch (error) {
+        throw ProductionBatchException(error.message);
+      }
+    }
+
+    writeBatch.update(
+      _batchesCollection.doc(existing.id),
+      ProductionBatchModel.fromEntity(updatedBatch).toFirestore(),
+    );
+
+    await writeBatch.commit();
+
+    return updatedBatch;
   }
 
   Future<String> _generateBatchNumber({required String factoryId}) async {

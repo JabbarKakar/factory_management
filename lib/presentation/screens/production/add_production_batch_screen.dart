@@ -8,6 +8,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/marble_data.dart';
 import '../../../core/di/injection.dart';
 import '../../../data/repositories/raw_material_repository.dart';
+import '../../../domain/entities/production_batch.dart';
 import '../../../domain/entities/raw_material.dart';
 import '../../../domain/enums/production_enums.dart';
 import '../../../domain/enums/raw_material_enums.dart';
@@ -16,7 +17,9 @@ import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 
 class AddProductionBatchScreen extends StatefulWidget {
-  const AddProductionBatchScreen({super.key});
+  const AddProductionBatchScreen({this.batchId, super.key});
+
+  final String? batchId;
 
   @override
   State<AddProductionBatchScreen> createState() =>
@@ -45,6 +48,9 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
   String? _thickness;
   String? _size;
   double? _availableStock;
+  bool _populatedFromEdit = false;
+
+  bool get _isEditing => widget.batchId != null;
 
   bool get _isCustomVariety => _marbleVariety == 'Custom';
 
@@ -89,6 +95,39 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
   }
 
   double _parse(String value) => double.tryParse(value.trim()) ?? 0;
+
+  String _formatNum(double value) {
+    if (value == 0) return '';
+    return value.toStringAsFixed(value == value.roundToDouble() ? 0 : 2);
+  }
+
+  void _populateFromBatch(ProductionBatch batch) {
+    if (_populatedFromEdit) return;
+    _populatedFromEdit = true;
+
+    _productionDate = batch.productionDate;
+    _shift = batch.shift;
+    _rawMaterialType = batch.rawMaterialType;
+    _productType = batch.productType;
+    if (MarbleData.varieties.contains(batch.marbleVariety)) {
+      _marbleVariety = batch.marbleVariety;
+    } else {
+      _marbleVariety = 'Custom';
+      _customVarietyController.text = batch.marbleVariety;
+    }
+    _thickness = batch.thickness;
+    _size = batch.size;
+    _materialConsumedController.text = _formatNum(batch.materialConsumed);
+    _gradeAController.text = _formatNum(batch.gradeASqFt);
+    _gradeBController.text = _formatNum(batch.gradeBSqFt);
+    _gradeCController.text = _formatNum(batch.gradeCSqFt);
+    _rejectController.text = _formatNum(batch.rejectSqFt);
+    if (batch.wasteTons != null && batch.wasteTons! > 0) {
+      _wasteController.text = _formatNum(batch.wasteTons!);
+    }
+    _supervisorController.text = batch.supervisorName ?? '';
+    _notesController.text = batch.notes ?? '';
+  }
 
   double get _totalUsable =>
       _parse(_gradeAController.text) +
@@ -163,7 +202,13 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
       listener: (context, state) {
         if (state.status == ProductionFormStatus.saved) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(AppStrings.productionBatchSaved)),
+            SnackBar(
+              content: Text(
+                state.isEditing
+                    ? AppStrings.productionBatchUpdated
+                    : AppStrings.productionBatchSaved,
+              ),
+            ),
           );
           context.pop(true);
         }
@@ -173,14 +218,53 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
             SnackBar(content: Text(state.errorMessage!)),
           );
         }
+        if (state.status == ProductionFormStatus.ready &&
+            state.isEditing &&
+            state.batch != null) {
+          _populateFromBatch(state.batch!);
+          setState(() {});
+        }
       },
       builder: (context, state) {
+        if (state.status == ProductionFormStatus.loading ||
+            (state.status == ProductionFormStatus.initial && _isEditing)) {
+          return Scaffold(
+            appBar: AppBar(
+              title: AppFormAppBarTitle(
+                title: _isEditing
+                    ? AppStrings.editProductionBatch
+                    : AppStrings.recordProduction,
+                subtitle: AppStrings.recordProduction,
+              ),
+            ),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (state.status == ProductionFormStatus.failure && state.batch == null) {
+          return Scaffold(
+            appBar: AppBar(
+              title: AppFormAppBarTitle(
+                title: AppStrings.editProductionBatch,
+                subtitle: AppStrings.recordProduction,
+              ),
+            ),
+            body: Center(
+              child: Text(state.errorMessage ?? 'Could not load production batch.'),
+            ),
+          );
+        }
+
         final isSaving = state.status == ProductionFormStatus.saving;
+        final inventoryLocked = state.inventoryFieldsLocked;
+        final editingBatch = state.batch;
 
         return Scaffold(
           appBar: AppBar(
             title: AppFormAppBarTitle(
-              title: AppStrings.recordProduction,
+              title: state.isEditing
+                  ? AppStrings.editProductionBatch
+                  : AppStrings.recordProduction,
               subtitle:
                   '${DateFormat.yMMMd().format(_productionDate)} · ${_shift.label}',
             ),
@@ -190,6 +274,19 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
             child: ListView(
               padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
+                if (inventoryLocked) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Text(
+                      AppStrings.productionBatchLockedByQc,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontSize: 11,
+                            height: 1.35,
+                          ),
+                    ),
+                  ),
+                ],
                 JobWorkDetailSection(
                   title: AppStrings.batchInformation,
                   icon: Icons.info_outline,
@@ -219,7 +316,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: isSaving
+                        onChanged: isSaving || inventoryLocked
                             ? null
                             : (value) {
                                 if (value != null) {
@@ -236,7 +333,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                           label: AppStrings.supervisorName,
                         ),
                         textCapitalization: TextCapitalization.words,
-                        enabled: !isSaving,
+                        enabled: !isSaving && !inventoryLocked,
                       ),
                     ],
                   ),
@@ -256,16 +353,31 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                           stream: getIt<RawMaterialRepository>()
                               .watchMaterials(factoryId),
                           builder: (context, snapshot) {
-                            final materials = (snapshot.data ?? const [])
-                                .where((material) => material.currentStock > 0)
-                                .toList();
+                            final allMaterials = snapshot.data ?? const [];
+                            final materials = state.isEditing
+                                ? allMaterials
+                                    .where(
+                                      (material) =>
+                                          material.currentStock > 0 ||
+                                          material.materialType ==
+                                              _rawMaterialType,
+                                    )
+                                    .toList()
+                                : allMaterials
+                                    .where((material) => material.currentStock > 0)
+                                    .toList();
                             final selectedMaterial =
-                                _materialForType(materials);
+                                _materialForType(allMaterials);
                             final availableStock =
                                 selectedMaterial?.currentStock ??
                                     _availableStock;
                             final stockUnit = selectedMaterial?.unit ??
                                 _rawMaterialType?.unit;
+
+                            final returnedStock = editingBatch?.materialConsumed ?? 0;
+                            final effectiveAvailable = availableStock == null
+                                ? null
+                                : availableStock + returnedStock;
 
                             return Column(
                               children: [
@@ -297,7 +409,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                                       ),
                                     ),
                                   ],
-                                  onChanged: isSaving
+                                  onChanged: isSaving || state.isEditing
                                       ? null
                                       : (value) {
                                           RawMaterial? material;
@@ -342,10 +454,10 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                                         : '${AppStrings.quantityConsumed} '
                                             '(${_rawMaterialType!.unit.label})',
                                   ).copyWith(
-                                    helperText: availableStock != null &&
+                                    helperText: effectiveAvailable != null &&
                                             stockUnit != null
                                         ? '${AppStrings.availableInStock}: '
-                                            '${_formatQuantity(availableStock)} '
+                                            '${_formatQuantity(effectiveAvailable)} '
                                             '${stockUnit.label}'
                                         : null,
                                     helperStyle: Theme.of(context)
@@ -356,7 +468,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                                       const TextInputType.numberWithOptions(
                                     decimal: true,
                                   ),
-                                  enabled: !isSaving,
+                                  enabled: !isSaving && !inventoryLocked,
                                   validator: (value) {
                                     if (value == null || value.trim().isEmpty) {
                                       return 'Quantity is required';
@@ -366,8 +478,8 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                                     if (quantity == null || quantity <= 0) {
                                       return 'Enter a valid quantity';
                                     }
-                                    if (availableStock != null &&
-                                        quantity > availableStock) {
+                                    if (effectiveAvailable != null &&
+                                        quantity > effectiveAvailable) {
                                       return AppStrings.quantityExceedsStock;
                                     }
                                     return null;
@@ -403,7 +515,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: isSaving
+                        onChanged: isSaving || inventoryLocked
                             ? null
                             : (value) {
                                 if (value != null) {
@@ -430,7 +542,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: isSaving
+                        onChanged: isSaving || inventoryLocked
                             ? null
                             : (value) {
                                 if (value != null) {
@@ -453,7 +565,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                             label: AppStrings.customMarbleVarietyName,
                           ),
                           textCapitalization: TextCapitalization.words,
-                          enabled: !isSaving,
+                          enabled: !isSaving && !inventoryLocked,
                           validator: (value) {
                             if (!_isCustomVariety) return null;
                             if (value == null || value.trim().isEmpty) {
@@ -532,28 +644,28 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                       _GradeField(
                         controller: _gradeAController,
                         label: AppStrings.productionGradeA,
-                        enabled: !isSaving,
+                        enabled: !isSaving && !inventoryLocked,
                         onChanged: (_) => setState(() {}),
                       ),
                       AppFormFields.gap,
                       _GradeField(
                         controller: _gradeBController,
                         label: AppStrings.productionGradeB,
-                        enabled: !isSaving,
+                        enabled: !isSaving && !inventoryLocked,
                         onChanged: (_) => setState(() {}),
                       ),
                       AppFormFields.gap,
                       _GradeField(
                         controller: _gradeCController,
                         label: AppStrings.productionGradeC,
-                        enabled: !isSaving,
+                        enabled: !isSaving && !inventoryLocked,
                         onChanged: (_) => setState(() {}),
                       ),
                       AppFormFields.gap,
                       _GradeField(
                         controller: _rejectController,
                         label: AppStrings.productionReject,
-                        enabled: !isSaving,
+                        enabled: !isSaving && !inventoryLocked,
                         onChanged: (_) => setState(() {}),
                       ),
                       if (_totalOutput <= 0) ...[
@@ -588,7 +700,7 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        enabled: !isSaving,
+                        enabled: !isSaving && !inventoryLocked,
                       ),
                     ],
                   ),
@@ -607,13 +719,15 @@ class _AddProductionBatchScreenState extends State<AddProductionBatchScreen> {
                         ),
                         maxLines: 3,
                         textCapitalization: TextCapitalization.sentences,
-                        enabled: !isSaving,
+                        enabled: !isSaving && !inventoryLocked,
                       ),
                     ],
                   ),
                 ),
                 AppFormSubmitBar(
-                  label: AppStrings.saveProductionBatch,
+                  label: state.isEditing
+                      ? AppStrings.saveChanges
+                      : AppStrings.saveProductionBatch,
                   isLoading: isSaving,
                   onPressed: isSaving ? null : () => _submit(context),
                 ),

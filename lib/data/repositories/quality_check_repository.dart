@@ -95,6 +95,50 @@ class QualityCheckRepository {
     return orders.where(_isJobWorkQcEligible).toList();
   }
 
+  Future<ProductionBatch?> getProductionBatchReference(String id) =>
+      _productionRepository.getBatch(id);
+
+  Future<JobWorkOrder?> getJobWorkReference(String id) =>
+      _jobWorkRepository.getJobWorkOrder(id);
+
+  Future<bool> hasQualityChecksForReference({
+    required QcReferenceType referenceType,
+    required String referenceId,
+  }) async {
+    final snapshot = await _collection
+        .where('referenceId', isEqualTo: referenceId)
+        .where('referenceType', isEqualTo: referenceType.firestoreValue)
+        .limit(1)
+        .get();
+    return snapshot.docs.isNotEmpty;
+  }
+
+  Future<QualityCheck> updateQualityCheck(QualityCheck check) async {
+    if (check.inspectorName.trim().isEmpty) {
+      throw const QualityCheckException('Inspector name is required.');
+    }
+    if (check.quantityInspected <= 0) {
+      throw const QualityCheckException('Quantity inspected must be greater than 0.');
+    }
+
+    final gradedTotal = check.totalGradedSqFt;
+    if (gradedTotal > check.quantityInspected) {
+      throw const QualityCheckException(
+        'Graded quantities cannot exceed quantity inspected.',
+      );
+    }
+    if (gradedTotal <= 0) {
+      throw const QualityCheckException('Enter at least one grade quantity.');
+    }
+
+    final model = QualityCheckModel.fromEntity(
+      check.copyWith(updatedAt: DateTime.now()),
+    );
+    await _collection.doc(check.id).update(model.toFirestore());
+    final updated = await getQualityCheck(check.id);
+    return updated ?? model.toEntity();
+  }
+
   Future<QualityCheck> createQualityCheck(QualityCheck check) async {
     if (check.inspectorName.trim().isEmpty) {
       throw const QualityCheckException('Inspector name is required.');

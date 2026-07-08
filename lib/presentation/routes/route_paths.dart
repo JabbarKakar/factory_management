@@ -125,6 +125,8 @@ abstract final class RoutePaths {
 
   static String productionDetail(String id) => '/production/$id';
 
+  static String productionEdit(String id) => '/production/$id/edit';
+
   static String productionList({ProductionListFilter? filter}) {
     if (filter == null || filter == ProductionListFilter.all) {
       return production;
@@ -203,6 +205,8 @@ abstract final class RoutePaths {
   static const String qualityChecksAdd = '/quality-checks/add';
 
   static String qualityCheckDetail(String id) => '/quality-checks/$id';
+
+  static String qualityCheckEdit(String id) => '/quality-checks/$id/edit';
 
   static String qualityChecksAddForReference({
     required QcReferenceType refType,

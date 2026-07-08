@@ -22,6 +22,15 @@ final class QcFormInitialized extends QcFormEvent {
   List<Object?> get props => [factoryId, referenceType, referenceId];
 }
 
+final class QcFormLoadRequested extends QcFormEvent {
+  const QcFormLoadRequested(this.qcId);
+
+  final String qcId;
+
+  @override
+  List<Object?> get props => [qcId];
+}
+
 final class QcFormReferenceTypeChanged extends QcFormEvent {
   const QcFormReferenceTypeChanged(this.referenceType);
 

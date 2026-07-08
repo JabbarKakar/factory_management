@@ -96,6 +96,53 @@ class FinishedGoodsRepository {
     return FinishedGoodModel.fromFirestore(doc.id, doc.data()).toEntity();
   }
 
+  Future<void> reverseProductionBatchReceipts({
+    required WriteBatch writeBatch,
+    required String productionBatchId,
+  }) async {
+    final snapshot = await _transactionsCollection
+        .where('productionBatchId', isEqualTo: productionBatchId)
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final transaction = InventoryTransactionModel.fromFirestore(
+        doc.id,
+        doc.data(),
+      ).toEntity();
+
+      final goodDoc = await _goodsCollection.doc(transaction.finishedGoodId).get();
+      if (!goodDoc.exists || goodDoc.data() == null) {
+        writeBatch.delete(doc.reference);
+        continue;
+      }
+
+      final good = FinishedGoodModel.fromFirestore(
+        goodDoc.id,
+        goodDoc.data()!,
+      ).toEntity();
+      final newQuantity = good.currentQuantity - transaction.quantity;
+      if (newQuantity < -0.001) {
+        throw FinishedGoodsStockException(
+          'Cannot update batch: ${good.displaySubtitle} stock was already used '
+          '(${good.currentQuantity.toStringAsFixed(2)} sq. ft available).',
+        );
+      }
+
+      if (newQuantity <= 0.001) {
+        writeBatch.delete(goodDoc.reference);
+      } else {
+        writeBatch.update(
+          goodDoc.reference,
+          FinishedGoodModel.fromEntity(
+            good.copyWith(currentQuantity: newQuantity),
+          ).toFirestore(),
+        );
+      }
+
+      writeBatch.delete(doc.reference);
+    }
+  }
+
   Future<void> receiveFromProductionBatch({
     required WriteBatch writeBatch,
     required ProductionBatch batch,
