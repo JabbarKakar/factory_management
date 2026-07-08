@@ -104,7 +104,10 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
       );
 
       _deliveriesSubscription = _deliveryRepository
-          .watchDeliveriesForSalesOrder(event.salesOrderId)
+          .watchDeliveriesForSalesOrder(
+            factoryId: order.factoryId,
+            salesOrderId: event.salesOrderId,
+          )
           .listen(
             (deliveries) => add(_SalesOrderDeliveriesUpdated(deliveries)),
           );

@@ -59,8 +59,12 @@ class DeliveryRepository {
     return DeliveryModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
-  Stream<List<Delivery>> watchDeliveriesForSalesOrder(String salesOrderId) {
+  Stream<List<Delivery>> watchDeliveriesForSalesOrder({
+    required String factoryId,
+    required String salesOrderId,
+  }) {
     return _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('salesOrderId', isEqualTo: salesOrderId)
         .snapshots()
         .map(
@@ -75,9 +79,14 @@ class DeliveryRepository {
     );
   }
 
-  Future<List<Delivery>> fetchDeliveriesForSalesOrder(String salesOrderId) async {
-    final snapshot =
-        await _collection.where('salesOrderId', isEqualTo: salesOrderId).get();
+  Future<List<Delivery>> fetchDeliveriesForSalesOrder({
+    required String factoryId,
+    required String salesOrderId,
+  }) async {
+    final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('salesOrderId', isEqualTo: salesOrderId)
+        .get();
     final deliveries = snapshot.docs
         .map((doc) => DeliveryModel.fromFirestore(doc.id, doc.data()))
         .map((model) => model.toEntity())
@@ -143,8 +152,10 @@ class DeliveryRepository {
       throw const DeliveryException('Delivery address is required.');
     }
 
-    final existingDeliveries =
-        await fetchDeliveriesForSalesOrder(delivery.salesOrderId);
+    final existingDeliveries = await fetchDeliveriesForSalesOrder(
+      factoryId: delivery.factoryId,
+      salesOrderId: delivery.salesOrderId,
+    );
     _validateLineQuantities(
       order: order,
       lineItems: delivery.lineItems,
@@ -212,8 +223,10 @@ class DeliveryRepository {
         }
       }
 
-      final existingDeliveries =
-          await fetchDeliveriesForSalesOrder(existing.salesOrderId);
+      final existingDeliveries = await fetchDeliveriesForSalesOrder(
+        factoryId: existing.factoryId,
+        salesOrderId: existing.salesOrderId,
+      );
       _validateLineQuantities(
         order: order,
         lineItems: effectiveLineItems,

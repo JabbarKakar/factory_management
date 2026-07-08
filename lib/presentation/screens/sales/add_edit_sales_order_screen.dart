@@ -11,12 +11,10 @@ import '../../../core/constants/marble_data.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/customer.dart';
 import '../../../domain/entities/sales_order.dart';
-import '../../../domain/entities/stock_output.dart';
 import '../../../domain/enums/customer_enums.dart';
 import '../../../domain/enums/sales_enums.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
-import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/sales/sales_stock_form_controller.dart';
 import '../../widgets/sales/sales_stock_recording_panel.dart';
 
@@ -86,6 +84,12 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
 
   double get _subtotal =>
       _lineItems.fold<double>(0, (sum, item) => sum + item.lineTotal);
+
+  int get _totalPieces =>
+      _lineItems.fold<int>(0, (sum, item) => sum + item.totalPieces);
+
+  double get _totalSquareFeet =>
+      _lineItems.fold<double>(0, (sum, item) => sum + item.totalSquareFeet);
 
   double get _advance =>
       double.tryParse(_advanceController.text.trim()) ?? 0;
@@ -369,7 +373,14 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
                                   })
                               : null,
                         ),
-                        if (i < _lineItems.length - 1) AppFormFields.gap,
+                        if (i < _lineItems.length - 1)
+                          Divider(
+                            height: 1,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withValues(alpha: 0.18),
+                          ),
                       ],
                       if (canEdit) ...[
                         AppFormFields.gap,
@@ -391,32 +402,22 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
                 ),
                 JobWorkDetailSection(
                   title: AppStrings.salesOrderTotals,
+                  icon: Icons.summarize_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      SalesOrderStockTotalsCard(
+                        totalPieces: _totalPieces,
+                        totalSquareFeet: _totalSquareFeet,
+                        grandTotal: _grandTotal,
+                      ),
+                    ],
+                  ),
+                ),
+                JobWorkDetailSection(
+                  title: AppStrings.paymentTerms,
                   icon: Icons.payments_outlined,
                   child: AppFormSectionBody(
                     children: [
-                      if (_lineItems.any((item) => item.hasContent)) ...[
-                        for (final item in _lineItems.where((i) => i.hasContent))
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: AppFormSummaryRow(
-                              label:
-                                  '${item.productType.label} — ${item.marbleVariety}',
-                              value: Formatters.currencyPkr(item.lineTotal),
-                            ),
-                          ),
-                        AppFormFields.gap,
-                        StockOutputReadOnlyPanel(
-                          smallOutputs: _aggregateSmallOutputs(),
-                          largeOutputs: _aggregateLargeOutputs(),
-                        ),
-                        AppFormFields.gap,
-                      ],
-                      AppFormSummaryRow(
-                        label: AppStrings.grandTotal,
-                        value: Formatters.currencyPkr(_grandTotal),
-                        highlight: true,
-                      ),
-                      AppFormFields.gap,
                       DropdownButtonFormField<PaymentTerms>(
                         key: ValueKey(_paymentTerms),
                         initialValue: _paymentTerms,
@@ -512,22 +513,6 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
       },
     );
   }
-
-  List<StockOutput> _aggregateSmallOutputs() {
-    final outputs = <StockOutput>[];
-    for (final item in _lineItems) {
-      outputs.addAll(item.stockController.activeSmallOutputs);
-    }
-    return outputs;
-  }
-
-  List<StockOutput> _aggregateLargeOutputs() {
-    final outputs = <StockOutput>[];
-    for (final item in _lineItems) {
-      outputs.addAll(item.stockController.activeLargeOutputs);
-    }
-    return outputs;
-  }
 }
 
 class _LineItemEditor extends StatelessWidget {
@@ -548,170 +533,175 @@ class _LineItemEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final outline =
-        theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.4);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final summary = draft.marbleVariety.isNotEmpty
+        ? '${draft.productType.label} — ${draft.marbleVariety}'
+        : null;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: isDark
-            ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.25)
-            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: outline),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Theme(
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: !draft.hasContent,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+        childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+        title: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${AppStrings.lineItem} ${index + 1}',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
+            Expanded(
+              child: Text(
+                '${AppStrings.lineItem} ${index + 1}',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
                 ),
-                if (draft.hasContent)
-                  Text(
-                    Formatters.currencyPkr(draft.lineTotal),
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.primary,
-                      fontSize: 11,
-                    ),
-                  ),
-                if (onRemove != null)
-                  IconButton(
-                    onPressed: enabled ? onRemove : null,
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<SalesProductType>(
-              key: ValueKey('${index}_${draft.productType}'),
-              initialValue: draft.productType,
-              style: AppFormFields.valueStyle(context),
-              decoration: AppFormFields.decoration(
-                context,
-                label: AppStrings.productType,
               ),
-              items: SalesProductType.values
-                  .map(
-                    (type) => DropdownMenuItem(
-                      value: type,
-                      child: Text(
-                        type.label,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: enabled
-                  ? (value) {
-                      if (value != null) {
-                        draft.productType = value;
-                        onChanged();
-                      }
-                    }
-                  : null,
             ),
-            AppFormFields.gap,
-            DropdownButtonFormField<String>(
-              key: ValueKey('${index}_${draft.marbleVariety}'),
-              initialValue: _resolveMarbleVariety(draft.marbleVariety),
-              style: AppFormFields.valueStyle(context),
-              decoration: AppFormFields.decoration(
-                context,
-                label: AppStrings.marbleVariety,
+            if (draft.hasContent)
+              Text(
+                Formatters.currencyPkr(draft.lineTotal),
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.primary,
+                  fontSize: 11,
+                ),
               ),
-              items: _marbleVarietyItems(draft.marbleVariety)
-                  .map(
-                    (variety) => DropdownMenuItem(
-                      value: variety,
-                      child: Text(
-                        variety,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: enabled
-                  ? (value) {
-                      if (value != null) {
-                        draft.marbleVariety = value;
-                        onChanged();
-                      }
-                    }
-                  : null,
-            ),
-            AppFormFields.gap,
-            TextFormField(
-              controller: draft.stockController.smallPriceController,
-              enabled: enabled,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-              style: AppFormFields.valueStyle(context),
-              decoration: AppFormFields.decoration(
-                context,
-                label: AppStrings.smallStockPrice,
+            if (onRemove != null)
+              IconButton(
+                onPressed: enabled ? onRemove : null,
+                icon: const Icon(Icons.delete_outline, size: 20),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 32,
+                  minHeight: 32,
+                ),
               ),
-              onChanged: (_) => onChanged(),
-              validator: (value) {
-                if (!draft.stockController.hasSmallSqFtEntry) return null;
-                final parsed = double.tryParse(value?.trim() ?? '');
-                if (parsed == null || parsed <= 0) {
-                  return AppStrings.smallStockPriceRequired;
-                }
-                return null;
-              },
-            ),
-            AppFormFields.gap,
-            TextFormField(
-              controller: draft.stockController.largePriceController,
-              enabled: enabled,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-              style: AppFormFields.valueStyle(context),
-              decoration: AppFormFields.decoration(
-                context,
-                label: AppStrings.largeStockPrice,
-              ),
-              onChanged: (_) => onChanged(),
-              validator: (value) {
-                if (!draft.stockController.hasLargeSqFtEntry) return null;
-                final parsed = double.tryParse(value?.trim() ?? '');
-                if (parsed == null || parsed <= 0) {
-                  return AppStrings.largeStockPriceRequired;
-                }
-                return null;
-              },
-            ),
-            AppFormFields.gap,
-            SalesStockRecordingPanel(
-              controller: draft.stockController,
-              enabled: enabled,
-              onChanged: onChanged,
-            ),
           ],
         ),
+        subtitle: summary != null
+            ? Text(
+                '${draft.totalPieces} pcs · '
+                '${draft.totalSquareFeet.toStringAsFixed(2)} sq. ft · '
+                '$summary',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 11,
+                  color: muted,
+                  height: 1.35,
+                ),
+              )
+            : null,
+        children: [
+          DropdownButtonFormField<SalesProductType>(
+            key: ValueKey('${index}_${draft.productType}'),
+            initialValue: draft.productType,
+            style: AppFormFields.valueStyle(context),
+            decoration: AppFormFields.decoration(
+              context,
+              label: AppStrings.productType,
+            ),
+            items: SalesProductType.values
+                .map(
+                  (type) => DropdownMenuItem(
+                    value: type,
+                    child: Text(
+                      type.label,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: enabled
+                ? (value) {
+                    if (value != null) {
+                      draft.productType = value;
+                      onChanged();
+                    }
+                  }
+                : null,
+          ),
+          AppFormFields.gap,
+          DropdownButtonFormField<String>(
+            key: ValueKey('${index}_${draft.marbleVariety}'),
+            initialValue: _resolveMarbleVariety(draft.marbleVariety),
+            style: AppFormFields.valueStyle(context),
+            decoration: AppFormFields.decoration(
+              context,
+              label: AppStrings.marbleVariety,
+            ),
+            items: _marbleVarietyItems(draft.marbleVariety)
+                .map(
+                  (variety) => DropdownMenuItem(
+                    value: variety,
+                    child: Text(
+                      variety,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: enabled
+                ? (value) {
+                    if (value != null) {
+                      draft.marbleVariety = value;
+                      onChanged();
+                    }
+                  }
+                : null,
+          ),
+          AppFormFields.gap,
+          TextFormField(
+            controller: draft.stockController.smallPriceController,
+            enabled: enabled,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+            style: AppFormFields.valueStyle(context),
+            decoration: AppFormFields.decoration(
+              context,
+              label: AppStrings.smallStockPrice,
+            ),
+            onChanged: (_) => onChanged(),
+            validator: (value) {
+              if (!draft.stockController.hasSmallSqFtEntry) return null;
+              final parsed = double.tryParse(value?.trim() ?? '');
+              if (parsed == null || parsed <= 0) {
+                return AppStrings.smallStockPriceRequired;
+              }
+              return null;
+            },
+          ),
+          AppFormFields.gap,
+          TextFormField(
+            controller: draft.stockController.largePriceController,
+            enabled: enabled,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+            style: AppFormFields.valueStyle(context),
+            decoration: AppFormFields.decoration(
+              context,
+              label: AppStrings.largeStockPrice,
+            ),
+            onChanged: (_) => onChanged(),
+            validator: (value) {
+              if (!draft.stockController.hasLargeSqFtEntry) return null;
+              final parsed = double.tryParse(value?.trim() ?? '');
+              if (parsed == null || parsed <= 0) {
+                return AppStrings.largeStockPriceRequired;
+              }
+              return null;
+            },
+          ),
+          AppFormFields.gap,
+          SalesStockRecordingPanel(
+            controller: draft.stockController,
+            enabled: enabled,
+            onChanged: onChanged,
+          ),
+        ],
       ),
     );
   }
@@ -747,6 +737,10 @@ class _LineItemDraft {
   bool get hasContent => stockController.hasContent;
 
   double get lineTotal => stockController.grandTotal;
+
+  int get totalPieces => stockController.totalPieces;
+
+  double get totalSquareFeet => stockController.totalSquareFeet;
 
   SalesOrderLineItem toEntity() {
     return SalesOrderLineItem(

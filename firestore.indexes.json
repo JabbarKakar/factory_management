@@ -73,6 +73,14 @@
       ]
     },
     {
+      "collectionGroup": "deliveries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "salesOrderId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "attendanceRecords",
       "queryScope": "COLLECTION",
       "fields": [

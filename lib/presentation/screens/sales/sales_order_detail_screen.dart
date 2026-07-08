@@ -9,7 +9,6 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/delivery.dart';
 import '../../../domain/entities/sales_order.dart';
-import '../../../domain/entities/stock_output.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/delivery_enums.dart';
 import '../../../domain/enums/sales_enums.dart';
@@ -43,6 +42,15 @@ class SalesOrderDetailScreen extends StatelessWidget {
       RoutePaths.salesRecordPayment(invoiceId),
     );
     if (recorded == true && context.mounted) {
+      context
+          .read<SalesOrderFormBloc>()
+          .add(SalesOrderFormLoadRequested(salesOrderId));
+    }
+  }
+
+  Future<void> _openEdit(BuildContext context) async {
+    final saved = await context.push<bool>(RoutePaths.salesEdit(salesOrderId));
+    if (saved == true && context.mounted) {
       context
           .read<SalesOrderFormBloc>()
           .add(SalesOrderFormLoadRequested(salesOrderId));
@@ -160,9 +168,7 @@ class SalesOrderDetailScreen extends StatelessWidget {
             actions: [
               if (canEdit)
                 IconButton(
-                  onPressed: isSaving
-                      ? null
-                      : () => context.push(RoutePaths.salesEdit(order.id)),
+                  onPressed: isSaving ? null : () => _openEdit(context),
                   icon: const Icon(Icons.edit_outlined),
                   tooltip: AppStrings.editSalesOrder,
                 ),
@@ -202,20 +208,22 @@ class SalesOrderDetailScreen extends StatelessWidget {
                 title: AppStrings.lineItems,
                 icon: Icons.list_alt_outlined,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(0, 4, 0, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (var i = 0; i < order.lineItems.length; i++) ...[
-                        _SalesLineItemCard(item: order.lineItems[i]),
-                        if (i < order.lineItems.length - 1)
-                          const SizedBox(height: 12),
-                      ],
-                      if (order.lineItems.isNotEmpty) ...[
-                        const SizedBox(height: 14),
-                        StockOutputReadOnlyPanel(
-                          smallOutputs: _aggregateSmall(order.lineItems),
-                          largeOutputs: _aggregateLarge(order.lineItems),
+                        if (i > 0)
+                          Divider(
+                            height: 1,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withValues(alpha: 0.18),
+                          ),
+                        _SalesLineItemCard(
+                          item: order.lineItems[i],
+                          index: i,
                         ),
                       ],
                     ],
@@ -351,85 +359,63 @@ class SalesOrderDetailScreen extends StatelessWidget {
   }
 }
 
-List<StockOutput> _aggregateSmall(List<SalesOrderLineItem> items) {
-  final outputs = <StockOutput>[];
-  for (final item in items) {
-    outputs.addAll(item.activeSmallOutputs);
-  }
-  return outputs;
-}
-
-List<StockOutput> _aggregateLarge(List<SalesOrderLineItem> items) {
-  final outputs = <StockOutput>[];
-  for (final item in items) {
-    outputs.addAll(item.activeLargeOutputs);
-  }
-  return outputs;
-}
-
 class _SalesLineItemCard extends StatelessWidget {
-  const _SalesLineItemCard({required this.item});
+  const _SalesLineItemCard({
+    required this.item,
+    required this.index,
+  });
 
   final SalesOrderLineItem item;
+  final int index;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: theme.colorScheme.outline.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Theme(
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        title: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${item.productType.label} — ${item.marbleVariety}',
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
+            Expanded(
+              child: Text(
+                '${AppStrings.lineItem} ${index + 1}: '
+                '${item.productType.label} — ${item.marbleVariety}',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
                 ),
-                Text(
-                  Formatters.currencyPkr(item.lineTotal),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 4),
             Text(
-              '${item.totalPieces} pcs · '
-              '${item.totalSquareFeet.toStringAsFixed(2)} sq. ft',
-              style: theme.textTheme.bodySmall?.copyWith(
+              Formatters.currencyPkr(item.lineTotal),
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.primary,
                 fontSize: 11,
-                color: muted,
-                height: 1.35,
               ),
             ),
-            if (item.activeOutputs.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              StockOutputReadOnlyPanel(
-                smallOutputs: item.activeSmallOutputs,
-                largeOutputs: item.activeLargeOutputs,
-              ),
-            ],
           ],
         ),
+        subtitle: Text(
+          '${item.totalPieces} pcs · '
+          '${item.totalSquareFeet.toStringAsFixed(2)} sq. ft',
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 11,
+            color: muted,
+            height: 1.35,
+          ),
+        ),
+        children: [
+          if (item.activeOutputs.isNotEmpty)
+            StockOutputReadOnlyPanel(
+              smallOutputs: item.activeSmallOutputs,
+              largeOutputs: item.activeLargeOutputs,
+            ),
+        ],
       ),
     );
   }

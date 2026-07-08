@@ -187,8 +187,10 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
     DeliveryFormState current, {
     String? excludeDeliveryId,
   }) async {
-    final deliveries =
-        await _deliveryRepository.fetchDeliveriesForSalesOrder(order.id);
+    final deliveries = await _deliveryRepository.fetchDeliveriesForSalesOrder(
+      factoryId: order.factoryId,
+      salesOrderId: order.id,
+    );
     final remaining = DeliveryQuantityHelper.remainingLines(
       order,
       deliveries,

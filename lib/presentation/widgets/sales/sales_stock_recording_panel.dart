@@ -75,12 +75,6 @@ class _SalesStockRecordingPanelState extends State<SalesStockRecordingPanel> {
             totalPieces: controller.largeTotalPieces,
           ),
         ],
-        const SizedBox(height: 10),
-        _SalesGrandTotalsCard(
-          totalPieces: controller.totalPieces,
-          totalSquareFeet: controller.totalSquareFeet,
-          grandTotal: controller.grandTotal,
-        ),
       ],
     );
   }
@@ -565,11 +559,12 @@ class _SectionTotalsRow extends StatelessWidget {
   }
 }
 
-class _SalesGrandTotalsCard extends StatelessWidget {
-  const _SalesGrandTotalsCard({
+class SalesOrderStockTotalsCard extends StatelessWidget {
+  const SalesOrderStockTotalsCard({
     required this.totalPieces,
     required this.totalSquareFeet,
     required this.grandTotal,
+    super.key,
   });
 
   final int totalPieces;
