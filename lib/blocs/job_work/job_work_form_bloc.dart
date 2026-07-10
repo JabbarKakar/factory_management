@@ -5,12 +5,14 @@ import 'package:equatable/equatable.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../core/constants/marble_data.dart';
+import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
 import '../../domain/entities/customer.dart';
+import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
@@ -27,11 +29,13 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   JobWorkFormBloc({
     required JobWorkRepository repository,
     required JobWorkInvoiceRepository invoiceRepository,
+    required JobWorkCollectionRepository collectionRepository,
     required PaymentRepository paymentRepository,
     required QualityCheckRepository qualityCheckRepository,
     required OperationalAlertScannerService operationalAlertScannerService,
   })  : _repository = repository,
         _invoiceRepository = invoiceRepository,
+        _collectionRepository = collectionRepository,
         _paymentRepository = paymentRepository,
         _qualityCheckRepository = qualityCheckRepository,
         _operationalAlertScannerService = operationalAlertScannerService,
@@ -46,10 +50,12 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     on<_JobWorkInvoiceUpdated>(_onInvoiceUpdated);
     on<_JobWorkPaymentsUpdated>(_onPaymentsUpdated);
     on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
+    on<_JobWorkCollectionsUpdated>(_onCollectionsUpdated);
   }
 
   final JobWorkRepository _repository;
   final JobWorkInvoiceRepository _invoiceRepository;
+  final JobWorkCollectionRepository _collectionRepository;
   final PaymentRepository _paymentRepository;
   final QualityCheckRepository _qualityCheckRepository;
   final OperationalAlertScannerService _operationalAlertScannerService;
@@ -57,6 +63,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   StreamSubscription<JobWorkInvoice?>? _invoiceSubscription;
   StreamSubscription<List<Payment>>? _paymentsSubscription;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
+  StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
   String? _watchedInvoiceId;
 
   Future<void> _onInitialized(
@@ -103,6 +110,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         clearInvoice: true,
         qualityChecks: const [],
         payments: const [],
+        collections: const [],
       ),
     );
 
@@ -155,6 +163,16 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
           )
           .listen(
             (checks) => add(_JobWorkQualityChecksUpdated(checks)),
+          );
+
+      _collectionsSubscription = _collectionRepository
+          .watchCollectionsForJobWork(
+            factoryId: order.factoryId,
+            jobWorkOrderId: event.jobWorkId,
+          )
+          .listen(
+            (collections) => add(_JobWorkCollectionsUpdated(collections)),
+            onError: (_) {},
           );
     } catch (_) {
       emit(
@@ -239,6 +257,8 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     _orderSubscription = null;
     _invoiceSubscription = null;
     _paymentsSubscription = null;
+    await _collectionsSubscription?.cancel();
+    _collectionsSubscription = null;
     _watchedInvoiceId = null;
   }
 
@@ -247,6 +267,13 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     Emitter<JobWorkFormState> emit,
   ) {
     emit(state.copyWith(qualityChecks: event.checks));
+  }
+
+  void _onCollectionsUpdated(
+    _JobWorkCollectionsUpdated event,
+    Emitter<JobWorkFormState> emit,
+  ) {
+    emit(state.copyWith(collections: event.collections));
   }
 
   Future<void> _onSubmitted(
@@ -451,4 +478,13 @@ final class _JobWorkQualityChecksUpdated extends JobWorkFormEvent {
 
   @override
   List<Object?> get props => [checks];
+}
+
+final class _JobWorkCollectionsUpdated extends JobWorkFormEvent {
+  const _JobWorkCollectionsUpdated(this.collections);
+
+  final List<JobWorkCollection> collections;
+
+  @override
+  List<Object?> get props => [collections];
 }

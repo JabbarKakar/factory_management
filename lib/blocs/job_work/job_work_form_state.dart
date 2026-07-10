@@ -16,6 +16,7 @@ class JobWorkFormState extends Equatable {
     this.order,
     this.invoice,
     this.payments = const [],
+    this.collections = const [],
     this.eligibleCustomers = const [],
     this.qualityChecks = const [],
     this.errorMessage,
@@ -27,6 +28,7 @@ class JobWorkFormState extends Equatable {
   final JobWorkOrder? order;
   final JobWorkInvoice? invoice;
   final List<Payment> payments;
+  final List<JobWorkCollection> collections;
   final List<Customer> eligibleCustomers;
   final List<QualityCheck> qualityChecks;
   final String? errorMessage;
@@ -39,6 +41,7 @@ class JobWorkFormState extends Equatable {
     JobWorkInvoice? invoice,
     bool clearInvoice = false,
     List<Payment>? payments,
+    List<JobWorkCollection>? collections,
     List<Customer>? eligibleCustomers,
     List<QualityCheck>? qualityChecks,
     String? errorMessage,
@@ -51,6 +54,7 @@ class JobWorkFormState extends Equatable {
       order: order ?? this.order,
       invoice: clearInvoice ? null : (invoice ?? this.invoice),
       payments: payments ?? this.payments,
+      collections: collections ?? this.collections,
       eligibleCustomers: eligibleCustomers ?? this.eligibleCustomers,
       qualityChecks: qualityChecks ?? this.qualityChecks,
       errorMessage: clearMessages ? null : errorMessage,
@@ -65,6 +69,7 @@ class JobWorkFormState extends Equatable {
         order,
         invoice,
         payments,
+        collections,
         eligibleCustomers,
         qualityChecks,
         errorMessage,

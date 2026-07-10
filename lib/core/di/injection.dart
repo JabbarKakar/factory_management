@@ -4,6 +4,7 @@ import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
 import '../../blocs/dashboard/dashboard_bloc.dart';
+import '../../blocs/job_work/job_work_collection_form_bloc.dart';
 import '../../blocs/job_work/job_work_form_bloc.dart';
 import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
@@ -54,6 +55,7 @@ import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/employee_repository.dart';
 import '../../data/repositories/equipment_repository.dart';
 import '../../data/repositories/finished_goods_repository.dart';
+import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
@@ -100,6 +102,11 @@ void setupDependencies() {
   getIt.registerLazySingleton<ThemeRepository>(ThemeRepository.new);
   getIt.registerLazySingleton<CustomerRepository>(CustomerRepository.new);
   getIt.registerLazySingleton<JobWorkRepository>(JobWorkRepository.new);
+  getIt.registerLazySingleton<JobWorkCollectionRepository>(
+    () => JobWorkCollectionRepository(
+      jobWorkRepository: getIt<JobWorkRepository>(),
+    ),
+  );
   getIt.registerLazySingleton<SalesOrderRepository>(SalesOrderRepository.new);
   getIt.registerLazySingleton<JobWorkInvoiceRepository>(
     () => JobWorkInvoiceRepository(
@@ -320,6 +327,7 @@ void setupDependencies() {
     () => JobWorkFormBloc(
       repository: getIt<JobWorkRepository>(),
       invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      collectionRepository: getIt<JobWorkCollectionRepository>(),
       paymentRepository: getIt<PaymentRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
       operationalAlertScannerService: getIt<OperationalAlertScannerService>(),
@@ -327,6 +335,12 @@ void setupDependencies() {
   );
   getIt.registerFactory<JobWorkOutputBloc>(
     () => JobWorkOutputBloc(repository: getIt<JobWorkRepository>()),
+  );
+  getIt.registerFactory<JobWorkCollectionFormBloc>(
+    () => JobWorkCollectionFormBloc(
+      jobWorkRepository: getIt<JobWorkRepository>(),
+      collectionRepository: getIt<JobWorkCollectionRepository>(),
+    ),
   );
   getIt.registerFactory<JobWorkInvoiceBloc>(
     () => JobWorkInvoiceBloc(

@@ -15,6 +15,8 @@ class JobWorkDetailHero extends StatelessWidget {
     required this.onAdvanceStatus,
     required this.onAdvanceCompletion,
     required this.onRecordOutput,
+    this.canCollectMaterial = false,
+    this.onCollectMaterial,
     super.key,
   });
 
@@ -22,9 +24,11 @@ class JobWorkDetailHero extends StatelessWidget {
   final bool isSaving;
   final bool hasOutput;
   final bool canRecordOutput;
+  final bool canCollectMaterial;
   final ValueChanged<JobWorkStatus> onAdvanceStatus;
   final ValueChanged<JobWorkStatus> onAdvanceCompletion;
   final VoidCallback onRecordOutput;
+  final VoidCallback? onCollectMaterial;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +43,16 @@ class JobWorkDetailHero extends StatelessWidget {
     );
     final nextStatus = order.status.nextOperationalStatus;
     final nextCompletionStatus = order.status.nextCompletionStatus;
+    // Prefer qty-based Collect Material over one-shot mark when stock remains.
+    final showMarkCollected = nextCompletionStatus == JobWorkStatus.collected &&
+        !canCollectMaterial;
+    final showCloseOrder = nextCompletionStatus == JobWorkStatus.closed;
+    final hasActions = (order.status.canAdvanceOperationally &&
+            nextStatus != null) ||
+        showMarkCollected ||
+        showCloseOrder ||
+        canCollectMaterial ||
+        canRecordOutput;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
@@ -86,10 +100,7 @@ class JobWorkDetailHero extends StatelessWidget {
                           fontSize: 11,
                         ),
                       ),
-                      if ((order.status.canAdvanceOperationally &&
-                              nextStatus != null) ||
-                          nextCompletionStatus != null ||
-                          canRecordOutput) ...[
+                      if (hasActions) ...[
                         const SizedBox(height: 10),
                         Divider(
                           height: 1,
@@ -101,19 +112,49 @@ class JobWorkDetailHero extends StatelessWidget {
                           _ActionButton(
                             label: order.status.advanceActionLabel,
                             filled: false,
-                            onPressed:
-                                isSaving ? null : () => onAdvanceStatus(nextStatus),
+                            onPressed: isSaving
+                                ? null
+                                : () => onAdvanceStatus(nextStatus),
                           ),
-                        if (nextCompletionStatus != null) ...[
+                        if (canCollectMaterial) ...[
                           if (order.status.canAdvanceOperationally &&
                               nextStatus != null)
                             const SizedBox(height: 6),
                           _ActionButton(
-                            label: order.status.completionActionLabel,
+                            label: AppStrings.collectMaterial,
+                            filled: true,
+                            icon: Icons.handshake_outlined,
+                            onPressed: isSaving ? null : onCollectMaterial,
+                          ),
+                        ],
+                        if (showMarkCollected) ...[
+                          if ((order.status.canAdvanceOperationally &&
+                                  nextStatus != null) ||
+                              canCollectMaterial)
+                            const SizedBox(height: 6),
+                          _ActionButton(
+                            label: AppStrings.markMaterialCollected,
                             filled: true,
                             onPressed: isSaving
                                 ? null
-                                : () => onAdvanceCompletion(nextCompletionStatus),
+                                : () => onAdvanceCompletion(
+                                      JobWorkStatus.collected,
+                                    ),
+                          ),
+                        ],
+                        if (showCloseOrder) ...[
+                          if ((order.status.canAdvanceOperationally &&
+                                  nextStatus != null) ||
+                              canCollectMaterial ||
+                              showMarkCollected)
+                            const SizedBox(height: 6),
+                          _ActionButton(
+                            label: AppStrings.closeJobWorkOrder,
+                            filled: true,
+                            onPressed: isSaving
+                                ? null
+                                : () =>
+                                    onAdvanceCompletion(JobWorkStatus.closed),
                           ),
                         ],
                         if (canRecordOutput) ...[

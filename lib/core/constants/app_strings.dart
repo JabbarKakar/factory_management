@@ -234,6 +234,24 @@ abstract final class AppStrings {
   static const String collectedDate = 'Collected Date';
   static const String closedDate = 'Closed Date';
   static const String markMaterialCollected = 'Mark Material Collected';
+  static const String collectMaterial = 'Collect Material';
+  static const String confirmCollectMaterial = 'Confirm Collection';
+  static const String materialCollected = 'Material collection recorded';
+  static const String materialCollectionSummary = 'Material on Hand';
+  static const String collectionDetails = 'Collection Details';
+  static const String collectionDate = 'Collection Date';
+  static const String itemsToCollect = 'Items to Collect';
+  static const String collectTotals = 'Collecting';
+  static const String collectPiecesShort = 'Collect Pcs';
+  static const String collectSquareFeetShort = 'Collect Sq. Ft.';
+  static const String noRemainingStockToCollect =
+      'No remaining stock to collect. Record cutting output first, or all produced stock has already been collected.';
+  static const String enterCollectPieces =
+      'Enter pieces to collect for at least one size.';
+  static const String piecesCollected = 'Pieces Collected';
+  static const String squareFeetCollected = 'Sq. Ft. Collected';
+  static const String collectionHistory = 'Collection History';
+  static const String jobWorkOrderNotFound = 'Job work order not found';
   static const String closeJobWorkOrder = 'Close Order';
   static const String markCollectedTitle = 'Mark material collected?';
   static const String markCollectedMessage =

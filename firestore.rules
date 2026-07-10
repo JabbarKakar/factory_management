@@ -282,6 +282,12 @@ service cloud.firestore {
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
+    match /jobWorkCollections/{collectionId} {
+      allow read: if canReadFactoryDoc() && canReadOperations();
+      allow create, update: if canWriteFactoryDoc() && canWriteOperations();
+      allow delete: if isOwner() && sameFactoryExisting();
+    }
+
     match /jobWorkInvoices/{invoiceId} {
       allow read: if canReadFactoryDoc() && canReadFinancial();
       allow create, update: if canWriteFactoryDoc() && canWriteFinancial();

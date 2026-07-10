@@ -7,6 +7,8 @@ import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
+import '../../../data/services/job_work_collection_quantity_helper.dart';
+import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
@@ -26,6 +28,17 @@ class JobWorkDetailScreen extends StatelessWidget {
   const JobWorkDetailScreen({required this.jobWorkId, super.key});
 
   final String jobWorkId;
+
+  Future<void> _openCollectMaterial(BuildContext context) async {
+    final saved = await context.push<bool>(
+      RoutePaths.jobWorkCollectMaterial(jobWorkId),
+    );
+    if (saved == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
 
   Future<void> _openRecordOutput(BuildContext context) async {
     final saved = await context.push<bool>(
@@ -139,6 +152,19 @@ class JobWorkDetailScreen extends StatelessWidget {
             context.userCanEdit(AppModule.jobWork);
         final canRecordOutput = order.status.canRecordOutput &&
             context.userCanEdit(AppModule.jobWork);
+        final canCollectMaterial =
+            context.userCanEdit(AppModule.jobWork) &&
+                JobWorkCollectionQuantityHelper.canOpenCollectMaterial(
+                  order,
+                  state.collections,
+                );
+        final collectionTotals = JobWorkCollectionQuantityHelper.orderTotals(
+          order,
+          state.collections,
+        );
+        final showCollectionSection = collectionTotals.hasProducedStock ||
+            state.collections.isNotEmpty ||
+            canCollectMaterial;
         final isSaving = state.status == JobWorkFormStatus.saving;
         final hasOutput = order.output?.isRecorded == true;
         final finalCharges =
@@ -197,11 +223,60 @@ class JobWorkDetailScreen extends StatelessWidget {
                 isSaving: isSaving,
                 hasOutput: hasOutput,
                 canRecordOutput: canRecordOutput,
+                canCollectMaterial: canCollectMaterial,
                 onAdvanceStatus: (s) => _advanceStatus(context, s),
                 onAdvanceCompletion: (s) => _advanceCompletion(context, s),
                 onRecordOutput: () => _openRecordOutput(context),
+                onCollectMaterial: () => _openCollectMaterial(context),
               ),
               JobWorkOutputSummary(order: order),
+              if (showCollectionSection)
+                JobWorkDetailSection(
+                  title: AppStrings.materialCollectionSummary,
+                  icon: Icons.inventory_2_outlined,
+                  child: JobWorkDetailRows(
+                    rows: [
+                      JobWorkDetailRow(
+                        label: AppStrings.totalPieces,
+                        value: '${collectionTotals.totalPieces}',
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.piecesCollected,
+                        value: '${collectionTotals.collectedPieces}',
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.piecesRemaining,
+                        value: '${collectionTotals.remainingPieces}',
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.totalSquareFeet,
+                        value: collectionTotals.totalSquareFeet
+                            .toStringAsFixed(2),
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.squareFeetCollected,
+                        value: collectionTotals.collectedSquareFeet
+                            .toStringAsFixed(2),
+                      ),
+                      JobWorkDetailRow(
+                        label: AppStrings.squareFeetRemaining,
+                        value: collectionTotals.remainingSquareFeet
+                            .toStringAsFixed(2),
+                      ),
+                    ],
+                  ),
+                ),
+              if (state.collections.isNotEmpty)
+                JobWorkDetailSection(
+                  title: AppStrings.collectionHistory,
+                  icon: Icons.history_outlined,
+                  child: Column(
+                    children: [
+                      for (final collection in state.collections)
+                        _CollectionHistoryRow(collection: collection),
+                    ],
+                  ),
+                ),
               if (hasOutput)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -543,6 +618,88 @@ class _InvoicePromptCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CollectionHistoryRow extends StatelessWidget {
+  const _CollectionHistoryRow({required this.collection});
+
+  final JobWorkCollection collection;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final dateLabel = DateFormat.yMMMd().format(collection.collectedAt);
+
+    return Theme(
+      data: theme.copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                collection.collectionNumber,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            Text(
+              dateLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: muted,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+        subtitle: Text(
+          '${collection.totalPieces} pcs · '
+          '${collection.totalSquareFeet.toStringAsFixed(2)} sq. ft'
+          '${collection.receiverName != null && collection.receiverName!.isNotEmpty ? ' · ${AppStrings.receiverName}: ${collection.receiverName}' : ''}',
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontSize: 11,
+            color: muted,
+          ),
+        ),
+        children: [
+          for (final item in collection.lineItems)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.size,
+                      style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                    ),
+                  ),
+                  Text(
+                    '${item.pieces} pcs · ${item.squareFeet.toStringAsFixed(2)} sq. ft',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                      color: muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (collection.notes != null && collection.notes!.isNotEmpty)
+            Text(
+              collection.notes!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+                fontStyle: FontStyle.italic,
+                color: muted,
+              ),
+            ),
+        ],
       ),
     );
   }

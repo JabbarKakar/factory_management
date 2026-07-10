@@ -105,6 +105,18 @@ enum JobWorkStatus {
         _ => false,
       };
 
+  /// Material may leave the factory once cutting has started.
+  /// Fully collected / closed / cancelled orders cannot collect again.
+  bool get canCollectMaterial => switch (this) {
+        JobWorkStatus.inCutting ||
+        JobWorkStatus.qc ||
+        JobWorkStatus.ready ||
+        JobWorkStatus.invoiced ||
+        JobWorkStatus.paid =>
+          true,
+        _ => false,
+      };
+
   bool get canAdvanceOperationally => switch (this) {
         JobWorkStatus.agreed ||
         JobWorkStatus.inCutting ||

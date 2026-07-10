@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../blocs/auth/auth_bloc.dart';
+import '../../blocs/job_work/job_work_collection_form_bloc.dart';
 import '../../blocs/job_work/job_work_form_bloc.dart';
 import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
@@ -67,6 +68,7 @@ import '../screens/customers/customer_detail_screen.dart';
 import '../screens/customers/customers_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/job_work/add_edit_job_work_screen.dart';
+import '../screens/job_work/collect_material_screen.dart';
 import '../screens/job_work/job_work_detail_screen.dart';
 import '../screens/job_work/job_work_invoice_screen.dart';
 import '../screens/job_work/job_work_list_screen.dart';
@@ -1364,6 +1366,25 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                             create: (_) => getIt<JobWorkFormBloc>()
                               ..add(JobWorkFormLoadRequested(jobWorkId)),
                             child: AddEditJobWorkScreen(jobWorkId: jobWorkId),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'collect-material',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkCollectionFormBloc>()
+                              ..add(
+                                JobWorkCollectionFormInitialized(
+                                  jobWorkOrderId: jobWorkId,
+                                ),
+                              ),
+                            child: CollectMaterialScreen(
+                              jobWorkId: jobWorkId,
+                            ),
                           );
                         },
                       ),
