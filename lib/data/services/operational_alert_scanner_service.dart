@@ -251,6 +251,7 @@ class OperationalAlertScannerService {
       customerId: delivery.customerId,
       salesOrderId: delivery.salesOrderId,
       deliveryId: delivery.id,
+      daysOverdue: isOverdue ? daysLate : null,
       createdAt: DateTime.now(),
       dedupeKey: 'delivery_${delivery.id}_$scanDate',
     );

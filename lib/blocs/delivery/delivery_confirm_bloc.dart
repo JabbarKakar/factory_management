@@ -64,6 +64,7 @@ class DeliveryConfirmBloc extends Bloc<DeliveryConfirmEvent, DeliveryConfirmStat
         actualDeliveryDate: event.actualDeliveryDate,
         lineItems: event.lineItems,
         notes: event.notes,
+        receiverName: event.receiverName,
       );
       emit(state.copyWith(status: DeliveryConfirmStatus.saved));
     } on DeliveryException catch (error) {

@@ -151,6 +151,13 @@ class SalesOrderRepository {
     });
   }
 
+  Future<void> updateDispatchStatus(String id, SalesOrderStatus status) async {
+    await _ordersCollection.doc(id).update({
+      'status': status.firestoreValue,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> deleteSalesOrder(String id) async {
     await _ordersCollection.doc(id).delete();
   }

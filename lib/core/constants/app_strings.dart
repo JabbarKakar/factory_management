@@ -422,7 +422,8 @@ abstract final class AppStrings {
   static const String revenueToday = 'Revenue Today';
   static const String activeJobWork = 'Active Job Work';
   static const String activeSales = 'Active Sales';
-  static const String activeSalesOrders = 'Received or ready orders';
+  static const String activeSalesOrders =
+      'Received, ready, or partially dispatched';
   static const String overdueTotal = 'Overdue';
   static const String customerCount = 'Customers';
   static const String quickActions = 'Quick Actions';
@@ -964,6 +965,25 @@ abstract final class AppStrings {
       'All order quantities are already scheduled or delivered';
   static const String pendingDeliveries = 'Pending Deliveries';
   static const String scheduledDeliveriesToday = 'scheduled today';
+  static const String partiallyDispatchedOrders = 'Partially Dispatched';
+  static const String partiallyDispatchedOrdersSubtitle =
+      'Orders with stock still to deliver';
+  static const String readyForDispatch = 'Ready to Dispatch';
+  static const String readyForDispatchSubtitle = 'Orders awaiting first dispatch';
+  static const String dispatchedToday = 'Dispatched Today';
+  static const String dispatchedTodaySubtitle = 'Confirmed deliveries today';
+  static const String deliveryChallanTitle = 'DELIVERY CHALLAN';
+  static const String challanNumber = 'Challan #';
+  static const String statusLabel = 'Status';
+  static const String scheduledDateLabel = 'Scheduled Date';
+  static const String actualDispatchDate = 'Actual Dispatch Date';
+  static const String customerSignature = 'Customer Signature';
+  static const String stockDescription = 'Description';
+  static const String receiverName = 'Received By';
+  static const String overdueDeliveries = 'Overdue Deliveries';
+  static const String overdueDeliveriesSubtitle =
+      'Scheduled dispatches past due date';
+  static const String dispatchOverdue = 'Dispatch overdue';
 
   // Equipment & maintenance (Sprint 18)
   static const String factoryEquipment = 'Factory Equipment';

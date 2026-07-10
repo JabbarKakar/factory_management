@@ -64,6 +64,7 @@ class DeliveryStageFilterBar extends StatelessWidget {
       DeliveryListFilter.all => Icons.inbox_rounded,
       DeliveryListFilter.active => Icons.pending_outlined,
       DeliveryListFilter.scheduled => Icons.event_outlined,
+      DeliveryListFilter.overdue => Icons.warning_amber_rounded,
       DeliveryListFilter.inTransit => Icons.local_shipping_outlined,
       DeliveryListFilter.delivered => Icons.check_circle_outline_rounded,
       DeliveryListFilter.failed => Icons.error_outline_rounded,

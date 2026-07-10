@@ -75,6 +75,7 @@ import '../../data/services/export/customer_statement_pdf_exporter.dart';
 import '../../data/services/export/expense_summary_excel_exporter.dart';
 import '../../data/services/export/expense_summary_pdf_exporter.dart';
 import '../../data/services/export/invoice_excel_exporter.dart';
+import '../../data/services/export/delivery_challan_pdf_exporter.dart';
 import '../../data/services/export/invoice_pdf_exporter.dart';
 import '../../data/services/export/pl_report_excel_exporter.dart';
 import '../../data/services/export/pl_report_pdf_exporter.dart';
@@ -181,6 +182,9 @@ void setupDependencies() {
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
       paymentRepository: getIt<PaymentRepository>(),
     ),
+  );
+  getIt.registerLazySingleton<DeliveryChallanPdfExporter>(
+    DeliveryChallanPdfExporter.new,
   );
   getIt.registerLazySingleton<InvoicePdfExporter>(
     () => InvoicePdfExporter(factoryRepository: getIt<FactoryRepository>()),

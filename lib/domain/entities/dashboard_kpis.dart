@@ -17,6 +17,11 @@ class DashboardKpis extends Equatable {
     required this.unmarkedAttendanceToday,
     required this.activeDeliveriesCount,
     required this.scheduledDeliveriesToday,
+    required this.partiallyDispatchedOrdersCount,
+    required this.readyForDispatchCount,
+    required this.dispatchedTodayPieces,
+    required this.dispatchedTodaySquareFeet,
+    required this.overdueDeliveriesCount,
     required this.maintenanceOverdueCount,
     required this.maintenanceDueSoonCount,
     required this.qcRejectsThisMonth,
@@ -47,6 +52,11 @@ class DashboardKpis extends Equatable {
     unmarkedAttendanceToday: 0,
     activeDeliveriesCount: 0,
     scheduledDeliveriesToday: 0,
+    partiallyDispatchedOrdersCount: 0,
+    readyForDispatchCount: 0,
+    dispatchedTodayPieces: 0,
+    dispatchedTodaySquareFeet: 0,
+    overdueDeliveriesCount: 0,
     maintenanceOverdueCount: 0,
     maintenanceDueSoonCount: 0,
     qcRejectsThisMonth: 0,
@@ -76,6 +86,11 @@ class DashboardKpis extends Equatable {
   final int unmarkedAttendanceToday;
   final int activeDeliveriesCount;
   final int scheduledDeliveriesToday;
+  final int partiallyDispatchedOrdersCount;
+  final int readyForDispatchCount;
+  final int dispatchedTodayPieces;
+  final double dispatchedTodaySquareFeet;
+  final int overdueDeliveriesCount;
   final int maintenanceOverdueCount;
   final int maintenanceDueSoonCount;
   final int qcRejectsThisMonth;
@@ -109,6 +124,11 @@ class DashboardKpis extends Equatable {
         unmarkedAttendanceToday,
         activeDeliveriesCount,
         scheduledDeliveriesToday,
+        partiallyDispatchedOrdersCount,
+        readyForDispatchCount,
+        dispatchedTodayPieces,
+        dispatchedTodaySquareFeet,
+        overdueDeliveriesCount,
         maintenanceOverdueCount,
         maintenanceDueSoonCount,
         qcRejectsThisMonth,

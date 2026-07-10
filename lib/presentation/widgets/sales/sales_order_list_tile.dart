@@ -190,6 +190,8 @@ class SalesOrderListTile extends StatelessWidget {
     return switch (status) {
       SalesOrderStatus.received => AppColors.textSecondary,
       SalesOrderStatus.ready => AppColors.success,
+      SalesOrderStatus.partiallyDispatched => const Color(0xFF0277BD),
+      SalesOrderStatus.delivered => const Color(0xFF2E7D32),
       SalesOrderStatus.invoiced || SalesOrderStatus.paid => AppColors.accent,
       SalesOrderStatus.closed => const Color(0xFF455A64),
       SalesOrderStatus.cancelled => AppColors.error,

@@ -13,6 +13,7 @@ import '../../../domain/enums/job_work_enums.dart';
 import '../../../domain/enums/notification_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../../domain/enums/raw_material_enums.dart';
+import '../../../domain/enums/sales_enums.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
 import '../../routes/route_paths.dart';
 import 'dashboard_surface.dart';
@@ -170,6 +171,34 @@ class DashboardKpiGrid extends StatelessWidget {
             AppModule.sales,
           ),
         ),
+      if (_canView(AppModule.sales) && kpis.partiallyDispatchedOrdersCount > 0)
+        _KpiItem(
+          label: AppStrings.partiallyDispatchedOrders,
+          value: '${kpis.partiallyDispatchedOrdersCount}',
+          subtitle: AppStrings.partiallyDispatchedOrdersSubtitle,
+          icon: Icons.local_shipping_outlined,
+          color: const Color(0xFF0277BD),
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.salesList(filter: SalesListFilter.partiallyDispatched.name),
+            ),
+            AppModule.sales,
+          ),
+        ),
+      if (_canView(AppModule.sales) && kpis.readyForDispatchCount > 0)
+        _KpiItem(
+          label: AppStrings.readyForDispatch,
+          value: '${kpis.readyForDispatchCount}',
+          subtitle: AppStrings.readyForDispatchSubtitle,
+          icon: Icons.inventory_2_outlined,
+          color: AppColors.success,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.salesList(filter: SalesListFilter.ready.name),
+            ),
+            AppModule.sales,
+          ),
+        ),
       if (_canView(AppModule.jobWork))
         _KpiItem(
           label: AppStrings.pendingPickups,
@@ -238,6 +267,37 @@ class DashboardKpiGrid extends StatelessWidget {
           onTap: _tap(
             () => context.go(
               RoutePaths.deliveriesList(filter: DeliveryListFilter.active),
+            ),
+            AppModule.delivery,
+          ),
+        ),
+      if (_canView(AppModule.delivery) && kpis.overdueDeliveriesCount > 0)
+        _KpiItem(
+          label: AppStrings.overdueDeliveries,
+          value: '${kpis.overdueDeliveriesCount}',
+          subtitle: AppStrings.overdueDeliveriesSubtitle,
+          icon: Icons.warning_amber_rounded,
+          color: AppColors.overdue,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.deliveriesList(filter: DeliveryListFilter.overdue),
+            ),
+            AppModule.delivery,
+          ),
+        ),
+      if (_canView(AppModule.delivery) &&
+          (kpis.dispatchedTodayPieces > 0 || kpis.dispatchedTodaySquareFeet > 0))
+        _KpiItem(
+          label: AppStrings.dispatchedToday,
+          value: '${kpis.dispatchedTodayPieces} pcs',
+          subtitle:
+              '${kpis.dispatchedTodaySquareFeet.toStringAsFixed(2)} sq. ft · '
+              '${AppStrings.dispatchedTodaySubtitle}',
+          icon: Icons.check_circle_outline_rounded,
+          color: AppColors.success,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.deliveriesList(filter: DeliveryListFilter.delivered),
             ),
             AppModule.delivery,
           ),

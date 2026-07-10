@@ -65,6 +65,8 @@ class SalesOrderStageFilterBar extends StatelessWidget {
       SalesListFilter.inProgress => Icons.pending_outlined,
       SalesListFilter.received => Icons.move_to_inbox_outlined,
       SalesListFilter.ready => Icons.check_circle_outline_rounded,
+      SalesListFilter.partiallyDispatched => Icons.local_shipping_outlined,
+      SalesListFilter.delivered => Icons.inventory_2_outlined,
       SalesListFilter.invoiced => Icons.receipt_long_outlined,
       SalesListFilter.paid => Icons.payments_outlined,
       SalesListFilter.closed => Icons.done_all_rounded,

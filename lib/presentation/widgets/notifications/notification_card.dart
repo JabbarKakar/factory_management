@@ -165,6 +165,16 @@ class NotificationCard extends StatelessWidget {
                                 color: accent,
                               ),
                             ],
+                            if (notification.daysOverdue != null &&
+                                notification.daysOverdue! > 0) ...[
+                              const SizedBox(width: 5),
+                              _MetaChip(
+                                label:
+                                    '${notification.daysOverdue}d overdue',
+                                icon: Icons.schedule_rounded,
+                                color: AppColors.overdue,
+                              ),
+                            ],
                             const Spacer(),
                             if (onSendReminder != null)
                               IconButton(

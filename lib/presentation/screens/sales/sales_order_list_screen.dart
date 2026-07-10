@@ -6,6 +6,7 @@ import '../../../blocs/sales/sales_order_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../data/repositories/sales_order_repository.dart';
+import '../../../data/services/sales_order_dispatch_status_helper.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/sales_enums.dart';
@@ -115,9 +116,8 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
   }) {
     final status = order.status;
     final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
-    final canInvoice = status == SalesOrderStatus.ready ||
-        status == SalesOrderStatus.invoiced ||
-        status == SalesOrderStatus.paid;
+    final canDispatch =
+        SalesOrderDispatchStatusHelper.canScheduleDispatch(status);
     final actions = <TileMenuAction>[];
 
     if (canEdit && status == SalesOrderStatus.received) {
@@ -130,7 +130,9 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
       );
     }
 
-    if (status == SalesOrderStatus.ready && !hasInvoice) {
+    if ((status == SalesOrderStatus.ready ||
+            status == SalesOrderStatus.partiallyDispatched) &&
+        !hasInvoice) {
       actions.add(
         TileMenuAction(
           label: AppStrings.generateInvoice,
@@ -163,10 +165,10 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
       }
     }
 
-    if (canInvoice) {
+    if (canDispatch) {
       actions.add(
         TileMenuAction(
-          label: AppStrings.scheduleDelivery,
+          label: AppStrings.dispatchStock,
           icon: Icons.local_shipping_outlined,
           onSelected: () => context.push(
             RoutePaths.deliveriesAddForOrder(order.id),

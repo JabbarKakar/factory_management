@@ -1,6 +1,8 @@
 enum SalesOrderStatus {
   received,
   ready,
+  partiallyDispatched,
+  delivered,
   invoiced,
   paid,
   closed,
@@ -11,6 +13,8 @@ enum SalesOrderStatus {
   String get label => switch (this) {
         SalesOrderStatus.received => 'Received',
         SalesOrderStatus.ready => 'Ready',
+        SalesOrderStatus.partiallyDispatched => 'Partially Dispatched',
+        SalesOrderStatus.delivered => 'Delivered',
         SalesOrderStatus.invoiced => 'Invoiced',
         SalesOrderStatus.paid => 'Paid',
         SalesOrderStatus.closed => 'Closed',
@@ -25,7 +29,10 @@ enum SalesOrderStatus {
   }
 
   bool get isActive => switch (this) {
-        SalesOrderStatus.received || SalesOrderStatus.ready => true,
+        SalesOrderStatus.received ||
+        SalesOrderStatus.ready ||
+        SalesOrderStatus.partiallyDispatched =>
+          true,
         _ => false,
       };
 
@@ -34,11 +41,15 @@ enum SalesOrderStatus {
         _ => false,
       };
 
-  bool get isListMuted => isCompleted || this == SalesOrderStatus.cancelled;
+  bool get isListMuted =>
+      isCompleted || this == SalesOrderStatus.cancelled || this == SalesOrderStatus.delivered;
 
   int get listSortRank => switch (this) {
-        SalesOrderStatus.received || SalesOrderStatus.ready => 0,
-        SalesOrderStatus.invoiced => 1,
+        SalesOrderStatus.received ||
+        SalesOrderStatus.ready ||
+        SalesOrderStatus.partiallyDispatched =>
+          0,
+        SalesOrderStatus.delivered || SalesOrderStatus.invoiced => 1,
         SalesOrderStatus.paid || SalesOrderStatus.closed => 2,
         SalesOrderStatus.cancelled => 3,
       };
@@ -124,6 +135,8 @@ enum SalesListFilter {
   inProgress,
   received,
   ready,
+  partiallyDispatched,
+  delivered,
   invoiced,
   paid,
   closed,
@@ -134,6 +147,8 @@ enum SalesListFilter {
         SalesListFilter.inProgress => 'In Progress',
         SalesListFilter.received => 'Received',
         SalesListFilter.ready => 'Ready',
+        SalesListFilter.partiallyDispatched => 'Partially Dispatched',
+        SalesListFilter.delivered => 'Delivered',
         SalesListFilter.invoiced => 'Invoiced',
         SalesListFilter.paid => 'Paid',
         SalesListFilter.closed => 'Closed',
@@ -153,6 +168,9 @@ enum SalesListFilter {
         SalesListFilter.inProgress => status.isActive,
         SalesListFilter.received => status == SalesOrderStatus.received,
         SalesListFilter.ready => status == SalesOrderStatus.ready,
+        SalesListFilter.partiallyDispatched =>
+          status == SalesOrderStatus.partiallyDispatched,
+        SalesListFilter.delivered => status == SalesOrderStatus.delivered,
         SalesListFilter.invoiced => status == SalesOrderStatus.invoiced,
         SalesListFilter.paid => status == SalesOrderStatus.paid,
         SalesListFilter.closed => status == SalesOrderStatus.closed,

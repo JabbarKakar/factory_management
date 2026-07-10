@@ -5,9 +5,9 @@ import '../../core/utils/stock_output_calculator.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/delivery_enums.dart';
-import '../../domain/enums/sales_enums.dart';
 import '../models/delivery_model.dart';
 import '../services/delivery_quantity_helper.dart';
+import '../services/sales_order_dispatch_status_helper.dart';
 import 'sales_order_repository.dart';
 
 class DeliveryException implements Exception {
@@ -103,18 +103,15 @@ class DeliveryRepository {
 
     return orders
         .where(
-          (order) =>
-              order.status == SalesOrderStatus.ready ||
-              order.status == SalesOrderStatus.invoiced ||
-              order.status == SalesOrderStatus.paid,
+          (order) => SalesOrderDispatchStatusHelper.canScheduleDispatch(
+            order.status,
+          ),
         )
         .toList();
   }
 
   static bool isSalesOrderEligible(SalesOrder order) {
-    return order.status == SalesOrderStatus.ready ||
-        order.status == SalesOrderStatus.invoiced ||
-        order.status == SalesOrderStatus.paid;
+    return SalesOrderDispatchStatusHelper.canScheduleDispatch(order.status);
   }
 
   static List<DeliveryLineItem> lineItemsFromSalesOrder(SalesOrder order) {
@@ -185,6 +182,10 @@ class DeliveryRepository {
 
     final model = DeliveryModel.fromEntity(record);
     await _collection.doc(id).set(model.toFirestore(isCreate: true));
+    await _syncSalesOrderDispatchStatus(
+      factoryId: delivery.factoryId,
+      salesOrderId: delivery.salesOrderId,
+    );
     final created = await getDelivery(id);
     return created ?? record;
   }
@@ -261,6 +262,12 @@ class DeliveryRepository {
 
     final model = DeliveryModel.fromEntity(updated);
     await _collection.doc(existing.id).update(model.toFirestore());
+    if (isScheduledEdit) {
+      await _syncSalesOrderDispatchStatus(
+        factoryId: existing.factoryId,
+        salesOrderId: existing.salesOrderId,
+      );
+    }
     final saved = await getDelivery(existing.id);
     return saved ?? updated;
   }
@@ -346,6 +353,10 @@ class DeliveryRepository {
       if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _syncSalesOrderDispatchStatus(
+      factoryId: delivery.factoryId,
+      salesOrderId: delivery.salesOrderId,
+    );
   }
 
   Future<void> confirmDelivery({
@@ -353,6 +364,7 @@ class DeliveryRepository {
     required DateTime actualDeliveryDate,
     required List<DeliveryLineItem> lineItems,
     String? notes,
+    String? receiverName,
   }) async {
     final delivery = await getDelivery(id);
     if (delivery == null) {
@@ -360,7 +372,7 @@ class DeliveryRepository {
     }
     if (!delivery.status.canConfirmDelivery) {
       throw const DeliveryException(
-        'Delivery must be loaded or in transit before confirmation.',
+        'This delivery cannot be confirmed in its current status.',
       );
     }
 
@@ -397,16 +409,65 @@ class DeliveryRepository {
         ? DeliveryStatus.partiallyDelivered
         : DeliveryStatus.delivered;
 
-    final model = DeliveryModel.fromEntity(
-      delivery.copyWith(
-        status: finalStatus,
-        lineItems: confirmedItems,
-        actualDeliveryDate: actualDeliveryDate,
-        notes: notes?.trim().isEmpty ?? true ? delivery.notes : notes?.trim(),
-      ),
+    final updatedDelivery = delivery.copyWith(
+      status: finalStatus,
+      lineItems: confirmedItems,
+      actualDeliveryDate: actualDeliveryDate,
+      receiverName: receiverName?.trim().isEmpty ?? true
+          ? delivery.receiverName
+          : receiverName?.trim(),
+      notes: notes?.trim().isEmpty ?? true ? delivery.notes : notes?.trim(),
     );
 
-    await _collection.doc(id).update(model.toFirestore());
+    final model = DeliveryModel.fromEntity(updatedDelivery);
+    final batch = _firestore.batch();
+    batch.update(_collection.doc(id), model.toFirestore());
+
+    final order = await _salesOrderRepository.getSalesOrder(delivery.salesOrderId);
+    if (order != null) {
+      final deliveries = await fetchDeliveriesForSalesOrder(
+        factoryId: delivery.factoryId,
+        salesOrderId: delivery.salesOrderId,
+      );
+      final projectedDeliveries = deliveries
+          .map((item) => item.id == id ? updatedDelivery : item)
+          .toList();
+      final targetStatus = SalesOrderDispatchStatusHelper.resolveTargetStatus(
+        order: order,
+        deliveries: projectedDeliveries,
+      );
+      if (targetStatus != null && targetStatus != order.status) {
+        batch.update(
+          _salesOrderRepository.salesOrderDoc(delivery.salesOrderId),
+          {
+            'status': targetStatus.firestoreValue,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+        );
+      }
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> _syncSalesOrderDispatchStatus({
+    required String factoryId,
+    required String salesOrderId,
+  }) async {
+    final order = await _salesOrderRepository.getSalesOrder(salesOrderId);
+    if (order == null) return;
+
+    final deliveries = await fetchDeliveriesForSalesOrder(
+      factoryId: factoryId,
+      salesOrderId: salesOrderId,
+    );
+    final targetStatus = SalesOrderDispatchStatusHelper.resolveTargetStatus(
+      order: order,
+      deliveries: deliveries,
+    );
+    if (targetStatus == null || targetStatus == order.status) return;
+
+    await _salesOrderRepository.updateDispatchStatus(salesOrderId, targetStatus);
   }
 
   Future<String> _generateDeliveryNumber(String factoryId) async {

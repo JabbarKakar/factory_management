@@ -22,24 +22,34 @@ class ConfirmDeliveryScreen extends StatefulWidget {
 
 class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
   final _notesController = TextEditingController();
+  final _receiverNameController = TextEditingController();
   DispatchStockFormController? _stockController;
   DateTime _actualDate = DateTime.now();
+  bool _receiverInitialized = false;
 
   @override
   void dispose() {
     _notesController.dispose();
+    _receiverNameController.dispose();
     _stockController?.dispose();
     super.dispose();
   }
 
   void _initController(Delivery delivery) {
-    if (_stockController != null) return;
-    _stockController = DispatchStockFormController.forConfirm(
-      lineItems: delivery.lineItems,
-    );
-    _stockController!.addListenerSafe(() {
-      if (mounted) setState(() {});
-    });
+    if (_stockController == null) {
+      _stockController = DispatchStockFormController.forConfirm(
+        lineItems: delivery.lineItems,
+      );
+      _stockController!.addListenerSafe(() {
+        if (mounted) setState(() {});
+      });
+    }
+    if (!_receiverInitialized) {
+      _receiverInitialized = true;
+      if (delivery.receiverName != null && delivery.receiverName!.isNotEmpty) {
+        _receiverNameController.text = delivery.receiverName!;
+      }
+    }
   }
 
   Future<void> _pickDate() async {
@@ -61,6 +71,7 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
             actualDeliveryDate: _actualDate,
             lineItems: controller.buildConfirmedLineItems(),
             notes: _notesController.text.trim(),
+            receiverName: _receiverNameController.text.trim(),
           ),
         );
   }
@@ -140,6 +151,17 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
                       label: AppStrings.actualDeliveryDate,
                       value: DateFormat.yMMMd().format(_actualDate),
                       onTap: isSaving ? null : _pickDate,
+                    ),
+                    AppFormFields.gap,
+                    TextFormField(
+                      controller: _receiverNameController,
+                      enabled: !isSaving,
+                      style: AppFormFields.valueStyle(context),
+                      decoration: AppFormFields.decoration(
+                        context,
+                        label: AppStrings.receiverName,
+                      ),
+                      textCapitalization: TextCapitalization.words,
                     ),
                   ],
                 ),

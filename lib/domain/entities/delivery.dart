@@ -106,6 +106,7 @@ class Delivery extends Equatable {
     this.driverEmployeeId,
     this.vehicleNumber,
     this.loadingSupervisor,
+    this.receiverName,
     this.notes,
     this.actualDeliveryDate,
     this.updatedAt,
@@ -126,6 +127,7 @@ class Delivery extends Equatable {
   final String? driverName;
   final String? driverEmployeeId;
   final String? loadingSupervisor;
+  final String? receiverName;
   final String? notes;
   final DateTime? actualDeliveryDate;
   final DateTime createdAt;
@@ -147,6 +149,30 @@ class Delivery extends Equatable {
         (sum, item) => sum + item.effectiveSquareFeet,
       );
 
+  bool isDispatchOverdue({DateTime? reference}) {
+    if (!status.isActive) return false;
+    final now = reference ?? DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final scheduledDay = DateTime(
+      scheduledDate.year,
+      scheduledDate.month,
+      scheduledDate.day,
+    );
+    return scheduledDay.isBefore(today);
+  }
+
+  int dispatchDaysOverdue({DateTime? reference}) {
+    if (!isDispatchOverdue(reference: reference)) return 0;
+    final now = reference ?? DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final scheduledDay = DateTime(
+      scheduledDate.year,
+      scheduledDate.month,
+      scheduledDate.day,
+    );
+    return today.difference(scheduledDay).inDays;
+  }
+
   /// Legacy total quantity in sq. ft.
   double get totalQuantity => totalSquareFeet;
 
@@ -166,6 +192,7 @@ class Delivery extends Equatable {
     String? driverName,
     String? driverEmployeeId,
     String? loadingSupervisor,
+    String? receiverName,
     String? notes,
     DateTime? actualDeliveryDate,
     DateTime? createdAt,
@@ -187,6 +214,7 @@ class Delivery extends Equatable {
       driverName: driverName ?? this.driverName,
       driverEmployeeId: driverEmployeeId ?? this.driverEmployeeId,
       loadingSupervisor: loadingSupervisor ?? this.loadingSupervisor,
+      receiverName: receiverName ?? this.receiverName,
       notes: notes ?? this.notes,
       actualDeliveryDate: actualDeliveryDate ?? this.actualDeliveryDate,
       createdAt: createdAt ?? this.createdAt,
@@ -211,6 +239,7 @@ class Delivery extends Equatable {
         driverName,
         driverEmployeeId,
         loadingSupervisor,
+        receiverName,
         notes,
         actualDeliveryDate,
         createdAt,

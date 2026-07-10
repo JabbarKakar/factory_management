@@ -136,7 +136,11 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
           delivery.driverEmployeeId != driverEmployeeId) {
         return false;
       }
-      if (!filter.matches(delivery.status)) return false;
+      if (filter == DeliveryListFilter.overdue) {
+        if (!delivery.isDispatchOverdue()) return false;
+      } else if (!filter.matches(delivery.status)) {
+        return false;
+      }
       if (normalizedQuery.isEmpty) return true;
 
       final haystack = [
@@ -146,6 +150,8 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
         delivery.deliveryAddress,
         delivery.vehicleNumber,
         delivery.driverName,
+        delivery.loadingSupervisor,
+        delivery.receiverName,
         delivery.status.label,
       ].whereType<String>().join(' ').toLowerCase();
 

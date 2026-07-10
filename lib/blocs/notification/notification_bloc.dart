@@ -175,7 +175,12 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
           return daysUntil >= 0 && daysUntil <= 7;
         }).toList(),
       NotificationFilter.overdue => notifications
-          .where((n) => n.type == NotificationType.paymentOverdue)
+          .where(
+            (n) =>
+                n.type == NotificationType.paymentOverdue ||
+                (n.type == NotificationType.pendingDelivery &&
+                    (n.daysOverdue ?? 0) > 0),
+          )
           .toList(),
     };
   }

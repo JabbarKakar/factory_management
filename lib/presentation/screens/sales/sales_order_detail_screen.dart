@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/services/delivery_quantity_helper.dart';
+import '../../../data/services/sales_order_dispatch_status_helper.dart';
 import '../../../domain/entities/delivery.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
@@ -141,18 +142,24 @@ class SalesOrderDetailScreen extends StatelessWidget {
         final nextStatus = order.status.nextStatus;
         final isSaving = state.status == SalesOrderFormStatus.saving;
         final canInvoice = order.status == SalesOrderStatus.ready ||
+            order.status == SalesOrderStatus.partiallyDispatched ||
             order.status == SalesOrderStatus.invoiced ||
-            order.status == SalesOrderStatus.paid;
+            order.status == SalesOrderStatus.paid ||
+            order.status == SalesOrderStatus.delivered;
+        final canDispatch =
+            SalesOrderDispatchStatusHelper.canScheduleDispatch(order.status);
         final hasInvoice =
             order.invoiceId != null && order.invoiceId!.isNotEmpty;
         final showDeliveries = state.deliveries.isNotEmpty ||
-            (canInvoice && order.status != SalesOrderStatus.closed);
+            canDispatch ||
+            order.status == SalesOrderStatus.delivered;
         final dispatchTotals = DeliveryQuantityHelper.orderTotals(
           order,
           state.deliveries,
         );
         final showDispatchSummary =
-            canInvoice && order.status != SalesOrderStatus.closed;
+            (canInvoice || order.status == SalesOrderStatus.delivered) &&
+            order.status != SalesOrderStatus.closed;
 
         return Scaffold(
           appBar: AppBar(
@@ -198,7 +205,7 @@ class SalesOrderDetailScreen extends StatelessWidget {
                 onAdvanceStatus: nextStatus != null
                     ? () => _advanceStatus(context, nextStatus)
                     : null,
-                onScheduleDelivery: canInvoice
+                onScheduleDelivery: canDispatch
                     ? () => context.push(
                           RoutePaths.deliveriesAddForOrder(order.id),
                         )
@@ -482,78 +489,36 @@ class _DeliveryRow extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final accent = _accentFor(delivery.status);
-    final dateLabel = DateFormat.yMMMd().format(
-      delivery.actualDeliveryDate ?? delivery.scheduledDate,
-    );
-    final quantityLabel = delivery.status.isTerminal
-        ? '${delivery.effectivePieces} pcs · '
-            '${delivery.effectiveSquareFeet.toStringAsFixed(2)} sq. ft'
-        : '${delivery.totalPieces} pcs · '
-            '${delivery.totalSquareFeet.toStringAsFixed(2)} sq. ft scheduled';
+    final scheduledLabel =
+        DateFormat.yMMMd().format(delivery.scheduledDate);
+    final actualLabel = delivery.actualDeliveryDate == null
+        ? null
+        : DateFormat.yMMMd().format(delivery.actualDeliveryDate!);
+    final quantityLabel = _quantityLabel(delivery);
+    final logistics = _logisticsLabel(delivery);
 
     return Material(
-      color: accent.withValues(alpha: 0.06),
+      color: accent.withValues(alpha: delivery.status == DeliveryStatus.failed ? 0.04 : 0.06),
       borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          leading: Icon(Icons.local_shipping_outlined, size: 16, color: accent),
+          title: Row(
             children: [
-              Icon(
-                Icons.local_shipping_outlined,
-                size: 14,
-                color: accent,
-              ),
-              const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      delivery.deliveryNumber,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      dateLabel,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: muted,
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      quantityLabel,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: muted,
-                        fontSize: 11,
-                      ),
-                    ),
-                    if (delivery.notes != null && delivery.notes!.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        delivery.notes!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: muted,
-                          fontSize: 10,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ],
-                  ],
+                child: Text(
+                  delivery.deliveryNumber,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
                 ),
               ),
-              const SizedBox(width: 6),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
@@ -567,17 +532,164 @@ class _DeliveryRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: muted.withValues(alpha: 0.7),
-              ),
             ],
           ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  actualLabel == null
+                      ? '${AppStrings.scheduledDateLabel}: $scheduledLabel'
+                      : '${AppStrings.scheduledDateLabel}: $scheduledLabel · '
+                          '${AppStrings.actualDispatchDate}: $actualLabel',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: muted,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  quantityLabel,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: muted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (logistics != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    logistics,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: muted,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+                if (delivery.notes != null && delivery.notes!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    delivery.notes!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: muted,
+                      fontSize: 10,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+                if (delivery.isDispatchOverdue()) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    AppStrings.dispatchOverdue,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: AppColors.overdue,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          children: [
+            for (final item in delivery.lineItems)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.displayLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _lineItemQuantityLabel(delivery, item),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: onTap,
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: const Text(AppStrings.deliveryDetails),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () =>
+                      context.push(RoutePaths.deliveryChallan(delivery.id)),
+                  icon: const Icon(Icons.description_outlined, size: 16),
+                  label: const Text(AppStrings.viewChallan),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  String _quantityLabel(Delivery delivery) {
+    if (delivery.status.isTerminal) {
+      if (delivery.status == DeliveryStatus.partiallyDelivered) {
+        return '${delivery.effectivePieces} / ${delivery.totalPieces} pcs · '
+            '${delivery.effectiveSquareFeet.toStringAsFixed(2)} / '
+            '${delivery.totalSquareFeet.toStringAsFixed(2)} sq. ft';
+      }
+      return '${delivery.effectivePieces} pcs · '
+          '${delivery.effectiveSquareFeet.toStringAsFixed(2)} sq. ft';
+    }
+    return '${delivery.totalPieces} pcs · '
+        '${delivery.totalSquareFeet.toStringAsFixed(2)} sq. ft scheduled';
+  }
+
+  String _lineItemQuantityLabel(Delivery delivery, DeliveryLineItem item) {
+    if (delivery.status.isTerminal) {
+      return '${item.effectivePieces} / ${item.pieces} pcs · '
+          '${item.effectiveSquareFeet.toStringAsFixed(2)} / '
+          '${item.squareFeet.toStringAsFixed(2)} sq. ft';
+    }
+    return '${item.pieces} pcs · ${item.squareFeet.toStringAsFixed(2)} sq. ft';
+  }
+
+  String? _logisticsLabel(Delivery delivery) {
+    final parts = <String>[];
+    if (delivery.vehicleNumber != null && delivery.vehicleNumber!.isNotEmpty) {
+      parts.add('${AppStrings.deliveryVehicleNumber}: ${delivery.vehicleNumber}');
+    }
+    if (delivery.driverName != null && delivery.driverName!.isNotEmpty) {
+      parts.add('${AppStrings.driverName}: ${delivery.driverName}');
+    }
+    if (delivery.loadingSupervisor != null &&
+        delivery.loadingSupervisor!.isNotEmpty) {
+      parts.add(
+        '${AppStrings.loadingSupervisor}: ${delivery.loadingSupervisor}',
+      );
+    }
+    if (delivery.receiverName != null && delivery.receiverName!.isNotEmpty) {
+      parts.add('${AppStrings.receiverName}: ${delivery.receiverName}');
+    }
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
   Color _accentFor(DeliveryStatus status) {

@@ -21,12 +21,14 @@ final class DeliveryConfirmSubmitted extends DeliveryConfirmEvent {
     required this.actualDeliveryDate,
     required this.lineItems,
     this.notes,
+    this.receiverName,
   });
 
   final DateTime actualDeliveryDate;
   final List<DeliveryLineItem> lineItems;
   final String? notes;
+  final String? receiverName;
 
   @override
-  List<Object?> get props => [actualDeliveryDate, lineItems, notes];
+  List<Object?> get props => [actualDeliveryDate, lineItems, notes, receiverName];
 }

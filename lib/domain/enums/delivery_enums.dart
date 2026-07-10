@@ -47,7 +47,9 @@ enum DeliveryStatus {
       };
 
   bool get canConfirmDelivery =>
-      this == DeliveryStatus.inTransit || this == DeliveryStatus.loaded;
+      this == DeliveryStatus.scheduled ||
+      this == DeliveryStatus.inTransit ||
+      this == DeliveryStatus.loaded;
 
   bool get canEditScheduled => this == DeliveryStatus.scheduled;
 
@@ -64,6 +66,7 @@ enum DeliveryListFilter {
   all,
   active,
   scheduled,
+  overdue,
   inTransit,
   delivered,
   failed;
@@ -72,6 +75,7 @@ enum DeliveryListFilter {
         DeliveryListFilter.all => 'All',
         DeliveryListFilter.active => 'Active',
         DeliveryListFilter.scheduled => 'Scheduled',
+        DeliveryListFilter.overdue => 'Overdue',
         DeliveryListFilter.inTransit => 'In Transit',
         DeliveryListFilter.delivered => 'Delivered',
         DeliveryListFilter.failed => 'Failed',
@@ -89,6 +93,7 @@ enum DeliveryListFilter {
         DeliveryListFilter.all => true,
         DeliveryListFilter.active => status.isActive,
         DeliveryListFilter.scheduled => status == DeliveryStatus.scheduled,
+        DeliveryListFilter.overdue => status.isActive,
         DeliveryListFilter.inTransit =>
           status == DeliveryStatus.inTransit ||
               status == DeliveryStatus.loaded,

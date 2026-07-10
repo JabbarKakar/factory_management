@@ -27,6 +27,7 @@ import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/labour_enums.dart';
 import '../../domain/enums/quality_enums.dart';
 import '../../domain/enums/delivery_enums.dart';
+import '../../domain/enums/sales_enums.dart';
 import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_analytics.dart';
@@ -435,6 +436,29 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           scheduled.day == today.day;
     }).length;
 
+    final partiallyDispatchedOrdersCount = _salesOrders
+        .where((order) => order.status == SalesOrderStatus.partiallyDispatched)
+        .length;
+    final readyForDispatchCount = _salesOrders
+        .where((order) => order.status == SalesOrderStatus.ready)
+        .length;
+    final dispatchedTodayDeliveries = _deliveries.where((delivery) {
+      if (!delivery.status.isTerminal) return false;
+      final date = delivery.actualDeliveryDate ?? delivery.scheduledDate;
+      return _isSameDay(date, today);
+    });
+    final dispatchedTodayPieces = dispatchedTodayDeliveries.fold<int>(
+      0,
+      (sum, delivery) => sum + delivery.effectivePieces,
+    );
+    final dispatchedTodaySquareFeet = dispatchedTodayDeliveries.fold<double>(
+      0,
+      (sum, delivery) => sum + delivery.effectiveSquareFeet,
+    );
+    final overdueDeliveriesCount = _deliveries
+        .where((delivery) => delivery.isDispatchOverdue(reference: today))
+        .length;
+
     final maintenanceOverdueCount = _equipment
         .where((item) => item.isMaintenanceOverdue(today: today))
         .length;
@@ -491,6 +515,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           unmarkedAttendanceToday: unmarkedAttendanceToday,
           activeDeliveriesCount: activeDeliveriesCount,
           scheduledDeliveriesToday: scheduledDeliveriesToday,
+          partiallyDispatchedOrdersCount: partiallyDispatchedOrdersCount,
+          readyForDispatchCount: readyForDispatchCount,
+          dispatchedTodayPieces: dispatchedTodayPieces,
+          dispatchedTodaySquareFeet: dispatchedTodaySquareFeet,
+          overdueDeliveriesCount: overdueDeliveriesCount,
           maintenanceOverdueCount: maintenanceOverdueCount,
           maintenanceDueSoonCount: maintenanceDueSoonCount,
           qcRejectsThisMonth: qcRejectsThisMonth,

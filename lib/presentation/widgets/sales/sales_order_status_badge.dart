@@ -63,6 +63,14 @@ class SalesOrderStatusBadge extends StatelessWidget {
           AppColors.success,
           Color(0xFFE8F5E9),
         ),
+      SalesOrderStatus.partiallyDispatched => const _BadgeColors(
+          Color(0xFF0277BD),
+          Color(0xFFE1F5FE),
+        ),
+      SalesOrderStatus.delivered => const _BadgeColors(
+          Color(0xFF2E7D32),
+          Color(0xFFE8F5E9),
+        ),
       SalesOrderStatus.invoiced ||
       SalesOrderStatus.paid =>
         const _BadgeColors(AppColors.accent, Color(0xFFFFF3E0)),

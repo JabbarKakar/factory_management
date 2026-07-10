@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/delivery.dart';
 import '../../../domain/enums/delivery_enums.dart';
 import '../compact_status_chip.dart';
@@ -20,7 +21,8 @@ class DeliveryListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final accent = _accentFor(delivery.status);
+    final isOverdue = delivery.isDispatchOverdue();
+    final accent = isOverdue ? AppColors.overdue : _accentFor(delivery.status);
     final isListMuted = delivery.status.isTerminal;
     final isDark = theme.brightness == Brightness.dark;
     final outline =
@@ -75,6 +77,13 @@ class DeliveryListTile extends StatelessWidget {
                                   label: delivery.status.label,
                                   color: accent,
                                 ),
+                                if (isOverdue) ...[
+                                  const SizedBox(width: 6),
+                                  CompactStatusChip(
+                                    label: AppStrings.dispatchOverdue,
+                                    color: AppColors.overdue,
+                                  ),
+                                ],
                               ],
                             ),
                             const SizedBox(height: 4),

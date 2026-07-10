@@ -110,8 +110,11 @@ class SalesInvoiceRepository {
     if (order == null) {
       throw StateError('Sales order not found.');
     }
-    if (order.status != SalesOrderStatus.ready) {
-      throw StateError('Invoice can only be generated for ready orders.');
+    if (order.status != SalesOrderStatus.ready &&
+        order.status != SalesOrderStatus.partiallyDispatched) {
+      throw StateError(
+        'Invoice can only be generated for ready or partially dispatched orders.',
+      );
     }
     if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
       final existing = await getInvoice(order.invoiceId!);

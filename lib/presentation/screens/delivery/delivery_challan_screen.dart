@@ -4,7 +4,15 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/delivery/delivery_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
+import '../../../data/services/export/delivery_challan_pdf_exporter.dart';
+import '../../../domain/entities/delivery.dart';
+import '../../../domain/enums/app_module_enums.dart';
+import '../../utils/export_actions.dart';
+import '../../utils/export_factory_name.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/delivery/delivery_status_badge.dart';
+import '../../widgets/export_menu_button.dart';
 
 class DeliveryChallanScreen extends StatelessWidget {
   const DeliveryChallanScreen({required this.deliveryId, super.key});
@@ -23,8 +31,24 @@ class DeliveryChallanScreen extends StatelessWidget {
           );
         }
 
+        final canExport = context.userCanExport(AppModule.sales) ||
+            context.userCanExport(AppModule.delivery);
+
         return Scaffold(
-          appBar: AppBar(title: const Text(AppStrings.deliveryChallan)),
+          appBar: AppBar(
+            title: const Text(AppStrings.deliveryChallan),
+            actions: [
+              if (canExport)
+                ExportMenuButton(
+                  onExportPdf: (origin) => _exportPdf(
+                    context,
+                    delivery: delivery,
+                    shareOrigin: origin,
+                  ),
+                  onPrint: () => _printPdf(context, delivery: delivery),
+                ),
+            ],
+          ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -35,7 +59,7 @@ class DeliveryChallanScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'DELIVERY CHALLAN',
+                        AppStrings.deliveryChallanTitle,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
@@ -43,23 +67,29 @@ class DeliveryChallanScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       _ChallanRow(
-                        label: 'Challan #',
+                        label: AppStrings.challanNumber,
                         value: delivery.deliveryNumber,
                       ),
                       _ChallanRow(
-                        label: 'Sales Order',
+                        label: AppStrings.orderNumber,
                         value: delivery.salesOrderNumber,
                       ),
                       _ChallanRow(
-                        label: 'Customer',
+                        label: AppStrings.customers,
                         value: delivery.customerName,
                       ),
                       _ChallanRow(
-                        label: 'Delivery Date',
+                        label: AppStrings.scheduledDateLabel,
                         value: DateFormat.yMMMd().format(delivery.scheduledDate),
                       ),
+                      if (delivery.actualDeliveryDate != null)
+                        _ChallanRow(
+                          label: AppStrings.actualDispatchDate,
+                          value: DateFormat.yMMMd()
+                              .format(delivery.actualDeliveryDate!),
+                        ),
                       _ChallanRow(
-                        label: 'Address',
+                        label: AppStrings.deliveryAddress,
                         value: delivery.deliveryAddress,
                       ),
                       const SizedBox(height: 12),
@@ -71,31 +101,8 @@ class DeliveryChallanScreen extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                       ),
-                      const SizedBox(height: 12),
-                      ...delivery.lineItems.map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  item.displayLabel,
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                              ),
-                              Text(
-                                '${item.effectivePieces} pcs · '
-                                '${item.effectiveSquareFeet.toStringAsFixed(2)} sq. ft',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 8),
+                      _ChallanItemsTable(delivery: delivery),
                       const Divider(height: 32),
                       if (delivery.vehicleNumber != null)
                         _ChallanRow(
@@ -112,11 +119,66 @@ class DeliveryChallanScreen extends StatelessWidget {
                           label: AppStrings.loadingSupervisor,
                           value: delivery.loadingSupervisor!,
                         ),
+                      if (delivery.receiverName != null &&
+                          delivery.receiverName!.isNotEmpty)
+                        _ChallanRow(
+                          label: AppStrings.receiverName,
+                          value: delivery.receiverName!,
+                        ),
                       if (delivery.notes != null && delivery.notes!.isNotEmpty)
                         _ChallanRow(
                           label: AppStrings.notes,
                           value: delivery.notes!,
                         ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  AppStrings.loadingSupervisor,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                ),
+                                const SizedBox(height: 32),
+                                const Divider(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  delivery.receiverName != null &&
+                                          delivery.receiverName!.isNotEmpty
+                                      ? '${AppStrings.receiverName}: ${delivery.receiverName}'
+                                      : AppStrings.customerSignature,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                ),
+                                const SizedBox(height: 32),
+                                const Divider(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -125,6 +187,120 @@ class DeliveryChallanScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Future<void> _exportPdf(
+    BuildContext context, {
+    required Delivery delivery,
+    Rect? shareOrigin,
+  }) async {
+    final factoryName = await resolveExportFactoryName(context);
+    final doc = await getIt<DeliveryChallanPdfExporter>().buildDeliveryChallanPdf(
+      delivery: delivery,
+      factoryName: factoryName,
+    );
+    await ExportActions.sharePdf(
+      document: doc,
+      filename: '${delivery.deliveryNumber}-challan.pdf',
+      sharePositionOrigin: shareOrigin,
+    );
+  }
+
+  Future<void> _printPdf(
+    BuildContext context, {
+    required Delivery delivery,
+  }) async {
+    final factoryName = await resolveExportFactoryName(context);
+    final doc = await getIt<DeliveryChallanPdfExporter>().buildDeliveryChallanPdf(
+      delivery: delivery,
+      factoryName: factoryName,
+    );
+    await ExportActions.printPdf(
+      document: doc,
+      filename: '${delivery.deliveryNumber}-challan.pdf',
+    );
+  }
+}
+
+class _ChallanItemsTable extends StatelessWidget {
+  const _ChallanItemsTable({required this.delivery});
+
+  final Delivery delivery;
+
+  @override
+  Widget build(BuildContext context) {
+    final headerStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          fontSize: 10,
+        );
+    final cellStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontSize: 11,
+        );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.25),
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              children: [
+                Expanded(flex: 3, child: Text(AppStrings.stockDescription, style: headerStyle)),
+                Expanded(child: Text(AppStrings.scheduledPiecesShort, style: headerStyle, textAlign: TextAlign.center)),
+                Expanded(child: Text(AppStrings.dispatchPiecesShort, style: headerStyle, textAlign: TextAlign.center)),
+                Expanded(child: Text(AppStrings.dispatchSquareFeetShort, style: headerStyle, textAlign: TextAlign.center)),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          for (var i = 0; i < delivery.lineItems.length; i++) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Text(delivery.lineItems[i].displayLabel, style: cellStyle),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${delivery.lineItems[i].pieces}',
+                      style: cellStyle,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      delivery.status.isTerminal
+                          ? '${delivery.lineItems[i].effectivePieces}'
+                          : '—',
+                      style: cellStyle?.copyWith(fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      delivery.status.isTerminal
+                          ? delivery.lineItems[i].effectiveSquareFeet.toStringAsFixed(2)
+                          : '—',
+                      style: cellStyle?.copyWith(fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (i < delivery.lineItems.length - 1) const Divider(height: 1),
+          ],
+        ],
+      ),
     );
   }
 }

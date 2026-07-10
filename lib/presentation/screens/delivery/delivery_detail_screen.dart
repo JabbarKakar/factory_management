@@ -151,7 +151,9 @@ class DeliveryDetailScreen extends StatelessWidget {
                         delivery.salesOrderNumber,
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      if (nextStatus != null && canEditDelivery) ...[
+                      if (nextStatus != null &&
+                          canEditDelivery &&
+                          delivery.status != DeliveryStatus.scheduled) ...[
                         const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
@@ -165,7 +167,10 @@ class DeliveryDetailScreen extends StatelessWidget {
                       ],
                       if (delivery.status.canConfirmDelivery &&
                           canEditDelivery) ...[
-                        const SizedBox(height: 8),
+                        if (delivery.status == DeliveryStatus.scheduled)
+                          const SizedBox(height: 16),
+                        if (delivery.status != DeliveryStatus.scheduled)
+                          const SizedBox(height: 8),
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
@@ -175,7 +180,11 @@ class DeliveryDetailScreen extends StatelessWidget {
                                       RoutePaths.deliveryConfirm(delivery.id),
                                     ),
                             icon: const Icon(Icons.check_circle_outline),
-                            label: const Text(AppStrings.confirmDelivery),
+                            label: Text(
+                              delivery.status == DeliveryStatus.scheduled
+                                  ? AppStrings.dispatchStock
+                                  : AppStrings.confirmDelivery,
+                            ),
                           ),
                         ),
                       ],
@@ -252,6 +261,12 @@ class DeliveryDetailScreen extends StatelessWidget {
                       ListTile(
                         title: const Text(AppStrings.loadingSupervisor),
                         trailing: Text(delivery.loadingSupervisor!),
+                      ),
+                    if (delivery.receiverName != null &&
+                        delivery.receiverName!.isNotEmpty)
+                      ListTile(
+                        title: const Text(AppStrings.receiverName),
+                        trailing: Text(delivery.receiverName!),
                       ),
                   ],
                 ),

@@ -22,6 +22,7 @@ class DeliveryModel {
     this.driverName,
     this.driverEmployeeId,
     this.loadingSupervisor,
+    this.receiverName,
     this.notes,
     this.actualDeliveryDate,
     this.updatedAt,
@@ -42,6 +43,7 @@ class DeliveryModel {
   final String? driverName;
   final String? driverEmployeeId;
   final String? loadingSupervisor;
+  final String? receiverName;
   final String? notes;
   final DateTime? actualDeliveryDate;
   final DateTime createdAt;
@@ -66,6 +68,7 @@ class DeliveryModel {
       driverName: data['driverName'] as String?,
       driverEmployeeId: data['driverEmployeeId'] as String?,
       loadingSupervisor: data['loadingSupervisor'] as String?,
+      receiverName: data['receiverName'] as String?,
       notes: data['notes'] as String?,
       actualDeliveryDate:
           (data['actualDeliveryDate'] as Timestamp?)?.toDate(),
@@ -128,6 +131,8 @@ class DeliveryModel {
         'driverEmployeeId': driverEmployeeId,
       if (loadingSupervisor != null && loadingSupervisor!.isNotEmpty)
         'loadingSupervisor': loadingSupervisor,
+      if (receiverName != null && receiverName!.isNotEmpty)
+        'receiverName': receiverName,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
       if (actualDeliveryDate != null)
         'actualDeliveryDate': Timestamp.fromDate(actualDeliveryDate!),
@@ -152,6 +157,7 @@ class DeliveryModel {
         driverName: driverName,
         driverEmployeeId: driverEmployeeId,
         loadingSupervisor: loadingSupervisor,
+        receiverName: receiverName,
         notes: notes,
         actualDeliveryDate: actualDeliveryDate,
         createdAt: createdAt,
