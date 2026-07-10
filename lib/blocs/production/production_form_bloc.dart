@@ -65,6 +65,7 @@ class ProductionFormBloc extends Bloc<ProductionFormEvent, ProductionFormState> 
 
       final hasLinkedQc =
           await _qualityCheckRepository.hasQualityChecksForReference(
+        factoryId: batch.factoryId,
         referenceType: QcReferenceType.production,
         referenceId: batch.id,
       );

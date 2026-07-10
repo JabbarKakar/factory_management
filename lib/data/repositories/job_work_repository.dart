@@ -8,7 +8,9 @@ import '../../domain/entities/job_work_output.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../models/customer_model.dart';
+import '../models/job_work_collection_model.dart';
 import '../models/job_work_order_model.dart';
+import '../services/job_work_collection_status_helper.dart';
 
 class JobWorkRepository {
   JobWorkRepository({FirebaseFirestore? firestore})
@@ -111,7 +113,6 @@ class JobWorkRepository {
     }
 
     final allowed = switch ((order.status, targetStatus)) {
-      (JobWorkStatus.paid, JobWorkStatus.collected) => true,
       (JobWorkStatus.collected, JobWorkStatus.closed) => true,
       _ => false,
     };
@@ -122,15 +123,48 @@ class JobWorkRepository {
     final updates = <String, dynamic>{
       'status': targetStatus.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
+      'closedAt': FieldValue.serverTimestamp(),
+    };
+
+    await _jobWorkCollection.doc(id).update(updates);
+  }
+
+  /// Applies collection-derived status (partiallyCollected / collected).
+  Future<void> syncCollectionDerivedStatus(String jobWorkId) async {
+    final order = await getJobWorkOrder(jobWorkId);
+    if (order == null) return;
+
+    final snapshot = await _firestore
+        .collection('jobWorkCollections')
+        .where('factoryId', isEqualTo: order.factoryId)
+        .where('jobWorkOrderId', isEqualTo: jobWorkId)
+        .get();
+    final collections = snapshot.docs
+        .map(
+          (doc) => JobWorkCollectionModel.fromFirestore(doc.id, doc.data())
+              .toEntity(),
+        )
+        .toList();
+
+    final targetStatus = JobWorkCollectionStatusHelper.resolveTargetStatus(
+      order: order,
+      collections: collections,
+    );
+    if (targetStatus == null || targetStatus == order.status) return;
+
+    final updates = <String, dynamic>{
+      'status': targetStatus.firestoreValue,
+      'updatedAt': FieldValue.serverTimestamp(),
     };
     if (targetStatus == JobWorkStatus.collected) {
       updates['collectedAt'] = FieldValue.serverTimestamp();
     }
-    if (targetStatus == JobWorkStatus.closed) {
-      updates['closedAt'] = FieldValue.serverTimestamp();
+    if (order.status == JobWorkStatus.collected &&
+        targetStatus != JobWorkStatus.collected) {
+      updates['collectedAt'] = FieldValue.delete();
     }
 
-    await _jobWorkCollection.doc(id).update(updates);
+    await _jobWorkCollection.doc(jobWorkId).update(updates);
   }
 
   Future<JobWorkOrder> recordJobWorkOutput(JobWorkOrder order) async {
@@ -166,7 +200,9 @@ class JobWorkRepository {
     final updated = withOutput.copyWith(status: newStatus);
 
     await updateJobWorkOrder(updated);
-    return (await getJobWorkOrder(order.id)) ?? updated;
+    final saved = (await getJobWorkOrder(order.id)) ?? updated;
+    await syncCollectionDerivedStatus(saved.id);
+    return (await getJobWorkOrder(order.id)) ?? saved;
   }
 
   JobWorkStatus _statusAfterOutputSaved(JobWorkOrder order) {

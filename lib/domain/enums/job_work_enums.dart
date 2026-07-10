@@ -6,6 +6,7 @@ enum JobWorkStatus {
   ready,
   invoiced,
   paid,
+  partiallyCollected,
   collected,
   closed,
   cancelled;
@@ -18,6 +19,7 @@ enum JobWorkStatus {
         JobWorkStatus.ready => 'ready',
         JobWorkStatus.invoiced => 'invoiced',
         JobWorkStatus.paid => 'paid',
+        JobWorkStatus.partiallyCollected => 'partiallyCollected',
         JobWorkStatus.collected => 'collected',
         JobWorkStatus.closed => 'closed',
         JobWorkStatus.cancelled => 'cancelled',
@@ -31,6 +33,7 @@ enum JobWorkStatus {
         JobWorkStatus.ready => 'Ready',
         JobWorkStatus.invoiced => 'Invoiced',
         JobWorkStatus.paid => 'Paid',
+        JobWorkStatus.partiallyCollected => 'Partially Collected',
         JobWorkStatus.collected => 'Collected',
         JobWorkStatus.closed => 'Closed',
         JobWorkStatus.cancelled => 'Cancelled',
@@ -52,6 +55,7 @@ enum JobWorkStatus {
           true,
         JobWorkStatus.invoiced ||
         JobWorkStatus.paid ||
+        JobWorkStatus.partiallyCollected ||
         JobWorkStatus.collected ||
         JobWorkStatus.closed ||
         JobWorkStatus.cancelled =>
@@ -75,7 +79,8 @@ enum JobWorkStatus {
   bool get isPendingPickup => switch (this) {
         JobWorkStatus.ready ||
         JobWorkStatus.invoiced ||
-        JobWorkStatus.paid =>
+        JobWorkStatus.paid ||
+        JobWorkStatus.partiallyCollected =>
           true,
         _ => false,
       };
@@ -90,7 +95,8 @@ enum JobWorkStatus {
           0,
         JobWorkStatus.ready ||
         JobWorkStatus.invoiced ||
-        JobWorkStatus.paid =>
+        JobWorkStatus.paid ||
+        JobWorkStatus.partiallyCollected =>
           1,
         JobWorkStatus.collected || JobWorkStatus.closed => 2,
         JobWorkStatus.cancelled => 3,
@@ -100,7 +106,8 @@ enum JobWorkStatus {
         JobWorkStatus.agreed ||
         JobWorkStatus.inCutting ||
         JobWorkStatus.qc ||
-        JobWorkStatus.ready =>
+        JobWorkStatus.ready ||
+        JobWorkStatus.partiallyCollected =>
           true,
         _ => false,
       };
@@ -112,8 +119,15 @@ enum JobWorkStatus {
         JobWorkStatus.qc ||
         JobWorkStatus.ready ||
         JobWorkStatus.invoiced ||
-        JobWorkStatus.paid =>
+        JobWorkStatus.paid ||
+        JobWorkStatus.partiallyCollected =>
           true,
+        _ => false,
+      };
+
+  /// Payment/invoice updates must not overwrite collection progress.
+  bool get isCollectionStatus => switch (this) {
+        JobWorkStatus.partiallyCollected || JobWorkStatus.collected => true,
         _ => false,
       };
 
@@ -141,14 +155,13 @@ enum JobWorkStatus {
         _ => '',
       };
 
+  /// Only Close Order remains as a manual completion step.
   JobWorkStatus? get nextCompletionStatus => switch (this) {
-        JobWorkStatus.paid => JobWorkStatus.collected,
         JobWorkStatus.collected => JobWorkStatus.closed,
         _ => null,
       };
 
   String get completionActionLabel => switch (nextCompletionStatus) {
-        JobWorkStatus.collected => 'Mark Material Collected',
         JobWorkStatus.closed => 'Close Order',
         _ => '',
       };
@@ -161,6 +174,7 @@ enum JobWorkListStageFilter {
   ready,
   invoiced,
   paid,
+  partiallyCollected,
   pendingPickup,
   completed,
   cancelled;
@@ -172,6 +186,7 @@ enum JobWorkListStageFilter {
         JobWorkListStageFilter.ready => 'Ready',
         JobWorkListStageFilter.invoiced => 'Invoiced',
         JobWorkListStageFilter.paid => 'Paid',
+        JobWorkListStageFilter.partiallyCollected => 'Partially Collected',
         JobWorkListStageFilter.pendingPickup => 'Pending Pickup',
         JobWorkListStageFilter.completed => 'Completed',
         JobWorkListStageFilter.cancelled => 'Cancelled',
@@ -192,6 +207,8 @@ enum JobWorkListStageFilter {
         JobWorkListStageFilter.ready => status == JobWorkStatus.ready,
         JobWorkListStageFilter.invoiced => status == JobWorkStatus.invoiced,
         JobWorkListStageFilter.paid => status == JobWorkStatus.paid,
+        JobWorkListStageFilter.partiallyCollected =>
+          status == JobWorkStatus.partiallyCollected,
         JobWorkListStageFilter.pendingPickup => status.isPendingPickup,
         JobWorkListStageFilter.completed => status.isCompleted,
         JobWorkListStageFilter.cancelled => status == JobWorkStatus.cancelled,

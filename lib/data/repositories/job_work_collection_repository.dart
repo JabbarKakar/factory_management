@@ -131,6 +131,7 @@ class JobWorkCollectionRepository {
 
     final model = JobWorkCollectionModel.fromEntity(record);
     await _collection.doc(id).set(model.toFirestore(isCreate: true));
+    await _jobWorkRepository.syncCollectionDerivedStatus(order.id);
     final created = await getCollection(id);
     return created ?? record;
   }

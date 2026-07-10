@@ -57,12 +57,13 @@ void main() {
   }
 
   group('JobWorkStatus.canCollectMaterial', () {
-    test('allows from inCutting through paid', () {
+    test('allows from inCutting through paid and partiallyCollected', () {
       expect(JobWorkStatus.inCutting.canCollectMaterial, isTrue);
       expect(JobWorkStatus.qc.canCollectMaterial, isTrue);
       expect(JobWorkStatus.ready.canCollectMaterial, isTrue);
       expect(JobWorkStatus.invoiced.canCollectMaterial, isTrue);
       expect(JobWorkStatus.paid.canCollectMaterial, isTrue);
+      expect(JobWorkStatus.partiallyCollected.canCollectMaterial, isTrue);
     });
 
     test('blocks before cutting and after collected', () {

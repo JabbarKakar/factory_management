@@ -158,11 +158,13 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
 
       _qualityChecksSubscription = _qualityCheckRepository
           .watchQualityChecksForReference(
+            factoryId: order.factoryId,
             referenceType: QcReferenceType.jobWork,
             referenceId: event.jobWorkId,
           )
           .listen(
             (checks) => add(_JobWorkQualityChecksUpdated(checks)),
+            onError: (_) {},
           );
 
       _collectionsSubscription = _collectionRepository

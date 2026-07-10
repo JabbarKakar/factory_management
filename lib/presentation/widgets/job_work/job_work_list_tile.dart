@@ -286,6 +286,7 @@ class JobWorkListTile extends StatelessWidget {
       JobWorkStatus.qc => const Color(0xFF6A1B9A),
       JobWorkStatus.ready => AppColors.success,
       JobWorkStatus.invoiced || JobWorkStatus.paid => AppColors.accent,
+      JobWorkStatus.partiallyCollected => AppColors.warning,
       JobWorkStatus.collected || JobWorkStatus.closed => const Color(0xFF455A64),
       JobWorkStatus.cancelled => AppColors.error,
     };

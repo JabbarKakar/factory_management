@@ -78,6 +78,10 @@ class JobWorkStatusBadge extends StatelessWidget {
       JobWorkStatus.invoiced ||
       JobWorkStatus.paid =>
         const _BadgeColors(AppColors.accent, Color(0xFFFFF3E0)),
+      JobWorkStatus.partiallyCollected => const _BadgeColors(
+          AppColors.warning,
+          Color(0xFFFFF8E1),
+        ),
       JobWorkStatus.collected || JobWorkStatus.closed => const _BadgeColors(
           Color(0xFF455A64),
           Color(0xFFECEFF1),

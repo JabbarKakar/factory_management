@@ -148,8 +148,11 @@ class JobWorkInvoiceRepository {
     if (order == null) {
       throw StateError('Job work order not found.');
     }
-    if (order.status != JobWorkStatus.ready) {
-      throw StateError('Invoice can only be generated for ready orders.');
+    if (order.status != JobWorkStatus.ready &&
+        order.status != JobWorkStatus.partiallyCollected) {
+      throw StateError(
+        'Invoice can only be generated for ready or partially collected orders.',
+      );
     }
     if (order.finalCuttingCharges <= 0) {
       throw StateError(
@@ -205,14 +208,18 @@ class JobWorkInvoiceRepository {
     final batch = _firestore.batch();
 
     batch.set(_collection.doc(id), model.toFirestore(isCreate: true));
-    final orderStatus = dueAmount <= 0
-        ? JobWorkStatus.paid
-        : JobWorkStatus.invoiced;
-    batch.update(_jobWorkRepository.jobWorkDoc(order.id), {
+    final orderUpdates = <String, dynamic>{
       'invoiceId': id,
-      'status': orderStatus.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    };
+    // Do not overwrite collection progress with invoiced/paid.
+    if (!order.status.isCollectionStatus) {
+      orderUpdates['status'] = (dueAmount <= 0
+              ? JobWorkStatus.paid
+              : JobWorkStatus.invoiced)
+          .firestoreValue;
+    }
+    batch.update(_jobWorkRepository.jobWorkDoc(order.id), orderUpdates);
 
     await batch.commit();
 
@@ -280,17 +287,23 @@ class JobWorkInvoiceRepository {
 
     final order = await _jobWorkRepository.getJobWorkOrder(existing.jobWorkId);
     if (order != null) {
-      final orderStatus = dueAmount <= 0 && totalAmount > 0
-          ? JobWorkStatus.paid
-          : order.status == JobWorkStatus.paid && dueAmount > 0
-              ? JobWorkStatus.invoiced
-              : order.status;
-      batch.update(_jobWorkRepository.jobWorkDoc(existing.jobWorkId), {
+      final orderUpdates = <String, dynamic>{
         'finalCuttingCharges': totalAmount,
         'balanceDue': dueAmount,
-        'status': orderStatus.firestoreValue,
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
+      if (!order.status.isCollectionStatus) {
+        final orderStatus = dueAmount <= 0 && totalAmount > 0
+            ? JobWorkStatus.paid
+            : order.status == JobWorkStatus.paid && dueAmount > 0
+                ? JobWorkStatus.invoiced
+                : order.status;
+        orderUpdates['status'] = orderStatus.firestoreValue;
+      }
+      batch.update(
+        _jobWorkRepository.jobWorkDoc(existing.jobWorkId),
+        orderUpdates,
+      );
     }
 
     await batch.commit();

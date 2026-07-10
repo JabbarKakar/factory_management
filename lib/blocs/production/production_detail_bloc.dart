@@ -38,29 +38,34 @@ class ProductionDetailBloc
     emit(state.copyWith(status: ProductionDetailStatus.loading));
     await _subscription?.cancel();
     await _qcSubscription?.cancel();
+    _qcSubscription = null;
 
     _subscription = _repository.watchBatch(event.batchId).listen(
-          (batch) => add(_ProductionDetailUpdated(batch)),
-          onError: (_) => add(
-            const _ProductionDetailStreamFailed(
-              'Could not load production batch.',
-            ),
-          ),
-        );
-
-    _qcSubscription = _qualityCheckRepository
-        .watchQualityChecksForReference(
-          referenceType: QcReferenceType.production,
-          referenceId: event.batchId,
-        )
-        .listen(
-          (checks) => add(_ProductionDetailQcUpdated(checks)),
-          onError: (_) => add(
-            const _ProductionDetailStreamFailed(
-              'Could not load quality inspections.',
-            ),
-          ),
-        );
+      (batch) {
+        add(_ProductionDetailUpdated(batch));
+        if (batch != null && _qcSubscription == null) {
+          _qcSubscription = _qualityCheckRepository
+              .watchQualityChecksForReference(
+                factoryId: batch.factoryId,
+                referenceType: QcReferenceType.production,
+                referenceId: event.batchId,
+              )
+              .listen(
+                (checks) => add(_ProductionDetailQcUpdated(checks)),
+                onError: (_) => add(
+                  const _ProductionDetailStreamFailed(
+                    'Could not load quality inspections.',
+                  ),
+                ),
+              );
+        }
+      },
+      onError: (_) => add(
+        const _ProductionDetailStreamFailed(
+          'Could not load production batch.',
+        ),
+      ),
+    );
   }
 
   void _onUpdated(

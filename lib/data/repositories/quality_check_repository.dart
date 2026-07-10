@@ -51,10 +51,12 @@ class QualityCheckRepository {
   }
 
   Stream<List<QualityCheck>> watchQualityChecksForReference({
+    required String factoryId,
     required QcReferenceType referenceType,
     required String referenceId,
   }) {
     return _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('referenceId', isEqualTo: referenceId)
         .where('referenceType', isEqualTo: referenceType.firestoreValue)
         .snapshots()
@@ -102,10 +104,12 @@ class QualityCheckRepository {
       _jobWorkRepository.getJobWorkOrder(id);
 
   Future<bool> hasQualityChecksForReference({
+    required String factoryId,
     required QcReferenceType referenceType,
     required String referenceId,
   }) async {
     final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
         .where('referenceId', isEqualTo: referenceId)
         .where('referenceType', isEqualTo: referenceType.firestoreValue)
         .limit(1)

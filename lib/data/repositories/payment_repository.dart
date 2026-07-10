@@ -291,7 +291,9 @@ class PaymentRepository {
 
       final order = await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
       if (order != null) {
-        if (dueAmount <= 0 && order.status != JobWorkStatus.paid) {
+        if (dueAmount <= 0 &&
+            order.status != JobWorkStatus.paid &&
+            !order.status.isCollectionStatus) {
           await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
             'status': JobWorkStatus.paid.firestoreValue,
             'updatedAt': FieldValue.serverTimestamp(),
@@ -449,10 +451,15 @@ class PaymentRepository {
         'updatedAt': FieldValue.serverTimestamp(),
       },
       onFullyPaid: newDue <= 0
-          ? () => _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
+          ? () async {
+              final order =
+                  await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
+              if (order == null || order.status.isCollectionStatus) return;
+              await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
                 'status': JobWorkStatus.paid.firestoreValue,
                 'updatedAt': FieldValue.serverTimestamp(),
-              })
+              });
+            }
           : null,
     );
 

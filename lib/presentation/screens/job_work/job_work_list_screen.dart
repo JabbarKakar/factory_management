@@ -144,7 +144,9 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       );
     }
 
-    if (status == JobWorkStatus.ready && !hasInvoice) {
+    if ((status == JobWorkStatus.ready ||
+            status == JobWorkStatus.partiallyCollected) &&
+        !hasInvoice) {
       actions.add(
         TileMenuAction(
           label: AppStrings.generateInvoice,

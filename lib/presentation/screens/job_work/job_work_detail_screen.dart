@@ -87,18 +87,11 @@ class JobWorkDetailScreen extends StatelessWidget {
     BuildContext context,
     JobWorkStatus nextStatus,
   ) async {
-    final isCollect = nextStatus == JobWorkStatus.collected;
     final confirmed = await AppConfirmDialog.show(
       context,
-      title: isCollect
-          ? AppStrings.markCollectedTitle
-          : AppStrings.closeJobWorkTitle,
-      message: isCollect
-          ? AppStrings.markCollectedMessage
-          : AppStrings.closeJobWorkMessage,
-      confirmLabel: isCollect
-          ? AppStrings.markMaterialCollected
-          : AppStrings.closeJobWorkOrder,
+      title: AppStrings.closeJobWorkTitle,
+      message: AppStrings.closeJobWorkMessage,
+      confirmLabel: AppStrings.closeJobWorkOrder,
     );
     if (confirmed != true || !context.mounted) return;
 
@@ -490,7 +483,8 @@ class JobWorkDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              if (order.status == JobWorkStatus.ready &&
+              if ((order.status == JobWorkStatus.ready ||
+                      order.status == JobWorkStatus.partiallyCollected) &&
                   (order.invoiceId == null || order.invoiceId!.isEmpty))
                 _InvoicePromptCard(
                   message: AppStrings.invoiceNotReady,

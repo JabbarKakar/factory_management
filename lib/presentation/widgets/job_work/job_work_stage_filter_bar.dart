@@ -67,6 +67,7 @@ class JobWorkStageFilterBar extends StatelessWidget {
       JobWorkListStageFilter.ready => Icons.check_circle_outline_rounded,
       JobWorkListStageFilter.invoiced => Icons.receipt_long_outlined,
       JobWorkListStageFilter.paid => Icons.payments_outlined,
+      JobWorkListStageFilter.partiallyCollected => Icons.handshake_outlined,
       JobWorkListStageFilter.pendingPickup => Icons.local_shipping_outlined,
       JobWorkListStageFilter.completed => Icons.done_all_rounded,
       JobWorkListStageFilter.cancelled => Icons.cancel_outlined,

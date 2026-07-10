@@ -43,13 +43,9 @@ class JobWorkDetailHero extends StatelessWidget {
     );
     final nextStatus = order.status.nextOperationalStatus;
     final nextCompletionStatus = order.status.nextCompletionStatus;
-    // Prefer qty-based Collect Material over one-shot mark when stock remains.
-    final showMarkCollected = nextCompletionStatus == JobWorkStatus.collected &&
-        !canCollectMaterial;
     final showCloseOrder = nextCompletionStatus == JobWorkStatus.closed;
     final hasActions = (order.status.canAdvanceOperationally &&
             nextStatus != null) ||
-        showMarkCollected ||
         showCloseOrder ||
         canCollectMaterial ||
         canRecordOutput;
@@ -127,26 +123,10 @@ class JobWorkDetailHero extends StatelessWidget {
                             onPressed: isSaving ? null : onCollectMaterial,
                           ),
                         ],
-                        if (showMarkCollected) ...[
-                          if ((order.status.canAdvanceOperationally &&
-                                  nextStatus != null) ||
-                              canCollectMaterial)
-                            const SizedBox(height: 6),
-                          _ActionButton(
-                            label: AppStrings.markMaterialCollected,
-                            filled: true,
-                            onPressed: isSaving
-                                ? null
-                                : () => onAdvanceCompletion(
-                                      JobWorkStatus.collected,
-                                    ),
-                          ),
-                        ],
                         if (showCloseOrder) ...[
                           if ((order.status.canAdvanceOperationally &&
                                   nextStatus != null) ||
-                              canCollectMaterial ||
-                              showMarkCollected)
+                              canCollectMaterial)
                             const SizedBox(height: 6),
                           _ActionButton(
                             label: AppStrings.closeJobWorkOrder,
@@ -191,6 +171,7 @@ class JobWorkDetailHero extends StatelessWidget {
       JobWorkStatus.qc => const Color(0xFF6A1B9A),
       JobWorkStatus.ready => AppColors.success,
       JobWorkStatus.invoiced || JobWorkStatus.paid => AppColors.accent,
+      JobWorkStatus.partiallyCollected => AppColors.warning,
       JobWorkStatus.collected || JobWorkStatus.closed => const Color(0xFF455A64),
       JobWorkStatus.cancelled => AppColors.error,
     };
