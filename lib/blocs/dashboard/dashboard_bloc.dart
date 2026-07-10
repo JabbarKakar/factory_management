@@ -414,6 +414,31 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       });
     final pendingPickupCount = pendingPickups.length;
 
+    final partiallyCollectedOrdersCount = _orders.where((order) {
+      if (order.status == JobWorkStatus.partiallyCollected) return true;
+      final collections = JobWorkCollectionQuantityHelper.collectionsForOrder(
+        order.id,
+        _jobWorkCollections,
+      );
+      final totals = JobWorkCollectionQuantityHelper.orderTotals(
+        order,
+        collections,
+      );
+      return totals.hasCollections && !totals.isFullyCollected;
+    }).length;
+
+    final stalePickupCount = _orders.where((order) {
+      final collections = JobWorkCollectionQuantityHelper.collectionsForOrder(
+        order.id,
+        _jobWorkCollections,
+      );
+      return JobWorkCollectionQuantityHelper.isPickupOverdue(
+        order,
+        collections,
+        reference: today,
+      );
+    }).length;
+
     final overdueSummary = _scannerService.summarizeAll(
       jobWorkInvoices: _jobWorkInvoices,
       salesInvoices: _salesInvoices,
@@ -527,6 +552,8 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           activeJobWorkCount: activeJobWorkCount,
           activeSalesCount: activeSalesCount,
           pendingPickupCount: pendingPickupCount,
+          partiallyCollectedOrdersCount: partiallyCollectedOrdersCount,
+          stalePickupCount: stalePickupCount,
           expensesThisMonth: expensesThisMonth,
           expenseCountThisMonth: expensesThisMonthList.length,
           lowStockCount: lowStockCount,

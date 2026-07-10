@@ -1,10 +1,12 @@
 import 'package:intl/intl.dart';
 
+import '../../core/constants/app_strings.dart';
 import '../../core/utils/formatters.dart';
 import '../../domain/entities/app_notification.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/finished_good.dart';
+import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/entities/raw_material.dart';
@@ -114,16 +116,29 @@ class OperationalAlertScannerService {
     }
 
     for (final order in jobWorkOrders) {
-      if (order.status == JobWorkStatus.ready) {
-        created += await _createIfNew(_jobWorkReadyNotification(order));
-      }
       final collections = JobWorkCollectionQuantityHelper.collectionsForOrder(
         order.id,
         jobWorkCollections,
       );
-      if (JobWorkCollectionQuantityHelper.isPendingPickup(order, collections)) {
+      if (order.status == JobWorkStatus.ready &&
+          JobWorkCollectionQuantityHelper.isPendingPickup(
+            order,
+            collections,
+          )) {
+        created += await _createIfNew(_jobWorkReadyNotification(order));
+      }
+      if (JobWorkCollectionQuantityHelper.isPickupOverdue(
+        order,
+        collections,
+        reference: todayDay,
+      )) {
         created += await _createIfNew(
-          _jobWorkStalePickupNotification(order, todayDay, scanDate),
+          _jobWorkStalePickupNotification(
+            order,
+            collections,
+            todayDay,
+            scanDate,
+          ),
         );
       }
     }
@@ -155,6 +170,18 @@ class OperationalAlertScannerService {
 
   Future<void> notifyJobWorkReady(JobWorkOrder order) async {
     if (order.status != JobWorkStatus.ready) return;
+
+    final collections =
+        await _jobWorkCollectionRepository.fetchCollectionsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkOrderId: order.id,
+    );
+    if (!JobWorkCollectionQuantityHelper.isPendingPickup(
+      order,
+      collections,
+    )) {
+      return;
+    }
 
     await _createIfNew(_jobWorkReadyNotification(order));
   }
@@ -274,9 +301,9 @@ class OperationalAlertScannerService {
       factoryId: order.factoryId,
       type: NotificationType.jobWorkReadyForPickup,
       priority: NotificationPriority.medium,
-      title: 'Ready for pickup — ${order.customerName}',
+      title: '${AppStrings.readyForPickupAlert} — ${order.customerName}',
       body:
-          '${order.jobWorkNumber} is ready. Notify the customer to collect material.',
+          '${order.jobWorkNumber} ${AppStrings.readyForPickupAlertBody}',
       customerId: order.customerId,
       jobWorkId: order.id,
       createdAt: DateTime.now(),
@@ -286,23 +313,33 @@ class OperationalAlertScannerService {
 
   AppNotification? _jobWorkStalePickupNotification(
     JobWorkOrder order,
+    List<JobWorkCollection> collections,
     DateTime today,
     String scanDate,
   ) {
-    final reference = order.updatedAt ?? order.createdAt;
-    final referenceDay =
-        DateTime(reference.year, reference.month, reference.day);
-    final daysWaiting = today.difference(referenceDay).inDays;
-    if (daysWaiting < 7) return null;
+    final daysWaiting = JobWorkCollectionQuantityHelper.pickupDaysWaiting(
+      order,
+      collections,
+      reference: today,
+    );
+    if (daysWaiting < JobWorkCollectionQuantityHelper.stalePickupAfterDays) {
+      return null;
+    }
+
+    final totals = JobWorkCollectionQuantityHelper.orderTotals(
+      order,
+      collections,
+    );
 
     return AppNotification(
       id: '',
       factoryId: order.factoryId,
       type: NotificationType.jobWorkNotCollected,
       priority: NotificationPriority.medium,
-      title: 'Material not collected — ${order.customerName}',
+      title: '${AppStrings.stalePickupAlert} — ${order.customerName}',
       body:
-          '${order.jobWorkNumber} has been waiting $daysWaiting days for customer pickup',
+          '${order.jobWorkNumber} has ${totals.remainingPieces} pcs remaining, '
+          'waiting $daysWaiting days for pickup',
       customerId: order.customerId,
       jobWorkId: order.id,
       daysOverdue: daysWaiting,

@@ -6,6 +6,8 @@ class DashboardKpis extends Equatable {
     required this.activeJobWorkCount,
     required this.activeSalesCount,
     required this.pendingPickupCount,
+    required this.partiallyCollectedOrdersCount,
+    required this.stalePickupCount,
     required this.expensesThisMonth,
     required this.expenseCountThisMonth,
     required this.lowStockCount,
@@ -41,6 +43,8 @@ class DashboardKpis extends Equatable {
     activeJobWorkCount: 0,
     activeSalesCount: 0,
     pendingPickupCount: 0,
+    partiallyCollectedOrdersCount: 0,
+    stalePickupCount: 0,
     expensesThisMonth: 0,
     expenseCountThisMonth: 0,
     lowStockCount: 0,
@@ -75,6 +79,8 @@ class DashboardKpis extends Equatable {
   final int activeJobWorkCount;
   final int activeSalesCount;
   final int pendingPickupCount;
+  final int partiallyCollectedOrdersCount;
+  final int stalePickupCount;
   final double expensesThisMonth;
   final int expenseCountThisMonth;
   final int lowStockCount;
@@ -113,6 +119,8 @@ class DashboardKpis extends Equatable {
         activeJobWorkCount,
         activeSalesCount,
         pendingPickupCount,
+        partiallyCollectedOrdersCount,
+        stalePickupCount,
         expensesThisMonth,
         expenseCountThisMonth,
         lowStockCount,

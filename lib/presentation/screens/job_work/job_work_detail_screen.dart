@@ -158,6 +158,11 @@ class JobWorkDetailScreen extends StatelessWidget {
           order,
           state.collections,
         );
+        final isPickupOverdue =
+            JobWorkCollectionQuantityHelper.isPickupOverdue(
+          order,
+          state.collections,
+        );
         final showCollectionSection = collectionTotals.hasProducedStock ||
             state.collections.isNotEmpty ||
             canCollectMaterial;
@@ -230,38 +235,51 @@ class JobWorkDetailScreen extends StatelessWidget {
                 JobWorkDetailSection(
                   title: AppStrings.materialCollectionSummary,
                   icon: Icons.inventory_2_outlined,
-                  child: JobWorkDetailRows(
-                    rows: [
-                      JobWorkDetailRow(
-                        label: AppStrings.totalPieces,
-                        value: '${collectionTotals.totalPieces}',
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.piecesCollected,
-                        value: '${collectionTotals.collectedPieces}',
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.piecesRemaining,
-                        value: '${collectionTotals.remainingPieces}',
-                        bold: collectionTotals.remainingPieces > 0,
-                        highlight: collectionTotals.remainingPieces > 0,
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.totalSquareFeet,
-                        value: collectionTotals.totalSquareFeet
-                            .toStringAsFixed(2),
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.squareFeetCollected,
-                        value: collectionTotals.collectedSquareFeet
-                            .toStringAsFixed(2),
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.squareFeetRemaining,
-                        value: collectionTotals.remainingSquareFeet
-                            .toStringAsFixed(2),
-                        bold: collectionTotals.remainingSquareFeet > 0.001,
-                        highlight: collectionTotals.remainingSquareFeet > 0.001,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isPickupOverdue) ...[
+                        const CompactStatusChip(
+                          label: AppStrings.pickupOverdue,
+                          color: AppColors.overdue,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+                      JobWorkDetailRows(
+                        rows: [
+                          JobWorkDetailRow(
+                            label: AppStrings.totalPieces,
+                            value: '${collectionTotals.totalPieces}',
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.piecesCollected,
+                            value: '${collectionTotals.collectedPieces}',
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.piecesRemaining,
+                            value: '${collectionTotals.remainingPieces}',
+                            bold: collectionTotals.remainingPieces > 0,
+                            highlight: collectionTotals.remainingPieces > 0,
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.totalSquareFeet,
+                            value: collectionTotals.totalSquareFeet
+                                .toStringAsFixed(2),
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.squareFeetCollected,
+                            value: collectionTotals.collectedSquareFeet
+                                .toStringAsFixed(2),
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.squareFeetRemaining,
+                            value: collectionTotals.remainingSquareFeet
+                                .toStringAsFixed(2),
+                            bold: collectionTotals.remainingSquareFeet > 0.001,
+                            highlight:
+                                collectionTotals.remainingSquareFeet > 0.001,
+                          ),
+                        ],
                       ),
                     ],
                   ),

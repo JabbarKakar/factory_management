@@ -212,12 +212,76 @@ abstract final class JobWorkCollectionQuantityHelper {
     return totals.remainingPieces > 0 || totals.remainingSquareFeet > 0.001;
   }
 
-  /// Pending pickup for dashboard/list/alerts: collectible remaining qty.
+  /// Pending pickup for dashboard/list: any collectible remaining qty
+  /// (including mid-cutting / QC early pickups).
   static bool isPendingPickup(
     JobWorkOrder order,
     List<JobWorkCollection> collections,
   ) {
     return canOpenCollectMaterial(order, collections);
+  }
+
+  /// Customer-facing pending: ready → partiallyCollected with remaining stock.
+  /// Used for stale/overdue pickup alerts (not mid-cutting nags).
+  static bool isCustomerFacingPendingPickup(
+    JobWorkOrder order,
+    List<JobWorkCollection> collections,
+  ) {
+    if (!order.status.isPendingPickup) return false;
+    return isPendingPickup(order, collections);
+  }
+
+  /// Days after which remaining material waiting for pickup is overdue.
+  static const int stalePickupAfterDays = 7;
+
+  /// Wait clock for stale pickup: last collection date when partially picked up,
+  /// else cutting completion, else order created — never [JobWorkOrder.updatedAt]
+  /// (invoice/payment edits would reset the timer).
+  static DateTime pickupWaitReferenceDate(
+    JobWorkOrder order,
+    List<JobWorkCollection> collections,
+  ) {
+    DateTime? latestCollection;
+    for (final collection in collections) {
+      if (!counts(collection)) continue;
+      final at = collection.collectedAt;
+      if (latestCollection == null || at.isAfter(latestCollection)) {
+        latestCollection = at;
+      }
+    }
+    if (latestCollection != null) return latestCollection;
+
+    final cuttingDone = order.execution?.cuttingCompletionDate;
+    if (cuttingDone != null) return cuttingDone;
+
+    return order.createdAt;
+  }
+
+  static int pickupDaysWaiting(
+    JobWorkOrder order,
+    List<JobWorkCollection> collections, {
+    DateTime? reference,
+  }) {
+    if (!isCustomerFacingPendingPickup(order, collections)) return 0;
+    final now = reference ?? DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final waitFrom = pickupWaitReferenceDate(order, collections);
+    final waitDay = DateTime(waitFrom.year, waitFrom.month, waitFrom.day);
+    return today.difference(waitDay).inDays;
+  }
+
+  static bool isPickupOverdue(
+    JobWorkOrder order,
+    List<JobWorkCollection> collections, {
+    DateTime? reference,
+    int staleAfterDays = stalePickupAfterDays,
+  }) {
+    return pickupDaysWaiting(
+          order,
+          collections,
+          reference: reference,
+        ) >=
+        staleAfterDays;
   }
 
   static List<JobWorkCollection> collectionsForOrder(

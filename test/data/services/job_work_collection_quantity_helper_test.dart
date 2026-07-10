@@ -164,5 +164,86 @@ void main() {
         isFalse,
       );
     });
+
+    test('pickup overdue uses remaining + wait clock, not updatedAt', () {
+      final readyOrder = buildOrder(
+        status: JobWorkStatus.ready,
+        output: output,
+      ).copyWith(
+        createdAt: DateTime(2026, 6, 1),
+        updatedAt: DateTime(2026, 7, 9),
+        execution: JobWorkExecution(
+          cuttingCompletionDate: DateTime(2026, 6, 20),
+        ),
+      );
+
+      expect(
+        JobWorkCollectionQuantityHelper.isPickupOverdue(
+          readyOrder,
+          const [],
+          reference: DateTime(2026, 7, 10),
+        ),
+        isTrue,
+      );
+      expect(
+        JobWorkCollectionQuantityHelper.pickupDaysWaiting(
+          readyOrder,
+          const [],
+          reference: DateTime(2026, 7, 10),
+        ),
+        20,
+      );
+
+      // Mid-cutting with remaining is pending but not customer-facing overdue.
+      final cuttingOrder = buildOrder(
+        status: JobWorkStatus.inCutting,
+        output: output,
+      ).copyWith(createdAt: DateTime(2026, 1, 1));
+      expect(
+        JobWorkCollectionQuantityHelper.isPendingPickup(cuttingOrder, const []),
+        isTrue,
+      );
+      expect(
+        JobWorkCollectionQuantityHelper.isPickupOverdue(
+          cuttingOrder,
+          const [],
+          reference: DateTime(2026, 7, 10),
+        ),
+        isFalse,
+      );
+
+      // Partial collection resets wait clock to last collectedAt.
+      final partial = [
+        buildCollection(
+          lineItems: const [
+            JobWorkCollectionLineItem(
+              size: '12x12',
+              pieces: 40,
+              squareFeet: 40,
+            ),
+          ],
+        ).copyWith(collectedAt: DateTime(2026, 7, 5)),
+      ];
+      final partialOrder = buildOrder(
+        status: JobWorkStatus.partiallyCollected,
+        output: output,
+      );
+      expect(
+        JobWorkCollectionQuantityHelper.isPickupOverdue(
+          partialOrder,
+          partial,
+          reference: DateTime(2026, 7, 10),
+        ),
+        isFalse,
+      );
+      expect(
+        JobWorkCollectionQuantityHelper.isPickupOverdue(
+          partialOrder,
+          partial,
+          reference: DateTime(2026, 7, 13),
+        ),
+        isTrue,
+      );
+    });
   });
 }

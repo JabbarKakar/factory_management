@@ -5,6 +5,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/job_work_enums.dart';
+import '../compact_status_chip.dart';
 import '../tile_options_menu.dart';
 import 'job_work_status_badge.dart';
 
@@ -15,6 +16,9 @@ class JobWorkListTile extends StatelessWidget {
     this.menuActions = const [],
     this.isBusy = false,
     this.awaitingQcInspection = false,
+    this.isPickupOverdue = false,
+    this.remainingPieces,
+    this.lastReceiverName,
     this.paidAmount,
     this.remainingAmount,
     super.key,
@@ -25,11 +29,17 @@ class JobWorkListTile extends StatelessWidget {
   final List<TileMenuAction> menuActions;
   final bool isBusy;
   final bool awaitingQcInspection;
+  final bool isPickupOverdue;
+  final int? remainingPieces;
+  final String? lastReceiverName;
   final double? paidAmount;
   final double? remainingAmount;
 
   bool get _showPaymentStrip =>
       paidAmount != null && remainingAmount != null;
+
+  bool get _showRemainingStrip =>
+      remainingPieces != null && remainingPieces! > 0;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +113,13 @@ class JobWorkListTile extends StatelessWidget {
                                   status: order.status,
                                   compact: true,
                                 ),
+                                if (isPickupOverdue) ...[
+                                  const SizedBox(width: 6),
+                                  const CompactStatusChip(
+                                    label: AppStrings.pickupOverdue,
+                                    color: AppColors.overdue,
+                                  ),
+                                ],
                                 if (menuActions.isNotEmpty)
                                   TileOptionsButton(
                                     isBusy: isBusy,
@@ -133,6 +150,13 @@ class JobWorkListTile extends StatelessWidget {
                                   _MetaChip(
                                     icon: Icons.person_outline,
                                     label: order.mineOwner!,
+                                  ),
+                                if (lastReceiverName != null &&
+                                    lastReceiverName!.isNotEmpty)
+                                  _MetaChip(
+                                    icon: Icons.handshake_outlined,
+                                    label:
+                                        '${AppStrings.receiverName}: $lastReceiverName',
                                   ),
                                 _MetaChip(
                                   icon: Icons.layers_outlined,
@@ -214,6 +238,16 @@ class JobWorkListTile extends StatelessWidget {
                                       ),
                                     ),
                                 ],
+                              ),
+                            ],
+                            if (_showRemainingStrip) ...[
+                              const SizedBox(height: 8),
+                              _SummaryStrip(
+                                label:
+                                    '${AppStrings.remainingToCollect}: $remainingPieces pcs',
+                                color: isPickupOverdue
+                                    ? AppColors.overdue
+                                    : AppColors.warning,
                               ),
                             ],
                             if (_showPaymentStrip) ...[

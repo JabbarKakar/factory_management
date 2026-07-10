@@ -237,22 +237,35 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     final normalizedQuery = query.trim().toLowerCase();
 
     final filtered = orders.where((order) {
+      final orderCollections =
+          JobWorkCollectionQuantityHelper.collectionsForOrder(
+        order.id,
+        collections,
+      );
       if (stageFilter == JobWorkListStageFilter.pendingPickup) {
-        final orderCollections =
-            JobWorkCollectionQuantityHelper.collectionsForOrder(
-          order.id,
-          collections,
-        );
         if (!JobWorkCollectionQuantityHelper.isPendingPickup(
           order,
           orderCollections,
         )) {
           return false;
         }
+      } else if (stageFilter == JobWorkListStageFilter.partiallyCollected) {
+        final totals = JobWorkCollectionQuantityHelper.orderTotals(
+          order,
+          orderCollections,
+        );
+        final isPartial = order.status == JobWorkStatus.partiallyCollected ||
+            (totals.hasCollections && !totals.isFullyCollected);
+        if (!isPartial) return false;
       } else if (!stageFilter.matches(order.status)) {
         return false;
       }
       if (normalizedQuery.isEmpty) return true;
+
+      final receiverNames = orderCollections
+          .map((collection) => collection.receiverName)
+          .whereType<String>()
+          .where((name) => name.trim().isNotEmpty);
 
       final haystack = [
         order.jobWorkNumber,
@@ -261,6 +274,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         order.mineLocation,
         order.mineOwner,
         order.status.label,
+        ...receiverNames,
         ...order.smallSizes,
         ...order.largeSizes,
         ...order.legacySizes,

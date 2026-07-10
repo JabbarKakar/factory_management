@@ -203,9 +203,39 @@ class DashboardKpiGrid extends StatelessWidget {
         _KpiItem(
           label: AppStrings.pendingPickups,
           value: '${kpis.pendingPickupCount}',
-          subtitle: AppStrings.awaitingCustomerPickup,
+          subtitle: AppStrings.pendingPickupsSubtitle,
           icon: Icons.inventory_2_outlined,
           color: AppColors.accent,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.jobWorkList(filter: JobWorkListStageFilter.pendingPickup),
+            ),
+            AppModule.jobWork,
+          ),
+        ),
+      if (_canView(AppModule.jobWork) && kpis.partiallyCollectedOrdersCount > 0)
+        _KpiItem(
+          label: AppStrings.partiallyCollectedOrders,
+          value: '${kpis.partiallyCollectedOrdersCount}',
+          subtitle: AppStrings.partiallyCollectedOrdersSubtitle,
+          icon: Icons.handshake_outlined,
+          color: AppColors.warning,
+          onTap: _tap(
+            () => context.go(
+              RoutePaths.jobWorkList(
+                filter: JobWorkListStageFilter.partiallyCollected,
+              ),
+            ),
+            AppModule.jobWork,
+          ),
+        ),
+      if (_canView(AppModule.jobWork) && kpis.stalePickupCount > 0)
+        _KpiItem(
+          label: AppStrings.pickupOverdue,
+          value: '${kpis.stalePickupCount}',
+          subtitle: AppStrings.pendingPickupsSubtitle,
+          icon: Icons.schedule_outlined,
+          color: AppColors.overdue,
           onTap: _tap(
             () => context.go(
               RoutePaths.jobWorkList(filter: JobWorkListStageFilter.pendingPickup),

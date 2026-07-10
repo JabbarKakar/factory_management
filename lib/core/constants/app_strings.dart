@@ -272,6 +272,15 @@ abstract final class AppStrings {
   static const String pendingPickupsSubtitle =
       'Finished material still at the factory with remaining pieces to collect';
   static const String awaitingCustomerPickup = 'Awaiting customer pickup';
+  static const String partiallyCollectedOrders = 'Partially Collected';
+  static const String partiallyCollectedOrdersSubtitle =
+      'Orders with material still at the factory after a partial pickup';
+  static const String remainingToCollect = 'Remaining to collect';
+  static const String pickupOverdue = 'Pickup overdue';
+  static const String stalePickupAlert = 'Material not collected';
+  static const String readyForPickupAlert = 'Ready for pickup';
+  static const String readyForPickupAlertBody =
+      'is ready. Notify the customer to collect material.';
   static const String viewAll = 'View all';
 
   // Job Work — Output (Sprint 4)

@@ -8,6 +8,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../data/repositories/job_work_repository.dart';
+import '../../../data/services/job_work_collection_quantity_helper.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
@@ -425,11 +426,41 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                     itemBuilder: (context, index) {
                       final order = state.visibleOrders[index];
                       final paymentSummary = _paymentSummaryFor(order, state);
+                      final orderCollections =
+                          JobWorkCollectionQuantityHelper.collectionsForOrder(
+                        order.id,
+                        state.collections,
+                      );
+                      final totals =
+                          JobWorkCollectionQuantityHelper.orderTotals(
+                        order,
+                        orderCollections,
+                      );
+                      String? lastReceiver;
+                      DateTime? latestReceiverAt;
+                      for (final collection in orderCollections) {
+                        final name = collection.receiverName?.trim();
+                        if (name == null || name.isEmpty) continue;
+                        if (latestReceiverAt == null ||
+                            collection.collectedAt.isAfter(latestReceiverAt)) {
+                          latestReceiverAt = collection.collectedAt;
+                          lastReceiver = name;
+                        }
+                      }
                       return JobWorkListTile(
                         order: order,
                         awaitingQcInspection:
                             state.isAwaitingQcInspection(order),
                         isBusy: _busyJobWorkId == order.id,
+                        isPickupOverdue:
+                            JobWorkCollectionQuantityHelper.isPickupOverdue(
+                          order,
+                          orderCollections,
+                        ),
+                        remainingPieces: totals.remainingPieces > 0
+                            ? totals.remainingPieces
+                            : null,
+                        lastReceiverName: lastReceiver,
                         paidAmount: paymentSummary?.paid,
                         remainingAmount: paymentSummary?.remaining,
                         menuActions: _menuActionsFor(
