@@ -8,6 +8,7 @@ class JobWorkListState extends Equatable {
     this.orders = const [],
     this.visibleOrders = const [],
     this.qualityChecks = const [],
+    this.collections = const [],
     this.jobWorkIdsWithQc = const {},
     this.awaitingQcCount = 0,
     this.searchQuery = '',
@@ -20,6 +21,7 @@ class JobWorkListState extends Equatable {
   final List<JobWorkOrder> orders;
   final List<JobWorkOrder> visibleOrders;
   final List<QualityCheck> qualityChecks;
+  final List<JobWorkCollection> collections;
   final Set<String> jobWorkIdsWithQc;
   final int awaitingQcCount;
   final String searchQuery;
@@ -37,6 +39,7 @@ class JobWorkListState extends Equatable {
     List<JobWorkOrder>? orders,
     List<JobWorkOrder>? visibleOrders,
     List<QualityCheck>? qualityChecks,
+    List<JobWorkCollection>? collections,
     Set<String>? jobWorkIdsWithQc,
     int? awaitingQcCount,
     String? searchQuery,
@@ -49,6 +52,7 @@ class JobWorkListState extends Equatable {
       orders: orders ?? this.orders,
       visibleOrders: visibleOrders ?? this.visibleOrders,
       qualityChecks: qualityChecks ?? this.qualityChecks,
+      collections: collections ?? this.collections,
       jobWorkIdsWithQc: jobWorkIdsWithQc ?? this.jobWorkIdsWithQc,
       awaitingQcCount: awaitingQcCount ?? this.awaitingQcCount,
       searchQuery: searchQuery ?? this.searchQuery,
@@ -64,6 +68,7 @@ class JobWorkListState extends Equatable {
         orders,
         visibleOrders,
         qualityChecks,
+        collections,
         jobWorkIdsWithQc,
         awaitingQcCount,
         searchQuery,

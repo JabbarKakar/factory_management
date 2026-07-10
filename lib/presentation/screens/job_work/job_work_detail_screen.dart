@@ -4,16 +4,19 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/job_work/job_work_form_bloc.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
 import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/enums/app_module_enums.dart';
+import '../../../domain/enums/job_work_collection_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/compact_status_chip.dart';
 import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/job_work/job_work_detail_hero.dart';
@@ -240,6 +243,8 @@ class JobWorkDetailScreen extends StatelessWidget {
                       JobWorkDetailRow(
                         label: AppStrings.piecesRemaining,
                         value: '${collectionTotals.remainingPieces}',
+                        bold: collectionTotals.remainingPieces > 0,
+                        highlight: collectionTotals.remainingPieces > 0,
                       ),
                       JobWorkDetailRow(
                         label: AppStrings.totalSquareFeet,
@@ -255,6 +260,8 @@ class JobWorkDetailScreen extends StatelessWidget {
                         label: AppStrings.squareFeetRemaining,
                         value: collectionTotals.remainingSquareFeet
                             .toStringAsFixed(2),
+                        bold: collectionTotals.remainingSquareFeet > 0.001,
+                        highlight: collectionTotals.remainingSquareFeet > 0.001,
                       ),
                     ],
                   ),
@@ -627,12 +634,16 @@ class _CollectionHistoryRow extends StatelessWidget {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
     final dateLabel = DateFormat.yMMMd().format(collection.collectedAt);
+    final accent = collection.status == JobWorkCollectionStatus.cancelled
+        ? AppColors.error
+        : AppColors.success;
 
     return Theme(
       data: theme.copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        leading: Icon(Icons.handshake_outlined, size: 20, color: accent),
         title: Row(
           children: [
             Expanded(
@@ -644,23 +655,45 @@ class _CollectionHistoryRow extends StatelessWidget {
                 ),
               ),
             ),
+            CompactStatusChip(
+              label: collection.status.label,
+              color: accent,
+            ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 2),
             Text(
               dateLabel,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: muted,
                 fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
+            const SizedBox(height: 2),
+            Text(
+              '${collection.totalPieces} pcs · '
+              '${collection.totalSquareFeet.toStringAsFixed(2)} sq. ft',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+                color: muted,
+              ),
+            ),
+            if (collection.receiverName != null &&
+                collection.receiverName!.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${AppStrings.receiverName}: ${collection.receiverName}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 10,
+                  color: muted,
+                ),
+              ),
+            ],
           ],
-        ),
-        subtitle: Text(
-          '${collection.totalPieces} pcs · '
-          '${collection.totalSquareFeet.toStringAsFixed(2)} sq. ft'
-          '${collection.receiverName != null && collection.receiverName!.isNotEmpty ? ' · ${AppStrings.receiverName}: ${collection.receiverName}' : ''}',
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontSize: 11,
-            color: muted,
-          ),
         ),
         children: [
           for (final item in collection.lineItems)
@@ -685,14 +718,31 @@ class _CollectionHistoryRow extends StatelessWidget {
               ),
             ),
           if (collection.notes != null && collection.notes!.isNotEmpty)
-            Text(
-              collection.notes!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontSize: 11,
-                fontStyle: FontStyle.italic,
-                color: muted,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                collection.notes!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                  color: muted,
+                ),
               ),
             ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => context.push(
+                RoutePaths.jobWorkCollectionSlip(collection.id),
+              ),
+              icon: const Icon(Icons.description_outlined, size: 16),
+              label: const Text(AppStrings.viewCollectionSlip),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+              ),
+            ),
+          ),
         ],
       ),
     );

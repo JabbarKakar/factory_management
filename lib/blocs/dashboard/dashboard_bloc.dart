@@ -12,6 +12,7 @@ import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/employee_repository.dart';
 import '../../data/repositories/equipment_repository.dart';
 import '../../data/repositories/expense_repository.dart';
+import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
@@ -21,6 +22,7 @@ import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/services/dashboard_analytics_service.dart';
+import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
@@ -36,6 +38,7 @@ import '../../domain/entities/delivery.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/expense.dart';
+import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
@@ -61,6 +64,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required EmployeeRepository employeeRepository,
     required AttendanceRepository attendanceRepository,
     required DeliveryRepository deliveryRepository,
+    required JobWorkCollectionRepository jobWorkCollectionRepository,
     required EquipmentRepository equipmentRepository,
     required QualityCheckRepository qualityCheckRepository,
     required ProductionRepository productionRepository,
@@ -77,6 +81,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _employeeRepository = employeeRepository,
         _attendanceRepository = attendanceRepository,
         _deliveryRepository = deliveryRepository,
+        _jobWorkCollectionRepository = jobWorkCollectionRepository,
         _equipmentRepository = equipmentRepository,
         _qualityCheckRepository = qualityCheckRepository,
         _productionRepository = productionRepository,
@@ -100,6 +105,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final EmployeeRepository _employeeRepository;
   final AttendanceRepository _attendanceRepository;
   final DeliveryRepository _deliveryRepository;
+  final JobWorkCollectionRepository _jobWorkCollectionRepository;
   final EquipmentRepository _equipmentRepository;
   final QualityCheckRepository _qualityCheckRepository;
   final ProductionRepository _productionRepository;
@@ -117,6 +123,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<Employee>>? _employeesSub;
   StreamSubscription<List<AttendanceRecord>>? _attendanceSub;
   StreamSubscription<List<Delivery>>? _deliveriesSub;
+  StreamSubscription<List<JobWorkCollection>>? _jobWorkCollectionsSub;
   StreamSubscription<List<Equipment>>? _equipmentSub;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSub;
   StreamSubscription<List<ProductionBatch>>? _productionBatchesSub;
@@ -132,6 +139,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<Employee> _employees = const [];
   List<AttendanceRecord> _attendanceToday = const [];
   List<Delivery> _deliveries = const [];
+  List<JobWorkCollection> _jobWorkCollections = const [];
   List<Equipment> _equipment = const [];
   List<QualityCheck> _qualityChecks = const [];
   List<ProductionBatch> _productionBatches = const [];
@@ -272,6 +280,19 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           onError: (_) => _handleStreamError('deliveries', () => _deliveries = const []),
         );
 
+    _jobWorkCollectionsSub = _jobWorkCollectionRepository
+        .watchCollections(event.factoryId)
+        .listen(
+          (collections) {
+            _jobWorkCollections = collections;
+            add(const _DashboardDataUpdated());
+          },
+          onError: (_) => _handleStreamError(
+            'jobWorkCollections',
+            () => _jobWorkCollections = const [],
+          ),
+        );
+
     _equipmentSub = _equipmentRepository.watchEquipment(event.factoryId).listen(
           (equipment) {
             _equipment = equipment;
@@ -379,17 +400,19 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     final activeSalesCount =
         _salesOrders.where((order) => order.status.isActive).length;
 
-    final pendingPickupCount =
-        _orders.where((order) => order.status.isPendingPickup).length;
-
-    final pendingPickups = _orders
-        .where((order) => order.status.isPendingPickup)
-        .toList()
+    final pendingPickups = _orders.where((order) {
+      final collections = JobWorkCollectionQuantityHelper.collectionsForOrder(
+        order.id,
+        _jobWorkCollections,
+      );
+      return JobWorkCollectionQuantityHelper.isPendingPickup(order, collections);
+    }).toList()
       ..sort((a, b) {
         final rankCompare = a.status.listSortRank.compareTo(b.status.listSortRank);
         if (rankCompare != 0) return rankCompare;
         return a.createdAt.compareTo(b.createdAt);
       });
+    final pendingPickupCount = pendingPickups.length;
 
     final overdueSummary = _scannerService.summarizeAll(
       jobWorkInvoices: _jobWorkInvoices,
@@ -556,6 +579,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _employeesSub?.cancel();
     await _attendanceSub?.cancel();
     await _deliveriesSub?.cancel();
+    await _jobWorkCollectionsSub?.cancel();
     await _equipmentSub?.cancel();
     await _qualityChecksSub?.cancel();
     await _productionBatchesSub?.cancel();
@@ -570,6 +594,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _employeesSub = null;
     _attendanceSub = null;
     _deliveriesSub = null;
+    _jobWorkCollectionsSub = null;
     _equipmentSub = null;
     _qualityChecksSub = null;
     _productionBatchesSub = null;

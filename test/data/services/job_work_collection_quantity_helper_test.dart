@@ -122,6 +122,10 @@ void main() {
         JobWorkCollectionQuantityHelper.canOpenCollectMaterial(order, const []),
         isTrue,
       );
+      expect(
+        JobWorkCollectionQuantityHelper.isPendingPickup(order, const []),
+        isTrue,
+      );
 
       final agreed = buildOrder(status: JobWorkStatus.agreed, output: output);
       expect(
@@ -153,6 +157,10 @@ void main() {
           order,
           fullyCollected,
         ),
+        isFalse,
+      );
+      expect(
+        JobWorkCollectionQuantityHelper.isPendingPickup(order, fullyCollected),
         isFalse,
       );
     });

@@ -211,4 +211,21 @@ abstract final class JobWorkCollectionQuantityHelper {
     final totals = orderTotals(order, collections);
     return totals.remainingPieces > 0 || totals.remainingSquareFeet > 0.001;
   }
+
+  /// Pending pickup for dashboard/list/alerts: collectible remaining qty.
+  static bool isPendingPickup(
+    JobWorkOrder order,
+    List<JobWorkCollection> collections,
+  ) {
+    return canOpenCollectMaterial(order, collections);
+  }
+
+  static List<JobWorkCollection> collectionsForOrder(
+    String jobWorkOrderId,
+    List<JobWorkCollection> allCollections,
+  ) {
+    return allCollections
+        .where((collection) => collection.jobWorkOrderId == jobWorkOrderId)
+        .toList();
+  }
 }

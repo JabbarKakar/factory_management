@@ -78,6 +78,7 @@ import '../../data/services/export/expense_summary_excel_exporter.dart';
 import '../../data/services/export/expense_summary_pdf_exporter.dart';
 import '../../data/services/export/invoice_excel_exporter.dart';
 import '../../data/services/export/delivery_challan_pdf_exporter.dart';
+import '../../data/services/export/job_work_collection_slip_pdf_exporter.dart';
 import '../../data/services/export/invoice_pdf_exporter.dart';
 import '../../data/services/export/pl_report_excel_exporter.dart';
 import '../../data/services/export/pl_report_pdf_exporter.dart';
@@ -145,6 +146,7 @@ void setupDependencies() {
       equipmentRepository: getIt<EquipmentRepository>(),
       deliveryRepository: getIt<DeliveryRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      jobWorkCollectionRepository: getIt<JobWorkCollectionRepository>(),
       notificationRepository: getIt<NotificationRepository>(),
     ),
   );
@@ -192,6 +194,9 @@ void setupDependencies() {
   );
   getIt.registerLazySingleton<DeliveryChallanPdfExporter>(
     DeliveryChallanPdfExporter.new,
+  );
+  getIt.registerLazySingleton<JobWorkCollectionSlipPdfExporter>(
+    JobWorkCollectionSlipPdfExporter.new,
   );
   getIt.registerLazySingleton<InvoicePdfExporter>(
     () => InvoicePdfExporter(factoryRepository: getIt<FactoryRepository>()),
@@ -301,6 +306,7 @@ void setupDependencies() {
       employeeRepository: getIt<EmployeeRepository>(),
       attendanceRepository: getIt<AttendanceRepository>(),
       deliveryRepository: getIt<DeliveryRepository>(),
+      jobWorkCollectionRepository: getIt<JobWorkCollectionRepository>(),
       equipmentRepository: getIt<EquipmentRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
       productionRepository: getIt<ProductionRepository>(),
@@ -320,6 +326,7 @@ void setupDependencies() {
     () => JobWorkListBloc(
       repository: getIt<JobWorkRepository>(),
       invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      collectionRepository: getIt<JobWorkCollectionRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
     ),
   );

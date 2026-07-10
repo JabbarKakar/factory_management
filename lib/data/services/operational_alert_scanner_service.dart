@@ -14,9 +14,11 @@ import '../../domain/enums/quality_enums.dart';
 import '../repositories/delivery_repository.dart';
 import '../repositories/equipment_repository.dart';
 import '../repositories/finished_goods_repository.dart';
+import '../repositories/job_work_collection_repository.dart';
 import '../repositories/job_work_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/raw_material_repository.dart';
+import 'job_work_collection_quantity_helper.dart';
 
 class OperationalAlertScannerService {
   OperationalAlertScannerService({
@@ -25,12 +27,14 @@ class OperationalAlertScannerService {
     required EquipmentRepository equipmentRepository,
     required DeliveryRepository deliveryRepository,
     required JobWorkRepository jobWorkRepository,
+    required JobWorkCollectionRepository jobWorkCollectionRepository,
     required NotificationRepository notificationRepository,
   })  : _rawMaterialRepository = rawMaterialRepository,
         _finishedGoodsRepository = finishedGoodsRepository,
         _equipmentRepository = equipmentRepository,
         _deliveryRepository = deliveryRepository,
         _jobWorkRepository = jobWorkRepository,
+        _jobWorkCollectionRepository = jobWorkCollectionRepository,
         _notificationRepository = notificationRepository;
 
   final RawMaterialRepository _rawMaterialRepository;
@@ -38,6 +42,7 @@ class OperationalAlertScannerService {
   final EquipmentRepository _equipmentRepository;
   final DeliveryRepository _deliveryRepository;
   final JobWorkRepository _jobWorkRepository;
+  final JobWorkCollectionRepository _jobWorkCollectionRepository;
   final NotificationRepository _notificationRepository;
 
   Future<int> scan(String factoryId) async {
@@ -51,6 +56,8 @@ class OperationalAlertScannerService {
         await _deliveryRepository.watchDeliveries(factoryId).first;
     final jobWorkOrders =
         await _jobWorkRepository.watchJobWorkOrders(factoryId).first;
+    final jobWorkCollections =
+        await _jobWorkCollectionRepository.watchCollections(factoryId).first;
 
     var created = 0;
     final today = DateTime.now();
@@ -110,7 +117,11 @@ class OperationalAlertScannerService {
       if (order.status == JobWorkStatus.ready) {
         created += await _createIfNew(_jobWorkReadyNotification(order));
       }
-      if (order.status.isPendingPickup) {
+      final collections = JobWorkCollectionQuantityHelper.collectionsForOrder(
+        order.id,
+        jobWorkCollections,
+      );
+      if (JobWorkCollectionQuantityHelper.isPendingPickup(order, collections)) {
         created += await _createIfNew(
           _jobWorkStalePickupNotification(order, todayDay, scanDate),
         );

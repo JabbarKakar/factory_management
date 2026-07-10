@@ -33,6 +33,21 @@ class JobWorkCollectionRepository {
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('jobWorkCollections');
 
+  Stream<List<JobWorkCollection>> watchCollections(String factoryId) {
+    return _collection.where('factoryId', isEqualTo: factoryId).snapshots().map(
+      (snapshot) {
+        final collections = snapshot.docs
+            .map(
+              (doc) => JobWorkCollectionModel.fromFirestore(doc.id, doc.data()),
+            )
+            .map((model) => model.toEntity())
+            .toList();
+        collections.sort((a, b) => b.collectedAt.compareTo(a.collectedAt));
+        return collections;
+      },
+    );
+  }
+
   Stream<List<JobWorkCollection>> watchCollectionsForJobWork({
     required String factoryId,
     required String jobWorkOrderId,

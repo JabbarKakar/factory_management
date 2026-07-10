@@ -69,6 +69,7 @@ import '../screens/customers/customers_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/job_work/add_edit_job_work_screen.dart';
 import '../screens/job_work/collect_material_screen.dart';
+import '../screens/job_work/job_work_collection_slip_screen.dart';
 import '../screens/job_work/job_work_detail_screen.dart';
 import '../screens/job_work/job_work_invoice_screen.dart';
 import '../screens/job_work/job_work_list_screen.dart';
@@ -1343,6 +1344,17 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                         },
                       ),
                     ],
+                  ),
+                  GoRoute(
+                    path: 'collections/:collectionId/slip',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final collectionId =
+                          state.pathParameters['collectionId']!;
+                      return JobWorkCollectionSlipScreen(
+                        collectionId: collectionId,
+                      );
+                    },
                   ),
                   GoRoute(
                     path: ':jobWorkId',

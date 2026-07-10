@@ -251,6 +251,13 @@ abstract final class AppStrings {
   static const String piecesCollected = 'Pieces Collected';
   static const String squareFeetCollected = 'Sq. Ft. Collected';
   static const String collectionHistory = 'Collection History';
+  static const String collectionSlip = 'Collection Slip';
+  static const String collectionSlipTitle = 'MATERIAL COLLECTION SLIP';
+  static const String viewCollectionSlip = 'View Slip';
+  static const String slipNumber = 'Slip #';
+  static const String itemsCollected = 'Items Collected';
+  static const String collectionNotFound = 'Collection not found';
+  static const String factorySignature = 'Factory Signature';
   static const String jobWorkOrderNotFound = 'Job work order not found';
   static const String closeJobWorkOrder = 'Close Order';
   static const String markCollectedTitle = 'Mark material collected?';
@@ -263,7 +270,7 @@ abstract final class AppStrings {
   static const String jobWorkClosed = 'Job work order closed';
   static const String pendingPickups = 'Pending Pickups';
   static const String pendingPickupsSubtitle =
-      'Finished material still at the factory awaiting customer pickup';
+      'Finished material still at the factory with remaining pieces to collect';
   static const String awaitingCustomerPickup = 'Awaiting customer pickup';
   static const String viewAll = 'View all';
 
