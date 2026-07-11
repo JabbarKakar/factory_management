@@ -23,6 +23,7 @@ import '../../widgets/job_work/job_work_detail_hero.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/job_work_invoice_payment_history_section.dart';
+import '../../widgets/job_work/job_work_load_list_tile.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
 import '../../widgets/job_work/job_work_size_detail_rows.dart';
 import '../../widgets/quality/qc_reference_section.dart';
@@ -31,6 +32,17 @@ class JobWorkDetailScreen extends StatelessWidget {
   const JobWorkDetailScreen({required this.jobWorkId, super.key});
 
   final String jobWorkId;
+
+  Future<void> _openAddLoad(BuildContext context) async {
+    final saved = await context.push<bool>(
+      RoutePaths.jobWorkAddLoad(jobWorkId),
+    );
+    if (saved == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
 
   Future<void> _openCollectMaterial(BuildContext context) async {
     final saved = await context.push<bool>(
@@ -146,6 +158,8 @@ class JobWorkDetailScreen extends StatelessWidget {
         final canEditIntake = (order.status == JobWorkStatus.agreed ||
                 order.status == JobWorkStatus.received) &&
             context.userCanEdit(AppModule.jobWork);
+        final canAddLoad = order.status != JobWorkStatus.cancelled &&
+            context.userCanEdit(AppModule.jobWork);
         final canRecordOutput = order.status.canRecordOutput &&
             context.userCanEdit(AppModule.jobWork);
         final canCollectMaterial =
@@ -196,6 +210,12 @@ class JobWorkDetailScreen extends StatelessWidget {
               ],
             ),
             actions: [
+              if (canAddLoad)
+                IconButton(
+                  onPressed: isSaving ? null : () => _openAddLoad(context),
+                  icon: const Icon(Icons.add_box_outlined),
+                  tooltip: AppStrings.addLoad,
+                ),
               if (canRecordOutput)
                 IconButton(
                   onPressed:
@@ -229,6 +249,60 @@ class JobWorkDetailScreen extends StatelessWidget {
                 onAdvanceCompletion: (s) => _advanceCompletion(context, s),
                 onRecordOutput: () => _openRecordOutput(context),
                 onCollectMaterial: () => _openCollectMaterial(context),
+              ),
+              JobWorkDetailSection(
+                title: AppStrings.loadsSummary,
+                icon: Icons.local_shipping_outlined,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    JobWorkDetailRows(
+                      rows: [
+                        JobWorkDetailRow(
+                          label: AppStrings.loads,
+                          value: '${state.loads.length}',
+                          bold: true,
+                        ),
+                        JobWorkDetailRow(
+                          label: AppStrings.activeLoads,
+                          value: '${state.activeLoadCount}',
+                        ),
+                        JobWorkDetailRow(
+                          label: AppStrings.completedLoads,
+                          value: '${state.completedLoadCount}',
+                        ),
+                        if (order.summaryStatus != null)
+                          JobWorkDetailRow(
+                            label: AppStrings.containerStatus,
+                            value: order.summaryStatus!.label,
+                          ),
+                      ],
+                    ),
+                    if (state.loads.isEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        AppStrings.noLoadsYet,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                      const Divider(height: 1),
+                      for (final load in state.loads) ...[
+                        JobWorkLoadListTile(load: load),
+                        if (load != state.loads.last) const Divider(height: 1),
+                      ],
+                    ],
+                    if (canAddLoad) ...[
+                      const SizedBox(height: 12),
+                      FilledButton.tonalIcon(
+                        onPressed:
+                            isSaving ? null : () => _openAddLoad(context),
+                        icon: const Icon(Icons.add),
+                        label: const Text(AppStrings.addLoad),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               JobWorkOutputSummary(order: order),
               if (showCollectionSection)

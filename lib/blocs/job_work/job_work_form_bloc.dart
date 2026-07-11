@@ -7,13 +7,16 @@ import '../../core/constants/app_strings.dart';
 import '../../core/constants/marble_data.dart';
 import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
+import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
+import '../../data/services/job_work_load_resolver.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_invoice.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/quality_check.dart';
@@ -30,12 +33,14 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     required JobWorkRepository repository,
     required JobWorkInvoiceRepository invoiceRepository,
     required JobWorkCollectionRepository collectionRepository,
+    required JobWorkLoadRepository loadRepository,
     required PaymentRepository paymentRepository,
     required QualityCheckRepository qualityCheckRepository,
     required OperationalAlertScannerService operationalAlertScannerService,
   })  : _repository = repository,
         _invoiceRepository = invoiceRepository,
         _collectionRepository = collectionRepository,
+        _loadRepository = loadRepository,
         _paymentRepository = paymentRepository,
         _qualityCheckRepository = qualityCheckRepository,
         _operationalAlertScannerService = operationalAlertScannerService,
@@ -51,11 +56,13 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     on<_JobWorkPaymentsUpdated>(_onPaymentsUpdated);
     on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
     on<_JobWorkCollectionsUpdated>(_onCollectionsUpdated);
+    on<_JobWorkLoadsUpdated>(_onLoadsUpdated);
   }
 
   final JobWorkRepository _repository;
   final JobWorkInvoiceRepository _invoiceRepository;
   final JobWorkCollectionRepository _collectionRepository;
+  final JobWorkLoadRepository _loadRepository;
   final PaymentRepository _paymentRepository;
   final QualityCheckRepository _qualityCheckRepository;
   final OperationalAlertScannerService _operationalAlertScannerService;
@@ -64,6 +71,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   StreamSubscription<List<Payment>>? _paymentsSubscription;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
   StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
+  StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
   String? _watchedInvoiceId;
 
   Future<void> _onInitialized(
@@ -111,6 +119,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         qualityChecks: const [],
         payments: const [],
         collections: const [],
+        loads: const [],
       ),
     );
 
@@ -126,29 +135,35 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         return;
       }
 
+      // Lazy migration: ensure legacy JW has a default Load doc.
+      await _loadRepository.ensureDefaultLoad(event.jobWorkId);
+      final refreshed =
+          await _repository.getJobWorkOrder(event.jobWorkId) ?? order;
+
       final customers =
-          await _repository.fetchJobWorkEligibleCustomers(order.factoryId);
+          await _repository.fetchJobWorkEligibleCustomers(refreshed.factoryId);
 
       emit(
         state.copyWith(
           status: JobWorkFormStatus.ready,
-          order: order,
+          order: refreshed,
           eligibleCustomers: _repository.customersForOrderForm(
             eligible: customers,
-            order: order,
+            order: refreshed,
           ),
           isEditing: true,
         ),
       );
 
-      _orderSubscription = _repository.watchJobWorkOrder(event.jobWorkId).listen(
-            (updated) => add(_JobWorkOrderUpdated(updated)),
-            onError: (_) {},
-          );
+      _orderSubscription =
+          _repository.watchJobWorkOrder(event.jobWorkId).listen(
+                (updated) => add(_JobWorkOrderUpdated(updated)),
+                onError: (_) {},
+              );
 
       _invoiceSubscription = _invoiceRepository
           .watchInvoiceByJobWorkId(
-            factoryId: order.factoryId,
+            factoryId: refreshed.factoryId,
             jobWorkId: event.jobWorkId,
           )
           .listen(
@@ -158,7 +173,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
 
       _qualityChecksSubscription = _qualityCheckRepository
           .watchQualityChecksForReference(
-            factoryId: order.factoryId,
+            factoryId: refreshed.factoryId,
             referenceType: QcReferenceType.jobWork,
             referenceId: event.jobWorkId,
           )
@@ -169,11 +184,21 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
 
       _collectionsSubscription = _collectionRepository
           .watchCollectionsForJobWork(
-            factoryId: order.factoryId,
+            factoryId: refreshed.factoryId,
             jobWorkOrderId: event.jobWorkId,
           )
           .listen(
             (collections) => add(_JobWorkCollectionsUpdated(collections)),
+            onError: (_) {},
+          );
+
+      _loadsSubscription = _loadRepository
+          .watchLoadsForJobWork(
+            factoryId: refreshed.factoryId,
+            jobWorkId: event.jobWorkId,
+          )
+          .listen(
+            (loads) => add(_JobWorkLoadsUpdated(loads)),
             onError: (_) {},
           );
     } catch (_) {
@@ -261,6 +286,8 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     _paymentsSubscription = null;
     await _collectionsSubscription?.cancel();
     _collectionsSubscription = null;
+    await _loadsSubscription?.cancel();
+    _loadsSubscription = null;
     _watchedInvoiceId = null;
   }
 
@@ -278,6 +305,17 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     emit(state.copyWith(collections: event.collections));
   }
 
+  void _onLoadsUpdated(
+    _JobWorkLoadsUpdated event,
+    Emitter<JobWorkFormState> emit,
+  ) {
+    final order = state.order;
+    final loads = order == null
+        ? event.loads
+        : JobWorkLoadResolver.resolveLoads(order, event.loads);
+    emit(state.copyWith(loads: loads));
+  }
+
   Future<void> _onSubmitted(
     JobWorkFormSubmitted event,
     Emitter<JobWorkFormState> emit,
@@ -286,10 +324,13 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     try {
       if (event.order.id.isEmpty) {
         final created = await _repository.createJobWorkOrder(event.order);
+        await _loadRepository.ensureDefaultLoad(created.id);
+        final withLoad =
+            await _repository.getJobWorkOrder(created.id) ?? created;
         emit(
           state.copyWith(
             status: JobWorkFormStatus.saved,
-            order: created,
+            order: withLoad,
           ),
         );
       } else {
@@ -489,4 +530,13 @@ final class _JobWorkCollectionsUpdated extends JobWorkFormEvent {
 
   @override
   List<Object?> get props => [collections];
+}
+
+final class _JobWorkLoadsUpdated extends JobWorkFormEvent {
+  const _JobWorkLoadsUpdated(this.loads);
+
+  final List<JobWorkLoad> loads;
+
+  @override
+  List<Object?> get props => [loads];
 }

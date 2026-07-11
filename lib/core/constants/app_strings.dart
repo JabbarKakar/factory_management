@@ -167,8 +167,22 @@ abstract final class AppStrings {
   static const String cancelJobWorkMessage =
       'This order will be marked as cancelled.';
   static const String cancelOrder = 'Cancel Order';
+  // Job Work Loads (Sprint 2)
+  static const String load = 'Load';
+  static const String loads = 'Loads';
+  static const String addLoad = 'Add Load';
+  static const String saveLoad = 'Save Load';
+  static const String loadCreated = 'Load created';
+  static const String loadsSummary = 'Loads Summary';
+  static const String activeLoads = 'Active Loads';
+  static const String completedLoads = 'Completed Loads';
+  static const String containerStatus = 'Container Status';
+  static const String noLoadsYet = 'No loads yet';
+  static const String blocks = 'blocks';
+  static const String virtualLoadHint = 'Pending migration to Load document';
+  static const String migratedLoadHint = 'Migrated from legacy Job Work';
   static const String searchJobWork =
-      'Search order #, customer, variety, mine, size...';
+      'Search JW #, load #, customer, variety, mine, size...';
   static const String noJobWorkYet = 'No job work orders yet';
   static const String noJobWorkFound = 'No job work orders found';
   static const String addFirstJobWork =

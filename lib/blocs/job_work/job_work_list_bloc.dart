@@ -5,11 +5,13 @@ import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
+import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_invoice.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/enums/job_work_enums.dart';
@@ -23,10 +25,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     required JobWorkRepository repository,
     required JobWorkInvoiceRepository invoiceRepository,
     required JobWorkCollectionRepository collectionRepository,
+    required JobWorkLoadRepository loadRepository,
     required QualityCheckRepository qualityCheckRepository,
   })  : _repository = repository,
         _invoiceRepository = invoiceRepository,
         _collectionRepository = collectionRepository,
+        _loadRepository = loadRepository,
         _qualityCheckRepository = qualityCheckRepository,
         super(const JobWorkListState()) {
     on<JobWorkListWatchStarted>(_onWatchStarted);
@@ -36,17 +40,20 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     on<_JobWorkInvoicesUpdated>(_onInvoicesUpdated);
     on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
     on<_JobWorkCollectionsUpdated>(_onCollectionsUpdated);
+    on<_JobWorkLoadsUpdated>(_onLoadsUpdated);
     on<_JobWorkListStreamFailed>(_onStreamFailed);
   }
 
   final JobWorkRepository _repository;
   final JobWorkInvoiceRepository _invoiceRepository;
   final JobWorkCollectionRepository _collectionRepository;
+  final JobWorkLoadRepository _loadRepository;
   final QualityCheckRepository _qualityCheckRepository;
   StreamSubscription<List<JobWorkOrder>>? _subscription;
   StreamSubscription<List<JobWorkInvoice>>? _invoicesSubscription;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
   StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
+  StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
 
   Future<void> _onWatchStarted(
     JobWorkListWatchStarted event,
@@ -62,6 +69,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     await _invoicesSubscription?.cancel();
     await _qualityChecksSubscription?.cancel();
     await _collectionsSubscription?.cancel();
+    await _loadsSubscription?.cancel();
 
     _subscription = _repository.watchJobWorkOrders(event.factoryId).listen(
           (orders) => add(_JobWorkListUpdated(orders)),
@@ -91,6 +99,11 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           (collections) => add(_JobWorkCollectionsUpdated(collections)),
           onError: (_) {},
         );
+
+    _loadsSubscription = _loadRepository.watchLoads(event.factoryId).listen(
+          (loads) => add(_JobWorkLoadsUpdated(loads)),
+          onError: (_) {},
+        );
   }
 
   void _onSearchChanged(
@@ -105,6 +118,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           query: event.query,
           stageFilter: state.stageFilter,
           collections: state.collections,
+          loads: state.loads,
         ),
       ),
     );
@@ -122,6 +136,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           query: state.searchQuery,
           stageFilter: event.stageFilter,
           collections: state.collections,
+          loads: state.loads,
         ),
       ),
     );
@@ -143,6 +158,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           query: state.searchQuery,
           stageFilter: state.stageFilter,
           collections: state.collections,
+          loads: state.loads,
         ),
         errorMessage: null,
       ),
@@ -174,6 +190,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           query: state.searchQuery,
           stageFilter: state.stageFilter,
           collections: state.collections,
+          loads: state.loads,
         ),
         status: state.orders.isNotEmpty
             ? JobWorkListStatus.loaded
@@ -194,6 +211,25 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           query: state.searchQuery,
           stageFilter: state.stageFilter,
           collections: event.collections,
+          loads: state.loads,
+        ),
+      ),
+    );
+  }
+
+  void _onLoadsUpdated(
+    _JobWorkLoadsUpdated event,
+    Emitter<JobWorkListState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        loads: event.loads,
+        visibleOrders: _applyFilters(
+          state.orders,
+          query: state.searchQuery,
+          stageFilter: state.stageFilter,
+          collections: state.collections,
+          loads: event.loads,
         ),
       ),
     );
@@ -233,8 +269,13 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     required String query,
     required JobWorkListStageFilter stageFilter,
     required List<JobWorkCollection> collections,
+    required List<JobWorkLoad> loads,
   }) {
     final normalizedQuery = query.trim().toLowerCase();
+    final loadsByJobWorkId = <String, List<JobWorkLoad>>{};
+    for (final load in loads) {
+      loadsByJobWorkId.putIfAbsent(load.jobWorkId, () => []).add(load);
+    }
 
     final filtered = orders.where((order) {
       final orderCollections =
@@ -267,6 +308,11 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           .whereType<String>()
           .where((name) => name.trim().isNotEmpty);
 
+      final orderLoads = loadsByJobWorkId[order.id] ?? const [];
+      final loadNumbers = orderLoads
+          .map((load) => load.loadNumber)
+          .where((number) => number.trim().isNotEmpty);
+
       final haystack = [
         order.jobWorkNumber,
         order.customerName,
@@ -275,6 +321,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         order.mineOwner,
         order.status.label,
         ...receiverNames,
+        ...loadNumbers,
         ...order.smallSizes,
         ...order.largeSizes,
         ...order.legacySizes,
@@ -298,6 +345,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     _invoicesSubscription?.cancel();
     _qualityChecksSubscription?.cancel();
     _collectionsSubscription?.cancel();
+    _loadsSubscription?.cancel();
     return super.close();
   }
 }
@@ -327,4 +375,13 @@ final class _JobWorkCollectionsUpdated extends JobWorkListEvent {
 
   @override
   List<Object?> get props => [collections];
+}
+
+final class _JobWorkLoadsUpdated extends JobWorkListEvent {
+  const _JobWorkLoadsUpdated(this.loads);
+
+  final List<JobWorkLoad> loads;
+
+  @override
+  List<Object?> get props => [loads];
 }

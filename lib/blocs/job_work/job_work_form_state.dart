@@ -17,6 +17,7 @@ class JobWorkFormState extends Equatable {
     this.invoice,
     this.payments = const [],
     this.collections = const [],
+    this.loads = const [],
     this.eligibleCustomers = const [],
     this.qualityChecks = const [],
     this.errorMessage,
@@ -29,11 +30,23 @@ class JobWorkFormState extends Equatable {
   final JobWorkInvoice? invoice;
   final List<Payment> payments;
   final List<JobWorkCollection> collections;
+  final List<JobWorkLoad> loads;
   final List<Customer> eligibleCustomers;
   final List<QualityCheck> qualityChecks;
   final String? errorMessage;
   final String? successMessage;
   final bool isEditing;
+
+  int get activeLoadCount => loads
+      .where(
+        (load) =>
+            !load.status.isCompleted &&
+            load.status != JobWorkStatus.cancelled,
+      )
+      .length;
+
+  int get completedLoadCount =>
+      loads.where((load) => load.status.isCompleted).length;
 
   JobWorkFormState copyWith({
     JobWorkFormStatus? status,
@@ -42,6 +55,7 @@ class JobWorkFormState extends Equatable {
     bool clearInvoice = false,
     List<Payment>? payments,
     List<JobWorkCollection>? collections,
+    List<JobWorkLoad>? loads,
     List<Customer>? eligibleCustomers,
     List<QualityCheck>? qualityChecks,
     String? errorMessage,
@@ -55,6 +69,7 @@ class JobWorkFormState extends Equatable {
       invoice: clearInvoice ? null : (invoice ?? this.invoice),
       payments: payments ?? this.payments,
       collections: collections ?? this.collections,
+      loads: loads ?? this.loads,
       eligibleCustomers: eligibleCustomers ?? this.eligibleCustomers,
       qualityChecks: qualityChecks ?? this.qualityChecks,
       errorMessage: clearMessages ? null : errorMessage,
@@ -70,6 +85,7 @@ class JobWorkFormState extends Equatable {
         invoice,
         payments,
         collections,
+        loads,
         eligibleCustomers,
         qualityChecks,
         errorMessage,

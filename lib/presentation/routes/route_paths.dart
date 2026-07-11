@@ -32,6 +32,8 @@ abstract final class RoutePaths {
 
   static String jobWorkEdit(String id) => '/job-work/$id/edit';
 
+  static String jobWorkAddLoad(String id) => '/job-work/$id/loads/add';
+
   static String jobWorkCollectMaterial(String id) =>
       '/job-work/$id/collect-material';
 

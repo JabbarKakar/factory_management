@@ -41,6 +41,23 @@ class JobWorkLoadRepository {
   CollectionReference<Map<String, dynamic>> get _collections =>
       _firestore.collection('jobWorkCollections');
 
+  Stream<List<JobWorkLoad>> watchLoads(String factoryId) {
+    return _loads.where('factoryId', isEqualTo: factoryId).snapshots().map(
+      (snapshot) {
+        final loads = snapshot.docs
+            .map((doc) => JobWorkLoadModel.fromFirestore(doc.id, doc.data()))
+            .map((model) => model.toEntity())
+            .toList();
+        loads.sort((a, b) {
+          final jobCompare = a.jobWorkId.compareTo(b.jobWorkId);
+          if (jobCompare != 0) return jobCompare;
+          return a.loadSequence.compareTo(b.loadSequence);
+        });
+        return loads;
+      },
+    );
+  }
+
   Stream<List<JobWorkLoad>> watchLoadsForJobWork({
     required String factoryId,
     required String jobWorkId,

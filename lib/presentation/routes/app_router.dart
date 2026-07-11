@@ -7,6 +7,7 @@ import '../../blocs/job_work/job_work_collection_form_bloc.dart';
 import '../../blocs/job_work/job_work_form_bloc.dart';
 import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
+import '../../blocs/job_work/job_work_load_form_bloc.dart';
 import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/customer/customer_form_bloc.dart';
 import '../../blocs/customer/customer_list_bloc.dart';
@@ -68,6 +69,7 @@ import '../screens/customers/customer_detail_screen.dart';
 import '../screens/customers/customers_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/job_work/add_edit_job_work_screen.dart';
+import '../screens/job_work/add_job_work_load_screen.dart';
 import '../screens/job_work/collect_material_screen.dart';
 import '../screens/job_work/job_work_collection_slip_screen.dart';
 import '../screens/job_work/job_work_detail_screen.dart';
@@ -1378,6 +1380,23 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                             create: (_) => getIt<JobWorkFormBloc>()
                               ..add(JobWorkFormLoadRequested(jobWorkId)),
                             child: AddEditJobWorkScreen(jobWorkId: jobWorkId),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'loads/add',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkLoadFormBloc>()
+                              ..add(
+                                JobWorkLoadFormInitialized(
+                                  jobWorkId: jobWorkId,
+                                ),
+                              ),
+                            child: AddJobWorkLoadScreen(jobWorkId: jobWorkId),
                           );
                         },
                       ),

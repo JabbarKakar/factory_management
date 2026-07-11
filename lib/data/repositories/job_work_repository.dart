@@ -244,16 +244,23 @@ class JobWorkRepository {
 
   /// Live count of non-cancelled job work orders for a customer.
   Stream<int> watchActiveOrderCountForCustomer(String customerId) {
+    return watchOrdersForCustomer(customerId).map((orders) => orders.length);
+  }
+
+  /// Non-cancelled job work orders for a customer (newest first).
+  Stream<List<JobWorkOrder>> watchOrdersForCustomer(String customerId) {
     return _jobWorkCollection
         .where('customerId', isEqualTo: customerId)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .where((doc) =>
-                  doc.data()['status'] !=
-                  JobWorkStatus.cancelled.firestoreValue)
-              .length,
-        );
+        .map((snapshot) {
+      final orders = snapshot.docs
+          .map((doc) => JobWorkOrderModel.fromFirestore(doc.id, doc.data()))
+          .map((model) => model.toEntity())
+          .where((order) => order.status != JobWorkStatus.cancelled)
+          .toList();
+      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return orders;
+    });
   }
 
   Future<int> countOrdersForCustomer(String customerId) async {
