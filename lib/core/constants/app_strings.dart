@@ -177,6 +177,7 @@ abstract final class AppStrings {
   static const String activeLoads = 'Active Loads';
   static const String completedLoads = 'Completed Loads';
   static const String containerStatus = 'Container Status';
+  static const String outstandingBalance = 'Outstanding Balance';
   static const String noLoadsYet = 'No loads yet';
   static const String blocks = 'blocks';
   static const String virtualLoadHint = 'Pending migration to Load document';

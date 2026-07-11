@@ -190,6 +190,14 @@ class JobWorkDetailScreen extends StatelessWidget {
         final amountPaid = hasInvoice
             ? invoice.paidAmount
             : order.advanceReceived;
+        // Container placeholder: prefer sum of Load balances; fall back to
+        // JW/invoice due during dual-read until Sprint 5 per-Load payments.
+        final loadsOutstanding = state.loads.fold<double>(
+          0,
+          (sum, load) => sum + load.balanceDue,
+        );
+        final outstandingBalance =
+            loadsOutstanding > 0 ? loadsOutstanding : balanceDue;
 
         return Scaffold(
           appBar: AppBar(
@@ -270,6 +278,12 @@ class JobWorkDetailScreen extends StatelessWidget {
                         JobWorkDetailRow(
                           label: AppStrings.completedLoads,
                           value: '${state.completedLoadCount}',
+                        ),
+                        JobWorkDetailRow(
+                          label: AppStrings.outstandingBalance,
+                          value: Formatters.currencyPkr(outstandingBalance),
+                          bold: outstandingBalance > 0,
+                          highlight: outstandingBalance > 0,
                         ),
                         if (order.summaryStatus != null)
                           JobWorkDetailRow(
