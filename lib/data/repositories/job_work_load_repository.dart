@@ -1,0 +1,275 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../domain/entities/job_work_load.dart';
+import '../../domain/entities/job_work_order.dart';
+import '../../domain/enums/job_work_load_enums.dart';
+import '../models/job_work_load_model.dart';
+import '../services/job_work_load_resolver.dart';
+import 'job_work_repository.dart';
+
+class JobWorkLoadException implements Exception {
+  const JobWorkLoadException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class JobWorkLoadRepository {
+  JobWorkLoadRepository({
+    FirebaseFirestore? firestore,
+    JobWorkRepository? jobWorkRepository,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _jobWorkRepository =
+            jobWorkRepository ?? JobWorkRepository(firestore: firestore);
+
+  final FirebaseFirestore _firestore;
+  final JobWorkRepository _jobWorkRepository;
+  final _uuid = const Uuid();
+
+  CollectionReference<Map<String, dynamic>> get _loads =>
+      _firestore.collection('jobWorkLoads');
+
+  CollectionReference<Map<String, dynamic>> get _jobWorkOrders =>
+      _firestore.collection('jobWorkOrders');
+
+  CollectionReference<Map<String, dynamic>> get _invoices =>
+      _firestore.collection('jobWorkInvoices');
+
+  CollectionReference<Map<String, dynamic>> get _collections =>
+      _firestore.collection('jobWorkCollections');
+
+  Stream<List<JobWorkLoad>> watchLoadsForJobWork({
+    required String factoryId,
+    required String jobWorkId,
+  }) {
+    return _loads
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkId', isEqualTo: jobWorkId)
+        .snapshots()
+        .map((snapshot) {
+      final loads = snapshot.docs
+          .map((doc) => JobWorkLoadModel.fromFirestore(doc.id, doc.data()))
+          .map((model) => model.toEntity())
+          .toList();
+      loads.sort((a, b) => a.loadSequence.compareTo(b.loadSequence));
+      return loads;
+    });
+  }
+
+  Future<List<JobWorkLoad>> fetchLoadsForJobWork({
+    required String factoryId,
+    required String jobWorkId,
+  }) async {
+    final snapshot = await _loads
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkId', isEqualTo: jobWorkId)
+        .get();
+    final loads = snapshot.docs
+        .map((doc) => JobWorkLoadModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    loads.sort((a, b) => a.loadSequence.compareTo(b.loadSequence));
+    return loads;
+  }
+
+  Future<JobWorkLoad?> getLoad(String id) async {
+    final doc = await _loads.doc(id).get();
+    if (!doc.exists || doc.data() == null) return null;
+    return JobWorkLoadModel.fromFirestore(doc.id, doc.data()!).toEntity();
+  }
+
+  Stream<JobWorkLoad?> watchLoad(String id) {
+    return _loads.doc(id).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return JobWorkLoadModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    });
+  }
+
+  /// Idempotent: creates Load #1 from nested JW fields when none exist.
+  ///
+  /// Also stamps container `schemaVersion` / `defaultLoadId` and best-effort
+  /// backfills `loadId` on existing invoices/collections for this JW.
+  Future<JobWorkLoad> ensureDefaultLoad(String jobWorkId) async {
+    final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
+    if (order == null) {
+      throw const JobWorkLoadException('Job work order not found.');
+    }
+
+    final existing = await fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+    if (existing.isNotEmpty) {
+      final preferred = _preferredDefaultLoad(order, existing);
+      if (order.defaultLoadId != preferred.id ||
+          !order.isLoadsAuthoritative ||
+          order.loadCount != existing.length) {
+        await _markJobWorkMigrated(
+          order: order,
+          defaultLoadId: preferred.id,
+          loads: existing,
+        );
+      }
+      return preferred;
+    }
+
+    final loadId = _uuid.v4();
+    final loadNumber = await _generateLoadNumber(order.factoryId);
+    final load = JobWorkLoad.fromLegacyOrder(
+      order,
+      id: loadId,
+      loadNumber: loadNumber,
+      loadSequence: 1,
+      migratedFromJobWork: true,
+      isVirtual: false,
+    );
+
+    final batch = _firestore.batch();
+    batch.set(
+      _loads.doc(loadId),
+      JobWorkLoadModel.fromEntity(load).toFirestore(isCreate: true),
+    );
+    _applyJobWorkMigratedUpdate(
+      batch: batch,
+      order: order,
+      defaultLoadId: loadId,
+      loadCount: 1,
+      activeLoadCount: load.status.isCompleted ||
+              load.status == LoadStatus.cancelled
+          ? 0
+          : 1,
+      summaryStatus: JobWorkSummaryStatus.fromLoadStatuses([load.status]),
+    );
+    await batch.commit();
+
+    await _backfillChildLoadIds(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+      loadId: loadId,
+      loadNumber: loadNumber,
+    );
+
+    return (await getLoad(loadId)) ?? load;
+  }
+
+  JobWorkLoad _preferredDefaultLoad(
+    JobWorkOrder order,
+    List<JobWorkLoad> loads,
+  ) {
+    if (order.defaultLoadId != null) {
+      for (final load in loads) {
+        if (load.id == order.defaultLoadId) return load;
+      }
+    }
+    for (final load in loads) {
+      if (load.loadSequence == 1) return load;
+    }
+    return loads.first;
+  }
+
+  Future<void> _markJobWorkMigrated({
+    required JobWorkOrder order,
+    required String defaultLoadId,
+    required List<JobWorkLoad> loads,
+  }) async {
+    final activeCount = loads
+        .where(
+          (load) =>
+              !load.status.isCompleted && load.status != LoadStatus.cancelled,
+        )
+        .length;
+    final batch = _firestore.batch();
+    _applyJobWorkMigratedUpdate(
+      batch: batch,
+      order: order,
+      defaultLoadId: defaultLoadId,
+      loadCount: loads.length,
+      activeLoadCount: activeCount,
+      summaryStatus: JobWorkSummaryStatus.fromLoadStatuses(
+        loads.map((load) => load.status),
+      ),
+    );
+    await batch.commit();
+  }
+
+  void _applyJobWorkMigratedUpdate({
+    required WriteBatch batch,
+    required JobWorkOrder order,
+    required String defaultLoadId,
+    required int loadCount,
+    required int activeLoadCount,
+    required JobWorkSummaryStatus summaryStatus,
+  }) {
+    batch.update(_jobWorkOrders.doc(order.id), {
+      'schemaVersion': JobWorkSchemaVersion.loadsAuthoritative,
+      'defaultLoadId': defaultLoadId,
+      'loadCount': loadCount,
+      'activeLoadCount': activeLoadCount,
+      'summaryStatus': summaryStatus.firestoreValue,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> _backfillChildLoadIds({
+    required String factoryId,
+    required String jobWorkId,
+    required String loadId,
+    required String loadNumber,
+  }) async {
+    final invoiceSnap = await _invoices
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkId', isEqualTo: jobWorkId)
+        .get();
+    final collectionSnap = await _collections
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkOrderId', isEqualTo: jobWorkId)
+        .get();
+
+    final docs = <QueryDocumentSnapshot<Map<String, dynamic>>>[
+      ...invoiceSnap.docs,
+      ...collectionSnap.docs,
+    ];
+    if (docs.isEmpty) return;
+
+    const batchLimit = 400;
+    for (var index = 0; index < docs.length; index += batchLimit) {
+      final batch = _firestore.batch();
+      final chunk = docs.skip(index).take(batchLimit);
+      for (final doc in chunk) {
+        final data = doc.data();
+        if (data['loadId'] != null &&
+            (data['loadId'] as String).trim().isNotEmpty) {
+          continue;
+        }
+        batch.update(doc.reference, {
+          'loadId': loadId,
+          'loadNumber': loadNumber,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+  }
+
+  Future<String> _generateLoadNumber(String factoryId) async {
+    final year = DateTime.now().year;
+    final snapshot =
+        await _loads.where('factoryId', isEqualTo: factoryId).get();
+    final count = snapshot.docs.length + 1;
+    return 'JWL-$year-${count.toString().padLeft(4, '0')}';
+  }
+
+  /// Resolve loads for UI/read paths (persisted or virtual).
+  Future<List<JobWorkLoad>> resolveLoadsForJobWork(String jobWorkId) async {
+    final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
+    if (order == null) return const [];
+    final loads = await fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+    return JobWorkLoadResolver.resolveLoads(order, loads);
+  }
+}

@@ -4,11 +4,16 @@ import '../enums/customer_enums.dart';
 import '../enums/job_work_enums.dart';
 import '../enums/job_work_load_enums.dart';
 import '../../core/utils/job_work_block_progress.dart';
+import 'job_work_order.dart';
 import 'job_work_output.dart';
 
-class JobWorkOrder extends Equatable {
-  const JobWorkOrder({
+/// One inbound marble load under a persistent Job Work (Phase 0 / Sprint 1).
+class JobWorkLoad extends Equatable {
+  const JobWorkLoad({
     required this.id,
+    required this.loadNumber,
+    required this.loadSequence,
+    required this.jobWorkId,
     required this.jobWorkNumber,
     required this.factoryId,
     required this.customerId,
@@ -50,27 +55,85 @@ class JobWorkOrder extends Equatable {
     this.collectedAt,
     this.closedAt,
     this.updatedAt,
-    this.schemaVersion = JobWorkSchemaVersion.legacy,
-    this.summaryStatus,
-    this.defaultLoadId,
-    this.loadCount,
-    this.activeLoadCount,
+    this.migratedFromJobWork = false,
+    this.isVirtual = false,
   });
 
+  /// Build a Load from a legacy Job Work document's nested work fields.
+  factory JobWorkLoad.fromLegacyOrder(
+    JobWorkOrder order, {
+    required String id,
+    required String loadNumber,
+    int loadSequence = 1,
+    bool migratedFromJobWork = false,
+    bool isVirtual = false,
+  }) {
+    return JobWorkLoad(
+      id: id,
+      loadNumber: loadNumber,
+      loadSequence: loadSequence,
+      jobWorkId: order.id,
+      jobWorkNumber: order.jobWorkNumber,
+      factoryId: order.factoryId,
+      customerId: order.customerId,
+      customerName: order.customerName,
+      status: order.status,
+      receivedDate: order.receivedDate,
+      expectedCompletionDate: order.expectedCompletionDate,
+      mineLocation: order.mineLocation,
+      mineOwner: order.mineOwner,
+      marbleVariety: order.marbleVariety,
+      blockCount: order.blockCount,
+      totalTons: order.totalTons,
+      totalVolumeM3: order.totalVolumeM3,
+      blockDimensions: order.blockDimensions,
+      conditionNotes: order.conditionNotes,
+      vehicleNumber: order.vehicleNumber,
+      cuttingStrategy: order.cuttingStrategy,
+      targetProduct: order.targetProduct,
+      smallSizes: order.smallSizes,
+      largeSizes: order.largeSizes,
+      legacySizes: order.legacySizes,
+      thickness: order.thickness,
+      finish: order.finish,
+      specialInstructions: order.specialInstructions,
+      pricingModel: order.pricingModel,
+      agreedRate: order.agreedRate,
+      smallStockPrice: order.smallStockPrice,
+      largeStockPrice: order.largeStockPrice,
+      finalCuttingCharges: order.finalCuttingCharges,
+      advanceReceived: order.advanceReceived,
+      balanceDue: order.balanceDue,
+      paymentTerms: order.paymentTerms,
+      paymentDueDate: order.paymentDueDate,
+      output: order.output,
+      execution: order.execution,
+      shiftLogs: order.shiftLogs,
+      invoiceId: order.invoiceId,
+      collectedAt: order.collectedAt,
+      closedAt: order.closedAt,
+      createdAt: order.createdAt,
+      updatedAt: order.updatedAt,
+      migratedFromJobWork: migratedFromJobWork,
+      isVirtual: isVirtual,
+    );
+  }
+
   final String id;
+  final String loadNumber;
+  final int loadSequence;
+  final String jobWorkId;
   final String jobWorkNumber;
   final String factoryId;
   final String customerId;
   final String customerName;
-  final JobWorkStatus status;
+  final LoadStatus status;
   final DateTime receivedDate;
   final DateTime? expectedCompletionDate;
 
-  // Mine source
   final String? mineLocation;
   final String? mineOwner;
 
-  // Input
   final String marbleVariety;
   final int blockCount;
   final double totalTons;
@@ -79,25 +142,19 @@ class JobWorkOrder extends Equatable {
   final String? conditionNotes;
   final String? vehicleNumber;
 
-  // Cutting spec
   final CuttingStrategy cuttingStrategy;
   final TargetProduct targetProduct;
   final List<String> smallSizes;
   final List<String> largeSizes;
-
-  /// Pre-catalog values from older `cuttingSpec.sizes` documents.
   final List<String> legacySizes;
   final String thickness;
   final FinishType finish;
   final String? specialInstructions;
 
-  // Pricing
   final PricingModel pricingModel;
   final double agreedRate;
   final double smallStockPrice;
   final double largeStockPrice;
-
-  /// Finalized when output is recorded (replaces legacy negotiated amount).
   final double finalCuttingCharges;
   final double advanceReceived;
   final double balanceDue;
@@ -114,20 +171,11 @@ class JobWorkOrder extends Equatable {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  /// 1 = legacy nested work; 2 = loads authoritative (Phase 0).
-  final int schemaVersion;
+  /// True when this Load was created by [ensureDefaultLoad] from a legacy JW.
+  final bool migratedFromJobWork;
 
-  /// Derived container status when loads exist; null on pure legacy docs.
-  final JobWorkSummaryStatus? summaryStatus;
-
-  /// Set after ensureDefaultLoad.
-  final String? defaultLoadId;
-
-  final int? loadCount;
-  final int? activeLoadCount;
-
-  bool get isLoadsAuthoritative =>
-      schemaVersion >= JobWorkSchemaVersion.loadsAuthoritative;
+  /// True when synthesized in-memory (no Firestore doc yet).
+  final bool isVirtual;
 
   List<String> get allSizes => [
         ...smallSizes,
@@ -138,6 +186,8 @@ class JobWorkOrder extends Equatable {
   bool get hasAnySize => allSizes.isNotEmpty;
 
   bool get hasFinalCuttingCharges => finalCuttingCharges > 0;
+
+  String get displayLabel => 'Load $loadSequence';
 
   int get totalBlocksCut => JobWorkBlockProgress.totalBlocksCut(shiftLogs);
 
@@ -151,13 +201,16 @@ class JobWorkOrder extends Equatable {
         blocksCut: totalBlocksCut,
       );
 
-  JobWorkOrder copyWith({
+  JobWorkLoad copyWith({
     String? id,
+    String? loadNumber,
+    int? loadSequence,
+    String? jobWorkId,
     String? jobWorkNumber,
     String? factoryId,
     String? customerId,
     String? customerName,
-    JobWorkStatus? status,
+    LoadStatus? status,
     DateTime? receivedDate,
     DateTime? expectedCompletionDate,
     String? mineLocation,
@@ -194,14 +247,14 @@ class JobWorkOrder extends Equatable {
     DateTime? closedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
-    int? schemaVersion,
-    JobWorkSummaryStatus? summaryStatus,
-    String? defaultLoadId,
-    int? loadCount,
-    int? activeLoadCount,
+    bool? migratedFromJobWork,
+    bool? isVirtual,
   }) {
-    return JobWorkOrder(
+    return JobWorkLoad(
       id: id ?? this.id,
+      loadNumber: loadNumber ?? this.loadNumber,
+      loadSequence: loadSequence ?? this.loadSequence,
+      jobWorkId: jobWorkId ?? this.jobWorkId,
       jobWorkNumber: jobWorkNumber ?? this.jobWorkNumber,
       factoryId: factoryId ?? this.factoryId,
       customerId: customerId ?? this.customerId,
@@ -244,17 +297,17 @@ class JobWorkOrder extends Equatable {
       closedAt: closedAt ?? this.closedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      schemaVersion: schemaVersion ?? this.schemaVersion,
-      summaryStatus: summaryStatus ?? this.summaryStatus,
-      defaultLoadId: defaultLoadId ?? this.defaultLoadId,
-      loadCount: loadCount ?? this.loadCount,
-      activeLoadCount: activeLoadCount ?? this.activeLoadCount,
+      migratedFromJobWork: migratedFromJobWork ?? this.migratedFromJobWork,
+      isVirtual: isVirtual ?? this.isVirtual,
     );
   }
 
   @override
   List<Object?> get props => [
         id,
+        loadNumber,
+        loadSequence,
+        jobWorkId,
         jobWorkNumber,
         factoryId,
         customerId,
@@ -296,10 +349,7 @@ class JobWorkOrder extends Equatable {
         closedAt,
         createdAt,
         updatedAt,
-        schemaVersion,
-        summaryStatus,
-        defaultLoadId,
-        loadCount,
-        activeLoadCount,
+        migratedFromJobWork,
+        isVirtual,
       ];
 }

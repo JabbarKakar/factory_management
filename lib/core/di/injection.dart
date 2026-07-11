@@ -57,6 +57,7 @@ import '../../data/repositories/equipment_repository.dart';
 import '../../data/repositories/finished_goods_repository.dart';
 import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
+import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/notification_repository.dart';
 import '../../data/repositories/payment_reminder_repository.dart';
@@ -103,6 +104,11 @@ void setupDependencies() {
   getIt.registerLazySingleton<ThemeRepository>(ThemeRepository.new);
   getIt.registerLazySingleton<CustomerRepository>(CustomerRepository.new);
   getIt.registerLazySingleton<JobWorkRepository>(JobWorkRepository.new);
+  getIt.registerLazySingleton<JobWorkLoadRepository>(
+    () => JobWorkLoadRepository(
+      jobWorkRepository: getIt<JobWorkRepository>(),
+    ),
+  );
   getIt.registerLazySingleton<JobWorkCollectionRepository>(
     () => JobWorkCollectionRepository(
       jobWorkRepository: getIt<JobWorkRepository>(),

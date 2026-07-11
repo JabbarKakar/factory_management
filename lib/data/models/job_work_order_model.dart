@@ -5,6 +5,7 @@ import '../../domain/entities/job_work_output.dart';
 import '../../domain/entities/stock_output.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
+import '../../domain/enums/job_work_load_enums.dart';
 import '../../core/constants/job_work_sizes.dart';
 
 class JobWorkOrderModel {
@@ -51,6 +52,11 @@ class JobWorkOrderModel {
     this.collectedAt,
     this.closedAt,
     this.updatedAt,
+    this.schemaVersion = JobWorkSchemaVersion.legacy,
+    this.summaryStatus,
+    this.defaultLoadId,
+    this.loadCount,
+    this.activeLoadCount,
   });
 
   final String id;
@@ -95,6 +101,11 @@ class JobWorkOrderModel {
   final DateTime? closedAt;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final int schemaVersion;
+  final JobWorkSummaryStatus? summaryStatus;
+  final String? defaultLoadId;
+  final int? loadCount;
+  final int? activeLoadCount;
 
   factory JobWorkOrderModel.fromFirestore(String id, Map<String, dynamic> data) {
     final cuttingSpec = data['cuttingSpec'] as Map<String, dynamic>? ?? {};
@@ -163,6 +174,14 @@ class JobWorkOrderModel {
       closedAt: (data['closedAt'] as Timestamp?)?.toDate(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
+      schemaVersion: (data['schemaVersion'] as num?)?.toInt() ??
+          JobWorkSchemaVersion.legacy,
+      summaryStatus: data['summaryStatus'] == null
+          ? null
+          : JobWorkSummaryStatus.fromString(data['summaryStatus'] as String?),
+      defaultLoadId: data['defaultLoadId'] as String?,
+      loadCount: (data['loadCount'] as num?)?.toInt(),
+      activeLoadCount: (data['activeLoadCount'] as num?)?.toInt(),
     );
   }
 
@@ -274,6 +293,11 @@ class JobWorkOrderModel {
       if (invoiceId != null) 'invoiceId': invoiceId,
       if (collectedAt != null) 'collectedAt': Timestamp.fromDate(collectedAt!),
       if (closedAt != null) 'closedAt': Timestamp.fromDate(closedAt!),
+      'schemaVersion': schemaVersion,
+      if (summaryStatus != null) 'summaryStatus': summaryStatus!.firestoreValue,
+      if (defaultLoadId != null) 'defaultLoadId': defaultLoadId,
+      if (loadCount != null) 'loadCount': loadCount,
+      if (activeLoadCount != null) 'activeLoadCount': activeLoadCount,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -405,6 +429,11 @@ class JobWorkOrderModel {
       closedAt: closedAt,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      schemaVersion: schemaVersion,
+      summaryStatus: summaryStatus,
+      defaultLoadId: defaultLoadId,
+      loadCount: loadCount,
+      activeLoadCount: activeLoadCount,
     );
   }
 
@@ -452,6 +481,11 @@ class JobWorkOrderModel {
       closedAt: order.closedAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
+      schemaVersion: order.schemaVersion,
+      summaryStatus: order.summaryStatus,
+      defaultLoadId: order.defaultLoadId,
+      loadCount: order.loadCount,
+      activeLoadCount: order.activeLoadCount,
     );
   }
 }
