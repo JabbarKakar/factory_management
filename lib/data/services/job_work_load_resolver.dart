@@ -25,6 +25,42 @@ abstract final class JobWorkLoadResolver {
     return [synthesizeDefaultLoad(order)];
   }
 
+  /// Which persisted load is the migration default (ensureDefaultLoad target).
+  ///
+  /// Prefers [JobWorkOrder.defaultLoadId], then sequence 1, then first sorted.
+  static JobWorkLoad preferredDefaultLoad(
+    JobWorkOrder order,
+    List<JobWorkLoad> loads,
+  ) {
+    if (loads.isEmpty) {
+      throw StateError('preferredDefaultLoad requires at least one load.');
+    }
+    if (order.defaultLoadId != null) {
+      for (final load in loads) {
+        if (load.id == order.defaultLoadId) return load;
+      }
+    }
+    final sorted = [...loads]
+      ..sort((a, b) => a.loadSequence.compareTo(b.loadSequence));
+    for (final load in sorted) {
+      if (load.loadSequence == 1) return load;
+    }
+    return sorted.first;
+  }
+
+  /// True when ensureDefaultLoad must not create another Load.
+  static bool hasPersistedLoads(List<JobWorkLoad> loads) => loads.isNotEmpty;
+
+  /// Next 1-based sequence for a new Load under this JW.
+  static int nextLoadSequence(List<JobWorkLoad> existing) {
+    if (existing.isEmpty) return 1;
+    var maxSequence = 0;
+    for (final load in existing) {
+      if (load.loadSequence > maxSequence) maxSequence = load.loadSequence;
+    }
+    return maxSequence + 1;
+  }
+
   /// In-memory Load #1 from nested JW fields (Phase 0 compatibility).
   static JobWorkLoad synthesizeDefaultLoad(JobWorkOrder order) {
     return JobWorkLoad.fromLegacyOrder(

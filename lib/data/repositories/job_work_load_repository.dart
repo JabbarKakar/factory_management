@@ -103,7 +103,7 @@ class JobWorkLoadRepository {
       jobWorkId: jobWorkId,
     );
     if (existing.isNotEmpty) {
-      final preferred = _preferredDefaultLoad(order, existing);
+      final preferred = JobWorkLoadResolver.preferredDefaultLoad(order, existing);
       if (order.defaultLoadId != preferred.id ||
           !order.isLoadsAuthoritative ||
           order.loadCount != existing.length) {
@@ -155,19 +155,117 @@ class JobWorkLoadRepository {
     return (await getLoad(loadId)) ?? load;
   }
 
-  JobWorkLoad _preferredDefaultLoad(
-    JobWorkOrder order,
-    List<JobWorkLoad> loads,
-  ) {
-    if (order.defaultLoadId != null) {
-      for (final load in loads) {
-        if (load.id == order.defaultLoadId) return load;
+  /// Creates a new Load under an existing Job Work (Add Load).
+  Future<JobWorkLoad> createLoad(JobWorkLoad draft) async {
+    final order = await _jobWorkRepository.getJobWorkOrder(draft.jobWorkId);
+    if (order == null) {
+      throw const JobWorkLoadException('Job work order not found.');
+    }
+
+    final existing = await fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: order.id,
+    );
+    final id = draft.id.isEmpty ? _uuid.v4() : draft.id;
+    final loadNumber = draft.loadNumber.isEmpty
+        ? await _generateLoadNumber(order.factoryId)
+        : draft.loadNumber;
+    final sequence = draft.loadSequence > 0
+        ? draft.loadSequence
+        : JobWorkLoadResolver.nextLoadSequence(existing);
+
+    final load = draft.copyWith(
+      id: id,
+      loadNumber: loadNumber,
+      loadSequence: sequence,
+      jobWorkId: order.id,
+      jobWorkNumber: order.jobWorkNumber,
+      factoryId: order.factoryId,
+      customerId: order.customerId,
+      customerName: order.customerName,
+      isVirtual: false,
+    );
+
+    final allLoads = [...existing, load];
+    final batch = _firestore.batch();
+    batch.set(
+      _loads.doc(id),
+      JobWorkLoadModel.fromEntity(load).toFirestore(isCreate: true),
+    );
+    _applyJobWorkMigratedUpdate(
+      batch: batch,
+      order: order,
+      defaultLoadId: order.defaultLoadId ??
+          (existing.isNotEmpty ? existing.first.id : id),
+      loadCount: allLoads.length,
+      activeLoadCount: _activeLoadCount(allLoads),
+      summaryStatus: JobWorkSummaryStatus.fromLoadStatuses(
+        allLoads.map((item) => item.status),
+      ),
+    );
+    await batch.commit();
+    return (await getLoad(id)) ?? load;
+  }
+
+  /// Updates an existing Load and refreshes JW container counters.
+  Future<JobWorkLoad> updateLoad(JobWorkLoad load) async {
+    if (load.id.isEmpty || load.isVirtual) {
+      throw const JobWorkLoadException('Cannot update a virtual or empty load.');
+    }
+    final order = await _jobWorkRepository.getJobWorkOrder(load.jobWorkId);
+    if (order == null) {
+      throw const JobWorkLoadException('Job work order not found.');
+    }
+
+    await _loads.doc(load.id).update(
+          JobWorkLoadModel.fromEntity(load).toFirestore(),
+        );
+
+    final existing = await fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: order.id,
+    );
+    await _markJobWorkMigrated(
+      order: order,
+      defaultLoadId: order.defaultLoadId ??
+          JobWorkLoadResolver.preferredDefaultLoad(order, existing).id,
+      loads: existing,
+    );
+    return (await getLoad(load.id)) ?? load;
+  }
+
+  /// Deletes all loads for a Job Work (cascade helper).
+  Future<int> deleteLoadsForJobWork({
+    required String factoryId,
+    required String jobWorkId,
+  }) async {
+    final snapshot = await _loads
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkId', isEqualTo: jobWorkId)
+        .get();
+    if (snapshot.docs.isEmpty) return 0;
+
+    const batchLimit = 400;
+    var deleted = 0;
+    for (var index = 0; index < snapshot.docs.length; index += batchLimit) {
+      final batch = _firestore.batch();
+      final chunk = snapshot.docs.skip(index).take(batchLimit);
+      for (final doc in chunk) {
+        batch.delete(doc.reference);
+        deleted++;
       }
+      await batch.commit();
     }
-    for (final load in loads) {
-      if (load.loadSequence == 1) return load;
-    }
-    return loads.first;
+    return deleted;
+  }
+
+  int _activeLoadCount(List<JobWorkLoad> loads) {
+    return loads
+        .where(
+          (load) =>
+              !load.status.isCompleted && load.status != LoadStatus.cancelled,
+        )
+        .length;
   }
 
   Future<void> _markJobWorkMigrated({

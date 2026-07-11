@@ -93,6 +93,13 @@ class JobWorkRepository {
   }
 
   Future<void> deleteJobWorkOrder(String id) async {
+    final order = await getJobWorkOrder(id);
+    if (order != null) {
+      await _deleteLoadsForJobWork(
+        factoryId: order.factoryId,
+        jobWorkId: id,
+      );
+    }
     await _jobWorkCollection.doc(id).delete();
   }
 
@@ -263,6 +270,16 @@ class JobWorkRepository {
 
     if (snapshot.docs.isEmpty) return;
 
+    for (final doc in snapshot.docs) {
+      final factoryId = doc.data()['factoryId'] as String? ?? '';
+      if (factoryId.isNotEmpty) {
+        await _deleteLoadsForJobWork(
+          factoryId: factoryId,
+          jobWorkId: doc.id,
+        );
+      }
+    }
+
     final batch = _firestore.batch();
     for (final doc in snapshot.docs) {
       batch.delete(doc.reference);
@@ -291,6 +308,13 @@ class JobWorkRepository {
 
     if (orphanedDocs.isEmpty) return 0;
 
+    for (final doc in orphanedDocs) {
+      await _deleteLoadsForJobWork(
+        factoryId: factoryId,
+        jobWorkId: doc.id,
+      );
+    }
+
     const batchLimit = 500;
     var deletedCount = 0;
 
@@ -305,6 +329,28 @@ class JobWorkRepository {
     }
 
     return deletedCount;
+  }
+
+  Future<void> _deleteLoadsForJobWork({
+    required String factoryId,
+    required String jobWorkId,
+  }) async {
+    final snapshot = await _firestore
+        .collection('jobWorkLoads')
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkId', isEqualTo: jobWorkId)
+        .get();
+    if (snapshot.docs.isEmpty) return;
+
+    const batchLimit = 400;
+    for (var index = 0; index < snapshot.docs.length; index += batchLimit) {
+      final batch = _firestore.batch();
+      final chunk = snapshot.docs.skip(index).take(batchLimit);
+      for (final doc in chunk) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
   }
 
   /// Ensures the order's linked customer appears in the picker (e.g. if deleted).

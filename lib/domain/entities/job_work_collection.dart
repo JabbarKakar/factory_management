@@ -50,6 +50,8 @@ class JobWorkCollection extends Equatable {
     required this.status,
     required this.lineItems,
     required this.createdAt,
+    this.loadId,
+    this.loadNumber,
     this.receiverName,
     this.notes,
     this.updatedAt,
@@ -60,6 +62,8 @@ class JobWorkCollection extends Equatable {
   final String factoryId;
   final String jobWorkOrderId;
   final String jobWorkNumber;
+  final String? loadId;
+  final String? loadNumber;
   final String customerId;
   final String customerName;
   final DateTime collectedAt;
@@ -82,6 +86,8 @@ class JobWorkCollection extends Equatable {
     String? factoryId,
     String? jobWorkOrderId,
     String? jobWorkNumber,
+    String? loadId,
+    String? loadNumber,
     String? customerId,
     String? customerName,
     DateTime? collectedAt,
@@ -98,6 +104,8 @@ class JobWorkCollection extends Equatable {
       factoryId: factoryId ?? this.factoryId,
       jobWorkOrderId: jobWorkOrderId ?? this.jobWorkOrderId,
       jobWorkNumber: jobWorkNumber ?? this.jobWorkNumber,
+      loadId: loadId ?? this.loadId,
+      loadNumber: loadNumber ?? this.loadNumber,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
       collectedAt: collectedAt ?? this.collectedAt,
@@ -117,6 +125,8 @@ class JobWorkCollection extends Equatable {
         factoryId,
         jobWorkOrderId,
         jobWorkNumber,
+        loadId,
+        loadNumber,
         customerId,
         customerName,
         collectedAt,

@@ -18,6 +18,8 @@ class JobWorkInvoiceModel {
     required this.dueAmount,
     required this.status,
     required this.createdAt,
+    this.loadId,
+    this.loadNumber,
     this.mineLocation,
     this.mineOwner,
     this.dueDate,
@@ -29,6 +31,8 @@ class JobWorkInvoiceModel {
   final String factoryId;
   final String jobWorkId;
   final String jobWorkNumber;
+  final String? loadId;
+  final String? loadNumber;
   final String customerId;
   final String customerName;
   final List<InvoiceLineItem> lineItems;
@@ -53,6 +57,8 @@ class JobWorkInvoiceModel {
       factoryId: data['factoryId'] as String? ?? 'default',
       jobWorkId: data['jobWorkId'] as String? ?? '',
       jobWorkNumber: data['jobWorkNumber'] as String? ?? '',
+      loadId: data['loadId'] as String?,
+      loadNumber: data['loadNumber'] as String?,
       customerId: data['customerId'] as String? ?? '',
       customerName: data['customerName'] as String? ?? '',
       lineItems: items
@@ -82,6 +88,8 @@ class JobWorkInvoiceModel {
       'factoryId': factoryId,
       'jobWorkId': jobWorkId,
       'jobWorkNumber': jobWorkNumber,
+      if (loadId != null && loadId!.isNotEmpty) 'loadId': loadId,
+      if (loadNumber != null && loadNumber!.isNotEmpty) 'loadNumber': loadNumber,
       'customerId': customerId,
       'customerName': customerName,
       'items': lineItems
@@ -111,6 +119,8 @@ class JobWorkInvoiceModel {
       factoryId: factoryId,
       jobWorkId: jobWorkId,
       jobWorkNumber: jobWorkNumber,
+      loadId: loadId,
+      loadNumber: loadNumber,
       customerId: customerId,
       customerName: customerName,
       lineItems: lineItems,
@@ -133,6 +143,8 @@ class JobWorkInvoiceModel {
       factoryId: invoice.factoryId,
       jobWorkId: invoice.jobWorkId,
       jobWorkNumber: invoice.jobWorkNumber,
+      loadId: invoice.loadId,
+      loadNumber: invoice.loadNumber,
       customerId: invoice.customerId,
       customerName: invoice.customerName,
       lineItems: invoice.lineItems,

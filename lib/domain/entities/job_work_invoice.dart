@@ -30,6 +30,8 @@ class JobWorkInvoice extends Equatable {
     required this.dueAmount,
     required this.status,
     required this.createdAt,
+    this.loadId,
+    this.loadNumber,
     this.mineLocation,
     this.mineOwner,
     this.dueDate,
@@ -41,6 +43,8 @@ class JobWorkInvoice extends Equatable {
   final String factoryId;
   final String jobWorkId;
   final String jobWorkNumber;
+  final String? loadId;
+  final String? loadNumber;
   final String customerId;
   final String customerName;
   final List<InvoiceLineItem> lineItems;
@@ -60,6 +64,8 @@ class JobWorkInvoice extends Equatable {
     String? factoryId,
     String? jobWorkId,
     String? jobWorkNumber,
+    String? loadId,
+    String? loadNumber,
     String? customerId,
     String? customerName,
     List<InvoiceLineItem>? lineItems,
@@ -79,6 +85,8 @@ class JobWorkInvoice extends Equatable {
       factoryId: factoryId ?? this.factoryId,
       jobWorkId: jobWorkId ?? this.jobWorkId,
       jobWorkNumber: jobWorkNumber ?? this.jobWorkNumber,
+      loadId: loadId ?? this.loadId,
+      loadNumber: loadNumber ?? this.loadNumber,
       customerId: customerId ?? this.customerId,
       customerName: customerName ?? this.customerName,
       lineItems: lineItems ?? this.lineItems,
@@ -101,6 +109,8 @@ class JobWorkInvoice extends Equatable {
         factoryId,
         jobWorkId,
         jobWorkNumber,
+        loadId,
+        loadNumber,
         customerId,
         customerName,
         lineItems,

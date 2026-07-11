@@ -17,6 +17,8 @@ class JobWorkCollectionModel {
     required this.status,
     required this.lineItems,
     required this.createdAt,
+    this.loadId,
+    this.loadNumber,
     this.receiverName,
     this.notes,
     this.updatedAt,
@@ -27,6 +29,8 @@ class JobWorkCollectionModel {
   final String factoryId;
   final String jobWorkOrderId;
   final String jobWorkNumber;
+  final String? loadId;
+  final String? loadNumber;
   final String customerId;
   final String customerName;
   final DateTime collectedAt;
@@ -48,6 +52,8 @@ class JobWorkCollectionModel {
       factoryId: data['factoryId'] as String? ?? 'default',
       jobWorkOrderId: data['jobWorkOrderId'] as String? ?? '',
       jobWorkNumber: data['jobWorkNumber'] as String? ?? '',
+      loadId: data['loadId'] as String?,
+      loadNumber: data['loadNumber'] as String?,
       customerId: data['customerId'] as String? ?? '',
       customerName: data['customerName'] as String? ?? '',
       collectedAt:
@@ -86,6 +92,8 @@ class JobWorkCollectionModel {
       'factoryId': factoryId,
       'jobWorkOrderId': jobWorkOrderId,
       'jobWorkNumber': jobWorkNumber,
+      if (loadId != null && loadId!.isNotEmpty) 'loadId': loadId,
+      if (loadNumber != null && loadNumber!.isNotEmpty) 'loadNumber': loadNumber,
       'customerId': customerId,
       'customerName': customerName,
       'collectedAt': Timestamp.fromDate(collectedAt),
@@ -105,6 +113,8 @@ class JobWorkCollectionModel {
         factoryId: factoryId,
         jobWorkOrderId: jobWorkOrderId,
         jobWorkNumber: jobWorkNumber,
+        loadId: loadId,
+        loadNumber: loadNumber,
         customerId: customerId,
         customerName: customerName,
         collectedAt: collectedAt,
@@ -123,6 +133,8 @@ class JobWorkCollectionModel {
         factoryId: collection.factoryId,
         jobWorkOrderId: collection.jobWorkOrderId,
         jobWorkNumber: collection.jobWorkNumber,
+        loadId: collection.loadId,
+        loadNumber: collection.loadNumber,
         customerId: collection.customerId,
         customerName: collection.customerName,
         collectedAt: collection.collectedAt,

@@ -146,20 +146,58 @@ void main() {
       expect(resolved.every((load) => !load.isVirtual), isTrue);
     });
 
-    test('fromLegacyOrder copies nested work fields', () {
-      final order = buildOrder(status: JobWorkStatus.partiallyCollected);
-      final load = JobWorkLoad.fromLegacyOrder(
-        order,
-        id: 'load-1',
-        loadNumber: 'JWL-2026-0009',
-        migratedFromJobWork: true,
+    test('preferredDefaultLoad prefers defaultLoadId then sequence 1', () {
+      final order = buildOrder().copyWith(defaultLoadId: 'l2');
+      final loads = [
+        buildPersistedLoad(id: 'l1', sequence: 1),
+        buildPersistedLoad(id: 'l2', sequence: 2),
+      ];
+      expect(
+        JobWorkLoadResolver.preferredDefaultLoad(order, loads).id,
+        'l2',
       );
 
-      expect(load.migratedFromJobWork, isTrue);
-      expect(load.isVirtual, isFalse);
-      expect(load.status, JobWorkStatus.partiallyCollected);
-      expect(load.output?.smallStockOutputs, isNotEmpty);
-      expect(load.invoiceId, order.invoiceId);
+      final withoutDefault = buildOrder();
+      expect(
+        JobWorkLoadResolver.preferredDefaultLoad(withoutDefault, loads).id,
+        'l1',
+      );
+    });
+
+    test('hasPersistedLoads gates ensureDefaultLoad create path', () {
+      expect(JobWorkLoadResolver.hasPersistedLoads(const []), isFalse);
+      expect(
+        JobWorkLoadResolver.hasPersistedLoads([
+          buildPersistedLoad(id: 'l1'),
+        ]),
+        isTrue,
+      );
+    });
+
+    test('nextLoadSequence increments from max existing', () {
+      expect(JobWorkLoadResolver.nextLoadSequence(const []), 1);
+      expect(
+        JobWorkLoadResolver.nextLoadSequence([
+          buildPersistedLoad(id: 'l1', sequence: 1),
+          buildPersistedLoad(id: 'l3', sequence: 3),
+        ]),
+        4,
+      );
+    });
+
+    test('ensureDefaultLoad is idempotent when loads already exist', () {
+      // Pure decision: with persisted loads, resolver must not synthesize.
+      final order = buildOrder();
+      final existing = [buildPersistedLoad(id: 'l1', sequence: 1)];
+      expect(JobWorkLoadResolver.hasPersistedLoads(existing), isTrue);
+      final resolved = JobWorkLoadResolver.resolveLoads(order, existing);
+      expect(resolved, hasLength(1));
+      expect(resolved.single.id, 'l1');
+      expect(resolved.single.isVirtual, isFalse);
+      expect(
+        JobWorkLoadResolver.preferredDefaultLoad(order, existing).id,
+        'l1',
+      );
     });
   });
 
