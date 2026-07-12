@@ -264,6 +264,54 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
                 ),
               ),
               JobWorkDetailSection(
+                title: AppStrings.pricingAgreement,
+                icon: Icons.payments_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.pricingModel,
+                      value: load.pricingModel.label,
+                    ),
+                    if (load.smallStockPrice > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.smallStockPrice,
+                        value: Formatters.currencyPkr(load.smallStockPrice),
+                      ),
+                    if (load.largeStockPrice > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.largeStockPrice,
+                        value: Formatters.currencyPkr(load.largeStockPrice),
+                      ),
+                    if (load.agreedRate > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.agreedRate,
+                        value: Formatters.currencyPkr(load.agreedRate),
+                      ),
+                    JobWorkDetailRow(
+                      label: AppStrings.finalCuttingCharges,
+                      value: load.hasFinalCuttingCharges
+                          ? Formatters.currencyPkr(load.finalCuttingCharges)
+                          : AppStrings.chargesPending,
+                      bold: load.hasFinalCuttingCharges,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.advanceReceived,
+                      value: Formatters.currencyPkr(load.advanceReceived),
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.balanceDue,
+                      value: Formatters.currencyPkr(load.balanceDue),
+                      bold: load.balanceDue > 0,
+                      highlight: load.balanceDue > 0,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.paymentTerms,
+                      value: load.paymentTerms.label,
+                    ),
+                  ],
+                ),
+              ),
+              JobWorkDetailSection(
                 title: AppStrings.cuttingSpecification,
                 icon: Icons.content_cut_outlined,
                 child: JobWorkDetailRows(
@@ -301,11 +349,6 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
                 JobWorkBlockProgressSection(
                   blockCount: load.blockCount,
                   shiftLogs: load.shiftLogs,
-                ),
-              if (load.shiftLogs.isNotEmpty)
-                JobWorkShiftLogsSection(
-                  shiftLogs: load.shiftLogs,
-                  totalBlocks: load.blockCount,
                 ),
               JobWorkDetailSection(
                 title: AppStrings.recordOutput,
@@ -389,6 +432,11 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
                         ),
                       ),
               ),
+              if (load.shiftLogs.isNotEmpty)
+                JobWorkShiftLogsSection(
+                  shiftLogs: load.shiftLogs,
+                  totalBlocks: load.blockCount,
+                ),
               if (loadCollections.isNotEmpty)
                 JobWorkDetailSection(
                   title: AppStrings.collectionHistory,
@@ -415,43 +463,6 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
                     },
                   ),
                 ),
-              JobWorkDetailSection(
-                title: AppStrings.pricingAgreement,
-                icon: Icons.payments_outlined,
-                child: JobWorkDetailRows(
-                  rows: [
-                    JobWorkDetailRow(
-                      label: AppStrings.pricingModel,
-                      value: load.pricingModel.label,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.agreedRate,
-                      value: Formatters.currencyPkr(load.agreedRate),
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.finalCuttingCharges,
-                      value: load.hasFinalCuttingCharges
-                          ? Formatters.currencyPkr(load.finalCuttingCharges)
-                          : AppStrings.chargesPending,
-                      bold: load.hasFinalCuttingCharges,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.advanceReceived,
-                      value: Formatters.currencyPkr(load.advanceReceived),
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.balanceDue,
-                      value: Formatters.currencyPkr(load.balanceDue),
-                      bold: load.balanceDue > 0,
-                      highlight: load.balanceDue > 0,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.paymentTerms,
-                      value: load.paymentTerms.label,
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         );
