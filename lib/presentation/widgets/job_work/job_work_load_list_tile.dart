@@ -36,17 +36,24 @@ class JobWorkLoadListTile extends StatelessWidget {
     final dateLabel = DateFormat.yMMMd().format(load.receivedDate);
     final nextStatus = load.status.nextOperationalStatus;
     final nextCompletion = load.status.nextCompletionStatus;
+    final hasOutput = load.output?.isRecorded == true;
     final canAdvance = onAdvanceStatus != null &&
-        load.status.canAdvanceOperationally &&
-        nextStatus != null;
+        (load.status.canAdvanceOperationally ||
+            load.status == JobWorkStatus.received) &&
+        nextStatus != null &&
+        // Send to QC only after output is recorded.
+        (nextStatus != JobWorkStatus.qc || hasOutput);
     final canClose = onAdvanceCompletion != null &&
         nextCompletion == JobWorkStatus.closed;
-    final canRecord = onRecordOutput != null && load.status.canRecordOutput;
-    final hasOutput = load.output?.isRecorded == true;
+    // Match Load detail: Start Cutting before first Record Output.
+    final canRecord = onRecordOutput != null &&
+        load.status.canRecordOutput &&
+        (hasOutput || load.status != JobWorkStatus.agreed);
     final canQc = onRecordQc != null && hasOutput;
     final canCollect = onCollectMaterial != null;
     final hasActions =
         canAdvance || canClose || canRecord || canQc || canCollect;
+
 
     return Material(
       color: Colors.transparent,
@@ -111,6 +118,13 @@ class JobWorkLoadListTile extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
+                    if (canAdvance)
+                      FilledButton(
+                        onPressed: isBusy
+                            ? null
+                            : () => onAdvanceStatus!(nextStatus),
+                        child: Text(load.status.advanceActionLabel),
+                      ),
                     if (canRecord)
                       OutlinedButton.icon(
                         onPressed: isBusy ? null : onRecordOutput,
@@ -123,13 +137,6 @@ class JobWorkLoadListTile extends StatelessWidget {
                               ? AppStrings.editOutput
                               : AppStrings.recordOutput,
                         ),
-                      ),
-                    if (canAdvance)
-                      OutlinedButton(
-                        onPressed: isBusy
-                            ? null
-                            : () => onAdvanceStatus!(nextStatus),
-                        child: Text(load.status.advanceActionLabel),
                       ),
                     if (canQc)
                       OutlinedButton.icon(

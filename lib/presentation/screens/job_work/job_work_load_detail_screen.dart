@@ -138,15 +138,21 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
               load,
               state.collections,
             );
-        final canRecord =
-            canEdit && !load.isVirtual && load.status.canRecordOutput;
         final hasOutput = load.output?.isRecorded == true;
+        // Cutting must start before first Record Output (Agreed → Start Cutting).
+        final canRecord = canEdit &&
+            !load.isVirtual &&
+            load.status.canRecordOutput &&
+            (hasOutput || load.status != JobWorkStatus.agreed);
         final canQc = canEdit && !load.isVirtual && hasOutput;
         final nextStatus = load.status.nextOperationalStatus;
         final canAdvance = canEdit &&
             !load.isVirtual &&
-            load.status.canAdvanceOperationally &&
-            nextStatus != null;
+            nextStatus != null &&
+            (load.status.canAdvanceOperationally ||
+                load.status == JobWorkStatus.received) &&
+            // Send to QC only after output is recorded.
+            (nextStatus != JobWorkStatus.qc || hasOutput);
         final canClose = canEdit &&
             !load.isVirtual &&
             load.status.nextCompletionStatus == JobWorkStatus.closed;
@@ -575,6 +581,15 @@ class _LoadHero extends StatelessWidget {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
+                            if (canAdvance && nextStatus != null)
+                              FilledButton(
+                                onPressed: isSaving
+                                    ? null
+                                    : () => onAdvanceStatus(nextStatus!),
+                                child: Text(
+                                  load.status.advanceActionLabel,
+                                ),
+                              ),
                             if (canRecordOutput)
                               FilledButton.tonalIcon(
                                 onPressed: isSaving ? null : onRecordOutput,
@@ -599,15 +614,6 @@ class _LoadHero extends StatelessWidget {
                                   size: 18,
                                 ),
                                 label: const Text(AppStrings.collectMaterial),
-                              ),
-                            if (canAdvance && nextStatus != null)
-                              OutlinedButton(
-                                onPressed: isSaving
-                                    ? null
-                                    : () => onAdvanceStatus(nextStatus!),
-                                child: Text(
-                                  load.status.advanceActionLabel,
-                                ),
                               ),
                             if (canClose)
                               OutlinedButton(

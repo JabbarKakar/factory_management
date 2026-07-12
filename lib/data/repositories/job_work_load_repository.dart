@@ -320,7 +320,23 @@ class JobWorkLoadRepository {
     if (load.isVirtual) {
       throw const JobWorkLoadException('Cannot advance a virtual load.');
     }
-    return updateLoad(load.copyWith(status: newStatus));
+
+    var updated = load.copyWith(status: newStatus);
+    if (newStatus == LoadStatus.inCutting) {
+      final execution = (load.execution ?? const JobWorkExecution()).copyWith(
+        cuttingStartDate: load.execution?.cuttingStartDate ?? DateTime.now(),
+      );
+      updated = updated.copyWith(execution: execution);
+    }
+    if (newStatus == LoadStatus.qc || newStatus == LoadStatus.ready) {
+      final execution = (updated.execution ?? const JobWorkExecution()).copyWith(
+        cuttingCompletionDate:
+            updated.execution?.cuttingCompletionDate ?? DateTime.now(),
+      );
+      updated = updated.copyWith(execution: execution);
+    }
+
+    return updateLoad(updated);
   }
 
   /// Completes a Load (`collected` → `closed`) without closing the Job Work.
