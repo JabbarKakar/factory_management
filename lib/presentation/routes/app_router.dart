@@ -1403,6 +1403,28 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                         },
                       ),
                       GoRoute(
+                        path: 'loads/:loadId/edit',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          final loadId = state.pathParameters['loadId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkLoadFormBloc>()
+                              ..add(
+                                JobWorkLoadFormInitialized(
+                                  jobWorkId: jobWorkId,
+                                  loadId: loadId,
+                                ),
+                              ),
+                            child: AddJobWorkLoadScreen(
+                              jobWorkId: jobWorkId,
+                              loadId: loadId,
+                            ),
+                          );
+                        },
+                      ),
+                      GoRoute(
                         path: 'loads/:loadId',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {

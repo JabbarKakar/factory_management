@@ -367,6 +367,95 @@ class JobWorkLoadRepository {
     );
   }
 
+  /// Deletes one Load and all belonging records (collections, QC, invoices,
+  /// payments). Output and shift logs live on the Load document and go with it.
+  Future<void> deleteLoad(String loadId) async {
+    final load = await getLoad(loadId);
+    if (load == null) {
+      throw const JobWorkLoadException('Load not found.');
+    }
+    if (load.isVirtual) {
+      throw const JobWorkLoadException('Cannot delete a virtual load.');
+    }
+
+    final order = await _jobWorkRepository.getJobWorkOrder(load.jobWorkId);
+    if (order == null) {
+      throw const JobWorkLoadException('Job work order not found.');
+    }
+
+    final collectionSnap = await _collections
+        .where('factoryId', isEqualTo: load.factoryId)
+        .where('loadId', isEqualTo: loadId)
+        .get();
+    final invoiceSnap = await _invoices
+        .where('factoryId', isEqualTo: load.factoryId)
+        .where('loadId', isEqualTo: loadId)
+        .get();
+    final qcSnap = await _firestore
+        .collection('qualityChecks')
+        .where('factoryId', isEqualTo: load.factoryId)
+        .where('referenceId', isEqualTo: loadId)
+        .where(
+          'referenceType',
+          isEqualTo: 'jobWorkLoad',
+        )
+        .get();
+
+    final paymentRefs = <DocumentReference<Map<String, dynamic>>>[];
+    for (final invoiceDoc in invoiceSnap.docs) {
+      final paymentsSnap = await _firestore
+          .collection('payments')
+          .where('factoryId', isEqualTo: load.factoryId)
+          .where('invoiceId', isEqualTo: invoiceDoc.id)
+          .get();
+      paymentRefs.addAll(paymentsSnap.docs.map((doc) => doc.reference));
+    }
+
+    final toDelete = <DocumentReference<Map<String, dynamic>>>[
+      ...collectionSnap.docs.map((doc) => doc.reference),
+      ...qcSnap.docs.map((doc) => doc.reference),
+      ...paymentRefs,
+      ...invoiceSnap.docs.map((doc) => doc.reference),
+      _loads.doc(loadId),
+    ];
+
+    const batchLimit = 400;
+    for (var index = 0; index < toDelete.length; index += batchLimit) {
+      final batch = _firestore.batch();
+      final chunk = toDelete.skip(index).take(batchLimit);
+      for (final ref in chunk) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
+
+    final remaining = await fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: order.id,
+    );
+    if (remaining.isEmpty) {
+      await _jobWorkOrders.doc(order.id).update({
+        'schemaVersion': JobWorkSchemaVersion.loadsAuthoritative,
+        'defaultLoadId': FieldValue.delete(),
+        'loadCount': 0,
+        'activeLoadCount': 0,
+        'summaryStatus': JobWorkSummaryStatus.fromLoadStatuses(const []).firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return;
+    }
+
+    final defaultLoadId = (order.defaultLoadId == loadId)
+        ? JobWorkLoadResolver.preferredDefaultLoad(order, remaining).id
+        : (order.defaultLoadId ??
+            JobWorkLoadResolver.preferredDefaultLoad(order, remaining).id);
+    await _markJobWorkMigrated(
+      order: order,
+      defaultLoadId: defaultLoadId,
+      loads: remaining,
+    );
+  }
+
   /// Deletes all loads for a Job Work (cascade helper).
   Future<int> deleteLoadsForJobWork({
     required String factoryId,
@@ -378,16 +467,10 @@ class JobWorkLoadRepository {
         .get();
     if (snapshot.docs.isEmpty) return 0;
 
-    const batchLimit = 400;
     var deleted = 0;
-    for (var index = 0; index < snapshot.docs.length; index += batchLimit) {
-      final batch = _firestore.batch();
-      final chunk = snapshot.docs.skip(index).take(batchLimit);
-      for (final doc in chunk) {
-        batch.delete(doc.reference);
-        deleted++;
-      }
-      await batch.commit();
+    for (final doc in snapshot.docs) {
+      await deleteLoad(doc.id);
+      deleted++;
     }
     return deleted;
   }

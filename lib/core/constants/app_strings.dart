@@ -171,8 +171,16 @@ abstract final class AppStrings {
   static const String load = 'Load';
   static const String loads = 'Loads';
   static const String addLoad = 'Add Load';
+  static const String editLoad = 'Edit Load';
   static const String saveLoad = 'Save Load';
   static const String loadCreated = 'Load created';
+  static const String loadUpdated = 'Load updated';
+  static const String deleteLoadTitle = 'Delete this load?';
+  static const String deleteLoadMessage =
+      'This permanently deletes the load and all of its output, shifts, '
+      'collections, QC records, invoices, and payments. This cannot be undone.';
+  static const String loadDeleted = 'Load deleted';
+  static const String loadDeleteError = 'Could not delete load';
   static const String loadsSummary = 'Loads Summary';
   static const String allLoads = 'All Loads';
   static const String allLoadsProduction = 'All Loads Production';

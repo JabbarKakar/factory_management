@@ -14,18 +14,21 @@ class JobWorkLoadFormState extends Equatable {
     this.status = JobWorkLoadFormStatus.initial,
     this.parentOrder,
     this.draft,
+    this.isEditing = false,
     this.errorMessage,
   });
 
   final JobWorkLoadFormStatus status;
   final JobWorkOrder? parentOrder;
   final JobWorkLoad? draft;
+  final bool isEditing;
   final String? errorMessage;
 
   JobWorkLoadFormState copyWith({
     JobWorkLoadFormStatus? status,
     JobWorkOrder? parentOrder,
     JobWorkLoad? draft,
+    bool? isEditing,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -33,10 +36,12 @@ class JobWorkLoadFormState extends Equatable {
       status: status ?? this.status,
       parentOrder: parentOrder ?? this.parentOrder,
       draft: draft ?? this.draft,
+      isEditing: isEditing ?? this.isEditing,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
   @override
-  List<Object?> get props => [status, parentOrder, draft, errorMessage];
+  List<Object?> get props =>
+      [status, parentOrder, draft, isEditing, errorMessage];
 }

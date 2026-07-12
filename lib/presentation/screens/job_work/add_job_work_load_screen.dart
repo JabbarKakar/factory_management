@@ -16,9 +16,14 @@ import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/job_work_size_selector.dart';
 
 class AddJobWorkLoadScreen extends StatefulWidget {
-  const AddJobWorkLoadScreen({required this.jobWorkId, super.key});
+  const AddJobWorkLoadScreen({
+    required this.jobWorkId,
+    this.loadId,
+    super.key,
+  });
 
   final String jobWorkId;
+  final String? loadId;
 
   @override
   State<AddJobWorkLoadScreen> createState() => _AddJobWorkLoadScreenState();
@@ -128,6 +133,7 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
   void _submit(JobWorkLoad draft) {
     if (!_formKey.currentState!.validate()) return;
 
+    final isEditing = context.read<JobWorkLoadFormBloc>().state.isEditing;
     final load = draft.copyWith(
       receivedDate: _receivedDate,
       expectedCompletionDate: _expectedCompletion,
@@ -157,9 +163,9 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
       smallStockPrice: _parse(_smallStockPriceController.text),
       largeStockPrice: _parse(_largeStockPriceController.text),
       advanceReceived: _parse(_advanceController.text),
-      balanceDue: 0,
+      balanceDue: isEditing ? draft.balanceDue : 0,
       paymentTerms: _paymentTerms,
-      status: JobWorkStatus.agreed,
+      status: isEditing ? draft.status : JobWorkStatus.agreed,
     );
 
     context.read<JobWorkLoadFormBloc>().add(JobWorkLoadFormSubmitted(load));
@@ -171,7 +177,13 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
       listener: (context, state) {
         if (state.status == JobWorkLoadFormStatus.saved) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text(AppStrings.loadCreated)),
+            SnackBar(
+              content: Text(
+                state.isEditing
+                    ? AppStrings.loadUpdated
+                    : AppStrings.loadCreated,
+              ),
+            ),
           );
           context.pop(true);
         } else if (state.status == JobWorkLoadFormStatus.failure &&
@@ -194,8 +206,10 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
           appBar: AppBar(
             title: Text(
               parent == null
-                  ? AppStrings.addLoad
-                  : '${AppStrings.addLoad} · ${parent.jobWorkNumber}',
+                  ? (state.isEditing ? AppStrings.editLoad : AppStrings.addLoad)
+                  : state.isEditing
+                      ? '${AppStrings.editLoad} · ${parent.jobWorkNumber}'
+                      : '${AppStrings.addLoad} · ${parent.jobWorkNumber}',
             ),
           ),
           body: isLoading || draft == null

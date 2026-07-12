@@ -6,6 +6,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/enums/job_work_enums.dart';
+import '../tile_options_menu.dart';
 import 'job_work_status_badge.dart';
 
 /// Load row for the Job Work Loads Summary — matches [JobWorkListTile] card UI.
@@ -13,12 +14,14 @@ class JobWorkLoadListTile extends StatelessWidget {
   const JobWorkLoadListTile({
     required this.load,
     this.onTap,
+    this.menuActions = const [],
     this.isBusy = false,
     super.key,
   });
 
   final JobWorkLoad load;
   final VoidCallback? onTap;
+  final List<TileMenuAction> menuActions;
   final bool isBusy;
 
   @override
@@ -64,7 +67,12 @@ class JobWorkLoadListTile extends StatelessWidget {
                   Container(width: 3, color: accent),
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 11, 8, 11),
+                      padding: EdgeInsets.fromLTRB(
+                        12,
+                        11,
+                        menuActions.isNotEmpty ? 2 : 8,
+                        11,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -87,7 +95,12 @@ class JobWorkLoadListTile extends StatelessWidget {
                                 status: load.status,
                                 compact: true,
                               ),
-                              if (onTap != null) ...[
+                              if (menuActions.isNotEmpty)
+                                TileOptionsButton(
+                                  isBusy: isBusy,
+                                  actions: menuActions,
+                                )
+                              else if (onTap != null) ...[
                                 const SizedBox(width: 2),
                                 Icon(
                                   Icons.chevron_right,

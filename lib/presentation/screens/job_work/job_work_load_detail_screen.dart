@@ -6,7 +6,9 @@ import 'package:intl/intl.dart';
 import '../../../blocs/job_work/job_work_load_detail_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/repositories/job_work_load_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
 import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/entities/job_work_load.dart';
@@ -25,8 +27,9 @@ import '../../widgets/job_work/job_work_shift_logs_section.dart';
 import '../../widgets/job_work/job_work_status_badge.dart';
 import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/quality/qc_reference_section.dart';
+import '../../widgets/tile_options_menu.dart';
 
-class JobWorkLoadDetailScreen extends StatelessWidget {
+class JobWorkLoadDetailScreen extends StatefulWidget {
   const JobWorkLoadDetailScreen({
     required this.jobWorkId,
     required this.loadId,
@@ -35,6 +38,17 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
 
   final String jobWorkId;
   final String loadId;
+
+  @override
+  State<JobWorkLoadDetailScreen> createState() =>
+      _JobWorkLoadDetailScreenState();
+}
+
+class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
+  bool _isDeleting = false;
+
+  String get jobWorkId => widget.jobWorkId;
+  String get loadId => widget.loadId;
 
   Future<void> _reload(BuildContext context) async {
     context.read<JobWorkLoadDetailBloc>().add(
@@ -87,6 +101,123 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
         );
   }
 
+  Future<void> _openEditLoad(BuildContext context, JobWorkLoad load) async {
+    final saved = await context.push<bool>(
+      RoutePaths.jobWorkEditLoad(
+        jobWorkId: jobWorkId,
+        loadId: load.id,
+      ),
+    );
+    if (saved == true && context.mounted) await _reload(context);
+  }
+
+  Future<void> _confirmDeleteLoad(
+    BuildContext context,
+    JobWorkLoad load,
+  ) async {
+    if (_isDeleting) return;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deleteLoadTitle,
+      message: AppStrings.deleteLoadMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isDeleting = true);
+    try {
+      await getIt<JobWorkLoadRepository>().deleteLoad(load.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.loadDeleted)),
+      );
+      context.pop(true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(AppStrings.loadDeleteError),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isDeleting = false);
+      }
+    }
+  }
+
+  List<TileMenuAction> _menuActions(
+    BuildContext context, {
+    required JobWorkLoad load,
+    required bool canEdit,
+    required bool canDelete,
+    required bool canRecord,
+    required bool hasOutput,
+    required bool canCollect,
+    required bool canQc,
+    required bool canClose,
+  }) {
+    final actions = <TileMenuAction>[];
+    if (canEdit && !load.isVirtual) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.editLoad,
+          icon: Icons.edit_outlined,
+          onSelected: () => _openEditLoad(context, load),
+        ),
+      );
+    }
+    if (canRecord) {
+      actions.add(
+        TileMenuAction(
+          label: hasOutput ? AppStrings.editOutput : AppStrings.recordOutput,
+          icon: Icons.analytics_outlined,
+          onSelected: () => _openRecordOutput(context),
+        ),
+      );
+    }
+    if (canCollect) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.collectMaterial,
+          icon: Icons.handshake_outlined,
+          onSelected: () => _openCollectMaterial(context),
+        ),
+      );
+    }
+    if (canQc) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.recordQcInspection,
+          icon: Icons.verified_outlined,
+          onSelected: () => _openQc(context),
+        ),
+      );
+    }
+    if (canClose) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.closeLoad,
+          icon: Icons.lock_outline,
+          onSelected: () => _closeLoad(context),
+        ),
+      );
+    }
+    if (canDelete && !load.isVirtual) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.delete,
+          icon: Icons.delete_outline_rounded,
+          destructive: true,
+          onSelected: () => _confirmDeleteLoad(context, load),
+        ),
+      );
+    }
+    return actions;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<JobWorkLoadDetailBloc, JobWorkLoadDetailState>(
@@ -119,6 +250,7 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
         }
 
         final canEdit = context.userCanEdit(AppModule.jobWork);
+        final canDelete = context.userCanDelete(AppModule.jobWork);
         final loadCollections =
             JobWorkCollectionQuantityHelper.collectionsForLoad(
           load.id,
@@ -164,6 +296,17 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
         final loadLabel = load.loadNumber.isEmpty
             ? '${AppStrings.load} #${load.loadSequence}'
             : load.loadNumber;
+        final menuActions = _menuActions(
+          context,
+          load: load,
+          canEdit: canEdit,
+          canDelete: canDelete,
+          canRecord: canRecord,
+          hasOutput: hasOutput,
+          canCollect: canCollect,
+          canQc: canQc,
+          canClose: canClose,
+        );
 
         return Scaffold(
           appBar: AppBar(
@@ -185,23 +328,13 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
               ],
             ),
             actions: [
-              if (canRecord)
-                IconButton(
-                  onPressed:
-                      isSaving ? null : () => _openRecordOutput(context),
-                  icon: Icon(
-                    hasOutput ? Icons.edit_note : Icons.fact_check_outlined,
+              if (menuActions.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: TileOptionsButton(
+                    isBusy: isSaving || _isDeleting,
+                    actions: menuActions,
                   ),
-                  tooltip: hasOutput
-                      ? AppStrings.editOutput
-                      : AppStrings.recordOutput,
-                ),
-              if (canCollect)
-                IconButton(
-                  onPressed:
-                      isSaving ? null : () => _openCollectMaterial(context),
-                  icon: const Icon(Icons.handshake_outlined),
-                  tooltip: AppStrings.collectMaterial,
                 ),
             ],
           ),

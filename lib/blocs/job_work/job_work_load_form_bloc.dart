@@ -31,7 +31,6 @@ class JobWorkLoadFormBloc
   ) async {
     emit(state.copyWith(status: JobWorkLoadFormStatus.loading));
     try {
-      await _loadRepository.ensureDefaultLoad(event.jobWorkId);
       final order = await _jobWorkRepository.getJobWorkOrder(event.jobWorkId);
       if (order == null) {
         emit(
@@ -42,11 +41,40 @@ class JobWorkLoadFormBloc
         );
         return;
       }
+
+      final loadId = event.loadId;
+      if (loadId != null && loadId.isNotEmpty) {
+        final load = await _loadRepository.getLoad(loadId);
+        if (load == null ||
+            load.jobWorkId != order.id ||
+            load.isVirtual) {
+          emit(
+            state.copyWith(
+              status: JobWorkLoadFormStatus.failure,
+              errorMessage: 'Load not found.',
+            ),
+          );
+          return;
+        }
+        emit(
+          state.copyWith(
+            status: JobWorkLoadFormStatus.ready,
+            parentOrder: order,
+            draft: load,
+            isEditing: true,
+            clearError: true,
+          ),
+        );
+        return;
+      }
+
+      await _loadRepository.ensureDefaultLoad(event.jobWorkId);
       emit(
         state.copyWith(
           status: JobWorkLoadFormStatus.ready,
           parentOrder: order,
           draft: _emptyLoad(order),
+          isEditing: false,
           clearError: true,
         ),
       );
@@ -54,7 +82,7 @@ class JobWorkLoadFormBloc
       emit(
         state.copyWith(
           status: JobWorkLoadFormStatus.failure,
-          errorMessage: 'Could not prepare add load form.',
+          errorMessage: 'Could not prepare load form.',
         ),
       );
     }
@@ -79,6 +107,50 @@ class JobWorkLoadFormBloc
       state.copyWith(status: JobWorkLoadFormStatus.saving, clearError: true),
     );
     try {
+      if (state.isEditing) {
+        final existing = state.draft;
+        if (existing == null || existing.id.isEmpty) {
+          emit(
+            state.copyWith(
+              status: JobWorkLoadFormStatus.failure,
+              errorMessage: 'Load not found.',
+            ),
+          );
+          return;
+        }
+        final updated = await _loadRepository.updateLoad(
+          event.load.copyWith(
+            id: existing.id,
+            loadNumber: existing.loadNumber,
+            loadSequence: existing.loadSequence,
+            jobWorkId: parent.id,
+            jobWorkNumber: parent.jobWorkNumber,
+            factoryId: parent.factoryId,
+            customerId: parent.customerId,
+            customerName: parent.customerName,
+            status: existing.status,
+            output: existing.output,
+            shiftLogs: existing.shiftLogs,
+            execution: existing.execution,
+            finalCuttingCharges: existing.finalCuttingCharges,
+            balanceDue: existing.balanceDue,
+            invoiceId: existing.invoiceId,
+            isVirtual: false,
+            migratedFromJobWork: existing.migratedFromJobWork,
+            createdAt: existing.createdAt,
+            collectedAt: existing.collectedAt,
+            closedAt: existing.closedAt,
+          ),
+        );
+        emit(
+          state.copyWith(
+            status: JobWorkLoadFormStatus.saved,
+            draft: updated,
+          ),
+        );
+        return;
+      }
+
       final created = await _loadRepository.createLoad(
         event.load.copyWith(
           id: '',

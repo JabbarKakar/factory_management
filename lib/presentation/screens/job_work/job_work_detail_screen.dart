@@ -7,10 +7,13 @@ import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/job_work_sizes.dart';
+import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
+import '../../../data/repositories/job_work_load_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
 import '../../../domain/entities/job_work_collection.dart';
+import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_collection_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
@@ -28,11 +31,21 @@ import '../../widgets/job_work/job_work_load_list_tile.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
 import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/quality/qc_reference_section.dart';
+import '../../widgets/tile_options_menu.dart';
 
-class JobWorkDetailScreen extends StatelessWidget {
+class JobWorkDetailScreen extends StatefulWidget {
   const JobWorkDetailScreen({required this.jobWorkId, super.key});
 
   final String jobWorkId;
+
+  @override
+  State<JobWorkDetailScreen> createState() => _JobWorkDetailScreenState();
+}
+
+class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
+  String? _busyLoadId;
+
+  String get jobWorkId => widget.jobWorkId;
 
   Future<void> _openAddLoad(BuildContext context) async {
     final saved = await context.push<bool>(
@@ -43,6 +56,164 @@ class JobWorkDetailScreen extends StatelessWidget {
           .read<JobWorkFormBloc>()
           .add(JobWorkFormLoadRequested(jobWorkId));
     }
+  }
+
+  Future<void> _openEditLoad(BuildContext context, JobWorkLoad load) async {
+    if (load.isVirtual) return;
+    final saved = await context.push<bool>(
+      RoutePaths.jobWorkEditLoad(
+        jobWorkId: jobWorkId,
+        loadId: load.id,
+      ),
+    );
+    if (saved == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
+
+  Future<void> _confirmDeleteLoad(
+    BuildContext context,
+    JobWorkLoad load,
+  ) async {
+    if (load.isVirtual || _busyLoadId != null) return;
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deleteLoadTitle,
+      message: AppStrings.deleteLoadMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyLoadId = load.id);
+    try {
+      await getIt<JobWorkLoadRepository>().deleteLoad(load.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.loadDeleted)),
+      );
+      context.read<JobWorkFormBloc>().add(JobWorkFormLoadRequested(jobWorkId));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text(AppStrings.loadDeleteError),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _busyLoadId = null);
+      }
+    }
+  }
+
+  List<TileMenuAction> _loadMenuActions(
+    BuildContext context,
+    JobWorkLoad load, {
+    required bool canEdit,
+    required bool canDelete,
+    required List<JobWorkCollection> collections,
+  }) {
+    if (load.isVirtual) return const [];
+
+    final actions = <TileMenuAction>[];
+    final hasOutput = load.output?.isRecorded == true;
+    final canRecord = canEdit &&
+        load.status.canRecordOutput &&
+        (hasOutput || load.status != JobWorkStatus.agreed);
+    final canCollect = canEdit &&
+        JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+          load,
+          collections,
+        );
+    final canQc = canEdit && hasOutput;
+
+    if (canEdit) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.editLoad,
+          icon: Icons.edit_outlined,
+          onSelected: () => _openEditLoad(context, load),
+        ),
+      );
+    }
+    if (canRecord) {
+      actions.add(
+        TileMenuAction(
+          label: hasOutput ? AppStrings.editOutput : AppStrings.recordOutput,
+          icon: Icons.analytics_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.jobWorkLoadRecordOutput(
+                jobWorkId: jobWorkId,
+                loadId: load.id,
+              ),
+            );
+            if (context.mounted) {
+              context
+                  .read<JobWorkFormBloc>()
+                  .add(JobWorkFormLoadRequested(jobWorkId));
+            }
+          },
+        ),
+      );
+    }
+    if (canCollect) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.collectMaterial,
+          icon: Icons.handshake_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.jobWorkLoadCollectMaterial(
+                jobWorkId: jobWorkId,
+                loadId: load.id,
+              ),
+            );
+            if (context.mounted) {
+              context
+                  .read<JobWorkFormBloc>()
+                  .add(JobWorkFormLoadRequested(jobWorkId));
+            }
+          },
+        ),
+      );
+    }
+    if (canQc) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.recordQcInspection,
+          icon: Icons.verified_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.qualityChecksAddForReference(
+                refType: QcReferenceType.jobWorkLoad,
+                referenceId: load.id,
+              ),
+            );
+            if (context.mounted) {
+              context
+                  .read<JobWorkFormBloc>()
+                  .add(JobWorkFormLoadRequested(jobWorkId));
+            }
+          },
+        ),
+      );
+    }
+    if (canDelete) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.delete,
+          icon: Icons.delete_outline_rounded,
+          destructive: true,
+          onSelected: () => _confirmDeleteLoad(context, load),
+        ),
+      );
+    }
+    return actions;
   }
 
   Future<void> _openCollectMaterial(BuildContext context) async {
@@ -163,6 +334,7 @@ class JobWorkDetailScreen extends StatelessWidget {
             context.userCanEdit(AppModule.jobWork);
         final hasLoads = state.loads.isNotEmpty;
         final canEditJobWork = context.userCanEdit(AppModule.jobWork);
+        final canDeleteJobWork = context.userCanDelete(AppModule.jobWork);
         // Cutting FSM lives on Loads when any Load exists (Sprint 3).
         final canRecordOutput = !hasLoads &&
             order.status.canRecordOutput &&
@@ -299,47 +471,60 @@ class JobWorkDetailScreen extends StatelessWidget {
               JobWorkDetailSection(
                 title: AppStrings.allLoads,
                 icon: Icons.local_shipping_outlined,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (state.loads.isEmpty)
-                      Text(
-                        AppStrings.noLoadsYet,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      )
-                    else
-                      for (final load in state.loads) ...[
-                        JobWorkLoadListTile(
-                          load: load,
-                          isBusy: isSaving,
-                          onTap: load.isVirtual
-                              ? null
-                              : () async {
-                                  await context.push(
-                                    RoutePaths.jobWorkLoadDetail(
-                                      jobWorkId: jobWorkId,
-                                      loadId: load.id,
-                                    ),
-                                  );
-                                  if (context.mounted) {
-                                    context.read<JobWorkFormBloc>().add(
-                                          JobWorkFormLoadRequested(jobWorkId),
-                                        );
-                                  }
-                                },
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (state.loads.isEmpty)
+                        Text(
+                          AppStrings.noLoadsYet,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        )
+                      else
+                        for (final load in state.loads) ...[
+                          JobWorkLoadListTile(
+                            load: load,
+                            isBusy: isSaving || _busyLoadId == load.id,
+                            menuActions: _loadMenuActions(
+                              context,
+                              load,
+                              canEdit: canEditJobWork,
+                              canDelete: canDeleteJobWork,
+                              collections: state.collections,
+                            ),
+                            onTap: load.isVirtual
+                                ? null
+                                : () async {
+                                    await context.push(
+                                      RoutePaths.jobWorkLoadDetail(
+                                        jobWorkId: jobWorkId,
+                                        loadId: load.id,
+                                      ),
+                                    );
+                                    if (context.mounted) {
+                                      context.read<JobWorkFormBloc>().add(
+                                            JobWorkFormLoadRequested(
+                                              jobWorkId,
+                                            ),
+                                          );
+                                    }
+                                  },
+                          ),
+                          if (load != state.loads.last)
+                            const SizedBox(height: 8),
+                        ],
+                      if (canAddLoad) ...[
+                        const SizedBox(height: 12),
+                        FilledButton.tonalIcon(
+                          onPressed:
+                              isSaving ? null : () => _openAddLoad(context),
+                          icon: const Icon(Icons.add),
+                          label: const Text(AppStrings.addLoad),
                         ),
-                        if (load != state.loads.last) const SizedBox(height: 8),
                       ],
-                    if (canAddLoad) ...[
-                      const SizedBox(height: 12),
-                      FilledButton.tonalIcon(
-                        onPressed:
-                            isSaving ? null : () => _openAddLoad(context),
-                        icon: const Icon(Icons.add),
-                        label: const Text(AppStrings.addLoad),
-                      ),
                     ],
-                  ],
+                  ),
                 ),
               ),
               if (hasLoads)

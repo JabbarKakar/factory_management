@@ -8,12 +8,16 @@ sealed class JobWorkLoadFormEvent extends Equatable {
 }
 
 final class JobWorkLoadFormInitialized extends JobWorkLoadFormEvent {
-  const JobWorkLoadFormInitialized({required this.jobWorkId});
+  const JobWorkLoadFormInitialized({
+    required this.jobWorkId,
+    this.loadId,
+  });
 
   final String jobWorkId;
+  final String? loadId;
 
   @override
-  List<Object?> get props => [jobWorkId];
+  List<Object?> get props => [jobWorkId, loadId];
 }
 
 final class JobWorkLoadFormSubmitted extends JobWorkLoadFormEvent {
