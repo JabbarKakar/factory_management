@@ -2,24 +2,32 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/job_work_block_progress.dart';
-import '../../../domain/entities/job_work_order.dart';
+import '../../../domain/entities/job_work_output.dart';
 import 'job_work_detail_row.dart';
 import 'job_work_detail_section.dart';
 
 class JobWorkBlockProgressSection extends StatelessWidget {
   const JobWorkBlockProgressSection({
-    required this.order,
+    required this.blockCount,
+    required this.shiftLogs,
     super.key,
   });
 
-  final JobWorkOrder order;
+  final int blockCount;
+  final List<JobWorkShiftLog> shiftLogs;
 
   @override
   Widget build(BuildContext context) {
-    final totalBlocks = order.blockCount;
-    final blocksCut = JobWorkBlockProgress.totalBlocksCutFor(order);
-    final remaining = JobWorkBlockProgress.remainingBlocksFor(order);
-    final percent = JobWorkBlockProgress.completionPercentFor(order);
+    final totalBlocks = blockCount;
+    final blocksCut = JobWorkBlockProgress.totalBlocksCut(shiftLogs);
+    final remaining = JobWorkBlockProgress.remainingBlocks(
+      totalBlocks: blockCount,
+      shifts: shiftLogs,
+    );
+    final percent = JobWorkBlockProgress.completionPercent(
+      totalBlocks: blockCount,
+      blocksCut: blocksCut,
+    );
 
     return JobWorkDetailSection(
       title: AppStrings.blockCuttingProgress,

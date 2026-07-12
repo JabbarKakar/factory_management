@@ -44,6 +44,23 @@ class JobWorkDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _openRecordOutputForLoad(
+    BuildContext context,
+    String loadId,
+  ) async {
+    final saved = await context.push<bool>(
+      RoutePaths.jobWorkLoadRecordOutput(
+        jobWorkId: jobWorkId,
+        loadId: loadId,
+      ),
+    );
+    if (saved == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
+
   Future<void> _openCollectMaterial(BuildContext context) async {
     final saved = await context.push<bool>(
       RoutePaths.jobWorkCollectMaterial(jobWorkId),
@@ -58,6 +75,20 @@ class JobWorkDetailScreen extends StatelessWidget {
   Future<void> _openRecordOutput(BuildContext context) async {
     final saved = await context.push<bool>(
       RoutePaths.jobWorkRecordOutput(jobWorkId),
+    );
+    if (saved == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
+
+  Future<void> _openQcForLoad(BuildContext context, String loadId) async {
+    final saved = await context.push<bool>(
+      RoutePaths.qualityChecksAddForReference(
+        refType: QcReferenceType.jobWorkLoad,
+        referenceId: loadId,
+      ),
     );
     if (saved == true && context.mounted) {
       context
@@ -98,6 +129,19 @@ class JobWorkDetailScreen extends StatelessWidget {
         );
   }
 
+  void _advanceLoadStatus(
+    BuildContext context, {
+    required String loadId,
+    required JobWorkStatus nextStatus,
+  }) {
+    context.read<JobWorkFormBloc>().add(
+          JobWorkFormLoadStatusAdvanceRequested(
+            loadId: loadId,
+            newStatus: nextStatus,
+          ),
+        );
+  }
+
   Future<void> _advanceCompletion(
     BuildContext context,
     JobWorkStatus nextStatus,
@@ -113,6 +157,27 @@ class JobWorkDetailScreen extends StatelessWidget {
     context.read<JobWorkFormBloc>().add(
           JobWorkFormCompletionRequested(
             jobWorkId: jobWorkId,
+            newStatus: nextStatus,
+          ),
+        );
+  }
+
+  Future<void> _advanceLoadCompletion(
+    BuildContext context, {
+    required String loadId,
+    required JobWorkStatus nextStatus,
+  }) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.closeLoadTitle,
+      message: AppStrings.closeLoadMessage,
+      confirmLabel: AppStrings.closeLoad,
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    context.read<JobWorkFormBloc>().add(
+          JobWorkFormLoadCompletionRequested(
+            loadId: loadId,
             newStatus: nextStatus,
           ),
         );
@@ -160,10 +225,14 @@ class JobWorkDetailScreen extends StatelessWidget {
             context.userCanEdit(AppModule.jobWork);
         final canAddLoad = order.status != JobWorkStatus.cancelled &&
             context.userCanEdit(AppModule.jobWork);
-        final canRecordOutput = order.status.canRecordOutput &&
-            context.userCanEdit(AppModule.jobWork);
+        final hasLoads = state.loads.isNotEmpty;
+        final canEditJobWork = context.userCanEdit(AppModule.jobWork);
+        // Cutting FSM lives on Loads when any Load exists (Sprint 3).
+        final canRecordOutput = !hasLoads &&
+            order.status.canRecordOutput &&
+            canEditJobWork;
         final canCollectMaterial =
-            context.userCanEdit(AppModule.jobWork) &&
+            canEditJobWork &&
                 JobWorkCollectionQuantityHelper.canOpenCollectMaterial(
                   order,
                   state.collections,
@@ -253,6 +322,8 @@ class JobWorkDetailScreen extends StatelessWidget {
                 hasOutput: hasOutput,
                 canRecordOutput: canRecordOutput,
                 canCollectMaterial: canCollectMaterial,
+                showOperationalAdvance: !hasLoads,
+                showCompletionAdvance: !hasLoads,
                 onAdvanceStatus: (s) => _advanceStatus(context, s),
                 onAdvanceCompletion: (s) => _advanceCompletion(context, s),
                 onRecordOutput: () => _openRecordOutput(context),
@@ -302,7 +373,36 @@ class JobWorkDetailScreen extends StatelessWidget {
                       const SizedBox(height: 8),
                       const Divider(height: 1),
                       for (final load in state.loads) ...[
-                        JobWorkLoadListTile(load: load),
+                        JobWorkLoadListTile(
+                          load: load,
+                          isBusy: isSaving,
+                          onRecordOutput: canEditJobWork && !load.isVirtual
+                              ? () => _openRecordOutputForLoad(
+                                    context,
+                                    load.id,
+                                  )
+                              : null,
+                          onAdvanceStatus: canEditJobWork && !load.isVirtual
+                              ? (status) => _advanceLoadStatus(
+                                    context,
+                                    loadId: load.id,
+                                    nextStatus: status,
+                                  )
+                              : null,
+                          onAdvanceCompletion:
+                              canEditJobWork && !load.isVirtual
+                                  ? (status) => _advanceLoadCompletion(
+                                        context,
+                                        loadId: load.id,
+                                        nextStatus: status,
+                                      )
+                                  : null,
+                          onRecordQc: canEditJobWork &&
+                                  !load.isVirtual &&
+                                  load.output?.isRecorded == true
+                              ? () => _openQcForLoad(context, load.id)
+                              : null,
+                        ),
                         if (load != state.loads.last) const Divider(height: 1),
                       ],
                     ],
@@ -318,7 +418,41 @@ class JobWorkDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              JobWorkOutputSummary(order: order),
+              if (!hasLoads) JobWorkOutputSummary(order: order),
+              if (hasLoads)
+                for (final load in state.loads)
+                  if (load.output?.isRecorded == true ||
+                      load.shiftLogs.isNotEmpty)
+                    JobWorkDetailSection(
+                      title:
+                          '${AppStrings.recordOutput} · ${load.loadNumber.isEmpty ? '${AppStrings.load} #${load.loadSequence}' : load.loadNumber}',
+                      icon: Icons.fact_check_outlined,
+                      child: JobWorkDetailRows(
+                        rows: [
+                          if (load.output?.isRecorded == true) ...[
+                            JobWorkDetailRow(
+                              label: AppStrings.totalSquareFeet,
+                              value: load.output!.totalOutputSqFt
+                                  .toStringAsFixed(2),
+                            ),
+                            JobWorkDetailRow(
+                              label: AppStrings.totalUsableOutput,
+                              value: load.output!.totalUsableSqFt
+                                  .toStringAsFixed(2),
+                              bold: true,
+                            ),
+                          ],
+                          JobWorkDetailRow(
+                            label: AppStrings.blocksCut,
+                            value: '${load.totalBlocksCut}',
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.statusLabel,
+                            value: load.status.label,
+                          ),
+                        ],
+                      ),
+                    ),
               if (showCollectionSection)
                 JobWorkDetailSection(
                   title: AppStrings.materialCollectionSummary,
@@ -383,7 +517,7 @@ class JobWorkDetailScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-              if (hasOutput)
+              if (!hasLoads && hasOutput)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: QcReferenceSection(
@@ -403,6 +537,23 @@ class JobWorkDetailScreen extends StatelessWidget {
                     },
                   ),
                 ),
+              if (hasLoads)
+                for (final load in state.loads)
+                  if (load.output?.isRecorded == true)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: QcReferenceSection(
+                        checks: state.qualityChecks
+                            .where(
+                              (check) =>
+                                  check.referenceType ==
+                                      QcReferenceType.jobWorkLoad &&
+                                  check.referenceId == load.id,
+                            )
+                            .toList(),
+                        onRecordQc: () => _openQcForLoad(context, load.id),
+                      ),
+                    ),
               JobWorkDetailSection(
                 title: AppStrings.pricingAgreement,
                 icon: Icons.payments_outlined,

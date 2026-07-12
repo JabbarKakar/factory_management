@@ -44,11 +44,13 @@ class QcFormState extends Equatable {
     this.referenceType = QcReferenceType.production,
     this.selectedBatch,
     this.selectedOrder,
+    this.selectedLoad,
     this.prefill = const QcFormPrefill(),
     this.editingCheck,
     this.isEditing = false,
     this.errorMessage,
     this.pendingMarkReadyJobWorkId,
+    this.pendingMarkReadyLoadId,
     this.advancedToQc = false,
     this.markedReady = false,
   });
@@ -59,16 +61,18 @@ class QcFormState extends Equatable {
   final QcReferenceType referenceType;
   final ProductionBatch? selectedBatch;
   final JobWorkOrder? selectedOrder;
+  final JobWorkLoad? selectedLoad;
   final QcFormPrefill prefill;
   final QualityCheck? editingCheck;
   final bool isEditing;
   final String? errorMessage;
   final String? pendingMarkReadyJobWorkId;
+  final String? pendingMarkReadyLoadId;
   final bool advancedToQc;
   final bool markedReady;
 
   bool get hasSelectedReference =>
-      selectedBatch != null || selectedOrder != null;
+      selectedBatch != null || selectedOrder != null || selectedLoad != null;
 
   QcFormState copyWith({
     QcFormStatus? status,
@@ -79,11 +83,14 @@ class QcFormState extends Equatable {
     bool clearSelectedBatch = false,
     JobWorkOrder? selectedOrder,
     bool clearSelectedOrder = false,
+    JobWorkLoad? selectedLoad,
+    bool clearSelectedLoad = false,
     QcFormPrefill? prefill,
     QualityCheck? editingCheck,
     bool? isEditing,
     String? errorMessage,
     String? pendingMarkReadyJobWorkId,
+    String? pendingMarkReadyLoadId,
     bool clearPendingMarkReady = false,
     bool? advancedToQc,
     bool? markedReady,
@@ -98,6 +105,8 @@ class QcFormState extends Equatable {
           clearSelectedBatch ? null : (selectedBatch ?? this.selectedBatch),
       selectedOrder:
           clearSelectedOrder ? null : (selectedOrder ?? this.selectedOrder),
+      selectedLoad:
+          clearSelectedLoad ? null : (selectedLoad ?? this.selectedLoad),
       prefill: prefill ?? this.prefill,
       editingCheck: editingCheck ?? this.editingCheck,
       isEditing: isEditing ?? this.isEditing,
@@ -105,6 +114,9 @@ class QcFormState extends Equatable {
       pendingMarkReadyJobWorkId: clearWorkflow || clearPendingMarkReady
           ? null
           : (pendingMarkReadyJobWorkId ?? this.pendingMarkReadyJobWorkId),
+      pendingMarkReadyLoadId: clearWorkflow || clearPendingMarkReady
+          ? null
+          : (pendingMarkReadyLoadId ?? this.pendingMarkReadyLoadId),
       advancedToQc:
           clearWorkflow ? false : (advancedToQc ?? this.advancedToQc),
       markedReady: clearWorkflow ? false : (markedReady ?? this.markedReady),
@@ -119,11 +131,13 @@ class QcFormState extends Equatable {
         referenceType,
         selectedBatch,
         selectedOrder,
+        selectedLoad,
         prefill,
         editingCheck,
         isEditing,
         errorMessage,
         pendingMarkReadyJobWorkId,
+        pendingMarkReadyLoadId,
         advancedToQc,
         markedReady,
       ];

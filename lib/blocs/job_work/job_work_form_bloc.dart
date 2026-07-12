@@ -51,6 +51,8 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     on<JobWorkFormCancelRequested>(_onCancelRequested);
     on<JobWorkFormStatusAdvanceRequested>(_onStatusAdvanceRequested);
     on<JobWorkFormCompletionRequested>(_onCompletionRequested);
+    on<JobWorkFormLoadStatusAdvanceRequested>(_onLoadStatusAdvanceRequested);
+    on<JobWorkFormLoadCompletionRequested>(_onLoadCompletionRequested);
     on<_JobWorkOrderUpdated>(_onOrderUpdated);
     on<_JobWorkInvoiceUpdated>(_onInvoiceUpdated);
     on<_JobWorkPaymentsUpdated>(_onPaymentsUpdated);
@@ -73,6 +75,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
   StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
   String? _watchedInvoiceId;
+  List<QualityCheck> _factoryQualityChecks = const [];
 
   Future<void> _onInitialized(
     JobWorkFormInitialized event,
@@ -122,6 +125,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         loads: const [],
       ),
     );
+    _factoryQualityChecks = const [];
 
     try {
       final order = await _repository.getJobWorkOrder(event.jobWorkId);
@@ -172,11 +176,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
           );
 
       _qualityChecksSubscription = _qualityCheckRepository
-          .watchQualityChecksForReference(
-            factoryId: refreshed.factoryId,
-            referenceType: QcReferenceType.jobWork,
-            referenceId: event.jobWorkId,
-          )
+          .watchQualityChecks(refreshed.factoryId)
           .listen(
             (checks) => add(_JobWorkQualityChecksUpdated(checks)),
             onError: (_) {},
@@ -295,7 +295,8 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     _JobWorkQualityChecksUpdated event,
     Emitter<JobWorkFormState> emit,
   ) {
-    emit(state.copyWith(qualityChecks: event.checks));
+    _factoryQualityChecks = event.checks;
+    emit(state.copyWith(qualityChecks: _relevantQualityChecks()));
   }
 
   void _onCollectionsUpdated(
@@ -313,7 +314,31 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     final loads = order == null
         ? event.loads
         : JobWorkLoadResolver.resolveLoads(order, event.loads);
-    emit(state.copyWith(loads: loads));
+    emit(
+      state.copyWith(
+        loads: loads,
+        qualityChecks: _relevantQualityChecks(loadIds: {
+          for (final load in loads) load.id,
+        }),
+      ),
+    );
+  }
+
+  List<QualityCheck> _relevantQualityChecks({Set<String>? loadIds}) {
+    final orderId = state.order?.id;
+    final ids = loadIds ?? state.loads.map((load) => load.id).toSet();
+    return _factoryQualityChecks.where((check) {
+      if (check.referenceType == QcReferenceType.jobWork &&
+          orderId != null &&
+          check.referenceId == orderId) {
+        return true;
+      }
+      if (check.referenceType == QcReferenceType.jobWorkLoad &&
+          ids.contains(check.referenceId)) {
+        return true;
+      }
+      return false;
+    }).toList();
   }
 
   Future<void> _onSubmitted(
@@ -444,6 +469,79 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         state.copyWith(
           status: JobWorkFormStatus.failure,
           errorMessage: 'Could not update order completion status.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onLoadStatusAdvanceRequested(
+    JobWorkFormLoadStatusAdvanceRequested event,
+    Emitter<JobWorkFormState> emit,
+  ) async {
+    emit(state.copyWith(status: JobWorkFormStatus.saving, clearMessages: true));
+    try {
+      final updated = await _loadRepository.advanceLoadStatus(
+        loadId: event.loadId,
+        newStatus: event.newStatus,
+      );
+      final loads = state.loads
+          .map((load) => load.id == updated.id ? updated : load)
+          .toList();
+      emit(
+        state.copyWith(
+          status: JobWorkFormStatus.ready,
+          loads: loads,
+        ),
+      );
+
+      if (event.newStatus == JobWorkStatus.ready) {
+        final order = state.order ??
+            await _repository.getJobWorkOrder(updated.jobWorkId);
+        if (order != null) {
+          await _operationalAlertScannerService.notifyJobWorkReady(
+            order,
+            load: updated,
+          );
+        }
+      }
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: JobWorkFormStatus.failure,
+          errorMessage: 'Could not update load status.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onLoadCompletionRequested(
+    JobWorkFormLoadCompletionRequested event,
+    Emitter<JobWorkFormState> emit,
+  ) async {
+    emit(state.copyWith(status: JobWorkFormStatus.saving, clearMessages: true));
+    try {
+      final updated = await _loadRepository.advanceLoadCompletionStatus(
+        loadId: event.loadId,
+        targetStatus: event.newStatus,
+      );
+      final loads = state.loads
+          .map((load) => load.id == updated.id ? updated : load)
+          .toList();
+      emit(
+        state.copyWith(
+          status: JobWorkFormStatus.ready,
+          loads: loads,
+          successMessage: event.newStatus == JobWorkStatus.closed
+              ? AppStrings.loadClosed
+              : AppStrings.jobWorkCollected,
+          errorMessage: null,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: JobWorkFormStatus.failure,
+          errorMessage: 'Could not update load completion status.',
         ),
       );
     }

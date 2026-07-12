@@ -1,10 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/utils/job_work_charges_calculator.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/job_work_output.dart';
 import '../../domain/enums/job_work_load_enums.dart';
 import '../models/job_work_load_model.dart';
+import '../services/job_work_load_production_helper.dart';
 import '../services/job_work_load_resolver.dart';
 import 'job_work_repository.dart';
 
@@ -249,6 +252,96 @@ class JobWorkLoadRepository {
       loads: existing,
     );
     return (await getLoad(load.id)) ?? load;
+  }
+
+  /// Records output / shifts / execution on a Load and advances Load status.
+  ///
+  /// Does not mutate other Loads or close the parent Job Work.
+  Future<JobWorkLoad> recordLoadOutput(JobWorkLoad load) async {
+    if (load.id.isEmpty || load.isVirtual) {
+      throw const JobWorkLoadException('Cannot record output on a virtual load.');
+    }
+    if (!load.status.canRecordOutput) {
+      throw const JobWorkLoadException(
+        'Output cannot be recorded for this load status.',
+      );
+    }
+
+    final manualOutput = load.output ?? const JobWorkOutput();
+    final output = load.shiftLogs.isNotEmpty
+        ? JobWorkOutput.aggregateFromShifts(
+            load.shiftLogs,
+            wasteDisposition: manualOutput.wasteDisposition,
+            slurryDust: manualOutput.slurryDust,
+          ).copyWith(
+            wasteAmount: manualOutput.wasteAmount,
+            wasteUnit: manualOutput.wasteUnit,
+            recordedAt: DateTime.now(),
+          )
+        : manualOutput.copyWith(recordedAt: DateTime.now());
+
+    final finalCuttingCharges = JobWorkChargesCalculator.calculateForLoad(
+      load: load,
+      output: output,
+      shiftLogs: load.shiftLogs,
+    );
+    final resolvedCharges = finalCuttingCharges > 0
+        ? finalCuttingCharges
+        : load.finalCuttingCharges;
+    final balanceDue = resolvedCharges - load.advanceReceived;
+
+    final withOutput = load.copyWith(
+      output: output,
+      finalCuttingCharges: resolvedCharges,
+      balanceDue: balanceDue,
+    );
+    final newStatus =
+        JobWorkLoadProductionHelper.statusAfterOutputSaved(withOutput);
+    final updated = withOutput.copyWith(status: newStatus);
+    return updateLoad(updated);
+  }
+
+  /// Advances a single Load's operational status (cutting FSM).
+  Future<JobWorkLoad> advanceLoadStatus({
+    required String loadId,
+    required LoadStatus newStatus,
+  }) async {
+    final load = await getLoad(loadId);
+    if (load == null) {
+      throw const JobWorkLoadException('Load not found.');
+    }
+    if (load.isVirtual) {
+      throw const JobWorkLoadException('Cannot advance a virtual load.');
+    }
+    return updateLoad(load.copyWith(status: newStatus));
+  }
+
+  /// Completes a Load (`collected` → `closed`) without closing the Job Work.
+  Future<JobWorkLoad> advanceLoadCompletionStatus({
+    required String loadId,
+    required LoadStatus targetStatus,
+  }) async {
+    final load = await getLoad(loadId);
+    if (load == null) {
+      throw const JobWorkLoadException('Load not found.');
+    }
+
+    final allowed = switch ((load.status, targetStatus)) {
+      (LoadStatus.collected, LoadStatus.closed) => true,
+      _ => false,
+    };
+    if (!allowed) {
+      throw const JobWorkLoadException(
+        'Invalid load completion status transition.',
+      );
+    }
+
+    return updateLoad(
+      load.copyWith(
+        status: targetStatus,
+        closedAt: DateTime.now(),
+      ),
+    );
   }
 
   /// Deletes all loads for a Job Work (cascade helper).

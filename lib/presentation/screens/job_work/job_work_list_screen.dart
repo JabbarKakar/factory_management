@@ -9,6 +9,8 @@ import '../../../core/di/injection.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../data/repositories/job_work_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
+import '../../../data/services/job_work_load_production_helper.dart';
+import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
@@ -116,10 +118,17 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     JobWorkOrder order, {
     required bool canEdit,
     required bool canDelete,
+    required List<JobWorkLoad> loads,
   }) {
     final status = order.status;
     final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
     final actions = <TileMenuAction>[];
+    final recordLoad =
+        JobWorkLoadProductionHelper.preferredLoadForRecordOutput(loads);
+    final canRecordOutput = JobWorkLoadProductionHelper.orderCanRecordOutput(
+      order: order,
+      loads: loads,
+    );
 
     if (canEdit &&
         (status == JobWorkStatus.received || status == JobWorkStatus.agreed)) {
@@ -132,15 +141,28 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       );
     }
 
-    if (canEdit && status.canRecordOutput) {
+    if (canEdit && canRecordOutput) {
+      final hasRecordedOutput = recordLoad != null
+          ? recordLoad.output?.isRecorded == true
+          : order.output?.isRecorded == true;
       actions.add(
         TileMenuAction(
-          label: order.output?.isRecorded == true
+          label: hasRecordedOutput
               ? AppStrings.editOutput
               : AppStrings.recordOutput,
           icon: Icons.analytics_outlined,
-          onSelected: () =>
-              context.push(RoutePaths.jobWorkRecordOutput(order.id)),
+          onSelected: () {
+            if (recordLoad != null) {
+              context.push(
+                RoutePaths.jobWorkLoadRecordOutput(
+                  jobWorkId: order.id,
+                  loadId: recordLoad.id,
+                ),
+              );
+            } else {
+              context.push(RoutePaths.jobWorkRecordOutput(order.id));
+            }
+          },
         ),
       );
     }
@@ -467,6 +489,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                           order,
                           canEdit: canEdit,
                           canDelete: canDelete,
+                          loads: state.loadsForOrder(order.id),
                         ),
                         onTap: () => context.push(
                           RoutePaths.jobWorkDetail(order.id),

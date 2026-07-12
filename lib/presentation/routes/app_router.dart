@@ -1401,6 +1401,28 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                         },
                       ),
                       GoRoute(
+                        path: 'loads/:loadId/record-output',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          final loadId = state.pathParameters['loadId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkOutputBloc>()
+                              ..add(
+                                JobWorkOutputLoadRequested(
+                                  jobWorkId: jobWorkId,
+                                  loadId: loadId,
+                                ),
+                              ),
+                            child: RecordJobWorkOutputScreen(
+                              jobWorkId: jobWorkId,
+                              loadId: loadId,
+                            ),
+                          );
+                        },
+                      ),
+                      GoRoute(
                         path: 'collect-material',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {
@@ -1427,7 +1449,11 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                               state.pathParameters['jobWorkId']!;
                           return BlocProvider(
                             create: (_) => getIt<JobWorkOutputBloc>()
-                              ..add(JobWorkOutputLoadRequested(jobWorkId)),
+                              ..add(
+                                JobWorkOutputLoadRequested(
+                                  jobWorkId: jobWorkId,
+                                ),
+                              ),
                             child: RecordJobWorkOutputScreen(
                               jobWorkId: jobWorkId,
                             ),

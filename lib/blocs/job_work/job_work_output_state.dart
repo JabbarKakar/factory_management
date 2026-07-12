@@ -12,26 +12,26 @@ enum JobWorkOutputStatus {
 class JobWorkOutputState extends Equatable {
   const JobWorkOutputState({
     this.status = JobWorkOutputStatus.initial,
-    this.order,
+    this.load,
     this.errorMessage,
   });
 
   final JobWorkOutputStatus status;
-  final JobWorkOrder? order;
+  final JobWorkLoad? load;
   final String? errorMessage;
 
   JobWorkOutputState copyWith({
     JobWorkOutputStatus? status,
-    JobWorkOrder? order,
+    JobWorkLoad? load,
     String? errorMessage,
   }) {
     return JobWorkOutputState(
       status: status ?? this.status,
-      order: order ?? this.order,
+      load: load ?? this.load,
       errorMessage: errorMessage,
     );
   }
 
   @override
-  List<Object?> get props => [status, order, errorMessage];
+  List<Object?> get props => [status, load, errorMessage];
 }

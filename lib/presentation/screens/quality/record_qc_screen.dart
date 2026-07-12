@@ -95,13 +95,14 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
 
   void _syncFromState(QcFormState state) {
     final signature =
-        '${state.referenceType.name}:${state.selectedBatch?.id ?? state.selectedOrder?.id ?? ''}:${state.prefill.quantityInspected}';
+        '${state.referenceType.name}:${state.selectedLoad?.id ?? state.selectedBatch?.id ?? state.selectedOrder?.id ?? ''}:${state.prefill.quantityInspected}';
     if (_syncSignature == signature) return;
     _syncSignature = signature;
 
     _referenceType = state.referenceType;
-    _selectedReferenceId =
-        state.selectedBatch?.id ?? state.selectedOrder?.id;
+    _selectedReferenceId = state.selectedLoad?.id ??
+        state.selectedBatch?.id ??
+        state.selectedOrder?.id;
 
     final prefill = state.prefill;
     if (prefill.productLabel != null) {
@@ -143,6 +144,7 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
 
     final batch = state.selectedBatch;
     final order = state.selectedOrder;
+    final load = state.selectedLoad;
     final existing = state.editingCheck;
 
     if (state.isEditing && existing != null) {
@@ -181,10 +183,13 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
       factoryId: factoryId,
       referenceType: _referenceType,
       referenceId: _selectedReferenceId!,
-      referenceNumber: batch?.batchNumber ?? order?.jobWorkNumber ?? '',
+      referenceNumber: batch?.batchNumber ??
+          load?.loadNumber ??
+          order?.jobWorkNumber ??
+          '',
       referenceLabel: batch != null
           ? batch.batchNumber
-          : order?.customerName ?? '',
+          : load?.customerName ?? order?.customerName ?? '',
       productLabel: _productController.text.trim(),
       marbleVariety: _varietyController.text.trim(),
       sizeThickness: _sizeController.text.trim().isEmpty
@@ -227,9 +232,13 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
 
   String _appBarSubtitle(QcFormState state) {
     final batch = state.selectedBatch;
+    final load = state.selectedLoad;
     final order = state.selectedOrder;
     if (batch != null) {
       return '${batch.batchNumber} · ${batch.marbleVariety}';
+    }
+    if (load != null) {
+      return '${load.loadNumber} · ${load.customerName}';
     }
     if (order != null) {
       return '${order.jobWorkNumber} · ${order.customerName}';
@@ -335,7 +344,9 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
               const SnackBar(content: Text(AppStrings.jobWorkAdvancedToQc)),
             );
           }
-          if (!state.isEditing && state.pendingMarkReadyJobWorkId != null) {
+          if (!state.isEditing &&
+              (state.pendingMarkReadyJobWorkId != null ||
+                  state.pendingMarkReadyLoadId != null)) {
             final confirmed = await AppConfirmDialog.show(
               context,
               title: AppStrings.markReadyAfterQcTitle,
@@ -416,9 +427,20 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
         }
 
         final isSaving = state.status == QcFormStatus.saving;
-        final referencesEmpty = _referenceType == QcReferenceType.production
-            ? state.productionBatches.isEmpty
-            : state.jobWorkOrders.isEmpty;
+        final loadLocked = state.selectedLoad != null;
+        final isLoadReference =
+            loadLocked || _referenceType == QcReferenceType.jobWorkLoad;
+        final referencesEmpty = isLoadReference
+            ? false
+            : _referenceType == QcReferenceType.production
+                ? state.productionBatches.isEmpty
+                : state.jobWorkOrders.isEmpty;
+        // Hide jobWorkLoad from the manual QC picker; keep it when already
+        // scoped to a load (deep-link create or edit).
+        final referenceTypeItems = QcReferenceType.values.where(
+          (type) =>
+              type != QcReferenceType.jobWorkLoad || isLoadReference,
+        );
 
         return Scaffold(
           appBar: AppBar(
@@ -447,7 +469,7 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
                           context,
                           label: AppStrings.qcReferenceType,
                         ),
-                        items: QcReferenceType.values
+                        items: referenceTypeItems
                             .map(
                               (type) => DropdownMenuItem(
                                 value: type,
@@ -455,7 +477,9 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: isSaving || state.isEditing
+                        onChanged: isSaving ||
+                                state.isEditing ||
+                                loadLocked
                             ? null
                             : (value) {
                                 if (value == null) return;
@@ -464,7 +488,20 @@ class _RecordQcScreenState extends State<RecordQcScreen> {
                                     );
                               },
                       ),
-                      if (referencesEmpty) ...[
+                      if (isLoadReference) ...[
+                        AppFormFields.gap,
+                        TextFormField(
+                          initialValue: state.selectedLoad != null
+                              ? '${state.selectedLoad!.loadNumber} · ${state.selectedLoad!.customerName}'
+                              : '${state.editingCheck?.referenceNumber ?? ''} · ${state.editingCheck?.referenceLabel ?? ''}',
+                          enabled: false,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.load,
+                          ),
+                        ),
+                      ] else if (referencesEmpty) ...[
                         AppFormFields.gap,
                         Text(
                           _referenceType == QcReferenceType.production

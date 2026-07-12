@@ -14,6 +14,7 @@ import '../../data/repositories/equipment_repository.dart';
 import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
+import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/production_repository.dart';
@@ -23,6 +24,7 @@ import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/services/dashboard_analytics_service.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
+import '../../data/services/job_work_load_production_helper.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
@@ -40,6 +42,7 @@ import '../../domain/entities/equipment.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_invoice.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/production_batch.dart';
@@ -65,6 +68,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required AttendanceRepository attendanceRepository,
     required DeliveryRepository deliveryRepository,
     required JobWorkCollectionRepository jobWorkCollectionRepository,
+    required JobWorkLoadRepository jobWorkLoadRepository,
     required EquipmentRepository equipmentRepository,
     required QualityCheckRepository qualityCheckRepository,
     required ProductionRepository productionRepository,
@@ -82,6 +86,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _attendanceRepository = attendanceRepository,
         _deliveryRepository = deliveryRepository,
         _jobWorkCollectionRepository = jobWorkCollectionRepository,
+        _jobWorkLoadRepository = jobWorkLoadRepository,
         _equipmentRepository = equipmentRepository,
         _qualityCheckRepository = qualityCheckRepository,
         _productionRepository = productionRepository,
@@ -106,6 +111,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final AttendanceRepository _attendanceRepository;
   final DeliveryRepository _deliveryRepository;
   final JobWorkCollectionRepository _jobWorkCollectionRepository;
+  final JobWorkLoadRepository _jobWorkLoadRepository;
   final EquipmentRepository _equipmentRepository;
   final QualityCheckRepository _qualityCheckRepository;
   final ProductionRepository _productionRepository;
@@ -124,6 +130,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<AttendanceRecord>>? _attendanceSub;
   StreamSubscription<List<Delivery>>? _deliveriesSub;
   StreamSubscription<List<JobWorkCollection>>? _jobWorkCollectionsSub;
+  StreamSubscription<List<JobWorkLoad>>? _jobWorkLoadsSub;
   StreamSubscription<List<Equipment>>? _equipmentSub;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSub;
   StreamSubscription<List<ProductionBatch>>? _productionBatchesSub;
@@ -140,6 +147,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<AttendanceRecord> _attendanceToday = const [];
   List<Delivery> _deliveries = const [];
   List<JobWorkCollection> _jobWorkCollections = const [];
+  List<JobWorkLoad> _jobWorkLoads = const [];
   List<Equipment> _equipment = const [];
   List<QualityCheck> _qualityChecks = const [];
   List<ProductionBatch> _productionBatches = const [];
@@ -291,6 +299,15 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
             'jobWorkCollections',
             () => _jobWorkCollections = const [],
           ),
+        );
+
+    _jobWorkLoadsSub = _jobWorkLoadRepository.watchLoads(event.factoryId).listen(
+          (loads) {
+            _jobWorkLoads = loads;
+            add(const _DashboardDataUpdated());
+          },
+          onError: (_) =>
+              _handleStreamError('jobWorkLoads', () => _jobWorkLoads = const []),
         );
 
     _equipmentSub = _equipmentRepository.watchEquipment(event.factoryId).listen(
@@ -529,13 +546,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         .where((check) => check.referenceType == QcReferenceType.jobWork)
         .map((check) => check.referenceId)
         .toSet();
-    final jobWorkPendingQcCount = _orders
-        .where(
-          (order) =>
-              order.status == JobWorkStatus.qc &&
-              !jobWorkIdsWithQc.contains(order.id),
-        )
-        .length;
+    final loadIdsWithQc = _qualityChecks
+        .where((check) => check.referenceType == QcReferenceType.jobWorkLoad)
+        .map((check) => check.referenceId)
+        .toSet();
+    final jobWorkPendingQcCount = JobWorkLoadProductionHelper.awaitingQcCount(
+      orders: _orders,
+      loads: _jobWorkLoads,
+      loadIdsWithQc: loadIdsWithQc,
+      jobWorkIdsWithQc: jobWorkIdsWithQc,
+    );
 
     final analytics = _analyticsService.build(
       payments: _payments,
@@ -607,6 +627,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     await _attendanceSub?.cancel();
     await _deliveriesSub?.cancel();
     await _jobWorkCollectionsSub?.cancel();
+    await _jobWorkLoadsSub?.cancel();
     await _equipmentSub?.cancel();
     await _qualityChecksSub?.cancel();
     await _productionBatchesSub?.cancel();
@@ -622,6 +643,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     _attendanceSub = null;
     _deliveriesSub = null;
     _jobWorkCollectionsSub = null;
+    _jobWorkLoadsSub = null;
     _equipmentSub = null;
     _qualityChecksSub = null;
     _productionBatchesSub = null;

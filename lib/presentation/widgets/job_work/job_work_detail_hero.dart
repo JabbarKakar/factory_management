@@ -17,6 +17,8 @@ class JobWorkDetailHero extends StatelessWidget {
     required this.onRecordOutput,
     this.canCollectMaterial = false,
     this.onCollectMaterial,
+    this.showOperationalAdvance = true,
+    this.showCompletionAdvance = true,
     super.key,
   });
 
@@ -25,6 +27,8 @@ class JobWorkDetailHero extends StatelessWidget {
   final bool hasOutput;
   final bool canRecordOutput;
   final bool canCollectMaterial;
+  final bool showOperationalAdvance;
+  final bool showCompletionAdvance;
   final ValueChanged<JobWorkStatus> onAdvanceStatus;
   final ValueChanged<JobWorkStatus> onAdvanceCompletion;
   final VoidCallback onRecordOutput;
@@ -43,9 +47,12 @@ class JobWorkDetailHero extends StatelessWidget {
     );
     final nextStatus = order.status.nextOperationalStatus;
     final nextCompletionStatus = order.status.nextCompletionStatus;
-    final showCloseOrder = nextCompletionStatus == JobWorkStatus.closed;
-    final hasActions = (order.status.canAdvanceOperationally &&
-            nextStatus != null) ||
+    final showCloseOrder = showCompletionAdvance &&
+        nextCompletionStatus == JobWorkStatus.closed;
+    final showAdvance = showOperationalAdvance &&
+        order.status.canAdvanceOperationally &&
+        nextStatus != null;
+    final hasActions = showAdvance ||
         showCloseOrder ||
         canCollectMaterial ||
         canRecordOutput;
@@ -103,8 +110,7 @@ class JobWorkDetailHero extends StatelessWidget {
                           color: outline.withValues(alpha: 0.7),
                         ),
                         const SizedBox(height: 10),
-                        if (order.status.canAdvanceOperationally &&
-                            nextStatus != null)
+                        if (showAdvance)
                           _ActionButton(
                             label: order.status.advanceActionLabel,
                             filled: false,
@@ -113,9 +119,7 @@ class JobWorkDetailHero extends StatelessWidget {
                                 : () => onAdvanceStatus(nextStatus),
                           ),
                         if (canCollectMaterial) ...[
-                          if (order.status.canAdvanceOperationally &&
-                              nextStatus != null)
-                            const SizedBox(height: 6),
+                          if (showAdvance) const SizedBox(height: 6),
                           _ActionButton(
                             label: AppStrings.collectMaterial,
                             filled: true,
@@ -124,9 +128,7 @@ class JobWorkDetailHero extends StatelessWidget {
                           ),
                         ],
                         if (showCloseOrder) ...[
-                          if ((order.status.canAdvanceOperationally &&
-                                  nextStatus != null) ||
-                              canCollectMaterial)
+                          if (showAdvance || canCollectMaterial)
                             const SizedBox(height: 6),
                           _ActionButton(
                             label: AppStrings.closeJobWorkOrder,

@@ -2,9 +2,11 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/constants/job_work_sizes.dart';
+import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/production_batch.dart';
 import '../../domain/entities/quality_check.dart';
@@ -18,9 +20,11 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
   QcFormBloc({
     required QualityCheckRepository repository,
     required JobWorkRepository jobWorkRepository,
+    required JobWorkLoadRepository loadRepository,
     required OperationalAlertScannerService operationalAlertScannerService,
   })  : _repository = repository,
         _jobWorkRepository = jobWorkRepository,
+        _loadRepository = loadRepository,
         _operationalAlertScannerService = operationalAlertScannerService,
         super(const QcFormState()) {
     on<QcFormInitialized>(_onInitialized);
@@ -33,6 +37,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
 
   final QualityCheckRepository _repository;
   final JobWorkRepository _jobWorkRepository;
+  final JobWorkLoadRepository _loadRepository;
   final OperationalAlertScannerService _operationalAlertScannerService;
 
   Future<void> _onInitialized(
@@ -49,18 +54,28 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
       var referenceType = event.referenceType ?? QcReferenceType.production;
       ProductionBatch? selectedBatch;
       JobWorkOrder? selectedOrder;
+      JobWorkLoad? selectedLoad;
 
       if (event.referenceId != null) {
         if (referenceType == QcReferenceType.production) {
           final matches = productionBatches
               .where((batch) => batch.id == event.referenceId);
           selectedBatch = matches.isEmpty ? null : matches.first;
+        } else if (referenceType == QcReferenceType.jobWorkLoad) {
+          selectedLoad = await _loadRepository.getLoad(event.referenceId!);
+          if (selectedLoad != null) {
+            selectedOrder = await _jobWorkRepository.getJobWorkOrder(
+              selectedLoad.jobWorkId,
+            );
+          }
         } else {
           final matches =
               jobWorkOrders.where((order) => order.id == event.referenceId);
           selectedOrder = matches.isEmpty ? null : matches.first;
         }
-        if (selectedBatch == null && selectedOrder == null) {
+        if (selectedBatch == null &&
+            selectedOrder == null &&
+            selectedLoad == null) {
           referenceType = event.referenceType ?? QcReferenceType.production;
         }
       }
@@ -72,10 +87,13 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         referenceType: referenceType,
         selectedBatch: selectedBatch,
         selectedOrder: selectedOrder,
+        selectedLoad: selectedLoad,
       );
       emit(nextState);
 
-      if (selectedBatch != null || selectedOrder != null) {
+      if (selectedBatch != null ||
+          selectedOrder != null ||
+          selectedLoad != null) {
         nextState = _prefillFromReference(nextState);
         emit(nextState);
       }
@@ -113,6 +131,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
 
       ProductionBatch? selectedBatch;
       JobWorkOrder? selectedOrder;
+      JobWorkLoad? selectedLoad;
 
       if (check.referenceType == QcReferenceType.production) {
         for (final batch in productionBatches) {
@@ -127,6 +146,17 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         if (selectedBatch != null &&
             !productionBatches.any((batch) => batch.id == selectedBatch!.id)) {
           productionBatches = [selectedBatch, ...productionBatches];
+        }
+      } else if (check.referenceType == QcReferenceType.jobWorkLoad) {
+        selectedLoad = await _loadRepository.getLoad(check.referenceId);
+        if (selectedLoad != null) {
+          selectedOrder = await _jobWorkRepository.getJobWorkOrder(
+            selectedLoad.jobWorkId,
+          );
+          if (selectedOrder != null &&
+              !jobWorkOrders.any((order) => order.id == selectedOrder!.id)) {
+            jobWorkOrders = [selectedOrder, ...jobWorkOrders];
+          }
         }
       } else {
         for (final order in jobWorkOrders) {
@@ -152,6 +182,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
           referenceType: check.referenceType,
           selectedBatch: selectedBatch,
           selectedOrder: selectedOrder,
+          selectedLoad: selectedLoad,
           editingCheck: check,
           isEditing: true,
           prefill: QcFormPrefill(
@@ -185,6 +216,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         referenceType: event.referenceType,
         clearSelectedBatch: true,
         clearSelectedOrder: true,
+        clearSelectedLoad: true,
         prefill: const QcFormPrefill(),
         clearWorkflow: true,
       ),
@@ -219,6 +251,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
       clearSelectedBatch: batch == null,
       selectedOrder: order,
       clearSelectedOrder: order == null,
+      clearSelectedLoad: true,
       clearWorkflow: true,
     );
     emit(nextState);
@@ -247,6 +280,37 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
           gradeBSqFt: batch.gradeBSqFt,
           gradeCSqFt: batch.gradeCSqFt,
           rejectSqFt: batch.rejectSqFt,
+        ),
+      );
+    }
+
+    final load = current.selectedLoad;
+    if (load != null) {
+      final output = load.output;
+      if (output == null) {
+        return current.copyWith(prefill: const QcFormPrefill());
+      }
+      final sizeLabel = load.hasAnySize
+          ? JobWorkSizes.joinForDisplay(
+              smallSizes: load.smallSizes,
+              largeSizes: load.largeSizes,
+              legacySizes: load.legacySizes,
+            )
+          : null;
+      return current.copyWith(
+        prefill: QcFormPrefill(
+          productLabel: load.targetProduct.label,
+          marbleVariety: load.marbleVariety,
+          sizeThickness: sizeLabel == null
+              ? load.thickness
+              : '$sizeLabel · ${load.thickness}',
+          quantityInspected: output.totalOutputSqFt,
+          gradeASqFt: output.hasStockOutputs
+              ? output.totalUsableSqFt
+              : output.gradeASqFt,
+          gradeBSqFt: output.hasStockOutputs ? 0 : output.gradeBSqFt,
+          gradeCSqFt: output.hasStockOutputs ? 0 : output.gradeCSqFt,
+          rejectSqFt: output.rejectSqFt,
         ),
       );
     }
@@ -302,9 +366,25 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
       await _operationalAlertScannerService.notifyQcReject(created);
 
       String? pendingMarkReadyJobWorkId;
+      String? pendingMarkReadyLoadId;
       var advancedToQc = false;
 
-      if (event.check.referenceType == QcReferenceType.jobWork &&
+      if (event.check.referenceType == QcReferenceType.jobWorkLoad &&
+          event.check.disposition == QcDisposition.pass) {
+        final load = await _loadRepository.getLoad(event.check.referenceId);
+        if (load != null) {
+          if (load.status == JobWorkStatus.qc) {
+            pendingMarkReadyLoadId = load.id;
+          } else if (load.status == JobWorkStatus.inCutting ||
+              load.status == JobWorkStatus.agreed) {
+            await _loadRepository.advanceLoadStatus(
+              loadId: load.id,
+              newStatus: JobWorkStatus.qc,
+            );
+            advancedToQc = true;
+          }
+        }
+      } else if (event.check.referenceType == QcReferenceType.jobWork &&
           event.check.disposition == QcDisposition.pass) {
         final order =
             await _jobWorkRepository.getJobWorkOrder(event.check.referenceId);
@@ -326,6 +406,7 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         state.copyWith(
           status: QcFormStatus.saved,
           pendingMarkReadyJobWorkId: pendingMarkReadyJobWorkId,
+          pendingMarkReadyLoadId: pendingMarkReadyLoadId,
           advancedToQc: advancedToQc,
         ),
       );
@@ -350,6 +431,42 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
     QcFormMarkReadyConfirmed event,
     Emitter<QcFormState> emit,
   ) async {
+    final loadId = state.pendingMarkReadyLoadId;
+    if (loadId != null) {
+      try {
+        await _loadRepository.advanceLoadStatus(
+          loadId: loadId,
+          newStatus: JobWorkStatus.ready,
+        );
+        final load = await _loadRepository.getLoad(loadId);
+        if (load != null) {
+          final order =
+              await _jobWorkRepository.getJobWorkOrder(load.jobWorkId);
+          if (order != null) {
+            await _operationalAlertScannerService.notifyJobWorkReady(
+              order,
+              load: load,
+            );
+          }
+        }
+        emit(
+          state.copyWith(
+            clearPendingMarkReady: true,
+            markedReady: true,
+          ),
+        );
+      } catch (_) {
+        emit(
+          state.copyWith(
+            status: QcFormStatus.failure,
+            errorMessage: 'Could not mark job work load as ready.',
+            clearPendingMarkReady: true,
+          ),
+        );
+      }
+      return;
+    }
+
     final jobWorkId = state.pendingMarkReadyJobWorkId;
     if (jobWorkId == null) return;
 

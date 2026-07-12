@@ -179,6 +179,11 @@ abstract final class AppStrings {
   static const String containerStatus = 'Container Status';
   static const String outstandingBalance = 'Outstanding Balance';
   static const String noLoadsYet = 'No loads yet';
+  static const String loadClosed = 'Load closed';
+  static const String closeLoadTitle = 'Close this load?';
+  static const String closeLoadMessage =
+      'This closes only this load. Other loads and the Job Work stay open.';
+  static const String closeLoad = 'Close Load';
   static const String blocks = 'blocks';
   static const String virtualLoadHint = 'Pending migration to Load document';
   static const String migratedLoadHint = 'Migrated from legacy Job Work';

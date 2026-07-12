@@ -153,6 +153,7 @@ void setupDependencies() {
       equipmentRepository: getIt<EquipmentRepository>(),
       deliveryRepository: getIt<DeliveryRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      jobWorkLoadRepository: getIt<JobWorkLoadRepository>(),
       jobWorkCollectionRepository: getIt<JobWorkCollectionRepository>(),
       notificationRepository: getIt<NotificationRepository>(),
     ),
@@ -314,6 +315,7 @@ void setupDependencies() {
       attendanceRepository: getIt<AttendanceRepository>(),
       deliveryRepository: getIt<DeliveryRepository>(),
       jobWorkCollectionRepository: getIt<JobWorkCollectionRepository>(),
+      jobWorkLoadRepository: getIt<JobWorkLoadRepository>(),
       equipmentRepository: getIt<EquipmentRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
       productionRepository: getIt<ProductionRepository>(),
@@ -356,7 +358,10 @@ void setupDependencies() {
     ),
   );
   getIt.registerFactory<JobWorkOutputBloc>(
-    () => JobWorkOutputBloc(repository: getIt<JobWorkRepository>()),
+    () => JobWorkOutputBloc(
+      repository: getIt<JobWorkRepository>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
+    ),
   );
   getIt.registerFactory<JobWorkCollectionFormBloc>(
     () => JobWorkCollectionFormBloc(
@@ -497,6 +502,7 @@ void setupDependencies() {
     () => QcFormBloc(
       repository: getIt<QualityCheckRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
       operationalAlertScannerService: getIt<OperationalAlertScannerService>(),
     ),
   );

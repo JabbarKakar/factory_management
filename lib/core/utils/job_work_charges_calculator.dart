@@ -1,3 +1,4 @@
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
 import '../../domain/entities/stock_output.dart';
@@ -19,21 +20,22 @@ class JobWorkChargeLine {
 /// Calculates final cutting charges from actual output and agreed rates.
 abstract final class JobWorkChargesCalculator {
   static bool usesStockPricing(JobWorkOrder order) =>
-      order.hasAnySize &&
-      (order.smallStockPrice > 0 || order.largeStockPrice > 0);
+      _usesStockPricing(_PricingSource.fromOrder(order));
+
+  static bool usesStockPricingForLoad(JobWorkLoad load) =>
+      _usesStockPricing(_PricingSource.fromLoad(load));
 
   static List<JobWorkChargeLine> breakdown({
     required JobWorkOrder order,
     required JobWorkOutput output,
-  }) {
-    if (output.hasStockOutputs) {
-      return _stockOutputBreakdown(output);
-    }
-    if (usesStockPricing(order)) {
-      return _legacyStockSizeBreakdown(order);
-    }
-    return _modelBreakdown(order: order, output: output);
-  }
+  }) =>
+      _breakdown(source: _PricingSource.fromOrder(order), output: output);
+
+  static List<JobWorkChargeLine> breakdownForLoad({
+    required JobWorkLoad load,
+    required JobWorkOutput output,
+  }) =>
+      _breakdown(source: _PricingSource.fromLoad(load), output: output);
 
   static double calculate({
     required JobWorkOrder order,
@@ -47,9 +49,49 @@ abstract final class JobWorkChargesCalculator {
     );
   }
 
+  static double calculateForLoad({
+    required JobWorkLoad load,
+    required JobWorkOutput output,
+    List<JobWorkShiftLog> shiftLogs = const [],
+  }) {
+    return resolveFinalCuttingChargesForLoad(
+      load: load,
+      output: output,
+      shiftLogs: shiftLogs,
+    );
+  }
+
   /// Final cutting charges from shift totals, stock output, or pricing model.
   static double resolveFinalCuttingCharges({
     required JobWorkOrder order,
+    required JobWorkOutput output,
+    List<JobWorkShiftLog> shiftLogs = const [],
+    double? manualOverride,
+  }) {
+    return _resolveFinalCuttingCharges(
+      source: _PricingSource.fromOrder(order),
+      output: output,
+      shiftLogs: shiftLogs,
+      manualOverride: manualOverride,
+    );
+  }
+
+  static double resolveFinalCuttingChargesForLoad({
+    required JobWorkLoad load,
+    required JobWorkOutput output,
+    List<JobWorkShiftLog> shiftLogs = const [],
+    double? manualOverride,
+  }) {
+    return _resolveFinalCuttingCharges(
+      source: _PricingSource.fromLoad(load),
+      output: output,
+      shiftLogs: shiftLogs,
+      manualOverride: manualOverride,
+    );
+  }
+
+  static double _resolveFinalCuttingCharges({
+    required _PricingSource source,
     required JobWorkOutput output,
     List<JobWorkShiftLog> shiftLogs = const [],
     double? manualOverride,
@@ -69,7 +111,7 @@ abstract final class JobWorkChargesCalculator {
       return manualOverride;
     }
 
-    return breakdown(order: order, output: output)
+    return _breakdown(source: source, output: output)
         .fold<double>(0, (sum, line) => sum + line.amount);
   }
 
@@ -91,8 +133,44 @@ abstract final class JobWorkChargesCalculator {
     return order.finalCuttingCharges;
   }
 
+  static double effectiveFinalCuttingChargesForLoad(JobWorkLoad load) {
+    final output = load.output;
+    if (output == null || !output.isRecorded) {
+      return load.finalCuttingCharges;
+    }
+
+    final calculated = calculateForLoad(
+      load: load,
+      output: output,
+      shiftLogs: load.shiftLogs,
+    );
+    if (calculated > 0) return calculated;
+    return load.finalCuttingCharges;
+  }
+
   static double effectiveBalanceDue(JobWorkOrder order) {
     return effectiveFinalCuttingCharges(order) - order.advanceReceived;
+  }
+
+  static double effectiveBalanceDueForLoad(JobWorkLoad load) {
+    return effectiveFinalCuttingChargesForLoad(load) - load.advanceReceived;
+  }
+
+  static bool _usesStockPricing(_PricingSource source) =>
+      source.hasAnySize &&
+      (source.smallStockPrice > 0 || source.largeStockPrice > 0);
+
+  static List<JobWorkChargeLine> _breakdown({
+    required _PricingSource source,
+    required JobWorkOutput output,
+  }) {
+    if (output.hasStockOutputs) {
+      return _stockOutputBreakdown(output);
+    }
+    if (_usesStockPricing(source)) {
+      return _legacyStockSizeBreakdown(source);
+    }
+    return _modelBreakdown(source: source, output: output);
   }
 
   static List<JobWorkChargeLine> _stockOutputBreakdown(JobWorkOutput output) {
@@ -109,26 +187,30 @@ abstract final class JobWorkChargesCalculator {
         .toList();
   }
 
-  static List<JobWorkChargeLine> _legacyStockSizeBreakdown(JobWorkOrder order) {
+  static List<JobWorkChargeLine> _legacyStockSizeBreakdown(
+    _PricingSource source,
+  ) {
     final lines = <JobWorkChargeLine>[];
-    final smallCount = order.smallSizes.length + order.legacySizes.length;
-    final largeCount = order.largeSizes.length;
+    final smallCount = source.smallSizes.length + source.legacySizes.length;
+    final largeCount = source.largeSizes.length;
 
-    if (smallCount > 0 && order.smallStockPrice > 0) {
+    if (smallCount > 0 && source.smallStockPrice > 0) {
       lines.add(
         JobWorkChargeLine(
           label: 'Small sizes',
-          detail: '$smallCount × PKR ${order.smallStockPrice.toStringAsFixed(0)}',
-          amount: order.smallStockPrice * smallCount,
+          detail:
+              '$smallCount × PKR ${source.smallStockPrice.toStringAsFixed(0)}',
+          amount: source.smallStockPrice * smallCount,
         ),
       );
     }
-    if (largeCount > 0 && order.largeStockPrice > 0) {
+    if (largeCount > 0 && source.largeStockPrice > 0) {
       lines.add(
         JobWorkChargeLine(
           label: 'Large sizes',
-          detail: '$largeCount × PKR ${order.largeStockPrice.toStringAsFixed(0)}',
-          amount: order.largeStockPrice * largeCount,
+          detail:
+              '$largeCount × PKR ${source.largeStockPrice.toStringAsFixed(0)}',
+          amount: source.largeStockPrice * largeCount,
         ),
       );
     }
@@ -136,58 +218,70 @@ abstract final class JobWorkChargesCalculator {
   }
 
   static List<JobWorkChargeLine> _modelBreakdown({
-    required JobWorkOrder order,
+    required _PricingSource source,
     required JobWorkOutput output,
   }) {
-    if (order.agreedRate <= 0) return const [];
+    if (source.agreedRate <= 0) return const [];
 
-    return switch (order.pricingModel) {
+    return switch (source.pricingModel) {
       PricingModel.perTon => [
           JobWorkChargeLine(
-            label: order.pricingModel.label,
+            label: source.pricingModel.label,
             detail:
-                '${order.totalTons.toStringAsFixed(2)} t × PKR ${order.agreedRate.toStringAsFixed(0)}',
-            amount: order.agreedRate * order.totalTons,
+                '${source.totalTons.toStringAsFixed(2)} t × PKR ${source.agreedRate.toStringAsFixed(0)}',
+            amount: source.agreedRate * source.totalTons,
           ),
         ],
       PricingModel.perSqFt => [
           JobWorkChargeLine(
-            label: order.pricingModel.label,
+            label: source.pricingModel.label,
             detail:
-                '${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft × PKR ${order.agreedRate.toStringAsFixed(0)}',
-            amount: order.agreedRate * output.totalUsableSqFt,
+                '${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft × PKR ${source.agreedRate.toStringAsFixed(0)}',
+            amount: source.agreedRate * output.totalUsableSqFt,
           ),
         ],
       PricingModel.perBlock => [
           JobWorkChargeLine(
-            label: order.pricingModel.label,
+            label: source.pricingModel.label,
             detail:
-                '${order.blockCount} blocks × PKR ${order.agreedRate.toStringAsFixed(0)}',
-            amount: order.agreedRate * order.blockCount,
+                '${source.blockCount} blocks × PKR ${source.agreedRate.toStringAsFixed(0)}',
+            amount: source.agreedRate * source.blockCount,
           ),
         ],
       PricingModel.lumpSum => [
           JobWorkChargeLine(
-            label: order.pricingModel.label,
+            label: source.pricingModel.label,
             detail: 'Lump sum',
-            amount: order.agreedRate,
+            amount: source.agreedRate,
           ),
         ],
     };
   }
 
-  static double defaultSmallPricePerSqFt(JobWorkOrder order) {
-    if (order.smallStockPrice > 0) return order.smallStockPrice;
-    if (order.pricingModel == PricingModel.perSqFt && order.agreedRate > 0) {
-      return order.agreedRate;
+  static double defaultSmallPricePerSqFt(JobWorkOrder order) =>
+      _defaultSmallPricePerSqFt(_PricingSource.fromOrder(order));
+
+  static double defaultSmallPricePerSqFtForLoad(JobWorkLoad load) =>
+      _defaultSmallPricePerSqFt(_PricingSource.fromLoad(load));
+
+  static double defaultLargePricePerSqFt(JobWorkOrder order) =>
+      _defaultLargePricePerSqFt(_PricingSource.fromOrder(order));
+
+  static double defaultLargePricePerSqFtForLoad(JobWorkLoad load) =>
+      _defaultLargePricePerSqFt(_PricingSource.fromLoad(load));
+
+  static double _defaultSmallPricePerSqFt(_PricingSource source) {
+    if (source.smallStockPrice > 0) return source.smallStockPrice;
+    if (source.pricingModel == PricingModel.perSqFt && source.agreedRate > 0) {
+      return source.agreedRate;
     }
     return 0;
   }
 
-  static double defaultLargePricePerSqFt(JobWorkOrder order) {
-    if (order.largeStockPrice > 0) return order.largeStockPrice;
-    if (order.pricingModel == PricingModel.perSqFt && order.agreedRate > 0) {
-      return order.agreedRate;
+  static double _defaultLargePricePerSqFt(_PricingSource source) {
+    if (source.largeStockPrice > 0) return source.largeStockPrice;
+    if (source.pricingModel == PricingModel.perSqFt && source.agreedRate > 0) {
+      return source.agreedRate;
     }
     return 0;
   }
@@ -215,4 +309,60 @@ abstract final class JobWorkChargesCalculator {
       wasteDisposition: wasteDisposition,
     );
   }
+}
+
+class _PricingSource {
+  const _PricingSource({
+    required this.hasAnySize,
+    required this.smallSizes,
+    required this.largeSizes,
+    required this.legacySizes,
+    required this.smallStockPrice,
+    required this.largeStockPrice,
+    required this.pricingModel,
+    required this.agreedRate,
+    required this.totalTons,
+    required this.blockCount,
+  });
+
+  factory _PricingSource.fromOrder(JobWorkOrder order) {
+    return _PricingSource(
+      hasAnySize: order.hasAnySize,
+      smallSizes: order.smallSizes,
+      largeSizes: order.largeSizes,
+      legacySizes: order.legacySizes,
+      smallStockPrice: order.smallStockPrice,
+      largeStockPrice: order.largeStockPrice,
+      pricingModel: order.pricingModel,
+      agreedRate: order.agreedRate,
+      totalTons: order.totalTons,
+      blockCount: order.blockCount,
+    );
+  }
+
+  factory _PricingSource.fromLoad(JobWorkLoad load) {
+    return _PricingSource(
+      hasAnySize: load.hasAnySize,
+      smallSizes: load.smallSizes,
+      largeSizes: load.largeSizes,
+      legacySizes: load.legacySizes,
+      smallStockPrice: load.smallStockPrice,
+      largeStockPrice: load.largeStockPrice,
+      pricingModel: load.pricingModel,
+      agreedRate: load.agreedRate,
+      totalTons: load.totalTons,
+      blockCount: load.blockCount,
+    );
+  }
+
+  final bool hasAnySize;
+  final List<String> smallSizes;
+  final List<String> largeSizes;
+  final List<String> legacySizes;
+  final double smallStockPrice;
+  final double largeStockPrice;
+  final PricingModel pricingModel;
+  final double agreedRate;
+  final double totalTons;
+  final int blockCount;
 }

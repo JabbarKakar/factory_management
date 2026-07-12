@@ -26,7 +26,10 @@ class JobWorkOutputSummary extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (order.blockCount > 0)
-            JobWorkBlockProgressSection(order: order),
+            JobWorkBlockProgressSection(
+              blockCount: order.blockCount,
+              shiftLogs: order.shiftLogs,
+            ),
           if (order.shiftLogs.isNotEmpty)
             JobWorkShiftLogsSection(
               shiftLogs: order.shiftLogs,
@@ -115,7 +118,10 @@ class JobWorkOutputSummary extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (order.blockCount > 0)
-          JobWorkBlockProgressSection(order: order),
+          JobWorkBlockProgressSection(
+            blockCount: order.blockCount,
+            shiftLogs: order.shiftLogs,
+          ),
         JobWorkDetailSection(
           title: AppStrings.outputRecording,
           icon: Icons.analytics_outlined,

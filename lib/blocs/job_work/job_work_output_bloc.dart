@@ -1,21 +1,27 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
-import '../../domain/entities/job_work_order.dart';
+import '../../data/services/job_work_load_resolver.dart';
+import '../../domain/entities/job_work_load.dart';
 
 part 'job_work_output_event.dart';
 part 'job_work_output_state.dart';
 
 class JobWorkOutputBloc extends Bloc<JobWorkOutputEvent, JobWorkOutputState> {
-  JobWorkOutputBloc({required JobWorkRepository repository})
-      : _repository = repository,
+  JobWorkOutputBloc({
+    required JobWorkRepository repository,
+    required JobWorkLoadRepository loadRepository,
+  })  : _repository = repository,
+        _loadRepository = loadRepository,
         super(const JobWorkOutputState()) {
     on<JobWorkOutputLoadRequested>(_onLoadRequested);
     on<JobWorkOutputSubmitted>(_onSubmitted);
   }
 
   final JobWorkRepository _repository;
+  final JobWorkLoadRepository _loadRepository;
 
   Future<void> _onLoadRequested(
     JobWorkOutputLoadRequested event,
@@ -23,22 +29,22 @@ class JobWorkOutputBloc extends Bloc<JobWorkOutputEvent, JobWorkOutputState> {
   ) async {
     emit(state.copyWith(status: JobWorkOutputStatus.loading));
     try {
-      final order = await _repository.getJobWorkOrder(event.jobWorkId);
-      if (order == null) {
+      final load = await _resolveLoad(event);
+      if (load == null) {
         emit(
           state.copyWith(
             status: JobWorkOutputStatus.failure,
-            errorMessage: 'Job work order not found.',
+            errorMessage: 'Load not found.',
           ),
         );
         return;
       }
 
-      if (!order.status.canRecordOutput) {
+      if (!load.status.canRecordOutput) {
         emit(
           state.copyWith(
             status: JobWorkOutputStatus.failure,
-            errorMessage: 'Output cannot be recorded for this order status.',
+            errorMessage: 'Output cannot be recorded for this load status.',
           ),
         );
         return;
@@ -47,17 +53,38 @@ class JobWorkOutputBloc extends Bloc<JobWorkOutputEvent, JobWorkOutputState> {
       emit(
         state.copyWith(
           status: JobWorkOutputStatus.ready,
-          order: order,
+          load: load,
         ),
       );
     } catch (_) {
       emit(
         state.copyWith(
           status: JobWorkOutputStatus.failure,
-          errorMessage: 'Could not load job work order.',
+          errorMessage: 'Could not load job work load.',
         ),
       );
     }
+  }
+
+  Future<JobWorkLoad?> _resolveLoad(JobWorkOutputLoadRequested event) async {
+    if (event.loadId != null && event.loadId!.isNotEmpty) {
+      var load = await _loadRepository.getLoad(event.loadId!);
+      if (load != null) return load;
+    }
+
+    final jobWorkId = event.jobWorkId;
+    if (jobWorkId == null || jobWorkId.isEmpty) return null;
+
+    await _loadRepository.ensureDefaultLoad(jobWorkId);
+    final order = await _repository.getJobWorkOrder(jobWorkId);
+    if (order == null) return null;
+    final loads = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+    final resolved = JobWorkLoadResolver.resolveLoads(order, loads);
+    if (resolved.isEmpty) return null;
+    return JobWorkLoadResolver.preferredDefaultLoad(order, resolved);
   }
 
   Future<void> _onSubmitted(
@@ -66,11 +93,18 @@ class JobWorkOutputBloc extends Bloc<JobWorkOutputEvent, JobWorkOutputState> {
   ) async {
     emit(state.copyWith(status: JobWorkOutputStatus.saving));
     try {
-      final saved = await _repository.recordJobWorkOutput(event.order);
+      final saved = await _loadRepository.recordLoadOutput(event.load);
       emit(
         state.copyWith(
           status: JobWorkOutputStatus.saved,
-          order: saved,
+          load: saved,
+        ),
+      );
+    } on JobWorkLoadException catch (error) {
+      emit(
+        state.copyWith(
+          status: JobWorkOutputStatus.failure,
+          errorMessage: error.message,
         ),
       );
     } catch (_) {

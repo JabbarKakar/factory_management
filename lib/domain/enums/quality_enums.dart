@@ -1,12 +1,14 @@
 enum QcReferenceType {
   production,
-  jobWork;
+  jobWork,
+  jobWorkLoad;
 
   String get firestoreValue => name;
 
   String get label => switch (this) {
         QcReferenceType.production => 'Production Batch',
         QcReferenceType.jobWork => 'Job Work Order',
+        QcReferenceType.jobWorkLoad => 'Job Work Load',
       };
 
   static QcReferenceType fromString(String? value) {
@@ -95,7 +97,9 @@ enum QcListFilter {
     return switch (this) {
       QcListFilter.all => true,
       QcListFilter.production => referenceType == QcReferenceType.production,
-      QcListFilter.jobWork => referenceType == QcReferenceType.jobWork,
+      QcListFilter.jobWork =>
+        referenceType == QcReferenceType.jobWork ||
+            referenceType == QcReferenceType.jobWorkLoad,
       QcListFilter.pass => disposition == QcDisposition.pass,
       QcListFilter.rework => disposition == QcDisposition.rework,
       QcListFilter.reject => disposition == QcDisposition.reject,

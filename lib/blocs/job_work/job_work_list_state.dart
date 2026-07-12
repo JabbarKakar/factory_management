@@ -11,6 +11,7 @@ class JobWorkListState extends Equatable {
     this.collections = const [],
     this.loads = const [],
     this.jobWorkIdsWithQc = const {},
+    this.loadIdsWithQc = const {},
     this.awaitingQcCount = 0,
     this.searchQuery = '',
     this.stageFilter = JobWorkListStageFilter.all,
@@ -25,6 +26,7 @@ class JobWorkListState extends Equatable {
   final List<JobWorkCollection> collections;
   final List<JobWorkLoad> loads;
   final Set<String> jobWorkIdsWithQc;
+  final Set<String> loadIdsWithQc;
   final int awaitingQcCount;
   final String searchQuery;
   final JobWorkListStageFilter stageFilter;
@@ -32,8 +34,16 @@ class JobWorkListState extends Equatable {
   final Map<String, JobWorkInvoice> invoicesByJobWorkId;
 
   bool isAwaitingQcInspection(JobWorkOrder order) {
-    return order.status == JobWorkStatus.qc &&
-        !jobWorkIdsWithQc.contains(order.id);
+    return JobWorkLoadProductionHelper.isAwaitingQcInspection(
+      order: order,
+      loads: loads,
+      loadIdsWithQc: loadIdsWithQc,
+      jobWorkIdsWithQc: jobWorkIdsWithQc,
+    );
+  }
+
+  List<JobWorkLoad> loadsForOrder(String jobWorkId) {
+    return loads.where((load) => load.jobWorkId == jobWorkId).toList();
   }
 
   JobWorkListState copyWith({
@@ -44,6 +54,7 @@ class JobWorkListState extends Equatable {
     List<JobWorkCollection>? collections,
     List<JobWorkLoad>? loads,
     Set<String>? jobWorkIdsWithQc,
+    Set<String>? loadIdsWithQc,
     int? awaitingQcCount,
     String? searchQuery,
     JobWorkListStageFilter? stageFilter,
@@ -58,6 +69,7 @@ class JobWorkListState extends Equatable {
       collections: collections ?? this.collections,
       loads: loads ?? this.loads,
       jobWorkIdsWithQc: jobWorkIdsWithQc ?? this.jobWorkIdsWithQc,
+      loadIdsWithQc: loadIdsWithQc ?? this.loadIdsWithQc,
       awaitingQcCount: awaitingQcCount ?? this.awaitingQcCount,
       searchQuery: searchQuery ?? this.searchQuery,
       stageFilter: stageFilter ?? this.stageFilter,
@@ -75,6 +87,7 @@ class JobWorkListState extends Equatable {
         collections,
         loads,
         jobWorkIdsWithQc,
+        loadIdsWithQc,
         awaitingQcCount,
         searchQuery,
         stageFilter,

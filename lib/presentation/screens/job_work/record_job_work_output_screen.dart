@@ -8,9 +8,10 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/job_work_block_progress.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
-import '../../../domain/entities/job_work_order.dart';
+import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/entities/job_work_output.dart';
 import '../../../domain/enums/job_work_enums.dart';
+import '../../../domain/enums/job_work_load_enums.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/add_shift_log_dialog.dart';
@@ -20,9 +21,14 @@ import '../../widgets/job_work/stock_output_form_controller.dart';
 import '../../widgets/job_work/stock_output_recording_panel.dart';
 
 class RecordJobWorkOutputScreen extends StatefulWidget {
-  const RecordJobWorkOutputScreen({required this.jobWorkId, super.key});
+  const RecordJobWorkOutputScreen({
+    required this.jobWorkId,
+    this.loadId,
+    super.key,
+  });
 
   final String jobWorkId;
+  final String? loadId;
 
   @override
   State<RecordJobWorkOutputScreen> createState() =>
@@ -45,12 +51,12 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   bool _populated = false;
   bool _chargesManuallyEdited = false;
   List<JobWorkShiftLog> _shiftLogs = [];
-  JobWorkStatus? _statusBeforeSubmit;
+  LoadStatus? _statusBeforeSubmit;
   StockOutputFormController? _stockController;
-  String? _stockControllerOrderId;
+  String? _stockControllerLoadId;
 
-  List<String> _smallSizesFor(JobWorkOrder order) =>
-      [...order.smallSizes, ...order.legacySizes];
+  List<String> _smallSizesFor(JobWorkLoad load) =>
+      [...load.smallSizes, ...load.legacySizes];
 
   @override
   void dispose() {
@@ -63,25 +69,25 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     super.dispose();
   }
 
-  void _ensureStockController(JobWorkOrder order) {
-    if (_stockControllerOrderId == order.id && _stockController != null) {
+  void _ensureStockController(JobWorkLoad load) {
+    if (_stockControllerLoadId == load.id && _stockController != null) {
       return;
     }
 
     _stockController?.dispose();
-    final output = order.output;
+    final output = load.output;
     _stockController = StockOutputFormController(
-      smallSizes: _smallSizesFor(order),
-      largeSizes: order.largeSizes,
+      smallSizes: _smallSizesFor(load),
+      largeSizes: load.largeSizes,
       smallPricePerSqFt:
-          JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
+          JobWorkChargesCalculator.defaultSmallPricePerSqFtForLoad(load),
       largePricePerSqFt:
-          JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
+          JobWorkChargesCalculator.defaultLargePricePerSqFtForLoad(load),
       initialSmall: output?.smallStockOutputs ?? const [],
       initialLarge: output?.largeStockOutputs ?? const [],
     );
     _stockController!.addListener(_onStockChanged);
-    _stockControllerOrderId = order.id;
+    _stockControllerLoadId = load.id;
   }
 
   void _onStockChanged() {
@@ -92,11 +98,11 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     }
   }
 
-  void _populate(JobWorkOrder order) {
+  void _populate(JobWorkLoad load) {
     if (_populated) return;
     _populated = true;
 
-    final output = order.output;
+    final output = load.output;
     if (output != null) {
       _wasteController.text = _formatNum(output.wasteAmount);
       _wasteUnit = output.wasteUnit;
@@ -104,9 +110,9 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       _slurryController.text = output.slurryDust ?? '';
     }
 
-    _shiftLogs = List<JobWorkShiftLog>.from(order.shiftLogs);
+    _shiftLogs = List<JobWorkShiftLog>.from(load.shiftLogs);
 
-    final execution = order.execution;
+    final execution = load.execution;
     if (execution != null) {
       _startDate = execution.cuttingStartDate;
       _completionDate = execution.cuttingCompletionDate;
@@ -114,16 +120,16 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       _notesController.text = execution.progressNotes ?? '';
     }
 
-    if (order.finalCuttingCharges > 0) {
+    if (load.finalCuttingCharges > 0) {
       _finalChargesController.text =
-          order.finalCuttingCharges.toStringAsFixed(0);
+          load.finalCuttingCharges.toStringAsFixed(0);
     }
   }
 
-  void _syncCalculatedCharges(JobWorkOrder order, JobWorkOutput output) {
+  void _syncCalculatedCharges(JobWorkLoad load, JobWorkOutput output) {
     if (_chargesManuallyEdited) return;
-    final charges = JobWorkChargesCalculator.calculate(
-      order: order,
+    final charges = JobWorkChargesCalculator.calculateForLoad(
+      load: load,
       output: output,
       shiftLogs: _shiftLogs,
     );
@@ -168,17 +174,17 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     return _buildDirectOutput();
   }
 
-  Future<void> _addShiftLog(JobWorkOrder order) async {
+  Future<void> _addShiftLog(JobWorkLoad load) async {
     final shift = await showDialog<JobWorkShiftLog>(
       context: context,
       builder: (_) => AddShiftLogDialog(
-        smallSizes: _smallSizesFor(order),
-        largeSizes: order.largeSizes,
+        smallSizes: _smallSizesFor(load),
+        largeSizes: load.largeSizes,
         smallPricePerSqFt:
-            JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
+            JobWorkChargesCalculator.defaultSmallPricePerSqFtForLoad(load),
         largePricePerSqFt:
-            JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
-        totalBlocks: order.blockCount,
+            JobWorkChargesCalculator.defaultLargePricePerSqFtForLoad(load),
+        totalBlocks: load.blockCount,
         blocksAlreadyCut: JobWorkBlockProgress.totalBlocksCut(_shiftLogs),
       ),
     );
@@ -189,17 +195,17 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     });
   }
 
-  Future<void> _editShiftLog(JobWorkOrder order, JobWorkShiftLog shift) async {
+  Future<void> _editShiftLog(JobWorkLoad load, JobWorkShiftLog shift) async {
     final updated = await showDialog<JobWorkShiftLog>(
       context: context,
       builder: (_) => AddShiftLogDialog(
-        smallSizes: _smallSizesFor(order),
-        largeSizes: order.largeSizes,
+        smallSizes: _smallSizesFor(load),
+        largeSizes: load.largeSizes,
         smallPricePerSqFt:
-            JobWorkChargesCalculator.defaultSmallPricePerSqFt(order),
+            JobWorkChargesCalculator.defaultSmallPricePerSqFtForLoad(load),
         largePricePerSqFt:
-            JobWorkChargesCalculator.defaultLargePricePerSqFt(order),
-        totalBlocks: order.blockCount,
+            JobWorkChargesCalculator.defaultLargePricePerSqFtForLoad(load),
+        totalBlocks: load.blockCount,
         blocksAlreadyCut: JobWorkBlockProgress.totalBlocksCut(
           _shiftLogs.where((log) => log.id != shift.id),
         ),
@@ -278,7 +284,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     if (picked != null) onPicked(picked);
   }
 
-  void _submit(JobWorkOrder baseOrder) {
+  void _submit(JobWorkLoad baseLoad) {
     if (!_formKey.currentState!.validate()) return;
 
     final output = _effectiveOutput().copyWith(recordedAt: DateTime.now());
@@ -291,7 +297,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     }
 
     if (_shiftLogs.isNotEmpty &&
-        JobWorkBlockProgress.totalBlocksCut(_shiftLogs) > baseOrder.blockCount) {
+        JobWorkBlockProgress.totalBlocksCut(_shiftLogs) > baseLoad.blockCount) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.blocksCutTotalExceeded)),
       );
@@ -299,13 +305,13 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     }
 
     final charges = _shiftLogs.isNotEmpty
-        ? JobWorkChargesCalculator.calculate(
-            order: baseOrder,
+        ? JobWorkChargesCalculator.calculateForLoad(
+            load: baseLoad,
             output: output,
             shiftLogs: _shiftLogs,
           )
-        : JobWorkChargesCalculator.resolveFinalCuttingCharges(
-            order: baseOrder,
+        : JobWorkChargesCalculator.resolveFinalCuttingChargesForLoad(
+            load: baseLoad,
             output: output,
             manualOverride: _chargesManuallyEdited
                 ? _parse(_finalChargesController.text)
@@ -318,14 +324,14 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       return;
     }
 
-    _statusBeforeSubmit = baseOrder.status;
+    _statusBeforeSubmit = baseLoad.status;
 
-    final updated = baseOrder.copyWith(
+    final updated = baseLoad.copyWith(
       output: output,
       shiftLogs: _shiftLogs,
       execution: _buildExecution(),
       finalCuttingCharges: charges,
-      balanceDue: charges - baseOrder.advanceReceived,
+      balanceDue: charges - baseLoad.advanceReceived,
     );
 
     context.read<JobWorkOutputBloc>().add(JobWorkOutputSubmitted(updated));
@@ -335,11 +341,11 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   Widget build(BuildContext context) {
     return BlocConsumer<JobWorkOutputBloc, JobWorkOutputState>(
       listener: (context, state) {
-        if (state.status == JobWorkOutputStatus.ready && state.order != null) {
-          _populate(state.order!);
+        if (state.status == JobWorkOutputStatus.ready && state.load != null) {
+          _populate(state.load!);
         }
         if (state.status == JobWorkOutputStatus.saved) {
-          final saved = state.order;
+          final saved = state.load;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -369,8 +375,8 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
           );
         }
 
-        final order = state.order;
-        if (order == null) {
+        final load = state.load;
+        if (load == null) {
           return Scaffold(
             appBar: AppBar(title: const Text(AppStrings.recordOutput)),
             body: Center(
@@ -379,27 +385,28 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
           );
         }
 
-        _populate(order);
-        _ensureStockController(order);
+        _populate(load);
+        _ensureStockController(load);
 
         final previewOutput = _effectiveOutput();
-        _syncCalculatedCharges(order, previewOutput);
-        final chargeLines = JobWorkChargesCalculator.breakdown(
-          order: order,
+        _syncCalculatedCharges(load, previewOutput);
+        final chargeLines = JobWorkChargesCalculator.breakdownForLoad(
+          load: load,
           output: previewOutput,
         );
         final balanceDue =
-            _parse(_finalChargesController.text) - order.advanceReceived;
-        final wastePct = previewOutput.wastePercent(order.totalTons);
+            _parse(_finalChargesController.text) - load.advanceReceived;
+        final wastePct = previewOutput.wastePercent(load.totalTons);
         final isSaving = state.status == JobWorkOutputStatus.saving;
-        final isEditing = order.output?.isRecorded == true;
+        final isEditing = load.output?.isRecorded == true;
         final usesShiftLogs = _shiftLogs.isNotEmpty;
-        final hasSizes = order.hasAnySize;
+        final hasSizes = load.hasAnySize;
 
         final subtitleParts = <String>[
-          order.jobWorkNumber,
-          if (order.mineLocation != null) order.mineLocation!,
-          if (order.mineOwner != null) order.mineOwner!,
+          load.loadNumber,
+          load.jobWorkNumber,
+          if (load.mineLocation != null) load.mineLocation!,
+          if (load.mineOwner != null) load.mineOwner!,
         ];
 
         return Scaffold(
@@ -414,9 +421,10 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
             child: ListView(
               padding: const EdgeInsets.only(top: 12, bottom: 12),
               children: [
-                if (order.blockCount > 0)
+                if (load.blockCount > 0)
                   JobWorkBlockProgressSection(
-                    order: order.copyWith(shiftLogs: _shiftLogs),
+                    blockCount: load.blockCount,
+                    shiftLogs: _shiftLogs,
                   ),
                 JobWorkDetailSection(
                   title: AppStrings.shiftLogs,
@@ -456,7 +464,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                                     tooltip: AppStrings.editShiftLog,
                                     onPressed: isSaving
                                         ? null
-                                        : () => _editShiftLog(order, shift),
+                                        : () => _editShiftLog(load, shift),
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline),
@@ -474,7 +482,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                       OutlinedButton.icon(
                         onPressed: isSaving || !hasSizes
                             ? null
-                            : () => _addShiftLog(order),
+                            : () => _addShiftLog(load),
                         icon: const Icon(Icons.add),
                         label: const Text(AppStrings.addShiftLog),
                       ),
@@ -691,11 +699,11 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                           setState(() => _chargesManuallyEdited = true);
                         },
                       ),
-                      if (order.advanceReceived > 0) ...[
+                      if (load.advanceReceived > 0) ...[
                         AppFormFields.gap,
                         AppFormSummaryRow(
                           label: AppStrings.advanceReceived,
-                          value: Formatters.currencyPkr(order.advanceReceived),
+                          value: Formatters.currencyPkr(load.advanceReceived),
                         ),
                       ],
                       AppFormFields.gap,
@@ -745,7 +753,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
           bottomNavigationBar: AppFormBottomBar(
             label: AppStrings.saveOutput,
             isLoading: isSaving,
-            onPressed: () => _submit(order),
+            onPressed: () => _submit(load),
           ),
         );
       },

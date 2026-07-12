@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/quality/qc_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/repositories/job_work_load_repository.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../routes/route_paths.dart';
@@ -86,12 +88,23 @@ class QcDetailScreen extends StatelessWidget {
               QcDetailHero(check: check),
               QcReferenceActionBar(
                 referenceType: check.referenceType,
-                onPressed: () {
+                onPressed: () async {
                   if (check.referenceType == QcReferenceType.production) {
                     context.push(RoutePaths.productionDetail(check.referenceId));
-                  } else {
-                    context.push(RoutePaths.jobWorkDetail(check.referenceId));
+                    return;
                   }
+                  if (check.referenceType == QcReferenceType.jobWorkLoad) {
+                    final load = await getIt<JobWorkLoadRepository>()
+                        .getLoad(check.referenceId);
+                    if (!context.mounted) return;
+                    if (load != null) {
+                      context.push(RoutePaths.jobWorkDetail(load.jobWorkId));
+                    } else {
+                      context.push(RoutePaths.jobWork);
+                    }
+                    return;
+                  }
+                  context.push(RoutePaths.jobWorkDetail(check.referenceId));
                 },
               ),
               JobWorkDetailSection(

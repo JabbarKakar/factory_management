@@ -7,6 +7,7 @@ import '../../domain/entities/delivery.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/finished_good.dart';
 import '../../domain/entities/job_work_collection.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/entities/raw_material.dart';
@@ -17,6 +18,7 @@ import '../repositories/delivery_repository.dart';
 import '../repositories/equipment_repository.dart';
 import '../repositories/finished_goods_repository.dart';
 import '../repositories/job_work_collection_repository.dart';
+import '../repositories/job_work_load_repository.dart';
 import '../repositories/job_work_repository.dart';
 import '../repositories/notification_repository.dart';
 import '../repositories/raw_material_repository.dart';
@@ -29,6 +31,7 @@ class OperationalAlertScannerService {
     required EquipmentRepository equipmentRepository,
     required DeliveryRepository deliveryRepository,
     required JobWorkRepository jobWorkRepository,
+    required JobWorkLoadRepository jobWorkLoadRepository,
     required JobWorkCollectionRepository jobWorkCollectionRepository,
     required NotificationRepository notificationRepository,
   })  : _rawMaterialRepository = rawMaterialRepository,
@@ -36,6 +39,7 @@ class OperationalAlertScannerService {
         _equipmentRepository = equipmentRepository,
         _deliveryRepository = deliveryRepository,
         _jobWorkRepository = jobWorkRepository,
+        _jobWorkLoadRepository = jobWorkLoadRepository,
         _jobWorkCollectionRepository = jobWorkCollectionRepository,
         _notificationRepository = notificationRepository;
 
@@ -44,6 +48,7 @@ class OperationalAlertScannerService {
   final EquipmentRepository _equipmentRepository;
   final DeliveryRepository _deliveryRepository;
   final JobWorkRepository _jobWorkRepository;
+  final JobWorkLoadRepository _jobWorkLoadRepository;
   final JobWorkCollectionRepository _jobWorkCollectionRepository;
   final NotificationRepository _notificationRepository;
 
@@ -58,6 +63,8 @@ class OperationalAlertScannerService {
         await _deliveryRepository.watchDeliveries(factoryId).first;
     final jobWorkOrders =
         await _jobWorkRepository.watchJobWorkOrders(factoryId).first;
+    final jobWorkLoads =
+        await _jobWorkLoadRepository.watchLoads(factoryId).first;
     final jobWorkCollections =
         await _jobWorkCollectionRepository.watchCollections(factoryId).first;
 
@@ -143,11 +150,29 @@ class OperationalAlertScannerService {
       }
     }
 
+    final ordersById = {for (final order in jobWorkOrders) order.id: order};
+    for (final load in jobWorkLoads) {
+      if (load.status != JobWorkStatus.ready || load.isVirtual) continue;
+      final order = ordersById[load.jobWorkId];
+      if (order == null) continue;
+      created += await _createIfNew(
+        _jobWorkLoadReadyNotification(order, load),
+      );
+    }
+
     return created;
   }
 
   Future<void> notifyQcReject(QualityCheck check) async {
     if (check.disposition != QcDisposition.reject) return;
+
+    String? jobWorkId;
+    if (check.referenceType == QcReferenceType.jobWork) {
+      jobWorkId = check.referenceId;
+    } else if (check.referenceType == QcReferenceType.jobWorkLoad) {
+      final load = await _jobWorkLoadRepository.getLoad(check.referenceId);
+      jobWorkId = load?.jobWorkId;
+    }
 
     await _createIfNew(
       AppNotification(
@@ -159,16 +184,23 @@ class OperationalAlertScannerService {
         body:
             '${check.referenceType.label} ${check.referenceNumber}: ${check.passRatePercent.toStringAsFixed(1)}% pass rate',
         qualityCheckId: check.id,
-        jobWorkId: check.referenceType == QcReferenceType.jobWork
-            ? check.referenceId
-            : null,
+        jobWorkId: jobWorkId,
         createdAt: DateTime.now(),
         dedupeKey: 'qc_reject_${check.id}',
       ),
     );
   }
 
-  Future<void> notifyJobWorkReady(JobWorkOrder order) async {
+  Future<void> notifyJobWorkReady(
+    JobWorkOrder order, {
+    JobWorkLoad? load,
+  }) async {
+    if (load != null) {
+      if (load.status != JobWorkStatus.ready) return;
+      await _createIfNew(_jobWorkLoadReadyNotification(order, load));
+      return;
+    }
+
     if (order.status != JobWorkStatus.ready) return;
 
     final collections =
@@ -308,6 +340,28 @@ class OperationalAlertScannerService {
       jobWorkId: order.id,
       createdAt: DateTime.now(),
       dedupeKey: 'jw_ready_${order.id}',
+    );
+  }
+
+  AppNotification _jobWorkLoadReadyNotification(
+    JobWorkOrder order,
+    JobWorkLoad load,
+  ) {
+    final loadLabel = load.loadNumber.isEmpty
+        ? 'Load #${load.loadSequence}'
+        : load.loadNumber;
+    return AppNotification(
+      id: '',
+      factoryId: order.factoryId,
+      type: NotificationType.jobWorkReadyForPickup,
+      priority: NotificationPriority.medium,
+      title: '${AppStrings.readyForPickupAlert} — ${order.customerName}',
+      body:
+          '${order.jobWorkNumber} · $loadLabel ${AppStrings.readyForPickupAlertBody}',
+      customerId: order.customerId,
+      jobWorkId: order.id,
+      createdAt: DateTime.now(),
+      dedupeKey: 'jw_load_ready_${load.id}',
     );
   }
 

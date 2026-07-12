@@ -9,6 +9,7 @@ import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
+import '../../data/services/job_work_load_production_helper.dart';
 import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
@@ -147,12 +148,19 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     Emitter<JobWorkListState> emit,
   ) {
     final jobWorkIdsWithQc = _jobWorkIdsWithQc(state.qualityChecks);
+    final loadIdsWithQc = _loadIdsWithQc(state.qualityChecks);
     emit(
       state.copyWith(
         status: JobWorkListStatus.loaded,
         orders: event.orders,
         jobWorkIdsWithQc: jobWorkIdsWithQc,
-        awaitingQcCount: _awaitingQcCount(event.orders, jobWorkIdsWithQc),
+        loadIdsWithQc: loadIdsWithQc,
+        awaitingQcCount: JobWorkLoadProductionHelper.awaitingQcCount(
+          orders: event.orders,
+          loads: state.loads,
+          loadIdsWithQc: loadIdsWithQc,
+          jobWorkIdsWithQc: jobWorkIdsWithQc,
+        ),
         visibleOrders: _applyFilters(
           event.orders,
           query: state.searchQuery,
@@ -180,11 +188,18 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     Emitter<JobWorkListState> emit,
   ) {
     final jobWorkIdsWithQc = _jobWorkIdsWithQc(event.checks);
+    final loadIdsWithQc = _loadIdsWithQc(event.checks);
     emit(
       state.copyWith(
         qualityChecks: event.checks,
         jobWorkIdsWithQc: jobWorkIdsWithQc,
-        awaitingQcCount: _awaitingQcCount(state.orders, jobWorkIdsWithQc),
+        loadIdsWithQc: loadIdsWithQc,
+        awaitingQcCount: JobWorkLoadProductionHelper.awaitingQcCount(
+          orders: state.orders,
+          loads: state.loads,
+          loadIdsWithQc: loadIdsWithQc,
+          jobWorkIdsWithQc: jobWorkIdsWithQc,
+        ),
         visibleOrders: _applyFilters(
           state.orders,
           query: state.searchQuery,
@@ -224,6 +239,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     emit(
       state.copyWith(
         loads: event.loads,
+        awaitingQcCount: JobWorkLoadProductionHelper.awaitingQcCount(
+          orders: state.orders,
+          loads: event.loads,
+          loadIdsWithQc: state.loadIdsWithQc,
+          jobWorkIdsWithQc: state.jobWorkIdsWithQc,
+        ),
         visibleOrders: _applyFilters(
           state.orders,
           query: state.searchQuery,
@@ -242,14 +263,11 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         .toSet();
   }
 
-  int _awaitingQcCount(List<JobWorkOrder> orders, Set<String> jobWorkIdsWithQc) {
-    return orders
-        .where(
-          (order) =>
-              order.status == JobWorkStatus.qc &&
-              !jobWorkIdsWithQc.contains(order.id),
-        )
-        .length;
+  Set<String> _loadIdsWithQc(List<QualityCheck> checks) {
+    return checks
+        .where((check) => check.referenceType == QcReferenceType.jobWorkLoad)
+        .map((check) => check.referenceId)
+        .toSet();
   }
 
   void _onStreamFailed(
