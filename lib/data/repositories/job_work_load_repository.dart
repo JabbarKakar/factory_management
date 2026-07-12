@@ -133,6 +133,13 @@ class JobWorkLoadRepository {
           loads: existing,
         );
       }
+      // Stamp orphan invoices/collections that still lack loadId (Sprint 4).
+      await _backfillChildLoadIds(
+        factoryId: order.factoryId,
+        jobWorkId: jobWorkId,
+        loadId: preferred.id,
+        loadNumber: preferred.loadNumber,
+      );
       return preferred;
     }
 

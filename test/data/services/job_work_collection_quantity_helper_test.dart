@@ -1,5 +1,6 @@
 import 'package:factory_management/data/services/job_work_collection_quantity_helper.dart';
 import 'package:factory_management/domain/entities/job_work_collection.dart';
+import 'package:factory_management/domain/entities/job_work_load.dart';
 import 'package:factory_management/domain/entities/job_work_order.dart';
 import 'package:factory_management/domain/entities/job_work_output.dart';
 import 'package:factory_management/domain/entities/stock_output.dart';
@@ -243,6 +244,145 @@ void main() {
           reference: DateTime(2026, 7, 13),
         ),
         isTrue,
+      );
+    });
+
+    test('remaining and collect eligibility are scoped per Load', () {
+      final loadA = JobWorkLoad.fromLegacyOrder(
+        buildOrder(status: JobWorkStatus.ready, output: null),
+        id: 'load-a',
+        loadNumber: 'JWL-A',
+        loadSequence: 1,
+      ).copyWith(
+        status: JobWorkStatus.ready,
+        output: JobWorkOutput(
+          smallStockOutputs: const [
+            StockOutput(size: '12x12', pieces: 100, squareFeet: 100),
+          ],
+          recordedAt: DateTime(2026, 6, 1),
+        ),
+      );
+      final loadB = JobWorkLoad.fromLegacyOrder(
+        buildOrder(status: JobWorkStatus.ready, output: null),
+        id: 'load-b',
+        loadNumber: 'JWL-B',
+        loadSequence: 2,
+      ).copyWith(
+        status: JobWorkStatus.ready,
+        output: JobWorkOutput(
+          smallStockOutputs: const [
+            StockOutput(size: '12x12', pieces: 50, squareFeet: 50),
+          ],
+          recordedAt: DateTime(2026, 6, 1),
+        ),
+      );
+
+      final collections = [
+        buildCollection(
+          lineItems: const [
+            JobWorkCollectionLineItem(
+              size: '12x12',
+              pieces: 40,
+              squareFeet: 40,
+            ),
+          ],
+        ).copyWith(loadId: 'load-a', loadNumber: 'JWL-A'),
+      ];
+
+      final totalsA =
+          JobWorkCollectionQuantityHelper.loadTotals(loadA, collections);
+      expect(totalsA.collectedPieces, 40);
+      expect(totalsA.remainingPieces, 60);
+
+      final totalsB =
+          JobWorkCollectionQuantityHelper.loadTotals(loadB, collections);
+      expect(totalsB.collectedPieces, 0);
+      expect(totalsB.remainingPieces, 50);
+
+      expect(
+        JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+          loadA,
+          collections,
+        ),
+        isTrue,
+      );
+      expect(
+        JobWorkCollectionQuantityHelper.isPendingPickupForOrder(
+          order: buildOrder(status: JobWorkStatus.ready),
+          collections: collections,
+          loads: [loadA, loadB],
+        ),
+        isTrue,
+      );
+
+      final fullyA = [
+        collections.first.copyWith(
+          lineItems: const [
+            JobWorkCollectionLineItem(
+              size: '12x12',
+              pieces: 100,
+              squareFeet: 100,
+            ),
+          ],
+        ),
+      ];
+      expect(
+        JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+          loadA,
+          fullyA,
+        ),
+        isFalse,
+      );
+      expect(
+        JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+          loadB,
+          fullyA,
+        ),
+        isTrue,
+      );
+    });
+
+    test('displayStatusForOrder prefers Load collection statuses', () {
+      final order = buildOrder(status: JobWorkStatus.ready);
+      final readyLoad = JobWorkLoad.fromLegacyOrder(
+        order,
+        id: 'load-ready',
+        loadNumber: 'JWL-R',
+        loadSequence: 1,
+      ).copyWith(status: JobWorkStatus.ready);
+      final partialLoad = JobWorkLoad.fromLegacyOrder(
+        order,
+        id: 'load-partial',
+        loadNumber: 'JWL-P',
+        loadSequence: 2,
+      ).copyWith(status: JobWorkStatus.partiallyCollected);
+
+      expect(
+        JobWorkCollectionQuantityHelper.displayStatusForOrder(
+          order: order,
+          loads: [readyLoad, partialLoad],
+        ),
+        JobWorkStatus.partiallyCollected,
+      );
+
+      final collectedLoads = [
+        readyLoad.copyWith(status: JobWorkStatus.collected),
+        partialLoad.copyWith(status: JobWorkStatus.collected),
+      ];
+      expect(
+        JobWorkCollectionQuantityHelper.displayStatusForOrder(
+          order: order,
+          loads: collectedLoads,
+        ),
+        JobWorkStatus.collected,
+      );
+
+      expect(
+        JobWorkCollectionQuantityHelper.displayStatusForOrder(
+          order: order,
+          loads: const [],
+        ),
+        JobWorkStatus.ready,
       );
     });
   });

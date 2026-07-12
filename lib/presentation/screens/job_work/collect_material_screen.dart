@@ -12,9 +12,14 @@ import '../../widgets/job_work/collect_material_recording_panel.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 
 class CollectMaterialScreen extends StatefulWidget {
-  const CollectMaterialScreen({required this.jobWorkId, super.key});
+  const CollectMaterialScreen({
+    required this.jobWorkId,
+    this.loadId,
+    super.key,
+  });
 
   final String jobWorkId;
+  final String? loadId;
 
   @override
   State<CollectMaterialScreen> createState() => _CollectMaterialScreenState();
@@ -35,13 +40,13 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
   }
 
   void _ensureController(JobWorkCollectionFormState state) {
-    if (_stockController != null || state.order == null) return;
-    final remaining = JobWorkCollectionQuantityHelper.remainingLines(
-      state.order!,
+    if (_stockController != null || state.load == null) return;
+    final remaining = JobWorkCollectionQuantityHelper.remainingLinesForLoad(
+      state.load!,
       state.collections,
     );
-    final totals = JobWorkCollectionQuantityHelper.orderTotals(
-      state.order!,
+    final totals = JobWorkCollectionQuantityHelper.loadTotals(
+      state.load!,
       state.collections,
     );
     _stockController = CollectMaterialFormController.fromRemainingLines(
@@ -151,12 +156,21 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
 
         _ensureController(state);
         final isSaving = state.status == JobWorkCollectionFormStatus.saving;
+        final load = state.load;
+        final loadLabel = load == null
+            ? null
+            : (load.loadNumber.isEmpty
+                ? '${AppStrings.load} #${load.loadSequence}'
+                : load.loadNumber);
+        final subtitle = loadLabel == null
+            ? '${order.jobWorkNumber} · ${order.customerName}'
+            : '${order.jobWorkNumber} · $loadLabel · ${order.customerName}';
 
         return Scaffold(
           appBar: AppBar(
             title: AppFormAppBarTitle(
               title: AppStrings.collectMaterial,
-              subtitle: '${order.jobWorkNumber} · ${order.customerName}',
+              subtitle: subtitle,
             ),
           ),
           body: ListView(

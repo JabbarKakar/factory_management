@@ -1,6 +1,7 @@
 import 'package:factory_management/data/services/job_work_collection_quantity_helper.dart';
 import 'package:factory_management/data/services/job_work_collection_status_helper.dart';
 import 'package:factory_management/domain/entities/job_work_collection.dart';
+import 'package:factory_management/domain/entities/job_work_load.dart';
 import 'package:factory_management/domain/entities/job_work_order.dart';
 import 'package:factory_management/domain/entities/job_work_output.dart';
 import 'package:factory_management/domain/entities/stock_output.dart';
@@ -157,6 +158,50 @@ void main() {
           [buildCollection(pieces: 40)],
         ),
         isTrue,
+      );
+    });
+  });
+
+  group('resolveTargetStatusForLoad', () {
+    test('ready + partial → partiallyCollected on Load only', () {
+      final load = JobWorkLoad.fromLegacyOrder(
+        buildOrder(status: JobWorkStatus.ready, output: output),
+        id: 'load-1',
+        loadNumber: 'JWL-1',
+      ).copyWith(status: JobWorkStatus.ready, output: output);
+
+      expect(
+        JobWorkCollectionStatusHelper.resolveTargetStatusForLoad(
+          load: load,
+          collections: [
+            buildCollection(pieces: 40).copyWith(
+              loadId: 'load-1',
+              loadNumber: 'JWL-1',
+            ),
+          ],
+        ),
+        JobWorkStatus.partiallyCollected,
+      );
+    });
+
+    test('ready + full → collected on Load', () {
+      final load = JobWorkLoad.fromLegacyOrder(
+        buildOrder(status: JobWorkStatus.ready, output: output),
+        id: 'load-1',
+        loadNumber: 'JWL-1',
+      ).copyWith(status: JobWorkStatus.ready, output: output);
+
+      expect(
+        JobWorkCollectionStatusHelper.resolveTargetStatusForLoad(
+          load: load,
+          collections: [
+            buildCollection(pieces: 100).copyWith(
+              loadId: 'load-1',
+              loadNumber: 'JWL-1',
+            ),
+          ],
+        ),
+        JobWorkStatus.collected,
       );
     });
   });

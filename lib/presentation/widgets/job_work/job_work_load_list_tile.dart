@@ -15,6 +15,7 @@ class JobWorkLoadListTile extends StatelessWidget {
     this.onAdvanceStatus,
     this.onAdvanceCompletion,
     this.onRecordQc,
+    this.onCollectMaterial,
     this.isBusy = false,
     super.key,
   });
@@ -25,6 +26,7 @@ class JobWorkLoadListTile extends StatelessWidget {
   final ValueChanged<JobWorkStatus>? onAdvanceStatus;
   final ValueChanged<JobWorkStatus>? onAdvanceCompletion;
   final VoidCallback? onRecordQc;
+  final VoidCallback? onCollectMaterial;
   final bool isBusy;
 
   @override
@@ -42,7 +44,9 @@ class JobWorkLoadListTile extends StatelessWidget {
     final canRecord = onRecordOutput != null && load.status.canRecordOutput;
     final hasOutput = load.output?.isRecorded == true;
     final canQc = onRecordQc != null && hasOutput;
-    final hasActions = canAdvance || canClose || canRecord || canQc;
+    final canCollect = onCollectMaterial != null;
+    final hasActions =
+        canAdvance || canClose || canRecord || canQc || canCollect;
 
     return Material(
       color: Colors.transparent,
@@ -132,6 +136,12 @@ class JobWorkLoadListTile extends StatelessWidget {
                         onPressed: isBusy ? null : onRecordQc,
                         icon: const Icon(Icons.verified_outlined, size: 16),
                         label: const Text(AppStrings.recordQcInspection),
+                      ),
+                    if (canCollect)
+                      OutlinedButton.icon(
+                        onPressed: isBusy ? null : onCollectMaterial,
+                        icon: const Icon(Icons.handshake_outlined, size: 16),
+                        label: const Text(AppStrings.collectMaterial),
                       ),
                     if (canClose)
                       OutlinedButton(

@@ -45,6 +45,12 @@ abstract final class RoutePaths {
   static String jobWorkCollectMaterial(String id) =>
       '/job-work/$id/collect-material';
 
+  static String jobWorkLoadCollectMaterial({
+    required String jobWorkId,
+    required String loadId,
+  }) =>
+      '/job-work/$jobWorkId/loads/$loadId/collect-material';
+
   static String jobWorkCollectionSlip(String collectionId) =>
       '/job-work/collections/$collectionId/slip';
 

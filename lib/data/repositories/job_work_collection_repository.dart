@@ -3,10 +3,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/utils/stock_output_calculator.dart';
 import '../../domain/entities/job_work_collection.dart';
-import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/enums/job_work_collection_enums.dart';
 import '../models/job_work_collection_model.dart';
 import '../services/job_work_collection_quantity_helper.dart';
+import '../services/job_work_collection_status_helper.dart';
+import 'job_work_load_repository.dart';
 import 'job_work_repository.dart';
 
 class JobWorkCollectionException implements Exception {
@@ -22,12 +24,19 @@ class JobWorkCollectionRepository {
   JobWorkCollectionRepository({
     FirebaseFirestore? firestore,
     JobWorkRepository? jobWorkRepository,
+    JobWorkLoadRepository? loadRepository,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _jobWorkRepository =
-            jobWorkRepository ?? JobWorkRepository(firestore: firestore);
+            jobWorkRepository ?? JobWorkRepository(firestore: firestore),
+        _loadRepository = loadRepository ??
+            JobWorkLoadRepository(
+              firestore: firestore,
+              jobWorkRepository: jobWorkRepository,
+            );
 
   final FirebaseFirestore _firestore;
   final JobWorkRepository _jobWorkRepository;
+  final JobWorkLoadRepository _loadRepository;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
@@ -89,10 +98,14 @@ class JobWorkCollectionRepository {
   }
 
   /// One-step Collect Material: creates a collected record with quantities.
+  ///
+  /// Sprint 4: always stamps [loadId]/[loadNumber]. When [loadId] is omitted,
+  /// resolves/creates the default Load (and backfills orphan collections).
   Future<JobWorkCollection> recordCollection({
     required String jobWorkOrderId,
     required DateTime collectedAt,
     required List<JobWorkCollectionLineItem> lineItems,
+    String? loadId,
     String? receiverName,
     String? notes,
   }) async {
@@ -100,10 +113,15 @@ class JobWorkCollectionRepository {
     if (order == null) {
       throw const JobWorkCollectionException('Job work order not found.');
     }
-    if (!order.status.canCollectMaterial) {
+
+    final load = await _resolveLoadForCollection(
+      jobWorkOrderId: order.id,
+      loadId: loadId,
+    );
+    if (!load.status.canCollectMaterial) {
       throw const JobWorkCollectionException(
         'Material can only be collected after cutting has started, '
-        'and not after the order is fully collected or closed.',
+        'and not after the load is fully collected or closed.',
       );
     }
 
@@ -118,8 +136,8 @@ class JobWorkCollectionRepository {
       factoryId: order.factoryId,
       jobWorkOrderId: order.id,
     );
-    _validateAgainstRemaining(
-      order: order,
+    _validateAgainstRemainingForLoad(
+      load: load,
       lineItems: normalized,
       existingCollections: existing,
     );
@@ -134,6 +152,8 @@ class JobWorkCollectionRepository {
       jobWorkNumber: order.jobWorkNumber,
       customerId: order.customerId,
       customerName: order.customerName,
+      loadId: load.id,
+      loadNumber: load.loadNumber,
       collectedAt: collectedAt,
       status: JobWorkCollectionStatus.collected,
       lineItems: normalized,
@@ -146,9 +166,56 @@ class JobWorkCollectionRepository {
 
     final model = JobWorkCollectionModel.fromEntity(record);
     await _collection.doc(id).set(model.toFirestore(isCreate: true));
-    await _jobWorkRepository.syncCollectionDerivedStatus(order.id);
+    await _syncLoadCollectionDerivedStatus(load.id);
     final created = await getCollection(id);
     return created ?? record;
+  }
+
+  Future<JobWorkLoad> _resolveLoadForCollection({
+    required String jobWorkOrderId,
+    String? loadId,
+  }) async {
+    if (loadId != null && loadId.isNotEmpty) {
+      final load = await _loadRepository.getLoad(loadId);
+      if (load == null) {
+        throw const JobWorkCollectionException('Load not found.');
+      }
+      if (load.jobWorkId != jobWorkOrderId) {
+        throw const JobWorkCollectionException(
+          'Load does not belong to this job work order.',
+        );
+      }
+      if (load.isVirtual) {
+        throw const JobWorkCollectionException(
+          'Cannot collect material on a virtual load.',
+        );
+      }
+      return load;
+    }
+
+    try {
+      return await _loadRepository.ensureDefaultLoad(jobWorkOrderId);
+    } on JobWorkLoadException catch (error) {
+      throw JobWorkCollectionException(error.message);
+    }
+  }
+
+  Future<void> _syncLoadCollectionDerivedStatus(String loadId) async {
+    final load = await _loadRepository.getLoad(loadId);
+    if (load == null) return;
+
+    final collections = await fetchCollectionsForJobWork(
+      factoryId: load.factoryId,
+      jobWorkOrderId: load.jobWorkId,
+    );
+    final targetStatus =
+        JobWorkCollectionStatusHelper.resolveTargetStatusForLoad(
+      load: load,
+      collections: collections,
+    );
+    if (targetStatus == null || targetStatus == load.status) return;
+
+    await _loadRepository.updateLoad(load.copyWith(status: targetStatus));
   }
 
   List<JobWorkCollectionLineItem> _normalizeLineItems(
@@ -171,14 +238,14 @@ class JobWorkCollectionRepository {
     return normalized;
   }
 
-  void _validateAgainstRemaining({
-    required JobWorkOrder order,
+  void _validateAgainstRemainingForLoad({
+    required JobWorkLoad load,
     required List<JobWorkCollectionLineItem> lineItems,
     required List<JobWorkCollection> existingCollections,
   }) {
     final remainingBySize = {
-      for (final line in JobWorkCollectionQuantityHelper.remainingLines(
-        order,
+      for (final line in JobWorkCollectionQuantityHelper.remainingLinesForLoad(
+        load,
         existingCollections,
       ))
         line.size: line,

@@ -302,18 +302,24 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         collections,
       );
       if (stageFilter == JobWorkListStageFilter.pendingPickup) {
-        if (!JobWorkCollectionQuantityHelper.isPendingPickup(
-          order,
-          orderCollections,
+        if (!JobWorkCollectionQuantityHelper.isPendingPickupForOrder(
+          order: order,
+          collections: collections,
+          loads: loads,
         )) {
           return false;
         }
       } else if (stageFilter == JobWorkListStageFilter.partiallyCollected) {
-        final totals = JobWorkCollectionQuantityHelper.orderTotals(
-          order,
-          orderCollections,
+        final orderLoads = loadsByJobWorkId[order.id] ?? const [];
+        final totals = JobWorkCollectionQuantityHelper.aggregateTotals(
+          order: order,
+          collections: collections,
+          loads: loads,
         );
         final isPartial = order.status == JobWorkStatus.partiallyCollected ||
+            orderLoads.any(
+              (load) => load.status == JobWorkStatus.partiallyCollected,
+            ) ||
             (totals.hasCollections && !totals.isFullyCollected);
         if (!isPartial) return false;
       } else if (!stageFilter.matches(order.status)) {

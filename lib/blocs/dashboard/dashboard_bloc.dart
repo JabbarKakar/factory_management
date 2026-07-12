@@ -418,11 +418,11 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _salesOrders.where((order) => order.status.isActive).length;
 
     final pendingPickups = _orders.where((order) {
-      final collections = JobWorkCollectionQuantityHelper.collectionsForOrder(
-        order.id,
-        _jobWorkCollections,
+      return JobWorkCollectionQuantityHelper.isPendingPickupForOrder(
+        order: order,
+        collections: _jobWorkCollections,
+        loads: _jobWorkLoads,
       );
-      return JobWorkCollectionQuantityHelper.isPendingPickup(order, collections);
     }).toList()
       ..sort((a, b) {
         final rankCompare = a.status.listSortRank.compareTo(b.status.listSortRank);
@@ -433,25 +433,26 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
     final partiallyCollectedOrdersCount = _orders.where((order) {
       if (order.status == JobWorkStatus.partiallyCollected) return true;
-      final collections = JobWorkCollectionQuantityHelper.collectionsForOrder(
-        order.id,
-        _jobWorkCollections,
-      );
-      final totals = JobWorkCollectionQuantityHelper.orderTotals(
-        order,
-        collections,
+      final orderLoads =
+          _jobWorkLoads.where((load) => load.jobWorkId == order.id).toList();
+      if (orderLoads.any(
+        (load) => load.status == JobWorkStatus.partiallyCollected,
+      )) {
+        return true;
+      }
+      final totals = JobWorkCollectionQuantityHelper.aggregateTotals(
+        order: order,
+        collections: _jobWorkCollections,
+        loads: _jobWorkLoads,
       );
       return totals.hasCollections && !totals.isFullyCollected;
     }).length;
 
     final stalePickupCount = _orders.where((order) {
-      final collections = JobWorkCollectionQuantityHelper.collectionsForOrder(
-        order.id,
-        _jobWorkCollections,
-      );
-      return JobWorkCollectionQuantityHelper.isPickupOverdue(
-        order,
-        collections,
+      return JobWorkCollectionQuantityHelper.isPickupOverdueForOrder(
+        order: order,
+        collections: _jobWorkCollections,
+        loads: _jobWorkLoads,
         reference: today,
       );
     }).length;

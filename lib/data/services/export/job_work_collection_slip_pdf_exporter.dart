@@ -46,6 +46,13 @@ class JobWorkCollectionSlipPdfExporter {
             AppStrings.jobWorkNumber,
             Formatters.textForExport(collection.jobWorkNumber),
           ),
+          if (collection.loadNumber != null &&
+              collection.loadNumber!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.load,
+              Formatters.textForExport(collection.loadNumber!),
+            ),
           PdfDocumentTheme.summaryRow(
             fonts,
             AppStrings.collectionDate,

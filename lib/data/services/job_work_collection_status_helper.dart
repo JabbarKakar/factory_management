@@ -1,9 +1,10 @@
 import '../../domain/entities/job_work_collection.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/enums/job_work_enums.dart';
 import 'job_work_collection_quantity_helper.dart';
 
-/// Derives automated job-work collection statuses from collected quantities.
+/// Derives automated collection statuses from collected quantities.
 ///
 /// Production statuses ([JobWorkStatus.inCutting], [JobWorkStatus.qc]) are
 /// protected so early pickups do not skip cutting/QC. From ready onward,
@@ -28,13 +29,31 @@ abstract final class JobWorkCollectionStatusHelper {
     required JobWorkOrder order,
     required List<JobWorkCollection> collections,
   }) {
-    final current = order.status;
-    if (isProtectedFromCollectionSync(current)) return null;
-
-    final totals = JobWorkCollectionQuantityHelper.orderTotals(
-      order,
-      collections,
+    return _resolveTargetStatus(
+      current: order.status,
+      totals: JobWorkCollectionQuantityHelper.orderTotals(order, collections),
+      hasInvoice: order.invoiceId != null && order.invoiceId!.isNotEmpty,
     );
+  }
+
+  /// Returns the status the Load should have, or `null` when unchanged.
+  static JobWorkStatus? resolveTargetStatusForLoad({
+    required JobWorkLoad load,
+    required List<JobWorkCollection> collections,
+  }) {
+    return _resolveTargetStatus(
+      current: load.status,
+      totals: JobWorkCollectionQuantityHelper.loadTotals(load, collections),
+      hasInvoice: load.invoiceId != null && load.invoiceId!.isNotEmpty,
+    );
+  }
+
+  static JobWorkStatus? _resolveTargetStatus({
+    required JobWorkStatus current,
+    required JobWorkCollectionTotals totals,
+    required bool hasInvoice,
+  }) {
+    if (isProtectedFromCollectionSync(current)) return null;
     if (!totals.hasProducedStock) return null;
 
     if (totals.isFullyCollected) {
@@ -49,20 +68,11 @@ abstract final class JobWorkCollectionStatusHelper {
           : JobWorkStatus.partiallyCollected;
     }
 
-    // Collections removed / cancelled — leave collection statuses.
     if (current == JobWorkStatus.partiallyCollected ||
         current == JobWorkStatus.collected) {
-      return _fallbackWithoutCollections(order);
+      return hasInvoice ? JobWorkStatus.ready : JobWorkStatus.ready;
     }
 
     return null;
-  }
-
-  static JobWorkStatus _fallbackWithoutCollections(JobWorkOrder order) {
-    final hasInvoice =
-        order.invoiceId != null && order.invoiceId!.isNotEmpty;
-    if (!hasInvoice) return JobWorkStatus.ready;
-    // Prefer ready so invoice/payment flows can re-derive financial status.
-    return JobWorkStatus.ready;
   }
 }

@@ -72,6 +72,23 @@ class JobWorkDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _openCollectMaterialForLoad(
+    BuildContext context,
+    String loadId,
+  ) async {
+    final saved = await context.push<bool>(
+      RoutePaths.jobWorkLoadCollectMaterial(
+        jobWorkId: jobWorkId,
+        loadId: loadId,
+      ),
+    );
+    if (saved == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
+
   Future<void> _openRecordOutput(BuildContext context) async {
     final saved = await context.push<bool>(
       RoutePaths.jobWorkRecordOutput(jobWorkId),
@@ -231,20 +248,24 @@ class JobWorkDetailScreen extends StatelessWidget {
         final canRecordOutput = !hasLoads &&
             order.status.canRecordOutput &&
             canEditJobWork;
-        final canCollectMaterial =
+        // Collect lives on Loads when any Load exists (Sprint 4).
+        final canCollectMaterial = !hasLoads &&
             canEditJobWork &&
-                JobWorkCollectionQuantityHelper.canOpenCollectMaterial(
-                  order,
-                  state.collections,
-                );
-        final collectionTotals = JobWorkCollectionQuantityHelper.orderTotals(
-          order,
-          state.collections,
+            JobWorkCollectionQuantityHelper.canOpenCollectMaterial(
+              order,
+              state.collections,
+            );
+        final collectionTotals =
+            JobWorkCollectionQuantityHelper.aggregateTotals(
+          order: order,
+          collections: state.collections,
+          loads: state.loads,
         );
         final isPickupOverdue =
-            JobWorkCollectionQuantityHelper.isPickupOverdue(
-          order,
-          state.collections,
+            JobWorkCollectionQuantityHelper.isPickupOverdueForOrder(
+          order: order,
+          collections: state.collections,
+          loads: state.loads,
         );
         final showCollectionSection = collectionTotals.hasProducedStock ||
             state.collections.isNotEmpty ||
@@ -401,6 +422,17 @@ class JobWorkDetailScreen extends StatelessWidget {
                                   !load.isVirtual &&
                                   load.output?.isRecorded == true
                               ? () => _openQcForLoad(context, load.id)
+                              : null,
+                          onCollectMaterial: canEditJobWork &&
+                                  JobWorkCollectionQuantityHelper
+                                      .canOpenCollectMaterialForLoad(
+                                    load,
+                                    state.collections,
+                                  )
+                              ? () => _openCollectMaterialForLoad(
+                                    context,
+                                    load.id,
+                                  )
                               : null,
                         ),
                         if (load != state.loads.last) const Divider(height: 1),
@@ -923,7 +955,12 @@ class _CollectionHistoryRow extends StatelessWidget {
           children: [
             const SizedBox(height: 2),
             Text(
-              dateLabel,
+              [
+                dateLabel,
+                if (collection.loadNumber != null &&
+                    collection.loadNumber!.isNotEmpty)
+                  collection.loadNumber!,
+              ].join(' · '),
               style: theme.textTheme.labelSmall?.copyWith(
                 color: muted,
                 fontSize: 11,

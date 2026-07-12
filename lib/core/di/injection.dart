@@ -113,6 +113,7 @@ void setupDependencies() {
   getIt.registerLazySingleton<JobWorkCollectionRepository>(
     () => JobWorkCollectionRepository(
       jobWorkRepository: getIt<JobWorkRepository>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
     ),
   );
   getIt.registerLazySingleton<SalesOrderRepository>(SalesOrderRepository.new);
@@ -367,6 +368,7 @@ void setupDependencies() {
     () => JobWorkCollectionFormBloc(
       jobWorkRepository: getIt<JobWorkRepository>(),
       collectionRepository: getIt<JobWorkCollectionRepository>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
     ),
   );
   getIt.registerFactory<JobWorkInvoiceBloc>(

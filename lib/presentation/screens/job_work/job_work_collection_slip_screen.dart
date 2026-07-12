@@ -95,6 +95,12 @@ class _JobWorkCollectionSlipScreenState
                         label: AppStrings.jobWorkNumber,
                         value: collection.jobWorkNumber,
                       ),
+                      if (collection.loadNumber != null &&
+                          collection.loadNumber!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.load,
+                          value: collection.loadNumber!,
+                        ),
                       _SlipRow(
                         label: AppStrings.customers,
                         value: collection.customerName,

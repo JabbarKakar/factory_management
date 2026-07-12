@@ -1423,6 +1423,28 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                         },
                       ),
                       GoRoute(
+                        path: 'loads/:loadId/collect-material',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          final loadId = state.pathParameters['loadId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkCollectionFormBloc>()
+                              ..add(
+                                JobWorkCollectionFormInitialized(
+                                  jobWorkOrderId: jobWorkId,
+                                  loadId: loadId,
+                                ),
+                              ),
+                            child: CollectMaterialScreen(
+                              jobWorkId: jobWorkId,
+                              loadId: loadId,
+                            ),
+                          );
+                        },
+                      ),
+                      GoRoute(
                         path: 'collect-material',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {

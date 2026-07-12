@@ -13,6 +13,7 @@ class JobWorkListTile extends StatelessWidget {
   const JobWorkListTile({
     required this.order,
     required this.onTap,
+    this.displayStatus,
     this.menuActions = const [],
     this.isBusy = false,
     this.awaitingQcInspection = false,
@@ -26,6 +27,8 @@ class JobWorkListTile extends StatelessWidget {
 
   final JobWorkOrder order;
   final VoidCallback onTap;
+  /// When Loads are authoritative, list status may differ from [order.status].
+  final JobWorkStatus? displayStatus;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
   final bool awaitingQcInspection;
@@ -41,12 +44,15 @@ class JobWorkListTile extends StatelessWidget {
   bool get _showRemainingStrip =>
       remainingPieces != null && remainingPieces! > 0;
 
+  JobWorkStatus get _status => displayStatus ?? order.status;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final isListMuted = order.status.isListMuted;
-    final accent = _accentFor(order.status);
+    final status = _status;
+    final isListMuted = status.isListMuted;
+    final accent = _accentFor(status);
     final isDark = theme.brightness == Brightness.dark;
     final outline =
         theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.45);
@@ -110,7 +116,7 @@ class JobWorkListTile extends StatelessWidget {
                                   ),
                                 ),
                                 JobWorkStatusBadge(
-                                  status: order.status,
+                                  status: status,
                                   compact: true,
                                 ),
                                 if (isPickupOverdue) ...[

@@ -453,10 +453,17 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                         order.id,
                         state.collections,
                       );
+                      final orderLoads = state.loadsForOrder(order.id);
                       final totals =
-                          JobWorkCollectionQuantityHelper.orderTotals(
-                        order,
-                        orderCollections,
+                          JobWorkCollectionQuantityHelper.aggregateTotals(
+                        order: order,
+                        collections: state.collections,
+                        loads: state.loads,
+                      );
+                      final displayStatus =
+                          JobWorkCollectionQuantityHelper.displayStatusForOrder(
+                        order: order,
+                        loads: orderLoads,
                       );
                       String? lastReceiver;
                       DateTime? latestReceiverAt;
@@ -471,13 +478,15 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                       }
                       return JobWorkListTile(
                         order: order,
+                        displayStatus: displayStatus,
                         awaitingQcInspection:
                             state.isAwaitingQcInspection(order),
                         isBusy: _busyJobWorkId == order.id,
-                        isPickupOverdue:
-                            JobWorkCollectionQuantityHelper.isPickupOverdue(
-                          order,
-                          orderCollections,
+                        isPickupOverdue: JobWorkCollectionQuantityHelper
+                            .isPickupOverdueForOrder(
+                          order: order,
+                          collections: state.collections,
+                          loads: state.loads,
                         ),
                         remainingPieces: totals.remainingPieces > 0
                             ? totals.remainingPieces
@@ -489,7 +498,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                           order,
                           canEdit: canEdit,
                           canDelete: canDelete,
-                          loads: state.loadsForOrder(order.id),
+                          loads: orderLoads,
                         ),
                         onTap: () => context.push(
                           RoutePaths.jobWorkDetail(order.id),
