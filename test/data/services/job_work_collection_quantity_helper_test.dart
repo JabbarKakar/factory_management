@@ -385,5 +385,44 @@ void main() {
         JobWorkStatus.ready,
       );
     });
+
+    test('zero remaining pieces clears sq.ft rounding dust', () {
+      final dustOutput = JobWorkOutput(
+        smallStockOutputs: const [
+          StockOutput(size: '4x24', pieces: 270, squareFeet: 180.01),
+        ],
+        recordedAt: DateTime(2026, 6, 1),
+      );
+      final order = buildOrder(output: dustOutput);
+      final collections = [
+        buildCollection(
+          lineItems: const [
+            // Recomputed sq.ft from pieces leaves 0.01 against produced 180.01.
+            JobWorkCollectionLineItem(
+              size: '4x24',
+              pieces: 270,
+              squareFeet: 180.00,
+            ),
+          ],
+        ),
+      ];
+
+      final totals =
+          JobWorkCollectionQuantityHelper.orderTotals(order, collections);
+      expect(totals.remainingPieces, 0);
+      expect(totals.remainingSquareFeet, 0);
+      expect(totals.isFullyCollected, isTrue);
+      expect(
+        JobWorkCollectionQuantityHelper.remainingLines(order, collections),
+        isEmpty,
+      );
+      expect(
+        JobWorkCollectionQuantityHelper.canOpenCollectMaterial(
+          order,
+          collections,
+        ),
+        isFalse,
+      );
+    });
   });
 }

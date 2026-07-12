@@ -6,18 +6,17 @@ import 'job_work_collection_quantity_helper.dart';
 
 /// Derives automated collection statuses from collected quantities.
 ///
-/// Production statuses ([JobWorkStatus.inCutting], [JobWorkStatus.qc]) are
-/// protected so early pickups do not skip cutting/QC. From ready onward,
-/// partial pickups become [JobWorkStatus.partiallyCollected] and full pickup
-/// becomes [JobWorkStatus.collected].
+/// Early statuses without production ([JobWorkStatus.received],
+/// [JobWorkStatus.agreed]) stay protected. Once cutting has started and stock
+/// is produced, partial pickups become [JobWorkStatus.partiallyCollected] and
+/// full pickup becomes [JobWorkStatus.collected] — including from
+/// [JobWorkStatus.inCutting] / [JobWorkStatus.qc].
 abstract final class JobWorkCollectionStatusHelper {
   static bool isProtectedFromCollectionSync(JobWorkStatus status) {
     return status == JobWorkStatus.cancelled ||
         status == JobWorkStatus.closed ||
         status == JobWorkStatus.received ||
-        status == JobWorkStatus.agreed ||
-        status == JobWorkStatus.inCutting ||
-        status == JobWorkStatus.qc;
+        status == JobWorkStatus.agreed;
   }
 
   static bool canCollectMaterial(JobWorkStatus status) {

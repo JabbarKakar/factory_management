@@ -171,6 +171,10 @@ class JobWorkCollectionRepository {
     return created ?? record;
   }
 
+  /// Re-applies collection-derived Load status (heals rounding dust leftovers).
+  Future<void> syncLoadCollectionDerivedStatus(String loadId) =>
+      _syncLoadCollectionDerivedStatus(loadId);
+
   Future<JobWorkLoad> _resolveLoadForCollection({
     required String jobWorkOrderId,
     String? loadId,
@@ -229,11 +233,11 @@ class JobWorkCollectionRepository {
         pieces: item.pieces,
         pricePerSqFt: 0,
       );
-      normalized.add(
-        item.copyWith(
-          squareFeet: computed.squareFeet,
-        ),
-      );
+      // Prefer provided sq.ft (full remaining pickup clears rounding dust).
+      final squareFeet = item.squareFeet > 0
+          ? double.parse(item.squareFeet.toStringAsFixed(2))
+          : computed.squareFeet;
+      normalized.add(item.copyWith(squareFeet: squareFeet));
     }
     return normalized;
   }

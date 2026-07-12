@@ -42,14 +42,22 @@ class CollectMaterialRow {
     );
   }
 
-  double get collectSquareFeet => outputForPieces(collectPieces).squareFeet;
+  double get collectSquareFeet {
+    if (collectPieces <= 0) return 0;
+    // Full piece pickup clears stored sq.ft dust from 2-decimal rounding.
+    if (collectPieces >= maxRemainingPieces) {
+      return maxRemainingSquareFeet;
+    }
+    return outputForPieces(collectPieces).squareFeet;
+  }
 
   int get remainingPiecesAfterCollect =>
       math.max(0, maxRemainingPieces - collectPieces);
 
-  double get remainingSquareFeetAfterCollect => math.max(
-        0,
-        maxRemainingSquareFeet - collectSquareFeet,
+  double get remainingSquareFeetAfterCollect =>
+      JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
+        remainingPieces: remainingPiecesAfterCollect,
+        rawSquareFeet: maxRemainingSquareFeet - collectSquareFeet,
       );
 
   bool get hasCollectQuantity => collectPieces > 0;
@@ -81,7 +89,9 @@ class CollectMaterialFormController extends ChangeNotifier {
     final rows = remainingLines
         .where(
           (line) =>
-              line.remainingPieces > 0 || line.remainingSquareFeet > 0,
+              line.remainingPieces > 0 ||
+              line.remainingSquareFeet >
+                  JobWorkCollectionTotals.squareFeetEpsilon,
         )
         .map(
           (line) => CollectMaterialRow(
@@ -128,9 +138,10 @@ class CollectMaterialFormController extends ChangeNotifier {
   double remainingSquareFeetAfterCollect(double collectSquareFeet) {
     final totals = orderTotals;
     if (totals == null) return 0;
-    return math.max(
-      0,
-      totals.totalSquareFeet - totals.collectedSquareFeet - collectSquareFeet,
+    return JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
+      remainingPieces: remainingPiecesAfterCollect(totalCollectPieces),
+      rawSquareFeet:
+          totals.totalSquareFeet - totals.collectedSquareFeet - collectSquareFeet,
     );
   }
 

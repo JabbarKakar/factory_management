@@ -80,11 +80,15 @@ class JobWorkLoadDetailBloc
         return;
       }
 
+      // Heal status when pieces are fully collected but sq.ft dust remains.
+      await _collectionRepository.syncLoadCollectionDerivedStatus(load.id);
+      final syncedLoad = await _loadRepository.getLoad(event.loadId) ?? load;
+
       emit(
         state.copyWith(
           status: JobWorkLoadDetailStatus.ready,
           order: order,
-          load: load,
+          load: syncedLoad,
           errorMessage: null,
         ),
       );
@@ -104,7 +108,7 @@ class JobWorkLoadDetailBloc
           .watchQualityChecksForReference(
             factoryId: order.factoryId,
             referenceType: QcReferenceType.jobWorkLoad,
-            referenceId: load.id,
+            referenceId: syncedLoad.id,
           )
           .listen(
             (checks) => add(_JobWorkLoadDetailQualityUpdated(checks)),

@@ -72,9 +72,48 @@ void main() {
   }
 
   group('JobWorkCollectionStatusHelper', () {
-    test('protects inCutting and qc from status sync', () {
+    test('inCutting + partial → partiallyCollected when output exists', () {
       final order = buildOrder(
         status: JobWorkStatus.inCutting,
+        output: output,
+      );
+      expect(
+        JobWorkCollectionStatusHelper.resolveTargetStatus(
+          order: order,
+          collections: [buildCollection(pieces: 40)],
+        ),
+        JobWorkStatus.partiallyCollected,
+      );
+    });
+
+    test('qc + partial → partiallyCollected when output exists', () {
+      final order = buildOrder(
+        status: JobWorkStatus.qc,
+        output: output,
+      );
+      expect(
+        JobWorkCollectionStatusHelper.resolveTargetStatus(
+          order: order,
+          collections: [buildCollection(pieces: 40)],
+        ),
+        JobWorkStatus.partiallyCollected,
+      );
+    });
+
+    test('inCutting without produced stock stays unchanged', () {
+      final order = buildOrder(status: JobWorkStatus.inCutting);
+      expect(
+        JobWorkCollectionStatusHelper.resolveTargetStatus(
+          order: order,
+          collections: [buildCollection(pieces: 40)],
+        ),
+        isNull,
+      );
+    });
+
+    test('received stays protected from collection sync', () {
+      final order = buildOrder(
+        status: JobWorkStatus.received,
         output: output,
       );
       expect(
@@ -169,6 +208,27 @@ void main() {
         id: 'load-1',
         loadNumber: 'JWL-1',
       ).copyWith(status: JobWorkStatus.ready, output: output);
+
+      expect(
+        JobWorkCollectionStatusHelper.resolveTargetStatusForLoad(
+          load: load,
+          collections: [
+            buildCollection(pieces: 40).copyWith(
+              loadId: 'load-1',
+              loadNumber: 'JWL-1',
+            ),
+          ],
+        ),
+        JobWorkStatus.partiallyCollected,
+      );
+    });
+
+    test('inCutting + partial → partiallyCollected on Load', () {
+      final load = JobWorkLoad.fromLegacyOrder(
+        buildOrder(status: JobWorkStatus.inCutting, output: output),
+        id: 'load-1',
+        loadNumber: 'JWL-1',
+      ).copyWith(status: JobWorkStatus.inCutting, output: output);
 
       expect(
         JobWorkCollectionStatusHelper.resolveTargetStatusForLoad(

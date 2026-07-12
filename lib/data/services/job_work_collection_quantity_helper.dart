@@ -34,6 +34,9 @@ class JobWorkCollectionTotals {
     required this.collectedSquareFeet,
   });
 
+  /// 2-decimal sq.ft rounding can leave ~0.01 after full piece pickup.
+  static const double squareFeetEpsilon = 0.015;
+
   final int totalPieces;
   final double totalSquareFeet;
   final int collectedPieces;
@@ -41,8 +44,11 @@ class JobWorkCollectionTotals {
 
   int get remainingPieces => math.max(0, totalPieces - collectedPieces);
 
-  double get remainingSquareFeet =>
-      math.max(0, totalSquareFeet - collectedSquareFeet);
+  double get remainingSquareFeet => JobWorkCollectionQuantityHelper
+      .normalizeRemainingSquareFeet(
+    remainingPieces: remainingPieces,
+    rawSquareFeet: totalSquareFeet - collectedSquareFeet,
+  );
 
   bool get hasCollections =>
       collectedPieces > 0 || collectedSquareFeet > 0;
@@ -52,7 +58,7 @@ class JobWorkCollectionTotals {
   bool get isFullyCollected =>
       hasProducedStock &&
       remainingPieces == 0 &&
-      remainingSquareFeet <= 0.001;
+      remainingSquareFeet <= squareFeetEpsilon;
 }
 
 /// Eligibility + remaining qty for Collect Material.
@@ -60,6 +66,16 @@ class JobWorkCollectionTotals {
 /// Sprint 4: prefer Load-scoped APIs; JW-order APIs remain for aggregates /
 /// legacy single-pool reads.
 abstract final class JobWorkCollectionQuantityHelper {
+  /// Pieces are the source of truth; wipe sq.ft dust once pieces are gone.
+  static double normalizeRemainingSquareFeet({
+    required int remainingPieces,
+    required double rawSquareFeet,
+  }) {
+    if (remainingPieces <= 0) return 0;
+    final remaining = math.max(0.0, rawSquareFeet);
+    if (remaining <= JobWorkCollectionTotals.squareFeetEpsilon) return 0;
+    return remaining;
+  }
   static List<StockOutput> producedStock(JobWorkOrder order) {
     return producedStockFromOutput(
       output: order.output,
@@ -122,10 +138,13 @@ abstract final class JobWorkCollectionQuantityHelper {
     final scoped = collectionsAcrossLoads(loads, collections);
     return {
       for (final stock in produced)
-        stock.size: math.max(
-          0.0,
-          stock.squareFeet -
-              collectedSquareFeetForSize(stock.size, scoped),
+        stock.size: normalizeRemainingSquareFeet(
+          remainingPieces: math.max(
+            0,
+            stock.pieces - collectedPiecesForSize(stock.size, scoped),
+          ),
+          rawSquareFeet:
+              stock.squareFeet - collectedSquareFeetForSize(stock.size, scoped),
         ),
     };
   }
@@ -330,9 +349,9 @@ abstract final class JobWorkCollectionQuantityHelper {
               excludeCollectionId: excludeCollectionId,
             ),
       );
-      final remainingSquareFeet = math.max(
-        0.0,
-        stock.squareFeet -
+      final remainingSquareFeet = normalizeRemainingSquareFeet(
+        remainingPieces: remainingPieces,
+        rawSquareFeet: stock.squareFeet -
             collectedSquareFeetForSize(
               stock.size,
               collections,
@@ -360,7 +379,8 @@ abstract final class JobWorkCollectionQuantityHelper {
   ) {
     if (!order.status.canCollectMaterial) return false;
     final totals = orderTotals(order, collections);
-    return totals.remainingPieces > 0 || totals.remainingSquareFeet > 0.001;
+    return totals.remainingPieces > 0 ||
+        totals.remainingSquareFeet > JobWorkCollectionTotals.squareFeetEpsilon;
   }
 
   static bool canOpenCollectMaterialForLoad(
@@ -370,7 +390,8 @@ abstract final class JobWorkCollectionQuantityHelper {
     if (load.isVirtual) return false;
     if (!load.status.canCollectMaterial) return false;
     final totals = loadTotals(load, collections);
-    return totals.remainingPieces > 0 || totals.remainingSquareFeet > 0.001;
+    return totals.remainingPieces > 0 ||
+        totals.remainingSquareFeet > JobWorkCollectionTotals.squareFeetEpsilon;
   }
 
   /// Pending pickup for dashboard/list.
