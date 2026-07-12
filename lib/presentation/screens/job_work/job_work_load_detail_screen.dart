@@ -23,7 +23,6 @@ import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/job_work_shift_logs_section.dart';
 import '../../widgets/job_work/job_work_status_badge.dart';
-import '../../widgets/job_work/load_stock_remaining_panel.dart';
 import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/quality/qc_reference_section.dart';
 
@@ -317,10 +316,25 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            if (overdue) ...[
+                              const CompactStatusChip(
+                                label: AppStrings.pickupOverdue,
+                                color: AppColors.overdue,
+                              ),
+                              const SizedBox(height: 10),
+                            ],
                             if (load.output!.hasStockOutputs)
                               StockOutputReadOnlyPanel(
                                 smallOutputs: load.output!.smallStockOutputs,
                                 largeOutputs: load.output!.largeStockOutputs,
+                                remainingPiecesBySize: {
+                                  for (final line in remaining)
+                                    line.size: line.remainingPieces,
+                                },
+                                remainingSquareFeetBySize: {
+                                  for (final line in remaining)
+                                    line.size: line.remainingSquareFeet,
+                                },
                               )
                             else
                               JobWorkDetailRows(
@@ -330,6 +344,15 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
                                     value: load.output!.totalUsableSqFt
                                         .toStringAsFixed(2),
                                     bold: true,
+                                  ),
+                                  JobWorkDetailRow(
+                                    label: AppStrings.piecesRemaining,
+                                    value: '${totals.remainingPieces}',
+                                  ),
+                                  JobWorkDetailRow(
+                                    label: AppStrings.squareFeetRemaining,
+                                    value: totals.remainingSquareFeet
+                                        .toStringAsFixed(2),
                                   ),
                                 ],
                               ),
@@ -345,6 +368,16 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            if (canCollect) ...[
+                              const SizedBox(height: 12),
+                              FilledButton.icon(
+                                onPressed: isSaving
+                                    ? null
+                                    : () => _openCollectMaterial(context),
+                                icon: const Icon(Icons.handshake_outlined),
+                                label: const Text(AppStrings.collectMaterial),
+                              ),
+                            ],
                           ],
                         ),
                       )
@@ -356,40 +389,6 @@ class JobWorkLoadDetailScreen extends StatelessWidget {
                         ),
                       ),
               ),
-              if (totals.hasProducedStock || loadCollections.isNotEmpty)
-                JobWorkDetailSection(
-                  title: AppStrings.remainingToCollect,
-                  icon: Icons.local_shipping_outlined,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (overdue) ...[
-                          const CompactStatusChip(
-                            label: AppStrings.pickupOverdue,
-                            color: AppColors.overdue,
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                        LoadStockRemainingPanel(
-                          lines: remaining,
-                          totals: totals,
-                        ),
-                        if (canCollect) ...[
-                          const SizedBox(height: 12),
-                          FilledButton.icon(
-                            onPressed: isSaving
-                                ? null
-                                : () => _openCollectMaterial(context),
-                            icon: const Icon(Icons.handshake_outlined),
-                            label: const Text(AppStrings.collectMaterial),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
               if (loadCollections.isNotEmpty)
                 JobWorkDetailSection(
                   title: AppStrings.collectionHistory,

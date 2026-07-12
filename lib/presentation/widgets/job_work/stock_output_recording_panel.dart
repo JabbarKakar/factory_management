@@ -87,11 +87,38 @@ class StockOutputReadOnlyPanel extends StatelessWidget {
   const StockOutputReadOnlyPanel({
     required this.smallOutputs,
     required this.largeOutputs,
+    this.remainingPiecesBySize,
+    this.remainingSquareFeetBySize,
     super.key,
   });
 
   final List<StockOutput> smallOutputs;
   final List<StockOutput> largeOutputs;
+
+  /// When set (with [remainingSquareFeetBySize]), shows Remaining Pcs/Sq.Ft.
+  final Map<String, int>? remainingPiecesBySize;
+  final Map<String, double>? remainingSquareFeetBySize;
+
+  bool get _showRemaining =>
+      remainingPiecesBySize != null && remainingSquareFeetBySize != null;
+
+  int _remainingPieces(StockOutput output) {
+    final map = remainingPiecesBySize;
+    if (map == null) return output.pieces;
+    return map[output.size] ?? 0;
+  }
+
+  double _remainingSquareFeet(StockOutput output) {
+    final map = remainingSquareFeetBySize;
+    if (map == null) return output.squareFeet;
+    return map[output.size] ?? 0;
+  }
+
+  int _sumRemainingPieces(List<StockOutput> outputs) =>
+      outputs.fold<int>(0, (sum, o) => sum + _remainingPieces(o));
+
+  double _sumRemainingSquareFeet(List<StockOutput> outputs) =>
+      outputs.fold<double>(0, (sum, o) => sum + _remainingSquareFeet(o));
 
   @override
   Widget build(BuildContext context) {
@@ -116,20 +143,30 @@ class StockOutputReadOnlyPanel extends StatelessWidget {
           _ReadOnlyStockSection(
             title: AppStrings.smallSizes,
             outputs: activeSmall,
+            showRemaining: _showRemaining,
+            remainingPiecesOf: _remainingPieces,
+            remainingSquareFeetOf: _remainingSquareFeet,
             totalSquareFeet:
                 StockOutputCalculator.totalSquareFeet(activeSmall),
             totalAmount: StockOutputCalculator.grandTotal(activeSmall),
             totalPieces: StockOutputCalculator.totalPieces(activeSmall),
+            totalRemainingPieces: _sumRemainingPieces(activeSmall),
+            totalRemainingSquareFeet: _sumRemainingSquareFeet(activeSmall),
           ),
         if (activeLarge.isNotEmpty) ...[
           if (activeSmall.isNotEmpty) const SizedBox(height: 14),
           _ReadOnlyStockSection(
             title: AppStrings.largeSizes,
             outputs: activeLarge,
+            showRemaining: _showRemaining,
+            remainingPiecesOf: _remainingPieces,
+            remainingSquareFeetOf: _remainingSquareFeet,
             totalSquareFeet:
                 StockOutputCalculator.totalSquareFeet(activeLarge),
             totalAmount: StockOutputCalculator.grandTotal(activeLarge),
             totalPieces: StockOutputCalculator.totalPieces(activeLarge),
+            totalRemainingPieces: _sumRemainingPieces(activeLarge),
+            totalRemainingSquareFeet: _sumRemainingSquareFeet(activeLarge),
           ),
         ],
         const SizedBox(height: 10),
@@ -137,6 +174,10 @@ class StockOutputReadOnlyPanel extends StatelessWidget {
           totalPieces: StockOutputCalculator.totalPieces(allActive),
           totalSquareFeet: StockOutputCalculator.totalSquareFeet(allActive),
           grandCuttingTotal: StockOutputCalculator.grandTotal(allActive),
+          remainingPieces:
+              _showRemaining ? _sumRemainingPieces(allActive) : null,
+          remainingSquareFeet:
+              _showRemaining ? _sumRemainingSquareFeet(allActive) : null,
         ),
       ],
     );
@@ -181,6 +222,7 @@ class _StockSection extends StatelessWidget {
               )
               .toList(),
           enabled: enabled,
+          showRemaining: false,
         ),
         const SizedBox(height: 8),
         _SectionTotalsBar(
@@ -203,6 +245,11 @@ class _ReadOnlyStockSection extends StatelessWidget {
     required this.totalSquareFeet,
     required this.totalAmount,
     required this.totalPieces,
+    required this.showRemaining,
+    required this.remainingPiecesOf,
+    required this.remainingSquareFeetOf,
+    required this.totalRemainingPieces,
+    required this.totalRemainingSquareFeet,
   });
 
   final String title;
@@ -210,6 +257,11 @@ class _ReadOnlyStockSection extends StatelessWidget {
   final double totalSquareFeet;
   final double totalAmount;
   final int totalPieces;
+  final bool showRemaining;
+  final int Function(StockOutput output) remainingPiecesOf;
+  final double Function(StockOutput output) remainingSquareFeetOf;
+  final int totalRemainingPieces;
+  final double totalRemainingSquareFeet;
 
   @override
   Widget build(BuildContext context) {
@@ -225,10 +277,15 @@ class _ReadOnlyStockSection extends StatelessWidget {
                   size: output.size,
                   output: output,
                   pricePerSqFt: output.pricePerSqFt,
+                  remainingPieces:
+                      showRemaining ? remainingPiecesOf(output) : null,
+                  remainingSquareFeet:
+                      showRemaining ? remainingSquareFeetOf(output) : null,
                 ),
               )
               .toList(),
           enabled: false,
+          showRemaining: showRemaining,
         ),
         const SizedBox(height: 8),
         _SectionTotalsBar(
@@ -238,6 +295,9 @@ class _ReadOnlyStockSection extends StatelessWidget {
           totalPieces: totalPieces,
           totalSquareFeet: totalSquareFeet,
           totalAmount: totalAmount,
+          remainingPieces: showRemaining ? totalRemainingPieces : null,
+          remainingSquareFeet:
+              showRemaining ? totalRemainingSquareFeet : null,
         ),
       ],
     );
@@ -250,12 +310,16 @@ class _StockRowData {
     required this.output,
     required this.pricePerSqFt,
     this.piecesController,
+    this.remainingPieces,
+    this.remainingSquareFeet,
   });
 
   final String size;
   final StockOutput output;
   final double pricePerSqFt;
   final TextEditingController? piecesController;
+  final int? remainingPieces;
+  final double? remainingSquareFeet;
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -279,10 +343,12 @@ class _StockTable extends StatelessWidget {
   const _StockTable({
     required this.rows,
     required this.enabled,
+    this.showRemaining = false,
   });
 
   final List<_StockRowData> rows;
   final bool enabled;
+  final bool showRemaining;
 
   static const _outlineAlpha = 0.24;
   static const _rowGap = 4.0;
@@ -300,8 +366,9 @@ class _StockTable extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _TableHeaderRow(),
+            _TableHeaderRow(showRemaining: showRemaining),
             for (var i = 0; i < rows.length; i++) ...[
               Divider(height: 1, thickness: 1, color: outline),
               Padding(
@@ -312,6 +379,7 @@ class _StockTable extends StatelessWidget {
                 child: _StockDataRow(
                   row: rows[i],
                   enabled: enabled,
+                  showRemaining: showRemaining,
                 ),
               ),
             ],
@@ -323,6 +391,10 @@ class _StockTable extends StatelessWidget {
 }
 
 class _TableHeaderRow extends StatelessWidget {
+  const _TableHeaderRow({this.showRemaining = false});
+
+  final bool showRemaining;
+
   @override
   Widget build(BuildContext context) {
     final style = Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -330,6 +402,27 @@ class _TableHeaderRow extends StatelessWidget {
           fontSize: 9,
           height: 1.1,
         );
+
+    final labels = showRemaining
+        ? const [
+            AppStrings.stockSize,
+            AppStrings.pieces,
+            AppStrings.remainingPiecesShort,
+            AppStrings.sqFtShort,
+            AppStrings.remainingSquareFeetShort,
+            AppStrings.pricePerSqFt,
+            AppStrings.amount,
+          ]
+        : const [
+            AppStrings.stockSize,
+            AppStrings.pieces,
+            AppStrings.sqFtShort,
+            AppStrings.pricePerSqFt,
+            AppStrings.amount,
+          ];
+    final flex = showRemaining
+        ? const [12, 10, 11, 11, 12, 11, 14]
+        : const [14, 13, 14, 14, 18];
 
     return Container(
       color: Theme.of(context)
@@ -339,11 +432,8 @@ class _TableHeaderRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
       child: Row(
         children: [
-          _HeaderCell(label: AppStrings.stockSize, flex: 14, style: style),
-          _HeaderCell(label: AppStrings.pieces, flex: 13, style: style),
-          _HeaderCell(label: AppStrings.sqFtShort, flex: 14, style: style),
-          _HeaderCell(label: AppStrings.pricePerSqFt, flex: 14, style: style),
-          _HeaderCell(label: AppStrings.amount, flex: 18, style: style),
+          for (var i = 0; i < labels.length; i++)
+            _HeaderCell(label: labels[i], flex: flex[i], style: style),
         ],
       ),
     );
@@ -383,10 +473,12 @@ class _StockDataRow extends StatelessWidget {
   const _StockDataRow({
     required this.row,
     required this.enabled,
+    this.showRemaining = false,
   });
 
   final _StockRowData row;
   final bool enabled;
+  final bool showRemaining;
 
   @override
   Widget build(BuildContext context) {
@@ -394,12 +486,15 @@ class _StockDataRow extends StatelessWidget {
       fontSize: 11,
       height: 1.1,
     );
+    final flex = showRemaining
+        ? const [12, 10, 11, 11, 12, 11, 14]
+        : const [14, 13, 14, 14, 18];
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _CompactCell(
-          flex: 14,
+          flex: flex[0],
           child: Text(
             row.size,
             style: valueStyle.copyWith(fontWeight: FontWeight.w700),
@@ -407,7 +502,7 @@ class _StockDataRow extends StatelessWidget {
           ),
         ),
         _CompactCell(
-          flex: 13,
+          flex: flex[1],
           child: row.piecesController == null
               ? _CellText(
                   text: row.output.pieces > 0 ? '${row.output.pieces}' : '—',
@@ -431,8 +526,16 @@ class _StockDataRow extends StatelessWidget {
                   },
                 ),
         ),
+        if (showRemaining)
+          _CompactCell(
+            flex: flex[2],
+            child: _CellText(
+              text: '${row.remainingPieces ?? 0}',
+              style: valueStyle.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
         _CompactCell(
-          flex: 14,
+          flex: showRemaining ? flex[3] : flex[2],
           child: _CellText(
             text: row.output.squareFeet > 0
                 ? row.output.squareFeet.toStringAsFixed(2)
@@ -440,8 +543,16 @@ class _StockDataRow extends StatelessWidget {
             style: valueStyle,
           ),
         ),
+        if (showRemaining)
+          _CompactCell(
+            flex: flex[4],
+            child: _CellText(
+              text: (row.remainingSquareFeet ?? 0).toStringAsFixed(2),
+              style: valueStyle.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
         _CompactCell(
-          flex: 14,
+          flex: showRemaining ? flex[5] : flex[3],
           child: _CellText(
             text: row.pricePerSqFt > 0
                 ? row.pricePerSqFt.toStringAsFixed(0)
@@ -452,7 +563,7 @@ class _StockDataRow extends StatelessWidget {
           ),
         ),
         _CompactCell(
-          flex: 18,
+          flex: showRemaining ? flex[6] : flex[4],
           child: _CellText(
             text: row.output.amount > 0
                 ? _StockTableFormat.amount(row.output.amount)
@@ -465,10 +576,10 @@ class _StockDataRow extends StatelessWidget {
   }
 
   InputDecoration _piecesDecoration(BuildContext context) {
-    return InputDecoration(
+    return const InputDecoration(
       isDense: true,
       isCollapsed: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 2, vertical: 7),
+      contentPadding: EdgeInsets.symmetric(horizontal: 2, vertical: 7),
       border: InputBorder.none,
       enabledBorder: InputBorder.none,
       focusedBorder: InputBorder.none,
@@ -558,17 +669,55 @@ class _SectionTotalsBar extends StatelessWidget {
     required this.totalPieces,
     required this.totalSquareFeet,
     required this.totalAmount,
+    this.remainingPieces,
+    this.remainingSquareFeet,
   });
 
   final String sectionLabel;
   final int totalPieces;
   final double totalSquareFeet;
   final double totalAmount;
+  final int? remainingPieces;
+  final double? remainingSquareFeet;
+
+  bool get _showRemaining =>
+      remainingPieces != null && remainingSquareFeet != null;
 
   @override
   Widget build(BuildContext context) {
     final outline =
         Theme.of(context).colorScheme.outline.withValues(alpha: 0.2);
+
+    final headerCells = _showRemaining
+        ? [
+            sectionLabel,
+            AppStrings.totalPieces,
+            AppStrings.remainingPiecesShort,
+            AppStrings.totalSqFtLabel,
+            AppStrings.remainingSquareFeetShort,
+            AppStrings.totalAmountLabel,
+          ]
+        : [
+            sectionLabel,
+            AppStrings.totalPieces,
+            AppStrings.totalSqFtLabel,
+            AppStrings.totalAmountLabel,
+          ];
+    final valueCells = _showRemaining
+        ? [
+            sectionLabel,
+            totalPieces.toString(),
+            remainingPieces!.toString(),
+            totalSquareFeet.toStringAsFixed(2),
+            remainingSquareFeet!.toStringAsFixed(2),
+            _StockTableFormat.amount(totalAmount),
+          ]
+        : [
+            sectionLabel,
+            totalPieces.toString(),
+            totalSquareFeet.toStringAsFixed(2),
+            _StockTableFormat.amount(totalAmount),
+          ];
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -584,24 +733,16 @@ class _SectionTotalsBar extends StatelessWidget {
         child: Column(
           children: [
             _SectionTotalsRow(
-              cells: [
-                sectionLabel,
-                AppStrings.totalPieces,
-                AppStrings.totalSqFtLabel,
-                AppStrings.totalAmountLabel,
-              ],
+              cells: headerCells,
               isHeader: true,
+              showRemaining: _showRemaining,
             ),
             Divider(height: 1, thickness: 1, color: outline),
             _SectionTotalsRow(
-              cells: [
-                sectionLabel,
-                totalPieces.toString(),
-                totalSquareFeet.toStringAsFixed(2),
-                _StockTableFormat.amount(totalAmount),
-              ],
+              cells: valueCells,
               isHeader: false,
               highlightLast: true,
+              showRemaining: _showRemaining,
             ),
           ],
         ),
@@ -615,13 +756,16 @@ class _SectionTotalsRow extends StatelessWidget {
     required this.cells,
     required this.isHeader,
     this.highlightLast = false,
+    this.showRemaining = false,
   });
 
   final List<String> cells;
   final bool isHeader;
   final bool highlightLast;
+  final bool showRemaining;
 
-  static const _flex = [16, 14, 15, 15];
+  List<int> get _flex =>
+      showRemaining ? const [14, 12, 13, 13, 14, 14] : const [16, 14, 15, 15];
 
   @override
   Widget build(BuildContext context) {
@@ -636,6 +780,7 @@ class _SectionTotalsRow extends StatelessWidget {
           fontWeight: FontWeight.w600,
           height: 1.15,
         );
+    final flex = _flex;
 
     return Container(
       color: isHeader
@@ -653,11 +798,13 @@ class _SectionTotalsRow extends StatelessWidget {
                 width: 1,
                 height: isHeader ? 22 : 20,
                 margin: const EdgeInsets.symmetric(horizontal: 3),
-                color:
-                    Theme.of(context).colorScheme.outline.withValues(alpha: 0.22),
+                color: Theme.of(context)
+                    .colorScheme
+                    .outline
+                    .withValues(alpha: 0.22),
               ),
             Expanded(
-              flex: _flex[i],
+              flex: flex[i],
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -665,7 +812,8 @@ class _SectionTotalsRow extends StatelessWidget {
                   style: isHeader
                       ? headerStyle
                       : valueStyle?.copyWith(
-                          fontWeight: i == 0 ? FontWeight.w700 : FontWeight.w600,
+                          fontWeight:
+                              i == 0 ? FontWeight.w700 : FontWeight.w600,
                           color: highlightLast && i == cells.length - 1
                               ? Theme.of(context).colorScheme.primary
                               : null,
@@ -687,11 +835,15 @@ class _GrandTotalsCard extends StatelessWidget {
     required this.totalPieces,
     required this.totalSquareFeet,
     required this.grandCuttingTotal,
+    this.remainingPieces,
+    this.remainingSquareFeet,
   });
 
   final int totalPieces;
   final double totalSquareFeet;
   final double grandCuttingTotal;
+  final int? remainingPieces;
+  final double? remainingSquareFeet;
 
   @override
   Widget build(BuildContext context) {
@@ -714,11 +866,25 @@ class _GrandTotalsCard extends StatelessWidget {
               label: AppStrings.totalPieces,
               value: totalPieces.toString(),
             ),
+            if (remainingPieces != null) ...[
+              AppFormFields.gap,
+              AppFormSummaryRow(
+                label: AppStrings.piecesRemaining,
+                value: remainingPieces.toString(),
+              ),
+            ],
             AppFormFields.gap,
             AppFormSummaryRow(
               label: AppStrings.totalSquareFeet,
               value: '${totalSquareFeet.toStringAsFixed(2)} sq. ft',
             ),
+            if (remainingSquareFeet != null) ...[
+              AppFormFields.gap,
+              AppFormSummaryRow(
+                label: AppStrings.squareFeetRemaining,
+                value: '${remainingSquareFeet!.toStringAsFixed(2)} sq. ft',
+              ),
+            ],
             AppFormFields.gap,
             AppFormSummaryRow(
               label: AppStrings.grandCuttingTotal,
