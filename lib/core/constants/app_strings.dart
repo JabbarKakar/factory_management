@@ -175,6 +175,7 @@ abstract final class AppStrings {
   static const String loadCreated = 'Load created';
   static const String loadsSummary = 'Loads Summary';
   static const String allLoads = 'All Loads';
+  static const String allLoadsProduction = 'All Loads Production';
   static const String activeLoads = 'Active Loads';
   static const String completedLoads = 'Completed Loads';
   static const String containerStatus = 'Container Status';
@@ -967,6 +968,8 @@ abstract final class AppStrings {
   static const String deliveredSquareFeet = 'Sq. Ft. Dispatched';
   static const String remainingPiecesShort = 'Remaining Pcs';
   static const String remainingSquareFeetShort = 'Remaining Sq. Ft.';
+  static const String collectedPiecesShort = 'Collected Pcs';
+  static const String collectedSquareFeetShort = 'Collected Sq. Ft.';
   static const String totalPiecesShort = 'Total Pcs';
   static const String totalSquareFeetShort = 'Total Sq. Ft.';
   static const String dispatchPiecesShort = 'Dispatch Pcs';

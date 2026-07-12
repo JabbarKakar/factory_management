@@ -74,6 +74,62 @@ abstract final class JobWorkCollectionQuantityHelper {
     );
   }
 
+  /// Merged produced stock across every Load (all-time JW production).
+  static List<StockOutput> producedStockAcrossLoads(List<JobWorkLoad> loads) {
+    final all = <StockOutput>[];
+    for (final load in loads) {
+      all.addAll(producedStockForLoad(load));
+    }
+    return _mergeBySize(all);
+  }
+
+  /// Collections stamped to any of [loads] (union for all-time rollups).
+  static List<JobWorkCollection> collectionsAcrossLoads(
+    List<JobWorkLoad> loads,
+    List<JobWorkCollection> allCollections,
+  ) {
+    final loadIds = loads.map((load) => load.id).toSet();
+    return allCollections
+        .where(
+          (collection) =>
+              collection.loadId != null && loadIds.contains(collection.loadId),
+        )
+        .toList();
+  }
+
+  /// Remaining-by-size across all Loads (includes fully collected sizes as 0).
+  static Map<String, int> remainingPiecesBySizeAcrossLoads({
+    required List<JobWorkLoad> loads,
+    required List<JobWorkCollection> collections,
+  }) {
+    final produced = producedStockAcrossLoads(loads);
+    final scoped = collectionsAcrossLoads(loads, collections);
+    return {
+      for (final stock in produced)
+        stock.size: math.max(
+          0,
+          stock.pieces -
+              collectedPiecesForSize(stock.size, scoped),
+        ),
+    };
+  }
+
+  static Map<String, double> remainingSquareFeetBySizeAcrossLoads({
+    required List<JobWorkLoad> loads,
+    required List<JobWorkCollection> collections,
+  }) {
+    final produced = producedStockAcrossLoads(loads);
+    final scoped = collectionsAcrossLoads(loads, collections);
+    return {
+      for (final stock in produced)
+        stock.size: math.max(
+          0.0,
+          stock.squareFeet -
+              collectedSquareFeetForSize(stock.size, scoped),
+        ),
+    };
+  }
+
   static List<StockOutput> producedStockFromOutput({
     JobWorkOutput? output,
     List<JobWorkShiftLog> shiftLogs = const [],

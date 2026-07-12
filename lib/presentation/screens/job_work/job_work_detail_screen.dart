@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
@@ -25,7 +26,7 @@ import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/job_work_invoice_payment_history_section.dart';
 import '../../widgets/job_work/job_work_load_list_tile.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
-import '../../widgets/job_work/job_work_size_detail_rows.dart';
+import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/quality/qc_reference_section.dart';
 
 class JobWorkDetailScreen extends StatelessWidget {
@@ -58,20 +59,6 @@ class JobWorkDetailScreen extends StatelessWidget {
   Future<void> _openRecordOutput(BuildContext context) async {
     final saved = await context.push<bool>(
       RoutePaths.jobWorkRecordOutput(jobWorkId),
-    );
-    if (saved == true && context.mounted) {
-      context
-          .read<JobWorkFormBloc>()
-          .add(JobWorkFormLoadRequested(jobWorkId));
-    }
-  }
-
-  Future<void> _openQcForLoad(BuildContext context, String loadId) async {
-    final saved = await context.push<bool>(
-      RoutePaths.qualityChecksAddForReference(
-        refType: QcReferenceType.jobWorkLoad,
-        referenceId: loadId,
-      ),
     );
     if (saved == true && context.mounted) {
       context
@@ -204,14 +191,9 @@ class JobWorkDetailScreen extends StatelessWidget {
             canCollectMaterial;
         final isSaving = state.status == JobWorkFormStatus.saving;
         final hasOutput = order.output?.isRecorded == true;
-        final finalCharges =
-            JobWorkChargesCalculator.effectiveFinalCuttingCharges(order);
         final balanceDue = hasInvoice
             ? invoice.dueAmount
             : JobWorkChargesCalculator.effectiveBalanceDue(order);
-        final amountPaid = hasInvoice
-            ? invoice.paidAmount
-            : order.advanceReceived;
         // Container placeholder: prefer sum of Load balances; fall back to
         // JW/invoice due during dual-read until Sprint 5 per-Load payments.
         final loadsOutstanding = state.loads.fold<double>(
@@ -360,42 +342,61 @@ class JobWorkDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!hasLoads) JobWorkOutputSummary(order: order),
               if (hasLoads)
-                for (final load in state.loads)
-                  if (load.output?.isRecorded == true ||
-                      load.shiftLogs.isNotEmpty)
-                    JobWorkDetailSection(
-                      title:
-                          '${AppStrings.recordOutput} · ${load.loadNumber.isEmpty ? '${AppStrings.load} #${load.loadSequence}' : load.loadNumber}',
-                      icon: Icons.fact_check_outlined,
-                      child: JobWorkDetailRows(
-                        rows: [
-                          if (load.output?.isRecorded == true) ...[
-                            JobWorkDetailRow(
-                              label: AppStrings.totalSquareFeet,
-                              value: load.output!.totalOutputSqFt
-                                  .toStringAsFixed(2),
-                            ),
-                            JobWorkDetailRow(
-                              label: AppStrings.totalUsableOutput,
-                              value: load.output!.totalUsableSqFt
-                                  .toStringAsFixed(2),
-                              bold: true,
+                JobWorkDetailSection(
+                  title: AppStrings.allLoadsProduction,
+                  icon: Icons.analytics_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Builder(
+                      builder: (context) {
+                        final produced =
+                            JobWorkCollectionQuantityHelper
+                                .producedStockAcrossLoads(state.loads);
+                        final remainingPiecesBySize =
+                            JobWorkCollectionQuantityHelper
+                                .remainingPiecesBySizeAcrossLoads(
+                          loads: state.loads,
+                          collections: state.collections,
+                        );
+                        final remainingSquareFeetBySize =
+                            JobWorkCollectionQuantityHelper
+                                .remainingSquareFeetBySizeAcrossLoads(
+                          loads: state.loads,
+                          collections: state.collections,
+                        );
+                        final smallOutputs = produced
+                            .where((o) => JobWorkSizes.isSmall(o.size))
+                            .toList();
+                        final largeOutputs = produced
+                            .where((o) => !JobWorkSizes.isSmall(o.size))
+                            .toList();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (isPickupOverdue) ...[
+                              const CompactStatusChip(
+                                label: AppStrings.pickupOverdue,
+                                color: AppColors.overdue,
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                            StockOutputReadOnlyPanel(
+                              smallOutputs: smallOutputs,
+                              largeOutputs: largeOutputs,
+                              remainingPiecesBySize: remainingPiecesBySize,
+                              remainingSquareFeetBySize:
+                                  remainingSquareFeetBySize,
+                              showCollected: true,
                             ),
                           ],
-                          JobWorkDetailRow(
-                            label: AppStrings.blocksCut,
-                            value: '${load.totalBlocksCut}',
-                          ),
-                          JobWorkDetailRow(
-                            label: AppStrings.statusLabel,
-                            value: load.status.label,
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-              if (showCollectionSection)
+                  ),
+                ),
+              if (!hasLoads) JobWorkOutputSummary(order: order),
+              if (!hasLoads && showCollectionSection)
                 JobWorkDetailSection(
                   title: AppStrings.materialCollectionSummary,
                   icon: Icons.inventory_2_outlined,
@@ -448,7 +449,7 @@ class JobWorkDetailScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-              if (state.collections.isNotEmpty)
+              if (!hasLoads && state.collections.isNotEmpty)
                 JobWorkDetailSection(
                   title: AppStrings.collectionHistory,
                   icon: Icons.history_outlined,
@@ -479,216 +480,10 @@ class JobWorkDetailScreen extends StatelessWidget {
                     },
                   ),
                 ),
-              if (hasLoads)
-                for (final load in state.loads)
-                  if (load.output?.isRecorded == true)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: QcReferenceSection(
-                        checks: state.qualityChecks
-                            .where(
-                              (check) =>
-                                  check.referenceType ==
-                                      QcReferenceType.jobWorkLoad &&
-                                  check.referenceId == load.id,
-                            )
-                            .toList(),
-                        onRecordQc: () => _openQcForLoad(context, load.id),
-                      ),
-                    ),
-              JobWorkDetailSection(
-                title: AppStrings.pricingAgreement,
-                icon: Icons.payments_outlined,
-                child: JobWorkDetailRows(
-                  rows: [
-                    if (order.smallStockPrice > 0)
-                      JobWorkDetailRow(
-                        label: AppStrings.smallStockPrice,
-                        value: Formatters.currencyPkr(order.smallStockPrice),
-                      ),
-                    if (order.largeStockPrice > 0)
-                      JobWorkDetailRow(
-                        label: AppStrings.largeStockPrice,
-                        value: Formatters.currencyPkr(order.largeStockPrice),
-                      ),
-                    if (order.agreedRate > 0)
-                      JobWorkDetailRow(
-                        label: AppStrings.agreedRate,
-                        value: Formatters.currencyPkr(order.agreedRate),
-                      ),
-                    if (hasInvoice) ...[
-                      JobWorkDetailRow(
-                        label: AppStrings.invoiceTotal,
-                        value: Formatters.currencyPkr(invoice.totalAmount),
-                        bold: true,
-                        highlight: true,
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.amountPaid,
-                        value: Formatters.currencyPkr(amountPaid),
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.balanceDue,
-                        value: Formatters.currencyPkr(balanceDue),
-                        bold: true,
-                        highlight: balanceDue > 0,
-                      ),
-                    ] else if (finalCharges > 0) ...[
-                      JobWorkDetailRow(
-                        label: AppStrings.finalCuttingCharges,
-                        value: Formatters.currencyPkr(finalCharges),
-                        bold: true,
-                        highlight: true,
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.advanceReceived,
-                        value: Formatters.currencyPkr(order.advanceReceived),
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.balanceDue,
-                        value: Formatters.currencyPkr(balanceDue),
-                        bold: true,
-                        highlight: balanceDue > 0,
-                      ),
-                    ] else ...[
-                      JobWorkDetailRow(
-                        label: AppStrings.finalCuttingCharges,
-                        value: AppStrings.chargesPending,
-                      ),
-                      if (order.advanceReceived > 0)
-                        JobWorkDetailRow(
-                          label: AppStrings.advanceReceived,
-                          value: Formatters.currencyPkr(order.advanceReceived),
-                        ),
-                    ],
-                    JobWorkDetailRow(
-                      label: AppStrings.paymentTerms,
-                      value: order.paymentTerms.label,
-                    ),
-                    if (order.paymentDueDate != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.paymentDueDate,
-                        value: DateFormat.yMMMd().format(order.paymentDueDate!),
-                      ),
-                  ],
-                ),
-              ),
               if (hasInvoice || order.invoiceId != null)
                 JobWorkInvoicePaymentHistorySection(
                   payments: state.payments,
                 ),
-              JobWorkDetailSection(
-                title: AppStrings.inputMaterial,
-                icon: Icons.inventory_2_outlined,
-                child: JobWorkDetailRows(
-                  rows: [
-                    if (order.mineLocation != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.mineLocation,
-                        value: order.mineLocation!,
-                      ),
-                    if (order.mineOwner != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.mineOwner,
-                        value: order.mineOwner!,
-                      ),
-                    JobWorkDetailRow(
-                      label: AppStrings.marbleVariety,
-                      value: order.marbleVariety,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.blockCount,
-                      value: '${order.blockCount}',
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.totalTons,
-                      value: order.totalTons.toStringAsFixed(2),
-                    ),
-                    if (order.totalVolumeM3 != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.totalVolume,
-                        value: order.totalVolumeM3!.toStringAsFixed(2),
-                      ),
-                    if (order.blockDimensions != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.blockDimensions,
-                        value: order.blockDimensions!,
-                      ),
-                    if (order.conditionNotes != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.conditionNotes,
-                        value: order.conditionNotes!,
-                      ),
-                    if (order.vehicleNumber != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.vehicleNumber,
-                        value: order.vehicleNumber!,
-                      ),
-                  ],
-                ),
-              ),
-              JobWorkDetailSection(
-                title: AppStrings.cuttingSpecification,
-                icon: Icons.content_cut_outlined,
-                child: JobWorkDetailRows(
-                  rows: [
-                    JobWorkDetailRow(
-                      label: AppStrings.cuttingStrategy,
-                      value: order.cuttingStrategy.label,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.targetProduct,
-                      value: order.targetProduct.label,
-                    ),
-                    ...buildJobWorkSizeDetailRows(
-                      smallSizes: order.smallSizes,
-                      largeSizes: order.largeSizes,
-                      legacySizes: order.legacySizes,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.thickness,
-                      value: order.thickness,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.finishRequired,
-                      value: order.finish.label,
-                    ),
-                    if (order.specialInstructions != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.specialInstructions,
-                        value: order.specialInstructions!,
-                      ),
-                  ],
-                ),
-              ),
-              JobWorkDetailSection(
-                title: AppStrings.customerAndDates,
-                icon: Icons.calendar_today_outlined,
-                child: JobWorkDetailRows(
-                  rows: [
-                    JobWorkDetailRow(
-                      label: AppStrings.receivedDate,
-                      value: DateFormat.yMMMd().format(order.receivedDate),
-                    ),
-                    if (order.expectedCompletionDate != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.expectedCompletion,
-                        value: DateFormat.yMMMd()
-                            .format(order.expectedCompletionDate!),
-                      ),
-                    if (order.collectedAt != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.collectedDate,
-                        value: DateFormat.yMMMd().format(order.collectedAt!),
-                      ),
-                    if (order.closedAt != null)
-                      JobWorkDetailRow(
-                        label: AppStrings.closedDate,
-                        value: DateFormat.yMMMd().format(order.closedAt!),
-                      ),
-                  ],
-                ),
-              ),
               if ((order.status == JobWorkStatus.ready ||
                       order.status == JobWorkStatus.partiallyCollected) &&
                   (order.invoiceId == null || order.invoiceId!.isEmpty))
