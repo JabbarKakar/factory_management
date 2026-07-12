@@ -174,6 +174,7 @@ abstract final class AppStrings {
   static const String saveLoad = 'Save Load';
   static const String loadCreated = 'Load created';
   static const String loadsSummary = 'Loads Summary';
+  static const String allLoads = 'All Loads';
   static const String activeLoads = 'Active Loads';
   static const String completedLoads = 'Completed Loads';
   static const String containerStatus = 'Container Status';

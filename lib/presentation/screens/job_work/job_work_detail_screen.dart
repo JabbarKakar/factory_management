@@ -44,43 +44,9 @@ class JobWorkDetailScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _openRecordOutputForLoad(
-    BuildContext context,
-    String loadId,
-  ) async {
-    final saved = await context.push<bool>(
-      RoutePaths.jobWorkLoadRecordOutput(
-        jobWorkId: jobWorkId,
-        loadId: loadId,
-      ),
-    );
-    if (saved == true && context.mounted) {
-      context
-          .read<JobWorkFormBloc>()
-          .add(JobWorkFormLoadRequested(jobWorkId));
-    }
-  }
-
   Future<void> _openCollectMaterial(BuildContext context) async {
     final saved = await context.push<bool>(
       RoutePaths.jobWorkCollectMaterial(jobWorkId),
-    );
-    if (saved == true && context.mounted) {
-      context
-          .read<JobWorkFormBloc>()
-          .add(JobWorkFormLoadRequested(jobWorkId));
-    }
-  }
-
-  Future<void> _openCollectMaterialForLoad(
-    BuildContext context,
-    String loadId,
-  ) async {
-    final saved = await context.push<bool>(
-      RoutePaths.jobWorkLoadCollectMaterial(
-        jobWorkId: jobWorkId,
-        loadId: loadId,
-      ),
     );
     if (saved == true && context.mounted) {
       context
@@ -146,19 +112,6 @@ class JobWorkDetailScreen extends StatelessWidget {
         );
   }
 
-  void _advanceLoadStatus(
-    BuildContext context, {
-    required String loadId,
-    required JobWorkStatus nextStatus,
-  }) {
-    context.read<JobWorkFormBloc>().add(
-          JobWorkFormLoadStatusAdvanceRequested(
-            loadId: loadId,
-            newStatus: nextStatus,
-          ),
-        );
-  }
-
   Future<void> _advanceCompletion(
     BuildContext context,
     JobWorkStatus nextStatus,
@@ -174,27 +127,6 @@ class JobWorkDetailScreen extends StatelessWidget {
     context.read<JobWorkFormBloc>().add(
           JobWorkFormCompletionRequested(
             jobWorkId: jobWorkId,
-            newStatus: nextStatus,
-          ),
-        );
-  }
-
-  Future<void> _advanceLoadCompletion(
-    BuildContext context, {
-    required String loadId,
-    required JobWorkStatus nextStatus,
-  }) async {
-    final confirmed = await AppConfirmDialog.show(
-      context,
-      title: AppStrings.closeLoadTitle,
-      message: AppStrings.closeLoadMessage,
-      confirmLabel: AppStrings.closeLoad,
-    );
-    if (confirmed != true || !context.mounted) return;
-
-    context.read<JobWorkFormBloc>().add(
-          JobWorkFormLoadCompletionRequested(
-            loadId: loadId,
             newStatus: nextStatus,
           ),
         );
@@ -352,47 +284,48 @@ class JobWorkDetailScreen extends StatelessWidget {
               ),
               JobWorkDetailSection(
                 title: AppStrings.loadsSummary,
+                icon: Icons.analytics_outlined,
+                child: JobWorkDetailRows(
+                  rows: [
+                    JobWorkDetailRow(
+                      label: AppStrings.loads,
+                      value: '${state.loads.length}',
+                      bold: true,
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.activeLoads,
+                      value: '${state.activeLoadCount}',
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.completedLoads,
+                      value: '${state.completedLoadCount}',
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.outstandingBalance,
+                      value: Formatters.currencyPkr(outstandingBalance),
+                      bold: outstandingBalance > 0,
+                      highlight: outstandingBalance > 0,
+                    ),
+                    if (order.summaryStatus != null)
+                      JobWorkDetailRow(
+                        label: AppStrings.containerStatus,
+                        value: order.summaryStatus!.label,
+                      ),
+                  ],
+                ),
+              ),
+              JobWorkDetailSection(
+                title: AppStrings.allLoads,
                 icon: Icons.local_shipping_outlined,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    JobWorkDetailRows(
-                      rows: [
-                        JobWorkDetailRow(
-                          label: AppStrings.loads,
-                          value: '${state.loads.length}',
-                          bold: true,
-                        ),
-                        JobWorkDetailRow(
-                          label: AppStrings.activeLoads,
-                          value: '${state.activeLoadCount}',
-                        ),
-                        JobWorkDetailRow(
-                          label: AppStrings.completedLoads,
-                          value: '${state.completedLoadCount}',
-                        ),
-                        JobWorkDetailRow(
-                          label: AppStrings.outstandingBalance,
-                          value: Formatters.currencyPkr(outstandingBalance),
-                          bold: outstandingBalance > 0,
-                          highlight: outstandingBalance > 0,
-                        ),
-                        if (order.summaryStatus != null)
-                          JobWorkDetailRow(
-                            label: AppStrings.containerStatus,
-                            value: order.summaryStatus!.label,
-                          ),
-                      ],
-                    ),
-                    if (state.loads.isEmpty) ...[
-                      const SizedBox(height: 12),
+                    if (state.loads.isEmpty)
                       Text(
                         AppStrings.noLoadsYet,
                         style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 8),
-                      const Divider(height: 1),
+                      )
+                    else
                       for (final load in state.loads) ...[
                         JobWorkLoadListTile(
                           load: load,
@@ -412,47 +345,9 @@ class JobWorkDetailScreen extends StatelessWidget {
                                         );
                                   }
                                 },
-                          onRecordOutput: canEditJobWork && !load.isVirtual
-                              ? () => _openRecordOutputForLoad(
-                                    context,
-                                    load.id,
-                                  )
-                              : null,
-                          onAdvanceStatus: canEditJobWork && !load.isVirtual
-                              ? (status) => _advanceLoadStatus(
-                                    context,
-                                    loadId: load.id,
-                                    nextStatus: status,
-                                  )
-                              : null,
-                          onAdvanceCompletion:
-                              canEditJobWork && !load.isVirtual
-                                  ? (status) => _advanceLoadCompletion(
-                                        context,
-                                        loadId: load.id,
-                                        nextStatus: status,
-                                      )
-                                  : null,
-                          onRecordQc: canEditJobWork &&
-                                  !load.isVirtual &&
-                                  load.output?.isRecorded == true
-                              ? () => _openQcForLoad(context, load.id)
-                              : null,
-                          onCollectMaterial: canEditJobWork &&
-                                  JobWorkCollectionQuantityHelper
-                                      .canOpenCollectMaterialForLoad(
-                                    load,
-                                    state.collections,
-                                  )
-                              ? () => _openCollectMaterialForLoad(
-                                    context,
-                                    load.id,
-                                  )
-                              : null,
                         ),
-                        if (load != state.loads.last) const Divider(height: 1),
+                        if (load != state.loads.last) const SizedBox(height: 8),
                       ],
-                    ],
                     if (canAddLoad) ...[
                       const SizedBox(height: 12),
                       FilledButton.tonalIcon(
