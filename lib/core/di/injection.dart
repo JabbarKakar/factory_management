@@ -8,6 +8,7 @@ import '../../blocs/job_work/job_work_collection_form_bloc.dart';
 import '../../blocs/job_work/job_work_form_bloc.dart';
 import '../../blocs/job_work/job_work_invoice_bloc.dart';
 import '../../blocs/job_work/job_work_list_bloc.dart';
+import '../../blocs/job_work/job_work_load_detail_bloc.dart';
 import '../../blocs/job_work/job_work_load_form_bloc.dart';
 import '../../blocs/job_work/job_work_output_bloc.dart';
 import '../../blocs/notification/notification_bloc.dart';
@@ -356,6 +357,14 @@ void setupDependencies() {
     () => JobWorkLoadFormBloc(
       jobWorkRepository: getIt<JobWorkRepository>(),
       loadRepository: getIt<JobWorkLoadRepository>(),
+    ),
+  );
+  getIt.registerFactory<JobWorkLoadDetailBloc>(
+    () => JobWorkLoadDetailBloc(
+      jobWorkRepository: getIt<JobWorkRepository>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
+      collectionRepository: getIt<JobWorkCollectionRepository>(),
+      qualityCheckRepository: getIt<QualityCheckRepository>(),
     ),
   );
   getIt.registerFactory<JobWorkOutputBloc>(

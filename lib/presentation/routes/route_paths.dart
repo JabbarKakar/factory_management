@@ -34,6 +34,12 @@ abstract final class RoutePaths {
 
   static String jobWorkAddLoad(String id) => '/job-work/$id/loads/add';
 
+  static String jobWorkLoadDetail({
+    required String jobWorkId,
+    required String loadId,
+  }) =>
+      '/job-work/$jobWorkId/loads/$loadId';
+
   static String jobWorkRecordOutput(String id) => '/job-work/$id/record-output';
 
   static String jobWorkLoadRecordOutput({

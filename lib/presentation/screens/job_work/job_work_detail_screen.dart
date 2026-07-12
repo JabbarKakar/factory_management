@@ -397,6 +397,21 @@ class JobWorkDetailScreen extends StatelessWidget {
                         JobWorkLoadListTile(
                           load: load,
                           isBusy: isSaving,
+                          onTap: load.isVirtual
+                              ? null
+                              : () async {
+                                  await context.push(
+                                    RoutePaths.jobWorkLoadDetail(
+                                      jobWorkId: jobWorkId,
+                                      loadId: load.id,
+                                    ),
+                                  );
+                                  if (context.mounted) {
+                                    context.read<JobWorkFormBloc>().add(
+                                          JobWorkFormLoadRequested(jobWorkId),
+                                        );
+                                  }
+                                },
                           onRecordOutput: canEditJobWork && !load.isVirtual
                               ? () => _openRecordOutputForLoad(
                                     context,

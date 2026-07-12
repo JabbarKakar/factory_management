@@ -180,6 +180,9 @@ abstract final class AppStrings {
   static const String outstandingBalance = 'Outstanding Balance';
   static const String noLoadsYet = 'No loads yet';
   static const String loadClosed = 'Load closed';
+  static const String loadDetails = 'Load Details';
+  static const String loadNotFound = 'Load not found';
+  static const String fullyCollected = 'All produced stock has been collected';
   static const String closeLoadTitle = 'Close this load?';
   static const String closeLoadMessage =
       'This closes only this load. Other loads and the Job Work stay open.';

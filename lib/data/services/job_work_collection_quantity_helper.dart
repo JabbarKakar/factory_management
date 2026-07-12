@@ -491,6 +491,33 @@ abstract final class JobWorkCollectionQuantityHelper {
         staleAfterDays;
   }
 
+  static int pickupDaysWaitingForLoad(
+    JobWorkLoad load,
+    List<JobWorkCollection> collections, {
+    DateTime? reference,
+  }) {
+    if (!load.status.isPendingPickup) return 0;
+    if (!canOpenCollectMaterialForLoad(load, collections)) return 0;
+    return _daysWaiting(
+      pickupWaitReferenceDateForLoad(load, collections),
+      reference,
+    );
+  }
+
+  static bool isPickupOverdueForLoad(
+    JobWorkLoad load,
+    List<JobWorkCollection> collections, {
+    DateTime? reference,
+    int staleAfterDays = stalePickupAfterDays,
+  }) {
+    return pickupDaysWaitingForLoad(
+          load,
+          collections,
+          reference: reference,
+        ) >=
+        staleAfterDays;
+  }
+
   static bool canOpenCollectMaterialForOrder({
     required JobWorkOrder order,
     required List<JobWorkCollection> collections,
