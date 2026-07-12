@@ -179,7 +179,12 @@ abstract final class AppStrings {
   static const String deleteLoadMessage =
       'This permanently deletes the load and all of its output, shifts, '
       'collections, QC records, invoices, and payments. This cannot be undone.';
+  static const String deleteLastLoadTitle = 'Delete last load and Job Work?';
+  static const String deleteLastLoadMessage =
+      'This is the only load on this Job Work. Deleting it will also permanently '
+      'delete the entire Job Work order and all related data. This cannot be undone.';
   static const String loadDeleted = 'Load deleted';
+  static const String loadAndJobWorkDeleted = 'Load and Job Work deleted';
   static const String loadDeleteError = 'Could not delete load';
   static const String loadsSummary = 'Loads Summary';
   static const String allLoads = 'All Loads';

@@ -113,13 +113,18 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
 
   Future<void> _confirmDeleteLoad(
     BuildContext context,
-    JobWorkLoad load,
-  ) async {
+    JobWorkLoad load, {
+    required bool isLastLoad,
+  }) async {
     if (_isDeleting) return;
     final confirmed = await AppConfirmDialog.show(
       context,
-      title: AppStrings.deleteLoadTitle,
-      message: AppStrings.deleteLoadMessage,
+      title: isLastLoad
+          ? AppStrings.deleteLastLoadTitle
+          : AppStrings.deleteLoadTitle,
+      message: isLastLoad
+          ? AppStrings.deleteLastLoadMessage
+          : AppStrings.deleteLoadMessage,
       confirmLabel: AppStrings.delete,
       destructive: true,
     );
@@ -127,12 +132,23 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
 
     setState(() => _isDeleting = true);
     try {
-      await getIt<JobWorkLoadRepository>().deleteLoad(load.id);
+      final deletedJobWork =
+          await getIt<JobWorkLoadRepository>().deleteLoad(load.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.loadDeleted)),
+        SnackBar(
+          content: Text(
+            deletedJobWork
+                ? AppStrings.loadAndJobWorkDeleted
+                : AppStrings.loadDeleted,
+          ),
+        ),
       );
-      context.pop(true);
+      if (deletedJobWork) {
+        context.go(RoutePaths.jobWork);
+      } else {
+        context.pop(true);
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -153,6 +169,7 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
     required JobWorkLoad load,
     required bool canEdit,
     required bool canDelete,
+    required bool isLastLoad,
     required bool canRecord,
     required bool hasOutput,
     required bool canCollect,
@@ -211,7 +228,11 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
           label: AppStrings.delete,
           icon: Icons.delete_outline_rounded,
           destructive: true,
-          onSelected: () => _confirmDeleteLoad(context, load),
+          onSelected: () => _confirmDeleteLoad(
+            context,
+            load,
+            isLastLoad: isLastLoad,
+          ),
         ),
       );
     }
@@ -301,6 +322,7 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
           load: load,
           canEdit: canEdit,
           canDelete: canDelete,
+          isLastLoad: (order.loadCount ?? 1) <= 1,
           canRecord: canRecord,
           hasOutput: hasOutput,
           canCollect: canCollect,

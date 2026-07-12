@@ -369,7 +369,10 @@ class JobWorkLoadRepository {
 
   /// Deletes one Load and all belonging records (collections, QC, invoices,
   /// payments). Output and shift logs live on the Load document and go with it.
-  Future<void> deleteLoad(String loadId) async {
+  ///
+  /// Returns `true` when this was the last Load and the parent Job Work was
+  /// deleted as well.
+  Future<bool> deleteLoad(String loadId) async {
     final load = await getLoad(loadId);
     if (load == null) {
       throw const JobWorkLoadException('Load not found.');
@@ -382,6 +385,12 @@ class JobWorkLoadRepository {
     if (order == null) {
       throw const JobWorkLoadException('Job work order not found.');
     }
+
+    final existingLoads = await fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: order.id,
+    );
+    final isLastLoad = existingLoads.length <= 1;
 
     final collectionSnap = await _collections
         .where('factoryId', isEqualTo: load.factoryId)
@@ -429,22 +438,16 @@ class JobWorkLoadRepository {
       await batch.commit();
     }
 
+    if (isLastLoad) {
+      // Last load gone → remove the Job Work container entirely.
+      await _jobWorkRepository.deleteJobWorkOrder(order.id);
+      return true;
+    }
+
     final remaining = await fetchLoadsForJobWork(
       factoryId: order.factoryId,
       jobWorkId: order.id,
     );
-    if (remaining.isEmpty) {
-      await _jobWorkOrders.doc(order.id).update({
-        'schemaVersion': JobWorkSchemaVersion.loadsAuthoritative,
-        'defaultLoadId': FieldValue.delete(),
-        'loadCount': 0,
-        'activeLoadCount': 0,
-        'summaryStatus': JobWorkSummaryStatus.fromLoadStatuses(const []).firestoreValue,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      return;
-    }
-
     final defaultLoadId = (order.defaultLoadId == loadId)
         ? JobWorkLoadResolver.preferredDefaultLoad(order, remaining).id
         : (order.defaultLoadId ??
@@ -454,6 +457,7 @@ class JobWorkLoadRepository {
       defaultLoadId: defaultLoadId,
       loads: remaining,
     );
+    return false;
   }
 
   /// Deletes all loads for a Job Work (cascade helper).

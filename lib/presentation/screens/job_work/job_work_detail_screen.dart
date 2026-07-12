@@ -75,13 +75,18 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
 
   Future<void> _confirmDeleteLoad(
     BuildContext context,
-    JobWorkLoad load,
-  ) async {
+    JobWorkLoad load, {
+    required bool isLastLoad,
+  }) async {
     if (load.isVirtual || _busyLoadId != null) return;
     final confirmed = await AppConfirmDialog.show(
       context,
-      title: AppStrings.deleteLoadTitle,
-      message: AppStrings.deleteLoadMessage,
+      title: isLastLoad
+          ? AppStrings.deleteLastLoadTitle
+          : AppStrings.deleteLoadTitle,
+      message: isLastLoad
+          ? AppStrings.deleteLastLoadMessage
+          : AppStrings.deleteLoadMessage,
       confirmLabel: AppStrings.delete,
       destructive: true,
     );
@@ -89,12 +94,25 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
 
     setState(() => _busyLoadId = load.id);
     try {
-      await getIt<JobWorkLoadRepository>().deleteLoad(load.id);
+      final deletedJobWork =
+          await getIt<JobWorkLoadRepository>().deleteLoad(load.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.loadDeleted)),
+        SnackBar(
+          content: Text(
+            deletedJobWork
+                ? AppStrings.loadAndJobWorkDeleted
+                : AppStrings.loadDeleted,
+          ),
+        ),
       );
-      context.read<JobWorkFormBloc>().add(JobWorkFormLoadRequested(jobWorkId));
+      if (deletedJobWork) {
+        context.go(RoutePaths.jobWork);
+      } else {
+        context
+            .read<JobWorkFormBloc>()
+            .add(JobWorkFormLoadRequested(jobWorkId));
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -115,6 +133,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
     JobWorkLoad load, {
     required bool canEdit,
     required bool canDelete,
+    required bool isLastLoad,
     required List<JobWorkCollection> collections,
   }) {
     if (load.isVirtual) return const [];
@@ -209,7 +228,11 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
           label: AppStrings.delete,
           icon: Icons.delete_outline_rounded,
           destructive: true,
-          onSelected: () => _confirmDeleteLoad(context, load),
+          onSelected: () => _confirmDeleteLoad(
+            context,
+            load,
+            isLastLoad: isLastLoad,
+          ),
         ),
       );
     }
@@ -491,6 +514,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                               load,
                               canEdit: canEditJobWork,
                               canDelete: canDeleteJobWork,
+                              isLastLoad: state.loads.length <= 1,
                               collections: state.collections,
                             ),
                             onTap: load.isVirtual

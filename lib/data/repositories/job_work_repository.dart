@@ -94,13 +94,86 @@ class JobWorkRepository {
 
   Future<void> deleteJobWorkOrder(String id) async {
     final order = await getJobWorkOrder(id);
-    if (order != null) {
-      await _deleteLoadsForJobWork(
-        factoryId: order.factoryId,
-        jobWorkId: id,
-      );
+    if (order == null) {
+      // Best-effort remove if the doc was already partially cleaned up.
+      await _jobWorkCollection.doc(id).delete();
+      return;
     }
+
+    final factoryId = order.factoryId;
+    await _deleteLoadsForJobWork(factoryId: factoryId, jobWorkId: id);
+    await _deleteDocumentsMatching(
+      collection: 'jobWorkCollections',
+      factoryId: factoryId,
+      field: 'jobWorkOrderId',
+      value: id,
+    );
+    await _deleteInvoicesAndPaymentsForJobWork(
+      factoryId: factoryId,
+      jobWorkId: id,
+    );
+    await _deleteDocumentsMatching(
+      collection: 'qualityChecks',
+      factoryId: factoryId,
+      field: 'referenceId',
+      value: id,
+    );
     await _jobWorkCollection.doc(id).delete();
+  }
+
+  Future<void> _deleteInvoicesAndPaymentsForJobWork({
+    required String factoryId,
+    required String jobWorkId,
+  }) async {
+    final invoiceSnap = await _firestore
+        .collection('jobWorkInvoices')
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkId', isEqualTo: jobWorkId)
+        .get();
+    if (invoiceSnap.docs.isEmpty) return;
+
+    final toDelete = <DocumentReference<Map<String, dynamic>>>[];
+    for (final invoiceDoc in invoiceSnap.docs) {
+      final paymentsSnap = await _firestore
+          .collection('payments')
+          .where('factoryId', isEqualTo: factoryId)
+          .where('invoiceId', isEqualTo: invoiceDoc.id)
+          .get();
+      toDelete.addAll(paymentsSnap.docs.map((doc) => doc.reference));
+      toDelete.add(invoiceDoc.reference);
+    }
+    await _commitDeletes(toDelete);
+  }
+
+  Future<void> _deleteDocumentsMatching({
+    required String collection,
+    required String factoryId,
+    required String field,
+    required String value,
+  }) async {
+    final snapshot = await _firestore
+        .collection(collection)
+        .where('factoryId', isEqualTo: factoryId)
+        .where(field, isEqualTo: value)
+        .get();
+    if (snapshot.docs.isEmpty) return;
+    await _commitDeletes(
+      snapshot.docs.map((doc) => doc.reference).toList(),
+    );
+  }
+
+  Future<void> _commitDeletes(
+    List<DocumentReference<Map<String, dynamic>>> refs,
+  ) async {
+    const batchLimit = 400;
+    for (var index = 0; index < refs.length; index += batchLimit) {
+      final batch = _firestore.batch();
+      final chunk = refs.skip(index).take(batchLimit);
+      for (final ref in chunk) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
   }
 
   Future<void> advanceJobWorkStatus(String id, JobWorkStatus status) async {
