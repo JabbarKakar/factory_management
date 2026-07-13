@@ -149,7 +149,7 @@ class PaymentDueScannerService {
         priority: NotificationPriority.low,
         title: 'Payment due in 15 days — ${invoice.customerName}',
         body:
-            '${invoice.invoiceNumber}: $amountLabel due on ${DateFormat.yMMMd().format(dueDay)}',
+            '${invoice.displayLabel}: $amountLabel due on ${DateFormat.yMMMd().format(dueDay)}',
         daysUntilDue: 15,
         dedupeKey: 'due_15_${invoice.id}_$scanDate',
       );
@@ -162,7 +162,7 @@ class PaymentDueScannerService {
         priority: NotificationPriority.medium,
         title: 'Payment due in 7 days — ${invoice.customerName}',
         body:
-            '${invoice.invoiceNumber}: $amountLabel due on ${DateFormat.yMMMd().format(dueDay)}',
+            '${invoice.displayLabel}: $amountLabel due on ${DateFormat.yMMMd().format(dueDay)}',
         daysUntilDue: 7,
         dedupeKey: 'due_7_${invoice.id}_$scanDate',
       );
@@ -175,7 +175,7 @@ class PaymentDueScannerService {
         priority: NotificationPriority.medium,
         title: 'Payment due in 3 days — ${invoice.customerName}',
         body:
-            '${invoice.invoiceNumber}: $amountLabel due on ${DateFormat.yMMMd().format(dueDay)}',
+            '${invoice.displayLabel}: $amountLabel due on ${DateFormat.yMMMd().format(dueDay)}',
         daysUntilDue: 3,
         dedupeKey: 'due_3_${invoice.id}_$scanDate',
       );
@@ -187,7 +187,7 @@ class PaymentDueScannerService {
         type: NotificationType.paymentDueTomorrow,
         priority: NotificationPriority.high,
         title: 'Payment due tomorrow — ${invoice.customerName}',
-        body: '${invoice.invoiceNumber}: $amountLabel due tomorrow',
+        body: '${invoice.displayLabel}: $amountLabel due tomorrow',
         daysUntilDue: 1,
         dedupeKey: 'due_1_${invoice.id}_$scanDate',
       );
@@ -199,7 +199,7 @@ class PaymentDueScannerService {
         type: NotificationType.paymentDueToday,
         priority: NotificationPriority.high,
         title: 'Payment due today — ${invoice.customerName}',
-        body: '${invoice.invoiceNumber}: $amountLabel due today',
+        body: '${invoice.displayLabel}: $amountLabel due today',
         daysUntilDue: 0,
         dedupeKey: 'due_0_${invoice.id}_$scanDate',
       );
@@ -219,7 +219,7 @@ class PaymentDueScannerService {
         priority: priority,
         title: 'Overdue payment — ${invoice.customerName}',
         body:
-            '${invoice.invoiceNumber}: $amountLabel overdue by $daysOverdue day${daysOverdue == 1 ? '' : 's'}',
+            '${invoice.displayLabel}: $amountLabel overdue by $daysOverdue day${daysOverdue == 1 ? '' : 's'}',
         daysOverdue: daysOverdue,
         dedupeKey: 'overdue_${invoice.id}_$scanDate',
       );
@@ -238,7 +238,7 @@ class PaymentDueScannerService {
       customerId: invoice.customerId,
       customerName: invoice.customerName,
       invoiceId: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
+      invoiceLabel: _jobWorkInvoiceLabel(invoice),
       dueDate: invoice.dueDate,
       amountPaid: amountPaid,
       remainingDue: remainingDue,
@@ -257,7 +257,7 @@ class PaymentDueScannerService {
       customerId: invoice.customerId,
       customerName: invoice.customerName,
       invoiceId: invoice.id,
-      invoiceNumber: invoice.invoiceNumber,
+      invoiceLabel: invoice.invoiceNumber,
       dueDate: invoice.dueDate,
       amountPaid: amountPaid,
       remainingDue: remainingDue,
@@ -271,7 +271,7 @@ class PaymentDueScannerService {
     required String customerId,
     required String customerName,
     required String invoiceId,
-    required String invoiceNumber,
+    required String invoiceLabel,
     required DateTime? dueDate,
     required double amountPaid,
     required double remainingDue,
@@ -286,13 +286,13 @@ class PaymentDueScannerService {
       priority: NotificationPriority.info,
       title: 'Partial payment — $customerName',
       body:
-          '$invoiceNumber: ${Formatters.currencyPkr(amountPaid)} received. ${Formatters.currencyPkr(remainingDue)} remaining.',
+          '$invoiceLabel: ${Formatters.currencyPkr(amountPaid)} received. ${Formatters.currencyPkr(remainingDue)} remaining.',
       customerId: customerId,
       invoiceId: invoiceId,
       invoiceType: invoiceType,
       jobWorkId: jobWorkId,
       salesOrderId: salesOrderId,
-      invoiceNumber: invoiceNumber,
+      invoiceNumber: invoiceLabel,
       amountDue: remainingDue,
       dueDate: dueDate,
       createdAt: DateTime.now(),
@@ -331,6 +331,16 @@ class PaymentDueScannerService {
       dedupeKey: dedupeKey,
     );
   }
+
+  static String _jobWorkInvoiceLabel(JobWorkInvoice invoice) {
+    final refs = <String>[
+      invoice.invoiceNumber,
+      if (invoice.jobWorkNumber.isNotEmpty) invoice.jobWorkNumber,
+      if (invoice.loadNumber != null && invoice.loadNumber!.trim().isNotEmpty)
+        invoice.loadNumber!.trim(),
+    ];
+    return refs.join(' · ');
+  }
 }
 
 class _DueInvoiceRef {
@@ -343,6 +353,8 @@ class _DueInvoiceRef {
     required this.dueAmount,
     required this.dueDate,
     this.jobWorkId,
+    this.jobWorkNumber,
+    this.loadNumber,
     this.salesOrderId,
     required this.invoiceType,
   });
@@ -355,8 +367,20 @@ class _DueInvoiceRef {
   final double dueAmount;
   final DateTime? dueDate;
   final String? jobWorkId;
+  final String? jobWorkNumber;
+  final String? loadNumber;
   final String? salesOrderId;
   final InvoiceType invoiceType;
+
+  String get displayLabel {
+    final refs = <String>[
+      invoiceNumber,
+      if (jobWorkNumber != null && jobWorkNumber!.isNotEmpty) jobWorkNumber!,
+      if (loadNumber != null && loadNumber!.trim().isNotEmpty)
+        loadNumber!.trim(),
+    ];
+    return refs.join(' · ');
+  }
 
   factory _DueInvoiceRef.fromJobWork(JobWorkInvoice invoice) {
     return _DueInvoiceRef(
@@ -368,6 +392,8 @@ class _DueInvoiceRef {
       dueAmount: invoice.dueAmount,
       dueDate: invoice.dueDate,
       jobWorkId: invoice.jobWorkId,
+      jobWorkNumber: invoice.jobWorkNumber,
+      loadNumber: invoice.loadNumber,
       invoiceType: InvoiceType.jobWork,
     );
   }

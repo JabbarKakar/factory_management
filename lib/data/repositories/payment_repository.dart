@@ -299,6 +299,7 @@ class PaymentRepository {
         final load = await _jobWorkLoadRepository.getLoad(loadId);
         if (load != null) {
           final loadUpdates = <String, dynamic>{
+            'advanceReceived': paidAmount,
             'balanceDue': dueAmount.toDouble(),
             'updatedAt': FieldValue.serverTimestamp(),
           };
@@ -318,19 +319,21 @@ class PaymentRepository {
         final order =
             await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
         if (order != null) {
+          final orderUpdates = <String, dynamic>{
+            'advanceReceived': paidAmount,
+            'balanceDue': dueAmount.toDouble(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          };
           if (dueAmount <= 0 &&
               order.status != JobWorkStatus.paid &&
               !order.status.isCollectionStatus) {
-            await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
-              'status': JobWorkStatus.paid.firestoreValue,
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+            orderUpdates['status'] = JobWorkStatus.paid.firestoreValue;
           } else if (dueAmount > 0 && order.status == JobWorkStatus.paid) {
-            await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
-              'status': JobWorkStatus.invoiced.firestoreValue,
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
+            orderUpdates['status'] = JobWorkStatus.invoiced.firestoreValue;
           }
+          await _jobWorkRepository
+              .jobWorkDoc(invoice.jobWorkId)
+              .update(orderUpdates);
         }
       }
 
@@ -478,20 +481,13 @@ class PaymentRepository {
         'status': newStatus.firestoreValue,
         'updatedAt': FieldValue.serverTimestamp(),
       },
-      onFullyPaid: newDue <= 0
-          ? () async {
-              final order =
-                  await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
-              if (order == null || order.status.isCollectionStatus) return;
-              await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
-                'status': JobWorkStatus.paid.firestoreValue,
-                'updatedAt': FieldValue.serverTimestamp(),
-              });
-            }
-          : null,
     );
 
-    await _ledgerService?.syncCustomerBalance(invoice.customerId);
+    // Sync Load finance + JW rollup (or legacy JW finance when no loadId).
+    await _syncInvoiceFromPayments(
+      invoiceId: invoice.id,
+      invoiceType: InvoiceType.jobWork,
+    );
 
     if (newDue > 0 &&
         _notificationRepository != null &&

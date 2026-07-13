@@ -79,6 +79,24 @@ class JobWorkInvoiceRepository {
     return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
   }
 
+  /// Load-scoped invoice, with legacy fallback via [JobWorkLoad.invoiceId]
+  /// when the invoice doc still has a null `loadId`.
+  Future<JobWorkInvoice?> getInvoiceForLoad({
+    required String factoryId,
+    required String loadId,
+  }) async {
+    final byLoadId = await getInvoiceByLoadId(
+      factoryId: factoryId,
+      loadId: loadId,
+    );
+    if (byLoadId != null) return byLoadId;
+
+    final load = await _loadRepository.getLoad(loadId);
+    final stampedId = load?.invoiceId?.trim();
+    if (stampedId == null || stampedId.isEmpty) return null;
+    return getInvoice(stampedId);
+  }
+
   Stream<JobWorkInvoice?> watchInvoice(String id) {
     return _collection.doc(id).snapshots().map((doc) {
       if (!doc.exists || doc.data() == null) return null;

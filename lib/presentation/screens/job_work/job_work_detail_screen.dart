@@ -399,7 +399,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
           (sum, load) => sum + load.balanceDue,
         );
         final outstandingBalance =
-            loadsOutstanding > 0 ? loadsOutstanding : balanceDue;
+            hasLoads ? loadsOutstanding : balanceDue;
         final canGenerateInvoice =
             JobWorkContainerSyncHelper.canGenerateInvoice(
           order: order,

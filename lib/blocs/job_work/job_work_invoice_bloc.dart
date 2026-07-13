@@ -129,7 +129,7 @@ class JobWorkInvoiceBloc
       ),
     );
     try {
-      final invoice = await _invoiceRepository.getInvoiceByLoadId(
+      final invoice = await _invoiceRepository.getInvoiceForLoad(
         factoryId: event.factoryId,
         loadId: event.loadId,
       );
@@ -146,6 +146,13 @@ class JobWorkInvoiceBloc
               factoryId: event.factoryId,
               loadId: event.loadId,
             )
+            .asyncMap((updated) async {
+              if (updated != null) return updated;
+              return _invoiceRepository.getInvoiceForLoad(
+                factoryId: event.factoryId,
+                loadId: event.loadId,
+              );
+            })
             .listen(
               (updated) => add(_JobWorkInvoiceStreamUpdated(updated)),
               onError: (_) {},

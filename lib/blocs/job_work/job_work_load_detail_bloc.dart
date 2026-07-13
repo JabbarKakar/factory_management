@@ -139,6 +139,13 @@ class JobWorkLoadDetailBloc
             factoryId: syncedLoad.factoryId,
             loadId: syncedLoad.id,
           )
+          .asyncMap((invoice) async {
+            if (invoice != null) return invoice;
+            return _invoiceRepository.getInvoiceForLoad(
+              factoryId: syncedLoad.factoryId,
+              loadId: syncedLoad.id,
+            );
+          })
           .listen(
             (invoice) => add(_JobWorkLoadDetailInvoiceUpdated(invoice)),
           );
@@ -183,7 +190,17 @@ class JobWorkLoadDetailBloc
     _JobWorkLoadDetailInvoiceUpdated event,
     Emitter<JobWorkLoadDetailState> emit,
   ) async {
-    final invoice = event.invoice;
+    var invoice = event.invoice;
+    if (invoice == null) {
+      final load = state.load;
+      if (load != null) {
+        invoice = await _invoiceRepository.getInvoiceForLoad(
+          factoryId: load.factoryId,
+          loadId: load.id,
+        );
+      }
+    }
+
     if (invoice == null) {
       await _paymentsSub?.cancel();
       _paymentsSub = null;
