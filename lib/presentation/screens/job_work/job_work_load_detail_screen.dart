@@ -170,9 +170,6 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
     required bool canEdit,
     required bool canDelete,
     required bool isLastLoad,
-    required bool canRecord,
-    required bool hasOutput,
-    required bool canCollect,
     required bool canQc,
     required bool canClose,
   }) {
@@ -186,24 +183,7 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
         ),
       );
     }
-    if (canRecord) {
-      actions.add(
-        TileMenuAction(
-          label: hasOutput ? AppStrings.editOutput : AppStrings.recordOutput,
-          icon: Icons.analytics_outlined,
-          onSelected: () => _openRecordOutput(context),
-        ),
-      );
-    }
-    if (canCollect) {
-      actions.add(
-        TileMenuAction(
-          label: AppStrings.collectMaterial,
-          icon: Icons.handshake_outlined,
-          onSelected: () => _openCollectMaterial(context),
-        ),
-      );
-    }
+    // Record / Collect stay on the hero — avoid duplicating them in ⋮.
     if (canQc) {
       actions.add(
         TileMenuAction(
@@ -322,10 +302,7 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
           load: load,
           canEdit: canEdit,
           canDelete: canDelete,
-          isLastLoad: (order.loadCount ?? 1) <= 1,
-          canRecord: canRecord,
-          hasOutput: hasOutput,
-          canCollect: canCollect,
+          isLastLoad: state.isLastLoad,
           canQc: canQc,
           canClose: canClose,
         );
@@ -572,16 +549,6 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                                 ),
                               ],
                             ),
-                            if (canCollect) ...[
-                              const SizedBox(height: 12),
-                              FilledButton.icon(
-                                onPressed: isSaving
-                                    ? null
-                                    : () => _openCollectMaterial(context),
-                                icon: const Icon(Icons.handshake_outlined),
-                                label: const Text(AppStrings.collectMaterial),
-                              ),
-                            ],
                           ],
                         ),
                       )

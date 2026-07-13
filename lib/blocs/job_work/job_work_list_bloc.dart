@@ -301,6 +301,13 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         order.id,
         collections,
       );
+      final orderLoads = loadsByJobWorkId[order.id] ?? const <JobWorkLoad>[];
+      final displayStatus =
+          JobWorkCollectionQuantityHelper.displayStatusForOrder(
+        order: order,
+        loads: orderLoads,
+      );
+
       if (stageFilter == JobWorkListStageFilter.pendingPickup) {
         if (!JobWorkCollectionQuantityHelper.isPendingPickupForOrder(
           order: order,
@@ -310,19 +317,10 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           return false;
         }
       } else if (stageFilter == JobWorkListStageFilter.partiallyCollected) {
-        final orderLoads = loadsByJobWorkId[order.id] ?? const [];
-        final totals = JobWorkCollectionQuantityHelper.aggregateTotals(
-          order: order,
-          collections: collections,
-          loads: loads,
-        );
-        final isPartial = order.status == JobWorkStatus.partiallyCollected ||
-            orderLoads.any(
-              (load) => load.status == JobWorkStatus.partiallyCollected,
-            ) ||
-            (totals.hasCollections && !totals.isFullyCollected);
-        if (!isPartial) return false;
-      } else if (!stageFilter.matches(order.status)) {
+        if (displayStatus != JobWorkStatus.partiallyCollected) {
+          return false;
+        }
+      } else if (!stageFilter.matches(displayStatus)) {
         return false;
       }
       if (normalizedQuery.isEmpty) return true;
@@ -332,7 +330,6 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           .whereType<String>()
           .where((name) => name.trim().isNotEmpty);
 
-      final orderLoads = loadsByJobWorkId[order.id] ?? const [];
       final loadNumbers = orderLoads
           .map((load) => load.loadNumber)
           .where((number) => number.trim().isNotEmpty);
@@ -343,7 +340,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         order.marbleVariety,
         order.mineLocation,
         order.mineOwner,
-        order.status.label,
+        displayStatus.label,
         ...receiverNames,
         ...loadNumbers,
         ...order.smallSizes,
@@ -355,7 +352,16 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     }).toList();
 
     filtered.sort((a, b) {
-      final rankCompare = a.status.listSortRank.compareTo(b.status.listSortRank);
+      final aStatus = JobWorkCollectionQuantityHelper.displayStatusForOrder(
+        order: a,
+        loads: loadsByJobWorkId[a.id] ?? const [],
+      );
+      final bStatus = JobWorkCollectionQuantityHelper.displayStatusForOrder(
+        order: b,
+        loads: loadsByJobWorkId[b.id] ?? const [],
+      );
+      final rankCompare =
+          aStatus.listSortRank.compareTo(bStatus.listSortRank);
       if (rankCompare != 0) return rankCompare;
       return b.createdAt.compareTo(a.createdAt);
     });

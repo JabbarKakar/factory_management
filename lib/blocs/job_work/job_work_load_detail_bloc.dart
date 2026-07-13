@@ -83,12 +83,17 @@ class JobWorkLoadDetailBloc
       // Heal status when pieces are fully collected but sq.ft dust remains.
       await _collectionRepository.syncLoadCollectionDerivedStatus(load.id);
       final syncedLoad = await _loadRepository.getLoad(event.loadId) ?? load;
+      final siblingLoads = await _loadRepository.fetchLoadsForJobWork(
+        factoryId: order.factoryId,
+        jobWorkId: order.id,
+      );
 
       emit(
         state.copyWith(
           status: JobWorkLoadDetailStatus.ready,
           order: order,
           load: syncedLoad,
+          siblingLoadCount: siblingLoads.length,
           errorMessage: null,
         ),
       );

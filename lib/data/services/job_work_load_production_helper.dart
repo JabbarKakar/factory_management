@@ -30,26 +30,16 @@ abstract final class JobWorkLoadProductionHelper {
   }
 
   /// Best Load to open for Record/Edit Output from a JW list row.
+  ///
+  /// Returns null when multiple Loads can accept output so the user must pick
+  /// on Job Work detail (avoids silently posting to a "preferred" Load).
   static JobWorkLoad? preferredLoadForRecordOutput(
     Iterable<JobWorkLoad> loads,
   ) {
     final candidates = loads
         .where((load) => !load.isVirtual && load.status.canRecordOutput)
         .toList();
-    if (candidates.isEmpty) return null;
-
-    int rank(JobWorkLoad load) => switch (load.status) {
-          JobWorkStatus.inCutting => 0,
-          JobWorkStatus.agreed => 1,
-          JobWorkStatus.qc => 2,
-          _ => 3,
-        };
-
-    candidates.sort((a, b) {
-      final byRank = rank(a).compareTo(rank(b));
-      if (byRank != 0) return byRank;
-      return a.loadSequence.compareTo(b.loadSequence);
-    });
+    if (candidates.length != 1) return null;
     return candidates.first;
   }
 
@@ -60,6 +50,7 @@ abstract final class JobWorkLoadProductionHelper {
     final orderLoads =
         loads.where((load) => load.jobWorkId == order.id).toList();
     if (orderLoads.isNotEmpty) {
+      // List shortcut only when exactly one Load can record.
       return preferredLoadForRecordOutput(orderLoads) != null;
     }
     return order.status.canRecordOutput;

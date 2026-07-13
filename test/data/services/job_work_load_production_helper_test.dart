@@ -159,7 +159,25 @@ void main() {
   });
 
   group('preferredLoadForRecordOutput', () {
-    test('prefers inCutting over agreed', () {
+    test('returns the only recordable load', () {
+      final preferred = JobWorkLoadProductionHelper.preferredLoadForRecordOutput([
+        buildLoad(
+          id: 'load-1',
+          jobWorkId: 'jw-1',
+          sequence: 1,
+          status: JobWorkStatus.inCutting,
+        ),
+        buildLoad(
+          id: 'load-2',
+          jobWorkId: 'jw-1',
+          sequence: 2,
+          status: JobWorkStatus.closed,
+        ),
+      ]);
+      expect(preferred?.id, 'load-1');
+    });
+
+    test('returns null when multiple loads can record', () {
       final preferred = JobWorkLoadProductionHelper.preferredLoadForRecordOutput([
         buildLoad(
           id: 'load-2',
@@ -174,7 +192,7 @@ void main() {
           status: JobWorkStatus.inCutting,
         ),
       ]);
-      expect(preferred?.id, 'load-1');
+      expect(preferred, isNull);
     });
 
     test('skips virtual loads', () {
@@ -202,7 +220,7 @@ void main() {
   });
 
   group('orderCanRecordOutput', () {
-    test('uses load capability when loads exist', () {
+    test('uses load capability when a single load can record', () {
       final order = buildOrder(status: JobWorkStatus.collected);
       final can = JobWorkLoadProductionHelper.orderCanRecordOutput(
         order: order,
@@ -215,6 +233,29 @@ void main() {
         ],
       );
       expect(can, isTrue);
+    });
+
+    test('is false when multiple loads can record', () {
+      final order = buildOrder(status: JobWorkStatus.agreed);
+      expect(
+        JobWorkLoadProductionHelper.orderCanRecordOutput(
+          order: order,
+          loads: [
+            buildLoad(
+              id: 'load-1',
+              jobWorkId: order.id,
+              status: JobWorkStatus.agreed,
+            ),
+            buildLoad(
+              id: 'load-2',
+              jobWorkId: order.id,
+              sequence: 2,
+              status: JobWorkStatus.inCutting,
+            ),
+          ],
+        ),
+        isFalse,
+      );
     });
 
     test('falls back to order status when no loads', () {

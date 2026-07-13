@@ -9,9 +9,9 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
-import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../data/repositories/job_work_load_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
+import '../../../data/services/job_work_container_sync_helper.dart';
 import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/enums/app_module_enums.dart';
@@ -388,7 +388,10 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
         final hasOutput = order.output?.isRecorded == true;
         final balanceDue = hasInvoice
             ? invoice.dueAmount
-            : JobWorkChargesCalculator.effectiveBalanceDue(order);
+            : JobWorkContainerSyncHelper.rollupBalanceDue(
+                order: order,
+                loads: state.loads,
+              );
         // Container placeholder: prefer sum of Load balances; fall back to
         // JW/invoice due during dual-read until Sprint 5 per-Load payments.
         final loadsOutstanding = state.loads.fold<double>(
@@ -397,6 +400,16 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
         );
         final outstandingBalance =
             loadsOutstanding > 0 ? loadsOutstanding : balanceDue;
+        final canGenerateInvoice =
+            JobWorkContainerSyncHelper.canGenerateInvoice(
+          order: order,
+          loads: state.loads,
+        );
+        final displayStatus =
+            JobWorkCollectionQuantityHelper.displayStatusForOrder(
+          order: order,
+          loads: state.loads,
+        );
 
         return Scaffold(
           appBar: AppBar(
@@ -693,8 +706,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                 JobWorkInvoicePaymentHistorySection(
                   payments: state.payments,
                 ),
-              if ((order.status == JobWorkStatus.ready ||
-                      order.status == JobWorkStatus.partiallyCollected) &&
+              if (canGenerateInvoice &&
                   (order.invoiceId == null || order.invoiceId!.isEmpty))
                 _InvoicePromptCard(
                   message: AppStrings.invoiceNotReady,
@@ -706,9 +718,9 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                 _InvoicePromptCard(
                   showViewInvoice: true,
                   showRecordPayment: (hasInvoice ? invoice.dueAmount > 0 : true) &&
-                      order.status != JobWorkStatus.paid &&
-                      order.status != JobWorkStatus.collected &&
-                      order.status != JobWorkStatus.closed,
+                      displayStatus != JobWorkStatus.paid &&
+                      displayStatus != JobWorkStatus.collected &&
+                      displayStatus != JobWorkStatus.closed,
                   onViewInvoice: () => _openInvoice(context),
                   onRecordPayment: () =>
                       _openRecordPayment(context, order.invoiceId!),

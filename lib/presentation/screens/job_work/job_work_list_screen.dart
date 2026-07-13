@@ -6,9 +6,9 @@ import '../../../blocs/job_work/job_work_list_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
-import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../data/repositories/job_work_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
+import '../../../data/services/job_work_container_sync_helper.dart';
 import '../../../data/services/job_work_load_production_helper.dart';
 import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/entities/job_work_order.dart';
@@ -120,7 +120,10 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     required bool canDelete,
     required List<JobWorkLoad> loads,
   }) {
-    final status = order.status;
+    final displayStatus = JobWorkCollectionQuantityHelper.displayStatusForOrder(
+      order: order,
+      loads: loads,
+    );
     final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
     final actions = <TileMenuAction>[];
     final recordLoad =
@@ -131,7 +134,8 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     );
 
     if (canEdit &&
-        (status == JobWorkStatus.received || status == JobWorkStatus.agreed)) {
+        (displayStatus == JobWorkStatus.received ||
+            displayStatus == JobWorkStatus.agreed)) {
       actions.add(
         TileMenuAction(
           label: AppStrings.editJobWorkOrder,
@@ -167,9 +171,11 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       );
     }
 
-    if ((status == JobWorkStatus.ready ||
-            status == JobWorkStatus.partiallyCollected) &&
-        !hasInvoice) {
+    if (!hasInvoice &&
+        JobWorkContainerSyncHelper.canGenerateInvoice(
+          order: order,
+          loads: loads,
+        )) {
       actions.add(
         TileMenuAction(
           label: AppStrings.generateInvoice,
@@ -187,9 +193,9 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
           onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
         ),
       );
-      if (status != JobWorkStatus.paid &&
-          status != JobWorkStatus.collected &&
-          status != JobWorkStatus.closed) {
+      if (displayStatus != JobWorkStatus.paid &&
+          displayStatus != JobWorkStatus.collected &&
+          displayStatus != JobWorkStatus.closed) {
         actions.add(
           TileMenuAction(
             label: AppStrings.recordPayment,
@@ -201,7 +207,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       }
     }
 
-    if (canEdit && status.isInProduction) {
+    if (canEdit && displayStatus.isInProduction) {
       actions.add(
         TileMenuAction(
           label: AppStrings.cancelOrder,
@@ -228,17 +234,28 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
   ({double paid, double remaining})? _paymentSummaryFor(
     JobWorkOrder order,
     JobWorkListState state,
+    List<JobWorkLoad> loads,
   ) {
     final invoice = state.invoicesByJobWorkId[order.id];
-    final showPayment = invoice != null ||
-        order.hasFinalCuttingCharges ||
-        order.advanceReceived > 0;
+    final charges = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+      order: order,
+      loads: loads,
+    );
+    final advance = JobWorkContainerSyncHelper.rollupAdvanceReceived(
+      order: order,
+      loads: loads,
+    );
+    final balance = JobWorkContainerSyncHelper.rollupBalanceDue(
+      order: order,
+      loads: loads,
+    );
+    final showPayment =
+        invoice != null || charges > 0 || advance > 0;
     if (!showPayment) return null;
 
     return (
-      paid: invoice?.paidAmount ?? order.advanceReceived,
-      remaining: invoice?.dueAmount ??
-          JobWorkChargesCalculator.effectiveBalanceDue(order),
+      paid: invoice?.paidAmount ?? advance,
+      remaining: invoice?.dueAmount ?? balance,
     );
   }
 
@@ -447,13 +464,14 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                     itemCount: state.visibleOrders.length,
                     itemBuilder: (context, index) {
                       final order = state.visibleOrders[index];
-                      final paymentSummary = _paymentSummaryFor(order, state);
+                      final orderLoads = state.loadsForOrder(order.id);
+                      final paymentSummary =
+                          _paymentSummaryFor(order, state, orderLoads);
                       final orderCollections =
                           JobWorkCollectionQuantityHelper.collectionsForOrder(
                         order.id,
                         state.collections,
                       );
-                      final orderLoads = state.loadsForOrder(order.id);
                       final totals =
                           JobWorkCollectionQuantityHelper.aggregateTotals(
                         order: order,
@@ -465,6 +483,19 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                         order: order,
                         loads: orderLoads,
                       );
+                      final rolledCharges =
+                          JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+                        order: order,
+                        loads: orderLoads,
+                      );
+                      final rolledUsableSqFt = orderLoads.fold<double>(
+                        0,
+                        (sum, load) =>
+                            sum + (load.output?.totalUsableSqFt ?? 0),
+                      );
+                      final usableSqFt = rolledUsableSqFt > 0
+                          ? rolledUsableSqFt
+                          : order.output?.totalUsableSqFt;
                       String? lastReceiver;
                       DateTime? latestReceiverAt;
                       for (final collection in orderCollections) {
@@ -479,6 +510,12 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                       return JobWorkListTile(
                         order: order,
                         displayStatus: displayStatus,
+                        displayCuttingCharges: rolledCharges > 0
+                            ? rolledCharges
+                            : null,
+                        displayUsableSqFt: usableSqFt != null && usableSqFt > 0
+                            ? usableSqFt
+                            : null,
                         awaitingQcInspection:
                             state.isAwaitingQcInspection(order),
                         isBusy: _busyJobWorkId == order.id,

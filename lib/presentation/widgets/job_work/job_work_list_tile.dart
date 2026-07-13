@@ -14,6 +14,8 @@ class JobWorkListTile extends StatelessWidget {
     required this.order,
     required this.onTap,
     this.displayStatus,
+    this.displayCuttingCharges,
+    this.displayUsableSqFt,
     this.menuActions = const [],
     this.isBusy = false,
     this.awaitingQcInspection = false,
@@ -29,6 +31,10 @@ class JobWorkListTile extends StatelessWidget {
   final VoidCallback onTap;
   /// When Loads are authoritative, list status may differ from [order.status].
   final JobWorkStatus? displayStatus;
+  /// Rolled-up charges from Loads when available.
+  final double? displayCuttingCharges;
+  /// Rolled-up usable output from Loads when available.
+  final double? displayUsableSqFt;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
   final bool awaitingQcInspection;
@@ -45,6 +51,20 @@ class JobWorkListTile extends StatelessWidget {
       remainingPieces != null && remainingPieces! > 0;
 
   JobWorkStatus get _status => displayStatus ?? order.status;
+
+  double get _cuttingCharges =>
+      displayCuttingCharges ?? order.finalCuttingCharges;
+
+  bool get _hasCuttingCharges => _cuttingCharges > 0;
+
+  double? get _usableSqFt {
+    if (displayUsableSqFt != null && displayUsableSqFt! > 0) {
+      return displayUsableSqFt;
+    }
+    final nested = order.output?.totalUsableSqFt;
+    if (nested != null && nested > 0) return nested;
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +83,8 @@ class JobWorkListTile extends StatelessWidget {
     );
     final hasBlocksStrip =
         order.shiftLogs.isNotEmpty && order.blockCount > 0;
-    final hasOutputStrip = order.output?.isRecorded == true;
+    final usableSqFt = _usableSqFt;
+    final hasOutputStrip = usableSqFt != null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -203,15 +224,15 @@ class JobWorkListTile extends StatelessWidget {
                                 Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: Text(
-                                    order.hasFinalCuttingCharges
+                                    _hasCuttingCharges
                                         ? Formatters.currencyPkrWhole(
-                                            order.finalCuttingCharges,
+                                            _cuttingCharges,
                                           )
                                         : AppStrings.chargesPending,
                                     style: theme.textTheme.labelLarge?.copyWith(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 12,
-                                      color: order.hasFinalCuttingCharges
+                                      color: _hasCuttingCharges
                                           ? accent
                                           : muted,
                                     ),
@@ -239,7 +260,7 @@ class JobWorkListTile extends StatelessWidget {
                                     Expanded(
                                       child: _SummaryStrip(
                                         label:
-                                            '${order.output!.totalUsableSqFt.toStringAsFixed(0)} sq. ft',
+                                            '${usableSqFt.toStringAsFixed(0)} sq. ft',
                                         color: theme.colorScheme.primary,
                                       ),
                                     ),

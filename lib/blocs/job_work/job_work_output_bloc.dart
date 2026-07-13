@@ -56,6 +56,13 @@ class JobWorkOutputBloc extends Bloc<JobWorkOutputEvent, JobWorkOutputState> {
           load: load,
         ),
       );
+    } on JobWorkLoadException catch (error) {
+      emit(
+        state.copyWith(
+          status: JobWorkOutputStatus.failure,
+          errorMessage: error.message,
+        ),
+      );
     } catch (_) {
       emit(
         state.copyWith(
@@ -75,9 +82,19 @@ class JobWorkOutputBloc extends Bloc<JobWorkOutputEvent, JobWorkOutputState> {
     final jobWorkId = event.jobWorkId;
     if (jobWorkId == null || jobWorkId.isEmpty) return null;
 
-    await _loadRepository.ensureDefaultLoad(jobWorkId);
     final order = await _repository.getJobWorkOrder(jobWorkId);
     if (order == null) return null;
+    final existing = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+    if (existing.length > 1) {
+      throw const JobWorkLoadException(
+        'Select a load before recording output.',
+      );
+    }
+
+    await _loadRepository.ensureDefaultLoad(jobWorkId);
     final loads = await _loadRepository.fetchLoadsForJobWork(
       factoryId: order.factoryId,
       jobWorkId: jobWorkId,

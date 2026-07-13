@@ -5,8 +5,10 @@ import '../../core/utils/job_work_charges_calculator.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
+import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/job_work_load_enums.dart';
 import '../models/job_work_load_model.dart';
+import '../services/job_work_container_sync_helper.dart';
 import '../services/job_work_load_production_helper.dart';
 import '../services/job_work_load_resolver.dart';
 import 'job_work_repository.dart';
@@ -111,7 +113,8 @@ class JobWorkLoadRepository {
   /// Idempotent: creates Load #1 from nested JW fields when none exist.
   ///
   /// Also stamps container `schemaVersion` / `defaultLoadId` and best-effort
-  /// backfills `loadId` on existing invoices/collections for this JW.
+  /// backfills `loadId` on existing invoices/collections when this is the only
+  /// Load (safe attribution).
   Future<JobWorkLoad> ensureDefaultLoad(String jobWorkId) async {
     final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
     if (order == null) {
@@ -133,13 +136,15 @@ class JobWorkLoadRepository {
           loads: existing,
         );
       }
-      // Stamp orphan invoices/collections that still lack loadId (Sprint 4).
-      await _backfillChildLoadIds(
-        factoryId: order.factoryId,
-        jobWorkId: jobWorkId,
-        loadId: preferred.id,
-        loadNumber: preferred.loadNumber,
-      );
+      // Only auto-stamp orphans onto the default Load when there is exactly one.
+      if (existing.length == 1) {
+        await _backfillChildLoadIds(
+          factoryId: order.factoryId,
+          jobWorkId: jobWorkId,
+          loadId: preferred.id,
+          loadNumber: preferred.loadNumber,
+        );
+      }
       return preferred;
     }
 
@@ -169,6 +174,22 @@ class JobWorkLoadRepository {
           ? 0
           : 1,
       summaryStatus: JobWorkSummaryStatus.fromLoadStatuses([load.status]),
+      containerStatus: JobWorkContainerSyncHelper.resolveContainerStatus(
+        order: order,
+        loads: [load],
+      ),
+      finalCuttingCharges: JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+        order: order,
+        loads: [load],
+      ),
+      advanceReceived: JobWorkContainerSyncHelper.rollupAdvanceReceived(
+        order: order,
+        loads: [load],
+      ),
+      balanceDue: JobWorkContainerSyncHelper.rollupBalanceDue(
+        order: order,
+        loads: [load],
+      ),
     );
     await batch.commit();
 
@@ -228,6 +249,22 @@ class JobWorkLoadRepository {
       activeLoadCount: _activeLoadCount(allLoads),
       summaryStatus: JobWorkSummaryStatus.fromLoadStatuses(
         allLoads.map((item) => item.status),
+      ),
+      containerStatus: JobWorkContainerSyncHelper.resolveContainerStatus(
+        order: order,
+        loads: allLoads,
+      ),
+      finalCuttingCharges: JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+        order: order,
+        loads: allLoads,
+      ),
+      advanceReceived: JobWorkContainerSyncHelper.rollupAdvanceReceived(
+        order: order,
+        loads: allLoads,
+      ),
+      balanceDue: JobWorkContainerSyncHelper.rollupBalanceDue(
+        order: order,
+        loads: allLoads,
       ),
     );
     await batch.commit();
@@ -509,6 +546,22 @@ class JobWorkLoadRepository {
       summaryStatus: JobWorkSummaryStatus.fromLoadStatuses(
         loads.map((load) => load.status),
       ),
+      containerStatus: JobWorkContainerSyncHelper.resolveContainerStatus(
+        order: order,
+        loads: loads,
+      ),
+      finalCuttingCharges: JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+        order: order,
+        loads: loads,
+      ),
+      advanceReceived: JobWorkContainerSyncHelper.rollupAdvanceReceived(
+        order: order,
+        loads: loads,
+      ),
+      balanceDue: JobWorkContainerSyncHelper.rollupBalanceDue(
+        order: order,
+        loads: loads,
+      ),
     );
     await batch.commit();
   }
@@ -520,6 +573,10 @@ class JobWorkLoadRepository {
     required int loadCount,
     required int activeLoadCount,
     required JobWorkSummaryStatus summaryStatus,
+    required JobWorkStatus containerStatus,
+    required double finalCuttingCharges,
+    required double advanceReceived,
+    required double balanceDue,
   }) {
     batch.update(_jobWorkOrders.doc(order.id), {
       'schemaVersion': JobWorkSchemaVersion.loadsAuthoritative,
@@ -527,6 +584,10 @@ class JobWorkLoadRepository {
       'loadCount': loadCount,
       'activeLoadCount': activeLoadCount,
       'summaryStatus': summaryStatus.firestoreValue,
+      'status': containerStatus.firestoreValue,
+      'finalCuttingCharges': finalCuttingCharges,
+      'advanceReceived': advanceReceived,
+      'balanceDue': balanceDue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

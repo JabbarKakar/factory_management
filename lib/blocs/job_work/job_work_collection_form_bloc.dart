@@ -108,6 +108,13 @@ class JobWorkCollectionFormBloc
           errorMessage: null,
         ),
       );
+    } on JobWorkCollectionException catch (error) {
+      emit(
+        state.copyWith(
+          status: JobWorkCollectionFormStatus.failure,
+          errorMessage: error.message,
+        ),
+      );
     } catch (_) {
       emit(
         state.copyWith(
@@ -126,9 +133,19 @@ class JobWorkCollectionFormBloc
       return _loadRepository.getLoad(loadId);
     }
 
-    await _loadRepository.ensureDefaultLoad(jobWorkOrderId);
     final order = await _jobWorkRepository.getJobWorkOrder(jobWorkOrderId);
     if (order == null) return null;
+    final existing = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkOrderId,
+    );
+    if (existing.length > 1) {
+      throw const JobWorkCollectionException(
+        'Select a load before collecting material.',
+      );
+    }
+
+    await _loadRepository.ensureDefaultLoad(jobWorkOrderId);
     final loads = await _loadRepository.fetchLoadsForJobWork(
       factoryId: order.factoryId,
       jobWorkId: jobWorkOrderId,

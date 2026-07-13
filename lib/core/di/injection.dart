@@ -121,6 +121,7 @@ void setupDependencies() {
   getIt.registerLazySingleton<JobWorkInvoiceRepository>(
     () => JobWorkInvoiceRepository(
       jobWorkRepository: getIt<JobWorkRepository>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
     ),
   );
   getIt.registerLazySingleton<SalesInvoiceRepository>(

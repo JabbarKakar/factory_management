@@ -101,6 +101,22 @@ class JobWorkRepository {
     }
 
     final factoryId = order.factoryId;
+    final loadSnap = await _firestore
+        .collection('jobWorkLoads')
+        .where('factoryId', isEqualTo: factoryId)
+        .where('jobWorkId', isEqualTo: id)
+        .get();
+
+    // Load-scoped QC uses referenceId = loadId (not jobWorkId).
+    for (final loadDoc in loadSnap.docs) {
+      await _deleteDocumentsMatching(
+        collection: 'qualityChecks',
+        factoryId: factoryId,
+        field: 'referenceId',
+        value: loadDoc.id,
+      );
+    }
+
     await _deleteLoadsForJobWork(factoryId: factoryId, jobWorkId: id);
     await _deleteDocumentsMatching(
       collection: 'jobWorkCollections',
@@ -309,8 +325,34 @@ class JobWorkRepository {
   }
 
   Future<void> cancelJobWorkOrder(String id) async {
+    final order = await getJobWorkOrder(id);
+    if (order == null) {
+      throw StateError('Job work order not found.');
+    }
+
+    final loadSnap = await _firestore
+        .collection('jobWorkLoads')
+        .where('factoryId', isEqualTo: order.factoryId)
+        .where('jobWorkId', isEqualTo: id)
+        .get();
+
+    const batchLimit = 400;
+    for (var index = 0; index < loadSnap.docs.length; index += batchLimit) {
+      final batch = _firestore.batch();
+      final chunk = loadSnap.docs.skip(index).take(batchLimit);
+      for (final doc in chunk) {
+        batch.update(doc.reference, {
+          'status': JobWorkStatus.cancelled.firestoreValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
+    }
+
     await _jobWorkCollection.doc(id).update({
       'status': JobWorkStatus.cancelled.firestoreValue,
+      'summaryStatus': 'cancelled',
+      'activeLoadCount': 0,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -351,20 +393,8 @@ class JobWorkRepository {
     if (snapshot.docs.isEmpty) return;
 
     for (final doc in snapshot.docs) {
-      final factoryId = doc.data()['factoryId'] as String? ?? '';
-      if (factoryId.isNotEmpty) {
-        await _deleteLoadsForJobWork(
-          factoryId: factoryId,
-          jobWorkId: doc.id,
-        );
-      }
+      await deleteJobWorkOrder(doc.id);
     }
-
-    final batch = _firestore.batch();
-    for (final doc in snapshot.docs) {
-      batch.delete(doc.reference);
-    }
-    await batch.commit();
   }
 
   /// Deletes job work orders whose [customerId] no longer exists.
@@ -389,26 +419,10 @@ class JobWorkRepository {
     if (orphanedDocs.isEmpty) return 0;
 
     for (final doc in orphanedDocs) {
-      await _deleteLoadsForJobWork(
-        factoryId: factoryId,
-        jobWorkId: doc.id,
-      );
+      await deleteJobWorkOrder(doc.id);
     }
 
-    const batchLimit = 500;
-    var deletedCount = 0;
-
-    for (var index = 0; index < orphanedDocs.length; index += batchLimit) {
-      final batch = _firestore.batch();
-      final chunk = orphanedDocs.skip(index).take(batchLimit);
-      for (final doc in chunk) {
-        batch.delete(doc.reference);
-        deletedCount++;
-      }
-      await batch.commit();
-    }
-
-    return deletedCount;
+    return orphanedDocs.length;
   }
 
   Future<void> _deleteLoadsForJobWork({

@@ -2,22 +2,28 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/job_work_invoice.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../models/job_work_invoice_model.dart';
+import '../services/job_work_container_sync_helper.dart';
 import 'invoice_exception.dart';
+import 'job_work_load_repository.dart';
 import 'job_work_repository.dart';
 
 class JobWorkInvoiceRepository {
   JobWorkInvoiceRepository({
     FirebaseFirestore? firestore,
     required JobWorkRepository jobWorkRepository,
+    required JobWorkLoadRepository loadRepository,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _jobWorkRepository = jobWorkRepository;
+        _jobWorkRepository = jobWorkRepository,
+        _loadRepository = loadRepository;
 
   final FirebaseFirestore _firestore;
   final JobWorkRepository _jobWorkRepository;
+  final JobWorkLoadRepository _loadRepository;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection => _collection;
@@ -148,17 +154,12 @@ class JobWorkInvoiceRepository {
     if (order == null) {
       throw StateError('Job work order not found.');
     }
-    if (order.status != JobWorkStatus.ready &&
-        order.status != JobWorkStatus.partiallyCollected) {
-      throw StateError(
-        'Invoice can only be generated for ready or partially collected orders.',
-      );
-    }
-    if (order.finalCuttingCharges <= 0) {
-      throw StateError(
-        'Record output and finalize cutting charges before invoicing.',
-      );
-    }
+
+    final loads = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+
     if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
       final existing = await getInvoice(order.invoiceId!);
       if (existing != null) return existing;
@@ -170,15 +171,40 @@ class JobWorkInvoiceRepository {
     );
     if (existingByJob != null) return existingByJob;
 
+    if (!JobWorkContainerSyncHelper.canGenerateInvoice(
+      order: order,
+      loads: loads,
+    )) {
+      final charges = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+        order: order,
+        loads: loads,
+      );
+      if (charges <= 0) {
+        throw StateError(
+          'Record output and finalize cutting charges before invoicing.',
+        );
+      }
+      throw StateError(
+        'Invoice can only be generated for ready or partially collected orders.',
+      );
+    }
+
     final id = _uuid.v4();
     final invoiceNumber = await _generateInvoiceNumber(order.factoryId);
     final dueDate = order.paymentDueDate ??
         DateTime.now().add(const Duration(days: 7));
 
-    final lineItems = _buildLineItems(order);
-    final totalAmount = order.finalCuttingCharges;
-    final paidAmount = order.advanceReceived;
-    final dueAmount = order.balanceDue;
+    final lineItems = _buildLineItems(order, loads);
+    final totalAmount = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+      order: order,
+      loads: loads,
+    );
+    final paidAmount = JobWorkContainerSyncHelper.rollupAdvanceReceived(
+      order: order,
+      loads: loads,
+    );
+    final dueAmount =
+        (totalAmount - paidAmount).clamp(0, double.infinity).toDouble();
 
     final invoice = JobWorkInvoice(
       id: id,
@@ -311,20 +337,68 @@ class JobWorkInvoiceRepository {
     return await getInvoice(existing.id) ?? updated;
   }
 
-  List<InvoiceLineItem> _buildLineItems(JobWorkOrder order) {
-    final items = <InvoiceLineItem>[
-      InvoiceLineItem(
-        description: _cuttingFeeDescription(order),
-        amount: order.finalCuttingCharges,
-      ),
-    ];
+  List<InvoiceLineItem> _buildLineItems(
+    JobWorkOrder order,
+    List<JobWorkLoad> loads,
+  ) {
+    final orderLoads =
+        JobWorkContainerSyncHelper.persistedLoadsForOrder(order, loads);
+    final items = <InvoiceLineItem>[];
 
-    final output = order.output;
-    if (output != null && output.isRecorded) {
+    if (orderLoads.isEmpty) {
+      items.add(
+        InvoiceLineItem(
+          description: _cuttingFeeDescription(order),
+          amount: order.finalCuttingCharges,
+        ),
+      );
+      final output = order.output;
+      if (output != null && output.isRecorded) {
+        items.add(
+          InvoiceLineItem(
+            description:
+                'Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
+            amount: 0,
+          ),
+        );
+      }
+      return items;
+    }
+
+    for (final load in orderLoads) {
+      if (load.finalCuttingCharges <= 0) continue;
+      final label = load.loadNumber.isEmpty
+          ? 'Load #${load.loadSequence}'
+          : load.loadNumber;
+      items.add(
+        InvoiceLineItem(
+          description: 'Cutting fee — $label · ${order.marbleVariety}',
+          amount: load.finalCuttingCharges,
+        ),
+      );
+    }
+
+    if (items.isEmpty) {
+      items.add(
+        InvoiceLineItem(
+          description: _cuttingFeeDescription(order),
+          amount: JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+            order: order,
+            loads: loads,
+          ),
+        ),
+      );
+    }
+
+    final usableSqFt = orderLoads.fold<double>(
+      0,
+      (total, load) => total + (load.output?.totalUsableSqFt ?? 0),
+    );
+    if (usableSqFt > 0) {
       items.add(
         InvoiceLineItem(
           description:
-              'Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
+              'Output: ${usableSqFt.toStringAsFixed(0)} sq. ft usable',
           amount: 0,
         ),
       );

@@ -247,6 +247,9 @@ abstract final class JobWorkCollectionQuantityHelper {
   }
 
   /// JW aggregate remaining across all Loads (or legacy order pool).
+  ///
+  /// Collections without `loadId` still count toward collected totals so
+  /// remaining stock stays accurate before single-Load backfill runs.
   static JobWorkCollectionTotals aggregateTotals({
     required JobWorkOrder order,
     required List<JobWorkCollection> collections,
@@ -269,6 +272,15 @@ abstract final class JobWorkCollectionQuantityHelper {
       collectedPieces += totals.collectedPieces;
       collectedSquareFeet += totals.collectedSquareFeet;
     }
+
+    for (final collection in collectionsForOrder(order.id, collections)) {
+      final loadId = collection.loadId?.trim();
+      if (loadId != null && loadId.isNotEmpty) continue;
+      if (!counts(collection)) continue;
+      collectedPieces += collection.totalPieces;
+      collectedSquareFeet += collection.totalSquareFeet;
+    }
+
     return JobWorkCollectionTotals(
       totalPieces: totalPieces,
       totalSquareFeet: totalSquareFeet,
@@ -615,6 +627,11 @@ abstract final class JobWorkCollectionQuantityHelper {
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
   }) {
+    // Explicit JW cancel always wins, even if Loads were left active.
+    if (order.status == JobWorkStatus.cancelled) {
+      return JobWorkStatus.cancelled;
+    }
+
     final orderLoads = loads
         .where((load) => load.jobWorkId == order.id && !load.isVirtual)
         .toList();

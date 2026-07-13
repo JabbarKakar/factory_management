@@ -197,6 +197,20 @@ class JobWorkCollectionRepository {
       return load;
     }
 
+    final order = await _jobWorkRepository.getJobWorkOrder(jobWorkOrderId);
+    if (order == null) {
+      throw const JobWorkCollectionException('Job work order not found.');
+    }
+    final existing = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkOrderId,
+    );
+    if (existing.length > 1) {
+      throw const JobWorkCollectionException(
+        'Select a load before collecting material.',
+      );
+    }
+
     try {
       return await _loadRepository.ensureDefaultLoad(jobWorkOrderId);
     } on JobWorkLoadException catch (error) {

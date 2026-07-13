@@ -379,6 +379,14 @@ void main() {
 
       expect(
         JobWorkCollectionQuantityHelper.displayStatusForOrder(
+          order: order.copyWith(status: JobWorkStatus.cancelled),
+          loads: [readyLoad],
+        ),
+        JobWorkStatus.cancelled,
+      );
+
+      expect(
+        JobWorkCollectionQuantityHelper.displayStatusForOrder(
           order: order,
           loads: const [],
         ),
