@@ -367,6 +367,8 @@ void setupDependencies() {
       loadRepository: getIt<JobWorkLoadRepository>(),
       collectionRepository: getIt<JobWorkCollectionRepository>(),
       qualityCheckRepository: getIt<QualityCheckRepository>(),
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      paymentRepository: getIt<PaymentRepository>(),
     ),
   );
   getIt.registerFactory<JobWorkOutputBloc>(

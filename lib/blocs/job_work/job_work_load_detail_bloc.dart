@@ -4,12 +4,16 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/job_work_collection_repository.dart';
+import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../domain/entities/job_work_collection.dart';
+import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/payment.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/quality_enums.dart';
@@ -24,15 +28,21 @@ class JobWorkLoadDetailBloc
     required JobWorkLoadRepository loadRepository,
     required JobWorkCollectionRepository collectionRepository,
     required QualityCheckRepository qualityCheckRepository,
+    required JobWorkInvoiceRepository invoiceRepository,
+    required PaymentRepository paymentRepository,
   })  : _jobWorkRepository = jobWorkRepository,
         _loadRepository = loadRepository,
         _collectionRepository = collectionRepository,
         _qualityCheckRepository = qualityCheckRepository,
+        _invoiceRepository = invoiceRepository,
+        _paymentRepository = paymentRepository,
         super(const JobWorkLoadDetailState()) {
     on<JobWorkLoadDetailStarted>(_onStarted);
     on<_JobWorkLoadDetailLoadUpdated>(_onLoadUpdated);
     on<_JobWorkLoadDetailCollectionsUpdated>(_onCollectionsUpdated);
     on<_JobWorkLoadDetailQualityUpdated>(_onQualityUpdated);
+    on<_JobWorkLoadDetailInvoiceUpdated>(_onInvoiceUpdated);
+    on<_JobWorkLoadDetailPaymentsUpdated>(_onPaymentsUpdated);
     on<JobWorkLoadDetailAdvanceStatusRequested>(_onAdvanceStatus);
     on<JobWorkLoadDetailAdvanceCompletionRequested>(_onAdvanceCompletion);
   }
@@ -41,19 +51,22 @@ class JobWorkLoadDetailBloc
   final JobWorkLoadRepository _loadRepository;
   final JobWorkCollectionRepository _collectionRepository;
   final QualityCheckRepository _qualityCheckRepository;
+  final JobWorkInvoiceRepository _invoiceRepository;
+  final PaymentRepository _paymentRepository;
 
   StreamSubscription<JobWorkLoad?>? _loadSub;
   StreamSubscription<List<JobWorkCollection>>? _collectionsSub;
   StreamSubscription<List<QualityCheck>>? _qualitySub;
+  StreamSubscription<JobWorkInvoice?>? _invoiceSub;
+  StreamSubscription<List<Payment>>? _paymentsSub;
+  String? _watchedInvoiceId;
 
   Future<void> _onStarted(
     JobWorkLoadDetailStarted event,
     Emitter<JobWorkLoadDetailState> emit,
   ) async {
     emit(state.copyWith(status: JobWorkLoadDetailStatus.loading));
-    await _loadSub?.cancel();
-    await _collectionsSub?.cancel();
-    await _qualitySub?.cancel();
+    await _cancelWatches();
 
     try {
       final order =
@@ -94,6 +107,9 @@ class JobWorkLoadDetailBloc
           order: order,
           load: syncedLoad,
           siblingLoadCount: siblingLoads.length,
+          invoice: null,
+          payments: const [],
+          clearInvoice: true,
           errorMessage: null,
         ),
       );
@@ -117,6 +133,14 @@ class JobWorkLoadDetailBloc
           )
           .listen(
             (checks) => add(_JobWorkLoadDetailQualityUpdated(checks)),
+          );
+      _invoiceSub = _invoiceRepository
+          .watchInvoiceByLoadId(
+            factoryId: syncedLoad.factoryId,
+            loadId: syncedLoad.id,
+          )
+          .listen(
+            (invoice) => add(_JobWorkLoadDetailInvoiceUpdated(invoice)),
           );
     } catch (_) {
       emit(
@@ -153,6 +177,41 @@ class JobWorkLoadDetailBloc
     Emitter<JobWorkLoadDetailState> emit,
   ) {
     emit(state.copyWith(qualityChecks: event.qualityChecks));
+  }
+
+  Future<void> _onInvoiceUpdated(
+    _JobWorkLoadDetailInvoiceUpdated event,
+    Emitter<JobWorkLoadDetailState> emit,
+  ) async {
+    final invoice = event.invoice;
+    if (invoice == null) {
+      await _paymentsSub?.cancel();
+      _paymentsSub = null;
+      _watchedInvoiceId = null;
+      emit(state.copyWith(clearInvoice: true, payments: const []));
+      return;
+    }
+
+    emit(state.copyWith(invoice: invoice));
+    if (_watchedInvoiceId == invoice.id) return;
+
+    await _paymentsSub?.cancel();
+    _watchedInvoiceId = invoice.id;
+    _paymentsSub = _paymentRepository
+        .watchPaymentsForInvoice(
+          factoryId: invoice.factoryId,
+          invoiceId: invoice.id,
+        )
+        .listen(
+          (payments) => add(_JobWorkLoadDetailPaymentsUpdated(payments)),
+        );
+  }
+
+  void _onPaymentsUpdated(
+    _JobWorkLoadDetailPaymentsUpdated event,
+    Emitter<JobWorkLoadDetailState> emit,
+  ) {
+    emit(state.copyWith(payments: event.payments));
   }
 
   Future<void> _onAdvanceStatus(
@@ -213,11 +272,23 @@ class JobWorkLoadDetailBloc
     }
   }
 
-  @override
-  Future<void> close() async {
+  Future<void> _cancelWatches() async {
     await _loadSub?.cancel();
     await _collectionsSub?.cancel();
     await _qualitySub?.cancel();
+    await _invoiceSub?.cancel();
+    await _paymentsSub?.cancel();
+    _loadSub = null;
+    _collectionsSub = null;
+    _qualitySub = null;
+    _invoiceSub = null;
+    _paymentsSub = null;
+    _watchedInvoiceId = null;
+  }
+
+  @override
+  Future<void> close() async {
+    await _cancelWatches();
     return super.close();
   }
 }

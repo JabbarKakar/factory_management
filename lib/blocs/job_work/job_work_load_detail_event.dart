@@ -47,6 +47,24 @@ final class _JobWorkLoadDetailQualityUpdated extends JobWorkLoadDetailEvent {
   List<Object?> get props => [qualityChecks];
 }
 
+final class _JobWorkLoadDetailInvoiceUpdated extends JobWorkLoadDetailEvent {
+  const _JobWorkLoadDetailInvoiceUpdated(this.invoice);
+
+  final JobWorkInvoice? invoice;
+
+  @override
+  List<Object?> get props => [invoice];
+}
+
+final class _JobWorkLoadDetailPaymentsUpdated extends JobWorkLoadDetailEvent {
+  const _JobWorkLoadDetailPaymentsUpdated(this.payments);
+
+  final List<Payment> payments;
+
+  @override
+  List<Object?> get props => [payments];
+}
+
 final class JobWorkLoadDetailAdvanceStatusRequested
     extends JobWorkLoadDetailEvent {
   const JobWorkLoadDetailAdvanceStatusRequested(this.nextStatus);

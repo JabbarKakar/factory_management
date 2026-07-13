@@ -702,7 +702,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                     },
                   ),
                 ),
-              if (hasInvoice || state.invoices.isNotEmpty)
+              if (!hasLoads && (hasInvoice || state.invoices.isNotEmpty))
                 JobWorkInvoicePaymentHistorySection(
                   payments: state.payments,
                 ),
@@ -728,55 +728,6 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                   onViewInvoice: () => _openInvoice(context),
                   onRecordPayment: () =>
                       _openRecordPayment(context, order.invoiceId!),
-                ),
-              // Multi-Load: link to each Load invoice from rollup list.
-              if (hasLoads && state.invoices.isNotEmpty)
-                JobWorkDetailSection(
-                  title: AppStrings.jobWorkInvoice,
-                  icon: Icons.receipt_long_outlined,
-                  child: Column(
-                    children: [
-                      for (final inv in state.invoices)
-                        ListTile(
-                          dense: true,
-                          leading: const Icon(Icons.receipt_outlined),
-                          title: Text(inv.invoiceNumber),
-                          subtitle: Text(
-                            [
-                              inv.jobWorkNumber,
-                              if (inv.loadNumber != null &&
-                                  inv.loadNumber!.isNotEmpty)
-                                inv.loadNumber!,
-                            ].join(' · '),
-                          ),
-                          trailing: Text(
-                            Formatters.currencyPkr(inv.dueAmount),
-                          ),
-                          onTap: () {
-                            final loadId = inv.loadId;
-                            if (loadId != null && loadId.isNotEmpty) {
-                              context.push(
-                                RoutePaths.jobWorkLoadInvoice(
-                                  jobWorkId: jobWorkId,
-                                  loadId: loadId,
-                                ),
-                              );
-                            } else {
-                              _openInvoice(context);
-                            }
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              if (hasLoads &&
-                  order.invoiceId != null &&
-                  order.invoiceId!.isNotEmpty &&
-                  state.invoices.every((inv) => inv.id != order.invoiceId))
-                _InvoicePromptCard(
-                  showViewInvoice: true,
-                  showRecordPayment: false,
-                  onViewInvoice: () => _openInvoice(context),
                 ),
             ],
           ),
