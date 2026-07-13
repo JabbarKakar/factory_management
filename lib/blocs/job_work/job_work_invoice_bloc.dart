@@ -28,8 +28,10 @@ class JobWorkInvoiceBloc
         _scannerService = scannerService,
         super(const JobWorkInvoiceState()) {
     on<JobWorkInvoiceLoadByJobWork>(_onLoadByJobWork);
+    on<JobWorkInvoiceLoadByLoad>(_onLoadByLoad);
     on<JobWorkInvoiceLoadById>(_onLoadById);
     on<JobWorkInvoiceGenerateRequested>(_onGenerate);
+    on<JobWorkInvoiceGenerateFromLoadRequested>(_onGenerateFromLoad);
     on<JobWorkInvoicePaymentSubmitted>(_onPaymentSubmitted);
     on<JobWorkInvoicePaymentUpdated>(_onPaymentUpdated);
     on<JobWorkInvoicePaymentDeleteRequested>(_onPaymentDeleteRequested);
@@ -114,6 +116,53 @@ class JobWorkInvoiceBloc
     }
   }
 
+  Future<void> _onLoadByLoad(
+    JobWorkInvoiceLoadByLoad event,
+    Emitter<JobWorkInvoiceState> emit,
+  ) async {
+    await _cancelSubscriptions();
+    emit(
+      state.copyWith(
+        status: JobWorkInvoiceStatus.loading,
+        jobWorkId: event.jobWorkId,
+        loadId: event.loadId,
+      ),
+    );
+    try {
+      final invoice = await _invoiceRepository.getInvoiceByLoadId(
+        factoryId: event.factoryId,
+        loadId: event.loadId,
+      );
+      if (invoice == null) {
+        emit(
+          state.copyWith(
+            status: JobWorkInvoiceStatus.notFound,
+            jobWorkId: event.jobWorkId,
+            loadId: event.loadId,
+          ),
+        );
+        _invoiceSubscription = _invoiceRepository
+            .watchInvoiceByLoadId(
+              factoryId: event.factoryId,
+              loadId: event.loadId,
+            )
+            .listen(
+              (updated) => add(_JobWorkInvoiceStreamUpdated(updated)),
+              onError: (_) {},
+            );
+        return;
+      }
+      await _startWatching(invoice, emit);
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: JobWorkInvoiceStatus.failure,
+          errorMessage: 'Could not load invoice.',
+        ),
+      );
+    }
+  }
+
   Future<void> _onGenerate(
     JobWorkInvoiceGenerateRequested event,
     Emitter<JobWorkInvoiceState> emit,
@@ -122,6 +171,38 @@ class JobWorkInvoiceBloc
     try {
       final invoice =
           await _invoiceRepository.generateFromJobWorkOrder(event.jobWorkId);
+      await _paymentRepository.ensureInvoicePaidAmountRecorded(
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.jobWork,
+      );
+      await _ledgerService.syncCustomerBalance(invoice.customerId);
+      await _scannerService.scan(invoice.factoryId);
+      await _startWatching(invoice, emit, saved: true);
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: JobWorkInvoiceStatus.failure,
+          errorMessage: e is StateError
+              ? e.message
+              : 'Could not generate invoice.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onGenerateFromLoad(
+    JobWorkInvoiceGenerateFromLoadRequested event,
+    Emitter<JobWorkInvoiceState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        status: JobWorkInvoiceStatus.saving,
+        jobWorkId: event.jobWorkId,
+        loadId: event.loadId,
+      ),
+    );
+    try {
+      final invoice = await _invoiceRepository.generateFromLoad(event.loadId);
       await _paymentRepository.ensureInvoicePaidAmountRecorded(
         invoiceId: invoice.id,
         invoiceType: InvoiceType.jobWork,

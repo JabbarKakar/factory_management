@@ -171,7 +171,40 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       );
     }
 
-    if (!hasInvoice &&
+    final invoicableLoads = loads
+        .where(
+          (load) =>
+              !load.isVirtual &&
+              JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load) &&
+              (load.invoiceId == null || load.invoiceId!.isEmpty),
+        )
+        .toList();
+    final loadsWithInvoice = loads
+        .where(
+          (load) =>
+              !load.isVirtual &&
+              load.invoiceId != null &&
+              load.invoiceId!.isNotEmpty,
+        )
+        .toList();
+
+    if (invoicableLoads.length == 1) {
+      final load = invoicableLoads.first;
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.generateInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () => context.push(
+            RoutePaths.jobWorkLoadInvoice(
+              jobWorkId: order.id,
+              loadId: load.id,
+            ),
+          ),
+        ),
+      );
+    } else if (invoicableLoads.isEmpty &&
+        !hasInvoice &&
+        loads.isEmpty &&
         JobWorkContainerSyncHelper.canGenerateInvoice(
           order: order,
           loads: loads,
@@ -185,7 +218,31 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       );
     }
 
-    if (hasInvoice) {
+    if (loadsWithInvoice.length == 1) {
+      final load = loadsWithInvoice.first;
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.viewInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () => context.push(
+            RoutePaths.jobWorkLoadInvoice(
+              jobWorkId: order.id,
+              loadId: load.id,
+            ),
+          ),
+        ),
+      );
+      if (load.balanceDue > 0) {
+        actions.add(
+          TileMenuAction(
+            label: AppStrings.recordPayment,
+            icon: Icons.payments_outlined,
+            onSelected: () =>
+                context.push(RoutePaths.recordPayment(load.invoiceId!)),
+          ),
+        );
+      }
+    } else if (hasInvoice && loadsWithInvoice.isEmpty) {
       actions.add(
         TileMenuAction(
           label: AppStrings.viewInvoice,
@@ -205,6 +262,15 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
           ),
         );
       }
+    } else if (loadsWithInvoice.length > 1 || invoicableLoads.length > 1) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.viewInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () =>
+              context.push(RoutePaths.jobWorkDetail(order.id)),
+        ),
+      );
     }
 
     if (canEdit && displayStatus.isInProduction) {

@@ -10,6 +10,7 @@ import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/job_work_load_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
+import '../../../data/services/job_work_container_sync_helper.dart';
 import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/enums/app_module_enums.dart';
@@ -449,6 +450,59 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                   ],
                 ),
               ),
+              if (canEdit &&
+                  (JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load) ||
+                      (load.invoiceId != null &&
+                          load.invoiceId!.isNotEmpty)))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (load.invoiceId == null || load.invoiceId!.isEmpty)
+                        FilledButton.icon(
+                          onPressed: isSaving
+                              ? null
+                              : () => context.push(
+                                    RoutePaths.jobWorkLoadInvoice(
+                                      jobWorkId: jobWorkId,
+                                      loadId: load.id,
+                                    ),
+                                  ),
+                          icon: const Icon(Icons.receipt_long_outlined),
+                          label: const Text(AppStrings.generateInvoice),
+                        )
+                      else ...[
+                        OutlinedButton.icon(
+                          onPressed: isSaving
+                              ? null
+                              : () => context.push(
+                                    RoutePaths.jobWorkLoadInvoice(
+                                      jobWorkId: jobWorkId,
+                                      loadId: load.id,
+                                    ),
+                                  ),
+                          icon: const Icon(Icons.receipt_long_outlined),
+                          label: const Text(AppStrings.viewInvoice),
+                        ),
+                        if (load.balanceDue > 0) ...[
+                          const SizedBox(height: 8),
+                          FilledButton.icon(
+                            onPressed: isSaving
+                                ? null
+                                : () => context.push(
+                                      RoutePaths.recordPayment(
+                                        load.invoiceId!,
+                                      ),
+                                    ),
+                            icon: const Icon(Icons.payments_outlined),
+                            label: const Text(AppStrings.recordPayment),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
               JobWorkDetailSection(
                 title: AppStrings.cuttingSpecification,
                 icon: Icons.content_cut_outlined,

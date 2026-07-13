@@ -108,13 +108,13 @@ void main() {
       expect(charges, 1000);
     });
 
-    test('allows invoice when loads are ready with charges', () {
+    test('allows invoice at any stage when charges exist', () {
       final can = JobWorkContainerSyncHelper.canGenerateInvoice(
         order: buildOrder(status: JobWorkStatus.agreed),
         loads: [
           buildLoad(
             id: 'l1',
-            status: JobWorkStatus.ready,
+            status: JobWorkStatus.inCutting,
             finalCuttingCharges: 2500,
           ),
         ],
@@ -132,19 +132,126 @@ void main() {
       expect(can, isFalse);
     });
 
-    test('blocks invoice when charges are zero', () {
+    test('blocks JW-level generate when multiple loads exist', () {
       final can = JobWorkContainerSyncHelper.canGenerateInvoice(
         order: buildOrder(status: JobWorkStatus.agreed),
         loads: [
+          buildLoad(id: 'l1', status: JobWorkStatus.ready),
+          buildLoad(id: 'l2', sequence: 2, status: JobWorkStatus.ready),
+        ],
+      );
+      expect(can, isFalse);
+    });
+  });
+
+  group('canGenerateInvoiceForLoad + financeStatusForLoad', () {
+    test('allows ready load with charges', () {
+      expect(
+        JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(
+          buildLoad(id: 'l1', status: JobWorkStatus.ready),
+        ),
+        isTrue,
+      );
+    });
+
+    test('allows early stage load with charges', () {
+      expect(
+        JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(
+          buildLoad(
+            id: 'l1',
+            status: JobWorkStatus.agreed,
+            finalCuttingCharges: 1500,
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('allows collected load with charges', () {
+      expect(
+        JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(
+          buildLoad(
+            id: 'l1',
+            status: JobWorkStatus.collected,
+            finalCuttingCharges: 1500,
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('allows closed load with charges', () {
+      expect(
+        JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(
+          buildLoad(
+            id: 'l1',
+            status: JobWorkStatus.closed,
+            finalCuttingCharges: 1500,
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('blocks cancelled load', () {
+      expect(
+        JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(
+          buildLoad(id: 'l1', status: JobWorkStatus.cancelled),
+        ),
+        isFalse,
+      );
+    });
+
+    test('blocks when charges are zero', () {
+      expect(
+        JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(
           buildLoad(
             id: 'l1',
             status: JobWorkStatus.ready,
             finalCuttingCharges: 0,
             balanceDue: 0,
           ),
-        ],
+        ),
+        isFalse,
       );
-      expect(can, isFalse);
+    });
+
+    test('finance status becomes paid when due is zero', () {
+      final status = JobWorkContainerSyncHelper.financeStatusForLoad(
+        load: buildLoad(id: 'l1', status: JobWorkStatus.invoiced),
+        dueAmount: 0,
+      );
+      expect(status, JobWorkStatus.paid);
+    });
+
+    test('finance status does not clobber partially collected', () {
+      final status = JobWorkContainerSyncHelper.financeStatusForLoad(
+        load: buildLoad(
+          id: 'l1',
+          status: JobWorkStatus.partiallyCollected,
+        ),
+        dueAmount: 0,
+      );
+      expect(status, isNull);
+    });
+
+    test('finance status does not clobber collected', () {
+      final status = JobWorkContainerSyncHelper.financeStatusForLoad(
+        load: buildLoad(
+          id: 'l1',
+          status: JobWorkStatus.collected,
+        ),
+        dueAmount: 500,
+      );
+      expect(status, isNull);
+    });
+
+    test('finance status sets invoiced from ready', () {
+      final status = JobWorkContainerSyncHelper.financeStatusForLoad(
+        load: buildLoad(id: 'l1', status: JobWorkStatus.ready),
+        dueAmount: 500,
+      );
+      expect(status, JobWorkStatus.invoiced);
     });
   });
 }

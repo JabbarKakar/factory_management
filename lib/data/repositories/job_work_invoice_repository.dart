@@ -41,9 +41,37 @@ class JobWorkInvoiceRepository {
     required String factoryId,
     required String jobWorkId,
   }) async {
+    final invoices = await getInvoicesByJobWorkId(
+      factoryId: factoryId,
+      jobWorkId: jobWorkId,
+    );
+    if (invoices.isEmpty) return null;
+    return invoices.first;
+  }
+
+  Future<List<JobWorkInvoice>> getInvoicesByJobWorkId({
+    required String factoryId,
+    required String jobWorkId,
+  }) async {
     final snapshot = await _collection
         .where('factoryId', isEqualTo: factoryId)
         .where('jobWorkId', isEqualTo: jobWorkId)
+        .get();
+    final invoices = snapshot.docs
+        .map((doc) => JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    invoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return invoices;
+  }
+
+  Future<JobWorkInvoice?> getInvoiceByLoadId({
+    required String factoryId,
+    required String loadId,
+  }) async {
+    final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('loadId', isEqualTo: loadId)
         .limit(1)
         .get();
     if (snapshot.docs.isEmpty) return null;
@@ -62,9 +90,38 @@ class JobWorkInvoiceRepository {
     required String factoryId,
     required String jobWorkId,
   }) {
+    return watchInvoicesByJobWorkId(
+      factoryId: factoryId,
+      jobWorkId: jobWorkId,
+    ).map((invoices) => invoices.isEmpty ? null : invoices.first);
+  }
+
+  Stream<List<JobWorkInvoice>> watchInvoicesByJobWorkId({
+    required String factoryId,
+    required String jobWorkId,
+  }) {
     return _collection
         .where('factoryId', isEqualTo: factoryId)
         .where('jobWorkId', isEqualTo: jobWorkId)
+        .snapshots()
+        .map((snapshot) {
+          final invoices = snapshot.docs
+              .map((doc) =>
+                  JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()))
+              .map((model) => model.toEntity())
+              .toList();
+          invoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return invoices;
+        });
+  }
+
+  Stream<JobWorkInvoice?> watchInvoiceByLoadId({
+    required String factoryId,
+    required String loadId,
+  }) {
+    return _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('loadId', isEqualTo: loadId)
         .limit(1)
         .snapshots()
         .map((snapshot) {
@@ -149,69 +206,90 @@ class JobWorkInvoiceRepository {
         });
   }
 
+  /// Compatibility path: single Load → [generateFromLoad]; multi-Load → error.
   Future<JobWorkInvoice> generateFromJobWorkOrder(String jobWorkId) async {
     final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
     if (order == null) {
       throw StateError('Job work order not found.');
     }
 
-    final loads = await _loadRepository.fetchLoadsForJobWork(
+    var loads = await _loadRepository.fetchLoadsForJobWork(
       factoryId: order.factoryId,
       jobWorkId: jobWorkId,
     );
+    final persisted =
+        JobWorkContainerSyncHelper.persistedLoadsForOrder(order, loads);
 
-    if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
-      final existing = await getInvoice(order.invoiceId!);
+    if (persisted.length > 1) {
+      throw StateError(
+        'Select a load before generating an invoice.',
+      );
+    }
+
+    if (persisted.isEmpty) {
+      // Legacy JW invoice still openable.
+      if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
+        final existing = await getInvoice(order.invoiceId!);
+        if (existing != null) return existing;
+      }
+      final load = await _loadRepository.ensureDefaultLoad(jobWorkId);
+      return generateFromLoad(load.id);
+    }
+
+    return generateFromLoad(persisted.first.id);
+  }
+
+  Future<JobWorkInvoice> generateFromLoad(String loadId) async {
+    final load = await _loadRepository.getLoad(loadId);
+    if (load == null || load.isVirtual) {
+      throw StateError('Load not found.');
+    }
+
+    final order = await _jobWorkRepository.getJobWorkOrder(load.jobWorkId);
+    if (order == null) {
+      throw StateError('Job work order not found.');
+    }
+
+    if (load.invoiceId != null && load.invoiceId!.isNotEmpty) {
+      final existing = await getInvoice(load.invoiceId!);
       if (existing != null) return existing;
     }
 
-    final existingByJob = await getInvoiceByJobWorkId(
-      factoryId: order.factoryId,
-      jobWorkId: jobWorkId,
+    final existingByLoad = await getInvoiceByLoadId(
+      factoryId: load.factoryId,
+      loadId: load.id,
     );
-    if (existingByJob != null) return existingByJob;
+    if (existingByLoad != null) return existingByLoad;
 
-    if (!JobWorkContainerSyncHelper.canGenerateInvoice(
-      order: order,
-      loads: loads,
-    )) {
-      final charges = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
-        order: order,
-        loads: loads,
-      );
-      if (charges <= 0) {
-        throw StateError(
-          'Record output and finalize cutting charges before invoicing.',
-        );
+    if (!JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load)) {
+      if (load.status == JobWorkStatus.cancelled) {
+        throw StateError('Cannot generate invoice for a cancelled load.');
       }
       throw StateError(
-        'Invoice can only be generated for ready or partially collected orders.',
+        'Record output and finalize cutting charges before invoicing.',
       );
     }
 
     final id = _uuid.v4();
-    final invoiceNumber = await _generateInvoiceNumber(order.factoryId);
-    final dueDate = order.paymentDueDate ??
+    final invoiceNumber = await _generateInvoiceNumber(load.factoryId);
+    final dueDate = load.paymentDueDate ??
+        order.paymentDueDate ??
         DateTime.now().add(const Duration(days: 7));
 
-    final lineItems = _buildLineItems(order, loads);
-    final totalAmount = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
-      order: order,
-      loads: loads,
-    );
-    final paidAmount = JobWorkContainerSyncHelper.rollupAdvanceReceived(
-      order: order,
-      loads: loads,
-    );
+    final totalAmount = load.finalCuttingCharges;
+    final paidAmount = load.advanceReceived;
     final dueAmount =
         (totalAmount - paidAmount).clamp(0, double.infinity).toDouble();
+    final lineItems = _buildLineItemsForLoad(order, load);
 
     final invoice = JobWorkInvoice(
       id: id,
       invoiceNumber: invoiceNumber,
-      factoryId: order.factoryId,
+      factoryId: load.factoryId,
       jobWorkId: order.id,
       jobWorkNumber: order.jobWorkNumber,
+      loadId: load.id,
+      loadNumber: load.loadNumber,
       customerId: order.customerId,
       customerName: order.customerName,
       lineItems: lineItems,
@@ -225,29 +303,49 @@ class JobWorkInvoiceRepository {
         totalAmount: totalAmount,
         dueDate: dueDate,
       ),
-      mineLocation: order.mineLocation,
-      mineOwner: order.mineOwner,
+      mineLocation: load.mineLocation ?? order.mineLocation,
+      mineOwner: load.mineOwner ?? order.mineOwner,
       createdAt: DateTime.now(),
     );
 
     final model = JobWorkInvoiceModel.fromEntity(invoice);
     final batch = _firestore.batch();
-
     batch.set(_collection.doc(id), model.toFirestore(isCreate: true));
-    final orderUpdates = <String, dynamic>{
+
+    final loadUpdates = <String, dynamic>{
       'invoiceId': id,
       'updatedAt': FieldValue.serverTimestamp(),
     };
-    // Do not overwrite collection progress with invoiced/paid.
-    if (!order.status.isCollectionStatus) {
-      orderUpdates['status'] = (dueAmount <= 0
-              ? JobWorkStatus.paid
-              : JobWorkStatus.invoiced)
-          .firestoreValue;
+    final financeStatus = JobWorkContainerSyncHelper.financeStatusForLoad(
+      load: load,
+      dueAmount: dueAmount,
+    );
+    if (financeStatus != null) {
+      loadUpdates['status'] = financeStatus.firestoreValue;
     }
-    batch.update(_jobWorkRepository.jobWorkDoc(order.id), orderUpdates);
+    batch.update(_loadRepository.loadDoc(load.id), loadUpdates);
+
+    // Legacy dual-read: keep JW.invoiceId when this is the only Load.
+    final siblingLoads = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: order.id,
+    );
+    if (siblingLoads.length <= 1) {
+      final orderUpdates = <String, dynamic>{
+        'invoiceId': id,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (!order.status.isCollectionStatus) {
+        orderUpdates['status'] = (dueAmount <= 0
+                ? JobWorkStatus.paid
+                : JobWorkStatus.invoiced)
+            .firestoreValue;
+      }
+      batch.update(_jobWorkRepository.jobWorkDoc(order.id), orderUpdates);
+    }
 
     await batch.commit();
+    await _loadRepository.refreshContainerFromLoads(order.id);
 
     final created = await getInvoice(id);
     return created ?? invoice;
@@ -265,7 +363,7 @@ class JobWorkInvoiceRepository {
     }
 
     final totalAmount =
-        lineItems.fold<double>(0, (sum, item) => sum + item.amount);
+        lineItems.fold<double>(0, (total, item) => total + item.amount);
     if (totalAmount + 0.01 < existing.paidAmount) {
       throw InvoiceException(
         'Invoice total cannot be less than amount already paid '
@@ -311,121 +409,82 @@ class JobWorkInvoiceRepository {
       JobWorkInvoiceModel.fromEntity(updated).toFirestore(),
     );
 
-    final order = await _jobWorkRepository.getJobWorkOrder(existing.jobWorkId);
-    if (order != null) {
-      final orderUpdates = <String, dynamic>{
-        'finalCuttingCharges': totalAmount,
-        'balanceDue': dueAmount,
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-      if (!order.status.isCollectionStatus) {
-        final orderStatus = dueAmount <= 0 && totalAmount > 0
-            ? JobWorkStatus.paid
-            : order.status == JobWorkStatus.paid && dueAmount > 0
-                ? JobWorkStatus.invoiced
-                : order.status;
-        orderUpdates['status'] = orderStatus.firestoreValue;
+    final loadId = existing.loadId;
+    if (loadId != null && loadId.isNotEmpty) {
+      final load = await _loadRepository.getLoad(loadId);
+      if (load != null) {
+        final loadUpdates = <String, dynamic>{
+          'finalCuttingCharges': totalAmount,
+          'balanceDue': dueAmount,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        final financeStatus = JobWorkContainerSyncHelper.financeStatusForLoad(
+          load: load,
+          dueAmount: dueAmount,
+        );
+        if (financeStatus != null) {
+          loadUpdates['status'] = financeStatus.firestoreValue;
+        }
+        batch.update(_loadRepository.loadDoc(loadId), loadUpdates);
       }
-      batch.update(
-        _jobWorkRepository.jobWorkDoc(existing.jobWorkId),
-        orderUpdates,
-      );
+    } else {
+      final order =
+          await _jobWorkRepository.getJobWorkOrder(existing.jobWorkId);
+      if (order != null) {
+        final orderUpdates = <String, dynamic>{
+          'finalCuttingCharges': totalAmount,
+          'balanceDue': dueAmount,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (!order.status.isCollectionStatus) {
+          final orderStatus = dueAmount <= 0 && totalAmount > 0
+              ? JobWorkStatus.paid
+              : order.status == JobWorkStatus.paid && dueAmount > 0
+                  ? JobWorkStatus.invoiced
+                  : order.status;
+          orderUpdates['status'] = orderStatus.firestoreValue;
+        }
+        batch.update(
+          _jobWorkRepository.jobWorkDoc(existing.jobWorkId),
+          orderUpdates,
+        );
+      }
     }
 
     await batch.commit();
+    if (loadId != null && loadId.isNotEmpty) {
+      await _loadRepository.refreshContainerFromLoads(existing.jobWorkId);
+    }
 
     return await getInvoice(existing.id) ?? updated;
   }
 
-  List<InvoiceLineItem> _buildLineItems(
+  List<InvoiceLineItem> _buildLineItemsForLoad(
     JobWorkOrder order,
-    List<JobWorkLoad> loads,
+    JobWorkLoad load,
   ) {
-    final orderLoads =
-        JobWorkContainerSyncHelper.persistedLoadsForOrder(order, loads);
-    final items = <InvoiceLineItem>[];
+    final label = load.loadNumber.isEmpty
+        ? 'Load #${load.loadSequence}'
+        : load.loadNumber;
+    final items = <InvoiceLineItem>[
+      InvoiceLineItem(
+        description: 'Cutting fee — $label · ${load.marbleVariety.isNotEmpty ? load.marbleVariety : order.marbleVariety}',
+        amount: load.finalCuttingCharges,
+      ),
+    ];
 
-    if (orderLoads.isEmpty) {
-      items.add(
-        InvoiceLineItem(
-          description: _cuttingFeeDescription(order),
-          amount: order.finalCuttingCharges,
-        ),
-      );
-      final output = order.output;
-      if (output != null && output.isRecorded) {
-        items.add(
-          InvoiceLineItem(
-            description:
-                'Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
-            amount: 0,
-          ),
-        );
-      }
-      return items;
-    }
-
-    for (final load in orderLoads) {
-      if (load.finalCuttingCharges <= 0) continue;
-      final label = load.loadNumber.isEmpty
-          ? 'Load #${load.loadSequence}'
-          : load.loadNumber;
-      items.add(
-        InvoiceLineItem(
-          description: 'Cutting fee — $label · ${order.marbleVariety}',
-          amount: load.finalCuttingCharges,
-        ),
-      );
-    }
-
-    if (items.isEmpty) {
-      items.add(
-        InvoiceLineItem(
-          description: _cuttingFeeDescription(order),
-          amount: JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
-            order: order,
-            loads: loads,
-          ),
-        ),
-      );
-    }
-
-    final usableSqFt = orderLoads.fold<double>(
-      0,
-      (total, load) => total + (load.output?.totalUsableSqFt ?? 0),
-    );
-    if (usableSqFt > 0) {
+    final output = load.output;
+    if (output != null && output.isRecorded) {
       items.add(
         InvoiceLineItem(
           description:
-              'Output: ${usableSqFt.toStringAsFixed(0)} sq. ft usable',
+              'Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
           amount: 0,
         ),
       );
     }
 
     return items;
-  }
-
-  String _cuttingFeeDescription(JobWorkOrder order) {
-    final details = <String>['Cutting fee — ${order.marbleVariety}'];
-    if (order.mineLocation != null && order.mineLocation!.isNotEmpty) {
-      details.add(order.mineLocation!);
-    }
-    if (order.mineOwner != null && order.mineOwner!.isNotEmpty) {
-      details.add(order.mineOwner!);
-    }
-    if (order.smallSizes.isNotEmpty && order.smallStockPrice > 0) {
-      details.add(
-        'Small ${order.smallSizes.length}× PKR ${order.smallStockPrice.toStringAsFixed(0)}',
-      );
-    }
-    if (order.largeSizes.isNotEmpty && order.largeStockPrice > 0) {
-      details.add(
-        'Large ${order.largeSizes.length}× PKR ${order.largeStockPrice.toStringAsFixed(0)}',
-      );
-    }
-    return details.join(' · ');
   }
 
   Future<String> _generateInvoiceNumber(String factoryId) async {

@@ -7,8 +7,10 @@ import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/payment_model.dart';
 import '../services/customer_ledger_service.dart';
+import '../services/job_work_container_sync_helper.dart';
 import '../services/payment_due_scanner_service.dart';
 import 'job_work_invoice_repository.dart';
+import 'job_work_load_repository.dart';
 import 'job_work_repository.dart';
 import 'notification_repository.dart';
 import 'sales_invoice_repository.dart';
@@ -29,6 +31,7 @@ class PaymentRepository {
     required JobWorkInvoiceRepository jobWorkInvoiceRepository,
     required SalesInvoiceRepository salesInvoiceRepository,
     required JobWorkRepository jobWorkRepository,
+    required JobWorkLoadRepository jobWorkLoadRepository,
     required SalesOrderRepository salesOrderRepository,
     CustomerLedgerService? ledgerService,
     NotificationRepository? notificationRepository,
@@ -37,6 +40,7 @@ class PaymentRepository {
         _jobWorkInvoiceRepository = jobWorkInvoiceRepository,
         _salesInvoiceRepository = salesInvoiceRepository,
         _jobWorkRepository = jobWorkRepository,
+        _jobWorkLoadRepository = jobWorkLoadRepository,
         _salesOrderRepository = salesOrderRepository,
         _ledgerService = ledgerService,
         _notificationRepository = notificationRepository,
@@ -46,6 +50,7 @@ class PaymentRepository {
   final JobWorkInvoiceRepository _jobWorkInvoiceRepository;
   final SalesInvoiceRepository _salesInvoiceRepository;
   final JobWorkRepository _jobWorkRepository;
+  final JobWorkLoadRepository _jobWorkLoadRepository;
   final SalesOrderRepository _salesOrderRepository;
   final CustomerLedgerService? _ledgerService;
   final NotificationRepository? _notificationRepository;
@@ -289,20 +294,43 @@ class PaymentRepository {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      final order = await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
-      if (order != null) {
-        if (dueAmount <= 0 &&
-            order.status != JobWorkStatus.paid &&
-            !order.status.isCollectionStatus) {
-          await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
-            'status': JobWorkStatus.paid.firestoreValue,
+      final loadId = invoice.loadId?.trim();
+      if (loadId != null && loadId.isNotEmpty) {
+        final load = await _jobWorkLoadRepository.getLoad(loadId);
+        if (load != null) {
+          final loadUpdates = <String, dynamic>{
+            'balanceDue': dueAmount.toDouble(),
             'updatedAt': FieldValue.serverTimestamp(),
-          });
-        } else if (dueAmount > 0 && order.status == JobWorkStatus.paid) {
-          await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
-            'status': JobWorkStatus.ready.firestoreValue,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+          };
+          final financeStatus =
+              JobWorkContainerSyncHelper.financeStatusForLoad(
+            load: load,
+            dueAmount: dueAmount.toDouble(),
+          );
+          if (financeStatus != null) {
+            loadUpdates['status'] = financeStatus.firestoreValue;
+          }
+          await _jobWorkLoadRepository.loadDoc(loadId).update(loadUpdates);
+          await _jobWorkLoadRepository
+              .refreshContainerFromLoads(invoice.jobWorkId);
+        }
+      } else {
+        final order =
+            await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
+        if (order != null) {
+          if (dueAmount <= 0 &&
+              order.status != JobWorkStatus.paid &&
+              !order.status.isCollectionStatus) {
+            await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
+              'status': JobWorkStatus.paid.firestoreValue,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          } else if (dueAmount > 0 && order.status == JobWorkStatus.paid) {
+            await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
+              'status': JobWorkStatus.invoiced.firestoreValue,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
         }
       }
 

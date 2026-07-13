@@ -82,24 +82,51 @@ abstract final class JobWorkContainerSyncHelper {
     );
   }
 
-  /// Whether a JW-level invoice can be generated (pre–Sprint 5 dual-read).
+  /// Whether a Load-scoped invoice can be generated (Option A).
+  /// Allowed at any operational stage (including collected/closed) when
+  /// cutting charges exist; only cancelled / virtual loads are blocked.
+  static bool canGenerateInvoiceForLoad(JobWorkLoad load) {
+    if (load.isVirtual) return false;
+    if (load.status == JobWorkStatus.cancelled) return false;
+    if (load.invoiceId != null && load.invoiceId!.isNotEmpty) return true;
+    return load.finalCuttingCharges > 0;
+  }
+
+  /// Finance status after invoice create / payment sync — never clobber collection.
+  static JobWorkStatus? financeStatusForLoad({
+    required JobWorkLoad load,
+    required double dueAmount,
+  }) {
+    if (load.status == JobWorkStatus.cancelled ||
+        load.status == JobWorkStatus.closed ||
+        load.status.isCollectionStatus) {
+      return null;
+    }
+    if (dueAmount <= 0) return JobWorkStatus.paid;
+    if (load.status == JobWorkStatus.paid) return JobWorkStatus.invoiced;
+    if (load.status == JobWorkStatus.invoiced) return null;
+    return JobWorkStatus.invoiced;
+  }
+
+  /// Whether a JW-level invoice can be generated (legacy / single-Load shortcut).
   static bool canGenerateInvoice({
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
   }) {
     if (order.status == JobWorkStatus.cancelled) return false;
+
+    final orderLoads = persistedLoadsForOrder(order, loads);
+    if (orderLoads.length == 1) {
+      return canGenerateInvoiceForLoad(orderLoads.first);
+    }
+    if (orderLoads.length > 1) {
+      // Multi-Load JW: generate from each Load, not a JW rollup invoice.
+      return false;
+    }
+
     if (order.invoiceId != null && order.invoiceId!.isNotEmpty) return true;
 
-    final charges = rollupFinalCuttingCharges(order: order, loads: loads);
-    if (charges <= 0) return false;
-
-    final status = JobWorkCollectionQuantityHelper.displayStatusForOrder(
-      order: order,
-      loads: loads,
-    );
-    return status == JobWorkStatus.ready ||
-        status == JobWorkStatus.partiallyCollected ||
-        status == JobWorkStatus.invoiced ||
-        status == JobWorkStatus.paid;
+    // Any stage is fine; only charges (and cancelled above) gate generation.
+    return rollupFinalCuttingCharges(order: order, loads: loads) > 0;
   }
 }

@@ -1447,6 +1447,29 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                         },
                       ),
                       GoRoute(
+                        path: 'loads/:loadId/invoice',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          final loadId = state.pathParameters['loadId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkInvoiceBloc>()
+                              ..add(
+                                JobWorkInvoiceLoadByLoad(
+                                  factoryId: readFactoryId(context)!,
+                                  jobWorkId: jobWorkId,
+                                  loadId: loadId,
+                                ),
+                              ),
+                            child: JobWorkInvoiceScreen(
+                              jobWorkId: jobWorkId,
+                              loadId: loadId,
+                            ),
+                          );
+                        },
+                      ),
+                      GoRoute(
                         path: 'loads/:loadId/record-output',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {

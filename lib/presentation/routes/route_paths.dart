@@ -68,6 +68,12 @@ abstract final class RoutePaths {
 
   static String jobWorkInvoice(String jobWorkId) => '/job-work/$jobWorkId/invoice';
 
+  static String jobWorkLoadInvoice({
+    required String jobWorkId,
+    required String loadId,
+  }) =>
+      '/job-work/$jobWorkId/loads/$loadId/invoice';
+
   static String recordPayment(String invoiceId) =>
       '/job-work/invoices/$invoiceId/payment';
 

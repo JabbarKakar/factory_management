@@ -27,13 +27,29 @@ import '../../widgets/job_work/job_work_invoice_pricing_section.dart';
 import '../../widgets/send_payment_reminder_button.dart';
 
 class JobWorkInvoiceScreen extends StatelessWidget {
-  const JobWorkInvoiceScreen({required this.jobWorkId, super.key});
+  const JobWorkInvoiceScreen({
+    required this.jobWorkId,
+    this.loadId,
+    super.key,
+  });
 
   final String jobWorkId;
+  final String? loadId;
 
   Future<void> _reload(BuildContext context) async {
     final factoryId = readFactoryId(context);
     if (factoryId == null) return;
+    final loadId = this.loadId;
+    if (loadId != null && loadId.isNotEmpty) {
+      context.read<JobWorkInvoiceBloc>().add(
+            JobWorkInvoiceLoadByLoad(
+              factoryId: factoryId,
+              jobWorkId: jobWorkId,
+              loadId: loadId,
+            ),
+          );
+      return;
+    }
     context.read<JobWorkInvoiceBloc>().add(
           JobWorkInvoiceLoadByJobWork(
             factoryId: factoryId,
@@ -131,9 +147,21 @@ class JobWorkInvoiceScreen extends StatelessWidget {
               icon: Icons.receipt_long_outlined,
               title: AppStrings.invoiceNotReady,
               action: FilledButton.icon(
-                onPressed: () => context.read<JobWorkInvoiceBloc>().add(
-                      JobWorkInvoiceGenerateRequested(jobWorkId),
-                    ),
+                onPressed: () {
+                  final loadId = this.loadId;
+                  if (loadId != null && loadId.isNotEmpty) {
+                    context.read<JobWorkInvoiceBloc>().add(
+                          JobWorkInvoiceGenerateFromLoadRequested(
+                            jobWorkId: jobWorkId,
+                            loadId: loadId,
+                          ),
+                        );
+                  } else {
+                    context.read<JobWorkInvoiceBloc>().add(
+                          JobWorkInvoiceGenerateRequested(jobWorkId),
+                        );
+                  }
+                },
                 icon: const Icon(Icons.receipt_long_outlined),
                 label: const Text(AppStrings.generateInvoice),
               ),

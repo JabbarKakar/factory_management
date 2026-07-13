@@ -43,7 +43,11 @@ class InvoiceExcelExporter {
       documentNumber: invoice.invoiceNumber,
       customerName: invoice.customerName,
       referenceLabel: AppStrings.jobWorkNumber,
-      referenceValue: invoice.jobWorkNumber,
+      referenceValue: [
+        invoice.jobWorkNumber,
+        if (invoice.loadNumber != null && invoice.loadNumber!.isNotEmpty)
+          invoice.loadNumber!,
+      ].join(' · '),
       invoiceDate: invoice.createdAt,
       dueDate: invoice.dueDate,
       lineItems: invoice.lineItems

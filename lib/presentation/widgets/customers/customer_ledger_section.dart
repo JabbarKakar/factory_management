@@ -125,7 +125,11 @@ class CustomerLedgerSection extends StatelessWidget {
     return _LedgerEntry(
       date: invoice.createdAt,
       title: '${AppStrings.invoiceTypeJobWork} ${invoice.invoiceNumber}',
-      reference: invoice.jobWorkNumber,
+      reference: [
+        invoice.jobWorkNumber,
+        if (invoice.loadNumber != null && invoice.loadNumber!.isNotEmpty)
+          invoice.loadNumber!,
+      ].join(' · '),
       subtitle: isSettled
           ? invoice.status.label
           : '${Formatters.currencyPkr(invoice.dueAmount)} ${AppStrings.ledgerAmountDue}',

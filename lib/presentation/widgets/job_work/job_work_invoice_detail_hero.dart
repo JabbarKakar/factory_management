@@ -74,7 +74,12 @@ class JobWorkInvoiceDetailHero extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        invoice.jobWorkNumber,
+                        [
+                          invoice.jobWorkNumber,
+                          if (invoice.loadNumber != null &&
+                              invoice.loadNumber!.isNotEmpty)
+                            invoice.loadNumber!,
+                        ].join(' · '),
                         style: theme.textTheme.labelMedium?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,

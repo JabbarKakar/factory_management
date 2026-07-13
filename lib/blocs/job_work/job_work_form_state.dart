@@ -15,6 +15,7 @@ class JobWorkFormState extends Equatable {
     this.status = JobWorkFormStatus.initial,
     this.order,
     this.invoice,
+    this.invoices = const [],
     this.payments = const [],
     this.collections = const [],
     this.loads = const [],
@@ -28,6 +29,7 @@ class JobWorkFormState extends Equatable {
   final JobWorkFormStatus status;
   final JobWorkOrder? order;
   final JobWorkInvoice? invoice;
+  final List<JobWorkInvoice> invoices;
   final List<Payment> payments;
   final List<JobWorkCollection> collections;
   final List<JobWorkLoad> loads;
@@ -53,6 +55,7 @@ class JobWorkFormState extends Equatable {
     JobWorkOrder? order,
     JobWorkInvoice? invoice,
     bool clearInvoice = false,
+    List<JobWorkInvoice>? invoices,
     List<Payment>? payments,
     List<JobWorkCollection>? collections,
     List<JobWorkLoad>? loads,
@@ -67,6 +70,7 @@ class JobWorkFormState extends Equatable {
       status: status ?? this.status,
       order: order ?? this.order,
       invoice: clearInvoice ? null : (invoice ?? this.invoice),
+      invoices: invoices ?? this.invoices,
       payments: payments ?? this.payments,
       collections: collections ?? this.collections,
       loads: loads ?? this.loads,
@@ -83,6 +87,7 @@ class JobWorkFormState extends Equatable {
         status,
         order,
         invoice,
+        invoices,
         payments,
         collections,
         loads,

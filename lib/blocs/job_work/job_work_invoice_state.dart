@@ -18,6 +18,7 @@ class JobWorkInvoiceState extends Equatable {
     this.invoice,
     this.payments = const [],
     this.jobWorkId,
+    this.loadId,
     this.errorMessage,
   });
 
@@ -25,6 +26,7 @@ class JobWorkInvoiceState extends Equatable {
   final JobWorkInvoice? invoice;
   final List<Payment> payments;
   final String? jobWorkId;
+  final String? loadId;
   final String? errorMessage;
 
   JobWorkInvoiceState copyWith({
@@ -32,6 +34,7 @@ class JobWorkInvoiceState extends Equatable {
     JobWorkInvoice? invoice,
     List<Payment>? payments,
     String? jobWorkId,
+    String? loadId,
     String? errorMessage,
   }) {
     return JobWorkInvoiceState(
@@ -39,6 +42,7 @@ class JobWorkInvoiceState extends Equatable {
       invoice: invoice ?? this.invoice,
       payments: payments ?? this.payments,
       jobWorkId: jobWorkId ?? this.jobWorkId,
+      loadId: loadId ?? this.loadId,
       errorMessage: errorMessage,
     );
   }
@@ -49,6 +53,7 @@ class JobWorkInvoiceState extends Equatable {
         invoice,
         payments,
         jobWorkId,
+        loadId,
         errorMessage,
       ];
 }

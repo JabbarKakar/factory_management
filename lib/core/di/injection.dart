@@ -188,6 +188,7 @@ void setupDependencies() {
       jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      jobWorkLoadRepository: getIt<JobWorkLoadRepository>(),
       salesOrderRepository: getIt<SalesOrderRepository>(),
       ledgerService: getIt<CustomerLedgerService>(),
       notificationRepository: getIt<NotificationRepository>(),

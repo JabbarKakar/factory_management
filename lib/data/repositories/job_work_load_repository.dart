@@ -37,6 +37,26 @@ class JobWorkLoadRepository {
   CollectionReference<Map<String, dynamic>> get _loads =>
       _firestore.collection('jobWorkLoads');
 
+  DocumentReference<Map<String, dynamic>> loadDoc(String id) => _loads.doc(id);
+
+  /// Recomputes JW container status / charge rollups from current Loads.
+  Future<void> refreshContainerFromLoads(String jobWorkId) async {
+    final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
+    if (order == null) return;
+    final loads = await fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+    if (loads.isEmpty) return;
+    final preferred =
+        JobWorkLoadResolver.preferredDefaultLoad(order, loads);
+    await _markJobWorkMigrated(
+      order: order,
+      defaultLoadId: preferred.id,
+      loads: loads,
+    );
+  }
+
   CollectionReference<Map<String, dynamic>> get _jobWorkOrders =>
       _firestore.collection('jobWorkOrders');
 

@@ -54,7 +54,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     on<JobWorkFormLoadStatusAdvanceRequested>(_onLoadStatusAdvanceRequested);
     on<JobWorkFormLoadCompletionRequested>(_onLoadCompletionRequested);
     on<_JobWorkOrderUpdated>(_onOrderUpdated);
-    on<_JobWorkInvoiceUpdated>(_onInvoiceUpdated);
+    on<_JobWorkInvoicesUpdated>(_onInvoicesUpdated);
     on<_JobWorkPaymentsUpdated>(_onPaymentsUpdated);
     on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
     on<_JobWorkCollectionsUpdated>(_onCollectionsUpdated);
@@ -69,12 +69,14 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   final QualityCheckRepository _qualityCheckRepository;
   final OperationalAlertScannerService _operationalAlertScannerService;
   StreamSubscription<JobWorkOrder?>? _orderSubscription;
-  StreamSubscription<JobWorkInvoice?>? _invoiceSubscription;
-  StreamSubscription<List<Payment>>? _paymentsSubscription;
+  StreamSubscription<List<JobWorkInvoice>>? _invoiceSubscription;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
   StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
   StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
-  String? _watchedInvoiceId;
+  final Map<String, List<Payment>> _paymentsByInvoiceId = {};
+  Set<String> _watchedInvoiceIds = {};
+  final Map<String, StreamSubscription<List<Payment>>> _paymentSubsByInvoice =
+      {};
   List<QualityCheck> _factoryQualityChecks = const [];
 
   Future<void> _onInitialized(
@@ -119,6 +121,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         isEditing: true,
         clearMessages: true,
         clearInvoice: true,
+        invoices: const [],
         qualityChecks: const [],
         payments: const [],
         collections: const [],
@@ -126,6 +129,8 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
       ),
     );
     _factoryQualityChecks = const [];
+    _paymentsByInvoiceId.clear();
+    _watchedInvoiceIds = {};
 
     try {
       final order = await _repository.getJobWorkOrder(event.jobWorkId);
@@ -166,12 +171,12 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
               );
 
       _invoiceSubscription = _invoiceRepository
-          .watchInvoiceByJobWorkId(
+          .watchInvoicesByJobWorkId(
             factoryId: refreshed.factoryId,
             jobWorkId: event.jobWorkId,
           )
           .listen(
-            (invoice) => add(_JobWorkInvoiceUpdated(invoice)),
+            (invoices) => add(_JobWorkInvoicesUpdated(invoices)),
             onError: (_) {},
           );
 
@@ -233,26 +238,47 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     );
   }
 
-  Future<void> _onInvoiceUpdated(
-    _JobWorkInvoiceUpdated event,
+  Future<void> _onInvoicesUpdated(
+    _JobWorkInvoicesUpdated event,
     Emitter<JobWorkFormState> emit,
   ) async {
-    final invoice = event.invoice;
-    emit(state.copyWith(invoice: invoice));
+    final invoices = event.invoices;
+    final preferred = _preferredInvoice(invoices, state.order);
+    emit(
+      state.copyWith(
+        invoices: invoices,
+        invoice: preferred,
+        clearInvoice: preferred == null,
+      ),
+    );
 
-    if (invoice == null) {
-      await _paymentsSubscription?.cancel();
-      _paymentsSubscription = null;
-      _watchedInvoiceId = null;
-      emit(state.copyWith(payments: const []));
+    if (invoices.isEmpty) {
+      await _cancelPaymentSubscriptions();
+      emit(state.copyWith(payments: const [], clearInvoice: true));
       return;
     }
 
-    await _paymentRepository.ensureInvoicePaidAmountRecorded(
-      invoiceId: invoice.id,
-      invoiceType: InvoiceType.jobWork,
-    );
-    _ensurePaymentsWatch(invoice);
+    for (final invoice in invoices) {
+      await _paymentRepository.ensureInvoicePaidAmountRecorded(
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.jobWork,
+      );
+    }
+    _ensurePaymentsWatch(invoices);
+  }
+
+  JobWorkInvoice? _preferredInvoice(
+    List<JobWorkInvoice> invoices,
+    JobWorkOrder? order,
+  ) {
+    if (invoices.isEmpty) return null;
+    final orderInvoiceId = order?.invoiceId;
+    if (orderInvoiceId != null && orderInvoiceId.isNotEmpty) {
+      for (final invoice in invoices) {
+        if (invoice.id == orderInvoiceId) return invoice;
+      }
+    }
+    return invoices.first;
   }
 
   void _onPaymentsUpdated(
@@ -262,33 +288,56 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     emit(state.copyWith(payments: event.payments));
   }
 
-  void _ensurePaymentsWatch(JobWorkInvoice invoice) {
-    if (_watchedInvoiceId == invoice.id) return;
-    _paymentsSubscription?.cancel();
-    _watchedInvoiceId = invoice.id;
-    _paymentsSubscription = _paymentRepository
-        .watchPaymentsForInvoice(
-          factoryId: invoice.factoryId,
-          invoiceId: invoice.id,
-        )
-        .listen(
-          (payments) => add(_JobWorkPaymentsUpdated(payments)),
-          onError: (_) {},
-        );
+  void _ensurePaymentsWatch(List<JobWorkInvoice> invoices) {
+    final ids = invoices.map((invoice) => invoice.id).toSet();
+    final removed = _watchedInvoiceIds.difference(ids);
+    for (final id in removed) {
+      _paymentSubsByInvoice[id]?.cancel();
+      _paymentSubsByInvoice.remove(id);
+      _paymentsByInvoiceId.remove(id);
+    }
+
+    for (final invoice in invoices) {
+      if (_paymentSubsByInvoice.containsKey(invoice.id)) continue;
+      _paymentSubsByInvoice[invoice.id] = _paymentRepository
+          .watchPaymentsForInvoice(
+            factoryId: invoice.factoryId,
+            invoiceId: invoice.id,
+          )
+          .listen(
+            (payments) {
+              _paymentsByInvoiceId[invoice.id] = payments;
+              final merged = _paymentsByInvoiceId.values
+                  .expand((items) => items)
+                  .toList()
+                ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+              add(_JobWorkPaymentsUpdated(merged));
+            },
+            onError: (_) {},
+          );
+    }
+    _watchedInvoiceIds = ids;
+  }
+
+  Future<void> _cancelPaymentSubscriptions() async {
+    for (final sub in _paymentSubsByInvoice.values) {
+      await sub.cancel();
+    }
+    _paymentSubsByInvoice.clear();
+    _paymentsByInvoiceId.clear();
+    _watchedInvoiceIds = {};
   }
 
   Future<void> _cancelDetailSubscriptions() async {
     await _orderSubscription?.cancel();
     await _invoiceSubscription?.cancel();
-    await _paymentsSubscription?.cancel();
+    await _cancelPaymentSubscriptions();
     _orderSubscription = null;
     _invoiceSubscription = null;
-    _paymentsSubscription = null;
     await _collectionsSubscription?.cancel();
     _collectionsSubscription = null;
     await _loadsSubscription?.cancel();
     _loadsSubscription = null;
-    _watchedInvoiceId = null;
   }
 
   void _onQualityChecksUpdated(
@@ -594,13 +643,13 @@ final class _JobWorkOrderUpdated extends JobWorkFormEvent {
   List<Object?> get props => [order];
 }
 
-final class _JobWorkInvoiceUpdated extends JobWorkFormEvent {
-  const _JobWorkInvoiceUpdated(this.invoice);
+final class _JobWorkInvoicesUpdated extends JobWorkFormEvent {
+  const _JobWorkInvoicesUpdated(this.invoices);
 
-  final JobWorkInvoice? invoice;
+  final List<JobWorkInvoice> invoices;
 
   @override
-  List<Object?> get props => [invoice];
+  List<Object?> get props => [invoices];
 }
 
 final class _JobWorkPaymentsUpdated extends JobWorkFormEvent {

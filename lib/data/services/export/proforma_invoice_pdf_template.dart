@@ -566,6 +566,9 @@ abstract final class ProformaInvoicePdfTemplate {
     if (invoice.jobWorkNumber.isNotEmpty) {
       billToLines.add('Job Work: ${invoice.jobWorkNumber}');
     }
+    if (invoice.loadNumber != null && invoice.loadNumber!.trim().isNotEmpty) {
+      billToLines.add('Load: ${invoice.loadNumber!.trim()}');
+    }
     if (invoice.mineLocation != null && invoice.mineLocation!.trim().isNotEmpty) {
       billToLines.add(invoice.mineLocation!.trim());
     }

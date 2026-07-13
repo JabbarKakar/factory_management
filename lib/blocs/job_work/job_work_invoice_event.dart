@@ -20,6 +20,21 @@ final class JobWorkInvoiceLoadByJobWork extends JobWorkInvoiceEvent {
   List<Object?> get props => [factoryId, jobWorkId];
 }
 
+final class JobWorkInvoiceLoadByLoad extends JobWorkInvoiceEvent {
+  const JobWorkInvoiceLoadByLoad({
+    required this.factoryId,
+    required this.jobWorkId,
+    required this.loadId,
+  });
+
+  final String factoryId;
+  final String jobWorkId;
+  final String loadId;
+
+  @override
+  List<Object?> get props => [factoryId, jobWorkId, loadId];
+}
+
 final class JobWorkInvoiceLoadById extends JobWorkInvoiceEvent {
   const JobWorkInvoiceLoadById(this.invoiceId);
 
@@ -36,6 +51,19 @@ final class JobWorkInvoiceGenerateRequested extends JobWorkInvoiceEvent {
 
   @override
   List<Object?> get props => [jobWorkId];
+}
+
+final class JobWorkInvoiceGenerateFromLoadRequested extends JobWorkInvoiceEvent {
+  const JobWorkInvoiceGenerateFromLoadRequested({
+    required this.jobWorkId,
+    required this.loadId,
+  });
+
+  final String jobWorkId;
+  final String loadId;
+
+  @override
+  List<Object?> get props => [jobWorkId, loadId];
 }
 
 final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
