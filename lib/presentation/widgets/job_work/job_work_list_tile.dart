@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/job_work_enums.dart';
-import '../compact_status_chip.dart';
 import '../tile_options_menu.dart';
 import 'job_work_status_badge.dart';
 
@@ -13,15 +13,10 @@ class JobWorkListTile extends StatelessWidget {
   const JobWorkListTile({
     required this.order,
     required this.onTap,
+    this.loads = const [],
     this.displayStatus,
-    this.displayCuttingCharges,
-    this.displayUsableSqFt,
     this.menuActions = const [],
     this.isBusy = false,
-    this.awaitingQcInspection = false,
-    this.isPickupOverdue = false,
-    this.remainingPieces,
-    this.lastReceiverName,
     this.paidAmount,
     this.remainingAmount,
     super.key,
@@ -29,42 +24,18 @@ class JobWorkListTile extends StatelessWidget {
 
   final JobWorkOrder order;
   final VoidCallback onTap;
+  final List<JobWorkLoad> loads;
   /// When Loads are authoritative, list status may differ from [order.status].
   final JobWorkStatus? displayStatus;
-  /// Rolled-up charges from Loads when available.
-  final double? displayCuttingCharges;
-  /// Rolled-up usable output from Loads when available.
-  final double? displayUsableSqFt;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
-  final bool awaitingQcInspection;
-  final bool isPickupOverdue;
-  final int? remainingPieces;
-  final String? lastReceiverName;
   final double? paidAmount;
   final double? remainingAmount;
 
   bool get _showPaymentStrip =>
       paidAmount != null && remainingAmount != null;
 
-  bool get _showRemainingStrip =>
-      remainingPieces != null && remainingPieces! > 0;
-
   JobWorkStatus get _status => displayStatus ?? order.status;
-
-  double get _cuttingCharges =>
-      displayCuttingCharges ?? order.finalCuttingCharges;
-
-  bool get _hasCuttingCharges => _cuttingCharges > 0;
-
-  double? get _usableSqFt {
-    if (displayUsableSqFt != null && displayUsableSqFt! > 0) {
-      return displayUsableSqFt;
-    }
-    final nested = order.output?.totalUsableSqFt;
-    if (nested != null && nested > 0) return nested;
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -81,10 +52,7 @@ class JobWorkListTile extends StatelessWidget {
       topRight: cardRadius,
       bottomRight: cardRadius,
     );
-    final hasBlocksStrip =
-        order.shiftLogs.isNotEmpty && order.blockCount > 0;
-    final usableSqFt = _usableSqFt;
-    final hasOutputStrip = usableSqFt != null;
+    final loadSummary = _LoadSummary.from(loads);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -105,10 +73,7 @@ class JobWorkListTile extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      width: 3,
-                      color: accent,
-                    ),
+                    Container(width: 3, color: accent),
                     Expanded(
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(
@@ -121,7 +86,6 @@ class JobWorkListTile extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
                                   child: Text(
@@ -140,13 +104,6 @@ class JobWorkListTile extends StatelessWidget {
                                   status: status,
                                   compact: true,
                                 ),
-                                if (isPickupOverdue) ...[
-                                  const SizedBox(width: 6),
-                                  const CompactStatusChip(
-                                    label: AppStrings.pickupOverdue,
-                                    color: AppColors.overdue,
-                                  ),
-                                ],
                                 if (menuActions.isNotEmpty)
                                   TileOptionsButton(
                                     isBusy: isBusy,
@@ -168,115 +125,55 @@ class JobWorkListTile extends StatelessWidget {
                               spacing: 6,
                               runSpacing: 6,
                               children: [
-                                if (order.mineLocation != null)
+                                _MetaChip(
+                                  icon: Icons.inventory_2_outlined,
+                                  label:
+                                      '${AppStrings.loads}: ${loadSummary.total}',
+                                ),
+                                if (loadSummary.agreed > 0)
                                   _MetaChip(
-                                    icon: Icons.place_outlined,
-                                    label: order.mineLocation!,
+                                    icon: Icons.schedule_outlined,
+                                    label:
+                                        '${JobWorkStatus.agreed.label}: ${loadSummary.agreed}',
                                   ),
-                                if (order.mineOwner != null)
+                                if (loadSummary.inCutting > 0)
                                   _MetaChip(
-                                    icon: Icons.person_outline,
-                                    label: order.mineOwner!,
+                                    icon: Icons.content_cut_outlined,
+                                    label:
+                                        '${JobWorkStatus.inCutting.label}: ${loadSummary.inCutting}',
                                   ),
-                                if (lastReceiverName != null &&
-                                    lastReceiverName!.isNotEmpty)
+                                if (loadSummary.atQc > 0)
+                                  _MetaChip(
+                                    icon: Icons.fact_check_outlined,
+                                    label:
+                                        '${JobWorkStatus.qc.label}: ${loadSummary.atQc}',
+                                  ),
+                                if (loadSummary.ready > 0)
+                                  _MetaChip(
+                                    icon: Icons.check_circle_outline,
+                                    label:
+                                        '${JobWorkStatus.ready.label}: ${loadSummary.ready}',
+                                  ),
+                                if (loadSummary.partiallyCollected > 0)
                                   _MetaChip(
                                     icon: Icons.handshake_outlined,
                                     label:
-                                        '${AppStrings.receiverName}: $lastReceiverName',
+                                        '${JobWorkStatus.partiallyCollected.label}: ${loadSummary.partiallyCollected}',
                                   ),
-                                _MetaChip(
-                                  icon: Icons.layers_outlined,
-                                  label: order.marbleVariety,
-                                ),
-                                _MetaChip(
-                                  icon: Icons.scale_outlined,
-                                  label:
-                                      '${order.totalTons.toStringAsFixed(2)}t',
-                                ),
-                                _MetaChip(
-                                  icon: Icons.view_module_outlined,
-                                  label: '${order.blockCount} blocks',
-                                ),
+                                if (loadSummary.collected > 0)
+                                  _MetaChip(
+                                    icon: Icons.done_all_outlined,
+                                    label:
+                                        '${JobWorkStatus.collected.label}: ${loadSummary.collected}',
+                                  ),
+                                if (loadSummary.closed > 0)
+                                  _MetaChip(
+                                    icon: Icons.lock_outline,
+                                    label:
+                                        '${JobWorkStatus.closed.label}: ${loadSummary.closed}',
+                                  ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.content_cut_outlined,
-                                  size: 14,
-                                  color: muted,
-                                ),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    '${order.cuttingStrategy.label} → ${order.targetProduct.label}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: muted,
-                                      fontSize: 11,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: Text(
-                                    _hasCuttingCharges
-                                        ? Formatters.currencyPkrWhole(
-                                            _cuttingCharges,
-                                          )
-                                        : AppStrings.chargesPending,
-                                    style: theme.textTheme.labelLarge?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 12,
-                                      color: _hasCuttingCharges
-                                          ? accent
-                                          : muted,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (hasBlocksStrip || hasOutputStrip) ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  if (hasBlocksStrip)
-                                    Expanded(
-                                      child: _SummaryStrip(
-                                        label:
-                                            '${order.totalBlocksCut}/${order.blockCount} '
-                                            '${AppStrings.blocksCutLabel} · '
-                                            '${order.blockCompletionPercent.toStringAsFixed(0)}%',
-                                        color: theme.colorScheme.secondary,
-                                      ),
-                                    ),
-                                  if (hasBlocksStrip && hasOutputStrip)
-                                    const SizedBox(width: 6),
-                                  if (hasOutputStrip)
-                                    Expanded(
-                                      child: _SummaryStrip(
-                                        label:
-                                            '${usableSqFt.toStringAsFixed(0)} sq. ft',
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ],
-                            if (_showRemainingStrip) ...[
-                              const SizedBox(height: 8),
-                              _SummaryStrip(
-                                label:
-                                    '${AppStrings.remainingToCollect}: $remainingPieces pcs',
-                                color: isPickupOverdue
-                                    ? AppColors.overdue
-                                    : AppColors.warning,
-                              ),
-                            ],
                             if (_showPaymentStrip) ...[
                               const SizedBox(height: 8),
                               Row(
@@ -301,28 +198,14 @@ class JobWorkListTile extends StatelessWidget {
                                 ],
                               ),
                             ],
-                            if (awaitingQcInspection) ...[
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.fact_check_outlined,
-                                    size: 14,
-                                    color: AppColors.warning,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Expanded(
-                                    child: Text(
-                                      AppStrings.awaitingQcInspection,
-                                      style:
-                                          theme.textTheme.labelSmall?.copyWith(
-                                        color: AppColors.warning,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                            if (loadSummary.total == 0) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                AppStrings.noLoadsYet,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: muted,
+                                  fontSize: 12,
+                                ),
                               ),
                             ],
                           ],
@@ -352,6 +235,74 @@ class JobWorkListTile extends StatelessWidget {
       JobWorkStatus.cancelled => AppColors.error,
     };
   }
+}
+
+class _LoadSummary {
+  const _LoadSummary({
+    required this.total,
+    required this.agreed,
+    required this.inCutting,
+    required this.atQc,
+    required this.ready,
+    required this.partiallyCollected,
+    required this.collected,
+    required this.closed,
+  });
+
+  factory _LoadSummary.from(List<JobWorkLoad> loads) {
+    final persisted =
+        loads.where((load) => !load.isVirtual).toList(growable: false);
+    var agreed = 0;
+    var inCutting = 0;
+    var atQc = 0;
+    var ready = 0;
+    var partiallyCollected = 0;
+    var collected = 0;
+    var closed = 0;
+
+    for (final load in persisted) {
+      switch (load.status) {
+        case JobWorkStatus.received:
+        case JobWorkStatus.agreed:
+          agreed++;
+        case JobWorkStatus.inCutting:
+          inCutting++;
+        case JobWorkStatus.qc:
+          atQc++;
+        case JobWorkStatus.ready:
+        case JobWorkStatus.invoiced:
+        case JobWorkStatus.paid:
+          ready++;
+        case JobWorkStatus.partiallyCollected:
+          partiallyCollected++;
+        case JobWorkStatus.collected:
+          collected++;
+        case JobWorkStatus.closed:
+        case JobWorkStatus.cancelled:
+          closed++;
+      }
+    }
+
+    return _LoadSummary(
+      total: persisted.length,
+      agreed: agreed,
+      inCutting: inCutting,
+      atQc: atQc,
+      ready: ready,
+      partiallyCollected: partiallyCollected,
+      collected: collected,
+      closed: closed,
+    );
+  }
+
+  final int total;
+  final int agreed;
+  final int inCutting;
+  final int atQc;
+  final int ready;
+  final int partiallyCollected;
+  final int collected;
+  final int closed;
 }
 
 class _SummaryStrip extends StatelessWidget {

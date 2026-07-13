@@ -467,68 +467,16 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                       final orderLoads = state.loadsForOrder(order.id);
                       final paymentSummary =
                           _paymentSummaryFor(order, state, orderLoads);
-                      final orderCollections =
-                          JobWorkCollectionQuantityHelper.collectionsForOrder(
-                        order.id,
-                        state.collections,
-                      );
-                      final totals =
-                          JobWorkCollectionQuantityHelper.aggregateTotals(
-                        order: order,
-                        collections: state.collections,
-                        loads: state.loads,
-                      );
                       final displayStatus =
                           JobWorkCollectionQuantityHelper.displayStatusForOrder(
                         order: order,
                         loads: orderLoads,
                       );
-                      final rolledCharges =
-                          JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
-                        order: order,
-                        loads: orderLoads,
-                      );
-                      final rolledUsableSqFt = orderLoads.fold<double>(
-                        0,
-                        (sum, load) =>
-                            sum + (load.output?.totalUsableSqFt ?? 0),
-                      );
-                      final usableSqFt = rolledUsableSqFt > 0
-                          ? rolledUsableSqFt
-                          : order.output?.totalUsableSqFt;
-                      String? lastReceiver;
-                      DateTime? latestReceiverAt;
-                      for (final collection in orderCollections) {
-                        final name = collection.receiverName?.trim();
-                        if (name == null || name.isEmpty) continue;
-                        if (latestReceiverAt == null ||
-                            collection.collectedAt.isAfter(latestReceiverAt)) {
-                          latestReceiverAt = collection.collectedAt;
-                          lastReceiver = name;
-                        }
-                      }
                       return JobWorkListTile(
                         order: order,
+                        loads: orderLoads,
                         displayStatus: displayStatus,
-                        displayCuttingCharges: rolledCharges > 0
-                            ? rolledCharges
-                            : null,
-                        displayUsableSqFt: usableSqFt != null && usableSqFt > 0
-                            ? usableSqFt
-                            : null,
-                        awaitingQcInspection:
-                            state.isAwaitingQcInspection(order),
                         isBusy: _busyJobWorkId == order.id,
-                        isPickupOverdue: JobWorkCollectionQuantityHelper
-                            .isPickupOverdueForOrder(
-                          order: order,
-                          collections: state.collections,
-                          loads: state.loads,
-                        ),
-                        remainingPieces: totals.remainingPieces > 0
-                            ? totals.remainingPieces
-                            : null,
-                        lastReceiverName: lastReceiver,
                         paidAmount: paymentSummary?.paid,
                         remainingAmount: paymentSummary?.remaining,
                         menuActions: _menuActionsFor(
