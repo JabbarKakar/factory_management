@@ -556,6 +556,42 @@ class JobWorkLoadRepository {
               !load.status.isCompleted && load.status != LoadStatus.cancelled,
         )
         .length;
+
+    // Check if a grand invoice exists
+    final invoicesSnap = await _invoices
+        .where('factoryId', isEqualTo: order.factoryId)
+        .where('jobWorkId', isEqualTo: order.id)
+        .get();
+    final grandInvoiceDoc = invoicesSnap.docs
+        .where((doc) =>
+            doc.data()['loadId'] == null ||
+            (doc.data()['loadId'] as String).trim().isEmpty)
+        .firstOrNull;
+
+    final double finalCuttingCharges;
+    final double advanceReceived;
+    final double balanceDue;
+
+    if (grandInvoiceDoc != null) {
+      final data = grandInvoiceDoc.data();
+      finalCuttingCharges = (data['total'] as num?)?.toDouble() ?? 0.0;
+      advanceReceived = (data['paid'] as num?)?.toDouble() ?? 0.0;
+      balanceDue = (data['due'] as num?)?.toDouble() ?? 0.0;
+    } else {
+      finalCuttingCharges = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+        order: order,
+        loads: loads,
+      );
+      advanceReceived = JobWorkContainerSyncHelper.rollupAdvanceReceived(
+        order: order,
+        loads: loads,
+      );
+      balanceDue = JobWorkContainerSyncHelper.rollupBalanceDue(
+        order: order,
+        loads: loads,
+      );
+    }
+
     final batch = _firestore.batch();
     _applyJobWorkMigratedUpdate(
       batch: batch,
@@ -570,18 +606,9 @@ class JobWorkLoadRepository {
         order: order,
         loads: loads,
       ),
-      finalCuttingCharges: JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
-        order: order,
-        loads: loads,
-      ),
-      advanceReceived: JobWorkContainerSyncHelper.rollupAdvanceReceived(
-        order: order,
-        loads: loads,
-      ),
-      balanceDue: JobWorkContainerSyncHelper.rollupBalanceDue(
-        order: order,
-        loads: loads,
-      ),
+      finalCuttingCharges: finalCuttingCharges,
+      advanceReceived: advanceReceived,
+      balanceDue: balanceDue,
     );
     await batch.commit();
   }

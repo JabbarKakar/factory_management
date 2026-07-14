@@ -57,6 +57,17 @@ final class JobWorkInvoiceGenerateFromLoadRequested extends JobWorkInvoiceEvent 
   List<Object?> get props => [jobWorkId, loadId];
 }
 
+final class JobWorkInvoiceGenerateFromJobWorkRequested extends JobWorkInvoiceEvent {
+  const JobWorkInvoiceGenerateFromJobWorkRequested({
+    required this.jobWorkId,
+  });
+
+  final String jobWorkId;
+
+  @override
+  List<Object?> get props => [jobWorkId];
+}
+
 final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
   const JobWorkInvoicePaymentSubmitted({
     required this.invoiceId,

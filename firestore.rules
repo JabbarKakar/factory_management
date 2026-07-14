@@ -300,10 +300,13 @@ service cloud.firestore {
 
     match /jobWorkInvoices/{invoiceId} {
       allow read: if canReadFactoryDoc() && canReadFinancial();
-      // Sprint 7: new invoices must be Load-scoped (non-empty loadId).
+      // Sprint 8: Allow both grand invoices (null/empty loadId) and load-scoped invoices.
       allow create: if canWriteFactoryDoc() && canWriteFinancial()
-        && request.resource.data.loadId is string
-        && request.resource.data.loadId.size() > 0;
+        && (
+          !('loadId' in request.resource.data) ||
+          request.resource.data.loadId == null ||
+          request.resource.data.loadId is string
+        );
       allow update: if canWriteFactoryDoc() && canWriteFinancial();
       allow delete: if isOwner() && sameFactoryExisting();
     }

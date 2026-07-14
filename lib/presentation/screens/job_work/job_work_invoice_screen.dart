@@ -157,14 +157,18 @@ class JobWorkInvoiceScreen extends StatelessWidget {
                           ),
                         );
                   } else {
-                    context.push(RoutePaths.jobWorkDetail(jobWorkId));
+                    context.read<JobWorkInvoiceBloc>().add(
+                          JobWorkInvoiceGenerateFromJobWorkRequested(
+                            jobWorkId: jobWorkId,
+                          ),
+                        );
                   }
                 },
                 icon: const Icon(Icons.receipt_long_outlined),
                 label: Text(
                   (loadId ?? '').isNotEmpty
                       ? AppStrings.generateInvoice
-                      : AppStrings.selectLoadToInvoice,
+                      : AppStrings.generateGrandInvoice,
                 ),
               ),
             ),

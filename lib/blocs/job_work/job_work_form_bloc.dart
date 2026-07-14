@@ -166,7 +166,9 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
 
       _orderSubscription =
           _repository.watchJobWorkOrder(event.jobWorkId).listen(
-                (updated) => add(_JobWorkOrderUpdated(updated)),
+                (updated) {
+                  if (!isClosed) add(_JobWorkOrderUpdated(updated));
+                },
                 onError: (_) {},
               );
 
@@ -176,14 +178,18 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
             jobWorkId: event.jobWorkId,
           )
           .listen(
-            (invoices) => add(_JobWorkInvoicesUpdated(invoices)),
+            (invoices) {
+              if (!isClosed) add(_JobWorkInvoicesUpdated(invoices));
+            },
             onError: (_) {},
           );
 
       _qualityChecksSubscription = _qualityCheckRepository
           .watchQualityChecks(refreshed.factoryId)
           .listen(
-            (checks) => add(_JobWorkQualityChecksUpdated(checks)),
+            (checks) {
+              if (!isClosed) add(_JobWorkQualityChecksUpdated(checks));
+            },
             onError: (_) {},
           );
 
@@ -193,7 +199,9 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
             jobWorkOrderId: event.jobWorkId,
           )
           .listen(
-            (collections) => add(_JobWorkCollectionsUpdated(collections)),
+            (collections) {
+              if (!isClosed) add(_JobWorkCollectionsUpdated(collections));
+            },
             onError: (_) {},
           );
 
@@ -203,7 +211,9 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
             jobWorkId: event.jobWorkId,
           )
           .listen(
-            (loads) => add(_JobWorkLoadsUpdated(loads)),
+            (loads) {
+              if (!isClosed) add(_JobWorkLoadsUpdated(loads));
+            },
             onError: (_) {},
           );
     } catch (_) {
@@ -271,14 +281,15 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     List<JobWorkInvoice> invoices,
     JobWorkOrder? order,
   ) {
-    if (invoices.isEmpty) return null;
+    final grandInvoices = invoices.where((i) => i.loadId == null || i.loadId!.isEmpty).toList();
+    if (grandInvoices.isEmpty) return null;
     final orderInvoiceId = order?.invoiceId;
     if (orderInvoiceId != null && orderInvoiceId.isNotEmpty) {
-      for (final invoice in invoices) {
+      for (final invoice in grandInvoices) {
         if (invoice.id == orderInvoiceId) return invoice;
       }
     }
-    return invoices.first;
+    return grandInvoices.first;
   }
 
   void _onPaymentsUpdated(
@@ -311,7 +322,9 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
                   .expand((items) => items)
                   .toList()
                 ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
-              add(_JobWorkPaymentsUpdated(merged));
+              if (!isClosed) {
+                add(_JobWorkPaymentsUpdated(merged));
+              }
             },
             onError: (_) {},
           );

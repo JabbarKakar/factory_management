@@ -120,6 +120,22 @@ abstract final class JobWorkContainerSyncHelper {
     required List<JobWorkInvoice> invoices,
     List<JobWorkLoad>? loadsToSum,
   }) {
+    // If there is a grand invoice (loadId is null/empty or matching order's invoiceId),
+    // then that single grand invoice is the authoritative source for the whole container's finance!
+    final grandInvoice = invoices
+        .where((i) =>
+            i.loadId == null ||
+            i.loadId!.isEmpty ||
+            i.id == order.invoiceId)
+        .firstOrNull;
+    if (grandInvoice != null) {
+      return (
+        charges: grandInvoice.totalAmount,
+        paid: grandInvoice.paidAmount,
+        due: grandInvoice.dueAmount,
+      );
+    }
+
     final byLoadId = <String, JobWorkInvoice>{};
     for (final invoice in invoices) {
       final loadId = invoice.loadId?.trim();
@@ -204,7 +220,7 @@ abstract final class JobWorkContainerSyncHelper {
     return JobWorkStatus.invoiced;
   }
 
-  /// Whether a JW-level invoice can be generated (legacy / single-Load shortcut).
+  /// Whether a JW-level invoice can be generated.
   static bool canGenerateInvoice({
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
@@ -212,18 +228,14 @@ abstract final class JobWorkContainerSyncHelper {
     if (order.status == JobWorkStatus.cancelled) return false;
 
     final orderLoads = persistedLoadsForOrder(order, loads);
-    if (orderLoads.length == 1) {
-      return canGenerateInvoiceForLoad(orderLoads.first);
-    }
-    if (orderLoads.length > 1) {
-      // Multi-Load JW: generate from each Load, not a JW rollup invoice.
-      return false;
-    }
-
     if (order.invoiceId != null && order.invoiceId!.isNotEmpty) return true;
 
-    // Any stage is fine; only charges (and cancelled above) gate generation.
-    return rollupFinalCuttingCharges(order: order, loads: loads) > 0;
+    if (orderLoads.isEmpty) {
+      return order.finalCuttingCharges > 0;
+    }
+
+    // With loads: can generate if any active load can be invoiced (has charges)
+    return orderLoads.any((load) => canGenerateInvoiceForLoad(load));
   }
 
   /// Loads that should appear on the Job Work grand invoice (non-cancelled, with charges).

@@ -45,8 +45,9 @@ class JobWorkInvoiceRepository {
       factoryId: factoryId,
       jobWorkId: jobWorkId,
     );
-    if (invoices.isEmpty) return null;
-    return invoices.first;
+    final grandInvoices = invoices.where((i) => i.loadId == null || i.loadId!.isEmpty).toList();
+    if (grandInvoices.isEmpty) return null;
+    return grandInvoices.first;
   }
 
   Future<List<JobWorkInvoice>> getInvoicesByJobWorkId({
@@ -79,22 +80,23 @@ class JobWorkInvoiceRepository {
     return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
   }
 
-  /// Load-scoped invoice, with legacy fallback via [JobWorkLoad.invoiceId]
-  /// when the invoice doc still has a null `loadId`.
+  /// Load-scoped invoice, with fallback to Job Work level invoice if present.
   Future<JobWorkInvoice?> getInvoiceForLoad({
     required String factoryId,
     required String loadId,
   }) async {
-    final byLoadId = await getInvoiceByLoadId(
-      factoryId: factoryId,
-      loadId: loadId,
-    );
-    if (byLoadId != null) return byLoadId;
-
     final load = await _loadRepository.getLoad(loadId);
-    final stampedId = load?.invoiceId?.trim();
-    if (stampedId == null || stampedId.isEmpty) return null;
-    return getInvoice(stampedId);
+    if (load == null) return null;
+
+    final stampedId = load.invoiceId?.trim();
+    if (stampedId != null && stampedId.isNotEmpty) {
+      return getInvoice(stampedId);
+    }
+
+    return getInvoiceByJobWorkId(
+      factoryId: factoryId,
+      jobWorkId: load.jobWorkId,
+    );
   }
 
   Stream<JobWorkInvoice?> watchInvoice(String id) {
@@ -111,7 +113,10 @@ class JobWorkInvoiceRepository {
     return watchInvoicesByJobWorkId(
       factoryId: factoryId,
       jobWorkId: jobWorkId,
-    ).map((invoices) => invoices.isEmpty ? null : invoices.first);
+    ).map((invoices) {
+      final grandInvoices = invoices.where((i) => i.loadId == null || i.loadId!.isEmpty).toList();
+      return grandInvoices.isEmpty ? null : grandInvoices.first;
+    });
   }
 
   Stream<List<JobWorkInvoice>> watchInvoicesByJobWorkId({
@@ -224,82 +229,63 @@ class JobWorkInvoiceRepository {
         });
   }
 
-  /// Prefer [generateFromLoad]. Kept only to open/migrate a single default Load
-  /// invoice when a route still arrives without `loadId` (throws if multi-Load).
+  /// Generates or retrieves a single consolidated grand invoice for the entire Job Work order.
   Future<JobWorkInvoice> generateFromJobWorkOrder(String jobWorkId) async {
     final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
     if (order == null) {
       throw StateError('Job work order not found.');
     }
 
+    if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
+      final existing = await getInvoice(order.invoiceId!);
+      if (existing != null) return existing;
+    }
+
+    final existingByJobWork = await getInvoiceByJobWorkId(
+      factoryId: order.factoryId,
+      jobWorkId: order.id,
+    );
+    if (existingByJobWork != null) return existingByJobWork;
+
     final loads = await _loadRepository.fetchLoadsForJobWork(
       factoryId: order.factoryId,
       jobWorkId: jobWorkId,
     );
-    final persisted =
-        JobWorkContainerSyncHelper.persistedLoadsForOrder(order, loads);
+    final billable =
+        JobWorkContainerSyncHelper.billableLoadsForGrandInvoice(loads);
 
-    if (persisted.length > 1) {
-      throw StateError('Select a load before generating an invoice.');
+    final double totalAmount;
+    final double paidAmount;
+    final List<InvoiceLineItem> lineItems;
+
+    if (billable.isNotEmpty) {
+      totalAmount = billable.fold<double>(0, (acc, load) => acc + load.finalCuttingCharges);
+      paidAmount = billable.fold<double>(0, (acc, load) => acc + load.advanceReceived);
+      lineItems = _buildLineItemsForGrandInvoice(order, billable);
+    } else {
+      totalAmount = order.finalCuttingCharges;
+      paidAmount = order.advanceReceived;
+      lineItems = [
+        InvoiceLineItem(
+          description: 'Cutting fee — Job Work #${order.jobWorkNumber}',
+          amount: totalAmount,
+        ),
+      ];
     }
 
-    final load = persisted.isEmpty
-        ? await _loadRepository.ensureDefaultLoad(jobWorkId)
-        : persisted.first;
-    return generateFromLoad(load.id);
-  }
-
-  Future<JobWorkInvoice> generateFromLoad(String loadId) async {
-    final load = await _loadRepository.getLoad(loadId);
-    if (load == null || load.isVirtual) {
-      throw StateError('Load not found.');
-    }
-
-    final order = await _jobWorkRepository.getJobWorkOrder(load.jobWorkId);
-    if (order == null) {
-      throw StateError('Job work order not found.');
-    }
-
-    if (load.invoiceId != null && load.invoiceId!.isNotEmpty) {
-      final existing = await getInvoice(load.invoiceId!);
-      if (existing != null) return existing;
-    }
-
-    final existingByLoad = await getInvoiceByLoadId(
-      factoryId: load.factoryId,
-      loadId: load.id,
-    );
-    if (existingByLoad != null) return existingByLoad;
-
-    if (!JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load)) {
-      if (load.status == JobWorkStatus.cancelled) {
-        throw StateError('Cannot generate invoice for a cancelled load.');
-      }
-      throw StateError(
-        'Record output and finalize cutting charges before invoicing.',
-      );
-    }
-
+    final dueAmount = (totalAmount - paidAmount).clamp(0, double.infinity).toDouble();
     final id = _uuid.v4();
-    final invoiceNumber = await _generateInvoiceNumber(load.factoryId);
-    final dueDate = load.paymentDueDate ??
-        order.paymentDueDate ??
-        DateTime.now().add(const Duration(days: 7));
-
-    final totalAmount = load.finalCuttingCharges;
-    final paidAmount = load.advanceReceived;
-    final dueAmount =
-        (totalAmount - paidAmount).clamp(0, double.infinity).toDouble();
-    final lineItems = _buildLineItemsForLoad(order, load);
+    final invoiceNumber = await _generateInvoiceNumber(order.factoryId);
+    final dueDate = order.paymentDueDate ?? DateTime.now().add(const Duration(days: 7));
 
     final invoice = JobWorkInvoice(
       id: id,
       invoiceNumber: invoiceNumber,
-      factoryId: load.factoryId,
+      factoryId: order.factoryId,
       jobWorkId: order.id,
       jobWorkNumber: order.jobWorkNumber,
-      loadId: load.id,
-      loadNumber: load.loadNumber,
+      loadId: null,
+      loadNumber: null,
       customerId: order.customerId,
       customerName: order.customerName,
       lineItems: lineItems,
@@ -313,8 +299,8 @@ class JobWorkInvoiceRepository {
         totalAmount: totalAmount,
         dueDate: dueDate,
       ),
-      mineLocation: load.mineLocation ?? order.mineLocation,
-      mineOwner: load.mineOwner ?? order.mineOwner,
+      mineLocation: order.mineLocation,
+      mineOwner: order.mineOwner,
       createdAt: DateTime.now(),
     );
 
@@ -322,25 +308,44 @@ class JobWorkInvoiceRepository {
     final batch = _firestore.batch();
     batch.set(_collection.doc(id), model.toFirestore(isCreate: true));
 
-    final loadUpdates = <String, dynamic>{
-      'invoiceId': id,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-    final financeStatus = JobWorkContainerSyncHelper.financeStatusForLoad(
-      load: load,
-      dueAmount: dueAmount,
+    // Update Job Work Order with the invoiceId
+    batch.update(
+      _jobWorkRepository.jobWorkDoc(order.id),
+      {
+        'invoiceId': id,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
     );
-    if (financeStatus != null) {
-      loadUpdates['status'] = financeStatus.firestoreValue;
-    }
-    batch.update(_loadRepository.loadDoc(load.id), loadUpdates);
 
-    // Container denorm (status / pricing rollups) comes from Load refresh only.
+    // Update all loads with the invoiceId
+    for (final load in billable) {
+      final loadUpdates = <String, dynamic>{
+        'invoiceId': id,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      final financeStatus = JobWorkContainerSyncHelper.financeStatusForLoad(
+        load: load,
+        dueAmount: load.balanceDue,
+      );
+      if (financeStatus != null) {
+        loadUpdates['status'] = financeStatus.firestoreValue;
+      }
+      batch.update(_loadRepository.loadDoc(load.id), loadUpdates);
+    }
+
     await batch.commit();
     await _loadRepository.refreshContainerFromLoads(order.id);
 
     final created = await getInvoice(id);
     return created ?? invoice;
+  }
+
+  Future<JobWorkInvoice> generateFromLoad(String loadId) async {
+    final load = await _loadRepository.getLoad(loadId);
+    if (load == null || load.isVirtual) {
+      throw StateError('Load not found.');
+    }
+    return generateFromJobWorkOrder(load.jobWorkId);
   }
 
   Future<JobWorkInvoice> updateInvoiceDetails({
@@ -451,36 +456,43 @@ class JobWorkInvoiceRepository {
     return await getInvoice(existing.id) ?? updated;
   }
 
-  List<InvoiceLineItem> _buildLineItemsForLoad(
-    JobWorkOrder order,
-    JobWorkLoad load,
-  ) {
-    final label = load.loadNumber.isEmpty
-        ? 'Load #${load.loadSequence}'
-        : load.loadNumber;
-    final items = <InvoiceLineItem>[
-      InvoiceLineItem(
-        description: 'Cutting fee — $label · ${load.marbleVariety.isNotEmpty ? load.marbleVariety : order.marbleVariety}',
-        amount: load.finalCuttingCharges,
-      ),
-    ];
 
-    final output = load.output;
-    if (output != null && output.isRecorded) {
+
+  List<InvoiceLineItem> _buildLineItemsForGrandInvoice(
+    JobWorkOrder order,
+    List<JobWorkLoad> loads,
+  ) {
+    final items = <InvoiceLineItem>[];
+    for (final load in loads) {
+      final label = load.loadNumber.isEmpty
+          ? 'Load #${load.loadSequence}'
+          : load.loadNumber;
+      final paid = load.advanceReceived;
+      final remaining = load.balanceDue;
+      final total = load.finalCuttingCharges;
+
       items.add(
         InvoiceLineItem(
-          description:
-              'Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
-          amount: 0,
+          description: '$label · Total: Rs ${total.toStringAsFixed(0)} · Paid: Rs ${paid.toStringAsFixed(0)} · Remaining: Rs ${remaining.toStringAsFixed(0)}',
+          amount: total,
         ),
       );
-    }
 
+      final output = load.output;
+      if (output != null && output.isRecorded) {
+        items.add(
+          InvoiceLineItem(
+            description: '  └ Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
+            amount: 0,
+          ),
+        );
+      }
+    }
     return items;
   }
 
-  /// Creates Load invoices for every billable Load that still needs one.
-  /// Returns the invoices for all billable Loads (existing + newly created).
+  /// Creates a single grand consolidated invoice for the Job Work order.
+  /// Returns a list containing only the consolidated Job Work invoice.
   Future<List<JobWorkInvoice>> generateMissingInvoicesForJobWork(
     String jobWorkId,
   ) async {
@@ -501,33 +513,8 @@ class JobWorkInvoiceRepository {
       );
     }
 
-    final invoices = <JobWorkInvoice>[];
-    for (final load in billable) {
-      if (load.invoiceId != null && load.invoiceId!.isNotEmpty) {
-        final existing = await getInvoice(load.invoiceId!);
-        if (existing != null) {
-          invoices.add(existing);
-          continue;
-        }
-      }
-      final byLoad = await getInvoiceByLoadId(
-        factoryId: load.factoryId,
-        loadId: load.id,
-      );
-      if (byLoad != null) {
-        invoices.add(byLoad);
-        continue;
-      }
-      if (!JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load)) {
-        continue;
-      }
-      invoices.add(await generateFromLoad(load.id));
-    }
-
-    if (invoices.isEmpty) {
-      throw StateError('Could not generate invoices for this Job Work.');
-    }
-    return invoices;
+    final invoice = await generateFromJobWorkOrder(jobWorkId);
+    return [invoice];
   }
 
   Future<String> _generateInvoiceNumber(String factoryId) async {

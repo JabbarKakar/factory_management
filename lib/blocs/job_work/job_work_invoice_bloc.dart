@@ -31,6 +31,7 @@ class JobWorkInvoiceBloc
     on<JobWorkInvoiceLoadByLoad>(_onLoadByLoad);
     on<JobWorkInvoiceLoadById>(_onLoadById);
     on<JobWorkInvoiceGenerateFromLoadRequested>(_onGenerateFromLoad);
+    on<JobWorkInvoiceGenerateFromJobWorkRequested>(_onGenerateFromJobWork);
     on<JobWorkInvoicePaymentSubmitted>(_onPaymentSubmitted);
     on<JobWorkInvoicePaymentUpdated>(_onPaymentUpdated);
     on<JobWorkInvoicePaymentDeleteRequested>(_onPaymentDeleteRequested);
@@ -182,6 +183,37 @@ class JobWorkInvoiceBloc
     );
     try {
       final invoice = await _invoiceRepository.generateFromLoad(event.loadId);
+      await _paymentRepository.ensureInvoicePaidAmountRecorded(
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.jobWork,
+      );
+      await _ledgerService.syncCustomerBalance(invoice.customerId);
+      await _scannerService.scan(invoice.factoryId);
+      await _startWatching(invoice, emit, saved: true);
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: JobWorkInvoiceStatus.failure,
+          errorMessage: e is StateError
+              ? e.message
+              : 'Could not generate invoice.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onGenerateFromJobWork(
+    JobWorkInvoiceGenerateFromJobWorkRequested event,
+    Emitter<JobWorkInvoiceState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        status: JobWorkInvoiceStatus.saving,
+        jobWorkId: event.jobWorkId,
+      ),
+    );
+    try {
+      final invoice = await _invoiceRepository.generateFromJobWorkOrder(event.jobWorkId);
       await _paymentRepository.ensureInvoicePaidAmountRecorded(
         invoiceId: invoice.id,
         invoiceType: InvoiceType.jobWork,
@@ -392,7 +424,9 @@ class JobWorkInvoiceBloc
 
     _invoiceSubscription?.cancel();
     _invoiceSubscription = _invoiceRepository.watchInvoice(invoice.id).listen(
-          (updated) => add(_JobWorkInvoiceStreamUpdated(updated)),
+          (updated) {
+            if (!isClosed) add(_JobWorkInvoiceStreamUpdated(updated));
+          },
           onError: (_) {},
         );
     _ensurePaymentsWatch(invoice);
@@ -408,7 +442,9 @@ class JobWorkInvoiceBloc
           invoiceId: invoice.id,
         )
         .listen(
-          (payments) => add(_JobWorkInvoicePaymentsUpdated(payments)),
+          (payments) {
+            if (!isClosed) add(_JobWorkInvoicePaymentsUpdated(payments));
+          },
           onError: (_) {},
         );
   }

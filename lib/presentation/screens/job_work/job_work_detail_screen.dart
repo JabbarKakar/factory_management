@@ -262,26 +262,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
   }
 
   Future<void> _openInvoice(BuildContext context) async {
-    final formState = context.read<JobWorkFormBloc>().state;
-    final order = formState.order;
-    final defaultLoadId = order?.defaultLoadId;
-    if (defaultLoadId != null && defaultLoadId.isNotEmpty) {
-      await context.push(
-        RoutePaths.jobWorkLoadInvoice(
-          jobWorkId: jobWorkId,
-          loadId: defaultLoadId,
-        ),
-      );
-    } else if (formState.loads.length == 1) {
-      await context.push(
-        RoutePaths.jobWorkLoadInvoice(
-          jobWorkId: jobWorkId,
-          loadId: formState.loads.first.id,
-        ),
-      );
-    } else {
-      await context.push(RoutePaths.jobWorkInvoice(jobWorkId));
-    }
+    await context.push(RoutePaths.jobWorkInvoice(jobWorkId));
     if (context.mounted) {
       context
           .read<JobWorkFormBloc>()
@@ -804,13 +785,11 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                     },
                   ),
                 ),
-              if (usesLegacyJwOps && (hasInvoice || state.invoices.isNotEmpty))
+              if (hasInvoice)
                 JobWorkInvoicePaymentHistorySection(
                   payments: state.payments,
                 ),
-              // Legacy JW invoice only for pre-migration containers.
-              if (usesLegacyJwOps &&
-                  canGenerateInvoice &&
+              if (canGenerateInvoice &&
                   (order.invoiceId == null || order.invoiceId!.isEmpty))
                 _InvoicePromptCard(
                   message: AppStrings.invoiceNotReady,
@@ -818,8 +797,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                   primaryIcon: Icons.receipt_long_rounded,
                   onPrimary: () => _openInvoice(context),
                 ),
-              if (usesLegacyJwOps &&
-                  order.invoiceId != null &&
+              if (order.invoiceId != null &&
                   order.invoiceId!.isNotEmpty)
                 _InvoicePromptCard(
                   showViewInvoice: true,

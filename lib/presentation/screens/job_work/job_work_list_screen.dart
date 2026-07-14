@@ -234,36 +234,26 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       );
     }
 
-    final canGenerateGrand =
-        JobWorkContainerSyncHelper.canGenerateGrandInvoice(
+    final canGenerateInvoice = JobWorkContainerSyncHelper.canGenerateInvoice(
       order: order,
       loads: persisted,
     );
-    final canViewGrand = JobWorkContainerSyncHelper.canViewGrandInvoice(
-      order: order,
-      loads: persisted,
-    );
+    final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
 
-    if (canEdit && canGenerateGrand) {
+    if (canEdit && canGenerateInvoice && !hasInvoice) {
       actions.add(
         TileMenuAction(
-          label: AppStrings.generateGrandInvoice,
+          label: AppStrings.generateInvoice,
           icon: Icons.receipt_long_outlined,
-          onSelected: () => context.push(
-            RoutePaths.jobWorkGrandInvoice(
-              order.id,
-              generateMissing: true,
-            ),
-          ),
+          onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
         ),
       );
-    } else if (canViewGrand) {
+    } else if (hasInvoice) {
       actions.add(
         TileMenuAction(
-          label: AppStrings.viewGrandInvoice,
+          label: AppStrings.viewInvoice,
           icon: Icons.receipt_long_outlined,
-          onSelected: () =>
-              context.push(RoutePaths.jobWorkGrandInvoice(order.id)),
+          onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
         ),
       );
     }
