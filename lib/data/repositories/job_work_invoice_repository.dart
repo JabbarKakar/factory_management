@@ -479,6 +479,57 @@ class JobWorkInvoiceRepository {
     return items;
   }
 
+  /// Creates Load invoices for every billable Load that still needs one.
+  /// Returns the invoices for all billable Loads (existing + newly created).
+  Future<List<JobWorkInvoice>> generateMissingInvoicesForJobWork(
+    String jobWorkId,
+  ) async {
+    final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
+    if (order == null) {
+      throw StateError('Job work order not found.');
+    }
+
+    final loads = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+    final billable =
+        JobWorkContainerSyncHelper.billableLoadsForGrandInvoice(loads);
+    if (billable.isEmpty) {
+      throw StateError(
+        'No Loads with cutting charges are ready to invoice.',
+      );
+    }
+
+    final invoices = <JobWorkInvoice>[];
+    for (final load in billable) {
+      if (load.invoiceId != null && load.invoiceId!.isNotEmpty) {
+        final existing = await getInvoice(load.invoiceId!);
+        if (existing != null) {
+          invoices.add(existing);
+          continue;
+        }
+      }
+      final byLoad = await getInvoiceByLoadId(
+        factoryId: load.factoryId,
+        loadId: load.id,
+      );
+      if (byLoad != null) {
+        invoices.add(byLoad);
+        continue;
+      }
+      if (!JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load)) {
+        continue;
+      }
+      invoices.add(await generateFromLoad(load.id));
+    }
+
+    if (invoices.isEmpty) {
+      throw StateError('Could not generate invoices for this Job Work.');
+    }
+    return invoices;
+  }
+
   Future<String> _generateInvoiceNumber(String factoryId) async {
     final year = DateTime.now().year;
     final snapshot =

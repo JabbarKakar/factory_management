@@ -7,7 +7,6 @@ import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../tile_options_menu.dart';
-import 'job_work_status_badge.dart';
 
 class JobWorkListTile extends StatelessWidget {
   const JobWorkListTile({
@@ -25,7 +24,7 @@ class JobWorkListTile extends StatelessWidget {
   final JobWorkOrder order;
   final VoidCallback onTap;
   final List<JobWorkLoad> loads;
-  /// When Loads are authoritative, list status may differ from [order.status].
+  /// Drives accent bar / muted opacity from Load rollup (no status badge).
   final JobWorkStatus? displayStatus;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
@@ -99,10 +98,6 @@ class JobWorkListTile extends StatelessWidget {
                                       height: 1.2,
                                     ),
                                   ),
-                                ),
-                                JobWorkStatusBadge(
-                                  status: status,
-                                  compact: true,
                                 ),
                                 if (menuActions.isNotEmpty)
                                   TileOptionsButton(

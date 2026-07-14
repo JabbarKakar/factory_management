@@ -11,6 +11,7 @@ import '../../../data/repositories/job_work_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
 import '../../../data/services/job_work_container_sync_helper.dart';
 import '../../../data/services/job_work_load_production_helper.dart';
+import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
@@ -143,195 +144,133 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     required bool canEdit,
     required bool canDelete,
     required List<JobWorkLoad> loads,
+    required List<JobWorkCollection> collections,
   }) {
     final displayStatus = JobWorkCollectionQuantityHelper.displayStatusForOrder(
       order: order,
       loads: loads,
     );
-    final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
+    final persisted = loads.where((load) => !load.isVirtual).toList();
     final actions = <TileMenuAction>[];
-    final recordLoad =
-        JobWorkLoadProductionHelper.preferredLoadForRecordOutput(loads);
-    final canRecordOutput = JobWorkLoadProductionHelper.orderCanRecordOutput(
-      order: order,
-      loads: loads,
+
+    actions.add(
+      TileMenuAction(
+        label: AppStrings.viewJobWork,
+        icon: Icons.visibility_outlined,
+        onSelected: () => context.push(RoutePaths.jobWorkDetail(order.id)),
+      ),
     );
 
-    if (canEdit &&
-        (displayStatus == JobWorkStatus.received ||
-            displayStatus == JobWorkStatus.agreed)) {
+    if (canEdit && order.status != JobWorkStatus.cancelled) {
       actions.add(
         TileMenuAction(
-          label: AppStrings.editJobWorkOrder,
+          label: AppStrings.addLoad,
+          icon: Icons.add_box_outlined,
+          onSelected: () =>
+              context.push(RoutePaths.jobWorkAddLoad(order.id)),
+        ),
+      );
+    }
+
+    // Container metadata only (customer / mine / dates). Cutting lives on Loads.
+    if (canEdit &&
+        order.status != JobWorkStatus.cancelled &&
+        order.status != JobWorkStatus.closed) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.editJobWorkDetails,
           icon: Icons.edit_outlined,
           onSelected: () => context.push(RoutePaths.jobWorkEdit(order.id)),
         ),
       );
     }
 
-    if (canEdit && canRecordOutput) {
-      final hasRecordedOutput = recordLoad != null
-          ? recordLoad.output?.isRecorded == true
-          : order.output?.isRecorded == true;
+    final recordLoad =
+        JobWorkLoadProductionHelper.preferredLoadForRecordOutput(persisted);
+    final canRecordOutput = JobWorkLoadProductionHelper.orderCanRecordOutput(
+      order: order,
+      loads: persisted,
+    );
+    if (canEdit && canRecordOutput && recordLoad != null) {
+      final hasRecordedOutput = recordLoad.output?.isRecorded == true;
       actions.add(
         TileMenuAction(
           label: hasRecordedOutput
               ? AppStrings.editOutput
               : AppStrings.recordOutput,
           icon: Icons.analytics_outlined,
-          onSelected: () {
-            if (recordLoad != null) {
-              context.push(
-                RoutePaths.jobWorkLoadRecordOutput(
-                  jobWorkId: order.id,
-                  loadId: recordLoad.id,
-                ),
-              );
-            } else {
-              context.push(RoutePaths.jobWorkRecordOutput(order.id));
-            }
-          },
+          onSelected: () => context.push(
+            RoutePaths.jobWorkLoadRecordOutput(
+              jobWorkId: order.id,
+              loadId: recordLoad.id,
+            ),
+          ),
         ),
       );
     }
 
-    final invoicableLoads = loads
-        .where(
-          (load) =>
-              !load.isVirtual &&
-              JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load) &&
-              (load.invoiceId == null || load.invoiceId!.isEmpty),
-        )
-        .toList();
-    final loadsWithInvoice = loads
-        .where(
-          (load) =>
-              !load.isVirtual &&
-              load.invoiceId != null &&
-              load.invoiceId!.isNotEmpty,
-        )
-        .toList();
-
-    if (invoicableLoads.length == 1) {
-      final load = invoicableLoads.first;
+    JobWorkLoad? collectLoad;
+    for (final load in persisted) {
+      if (JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+        load,
+        collections,
+      )) {
+        collectLoad = load;
+        break;
+      }
+    }
+    if (canEdit && collectLoad != null) {
       actions.add(
         TileMenuAction(
-          label: AppStrings.generateInvoice,
-          icon: Icons.receipt_long_outlined,
+          label: AppStrings.collectMaterial,
+          icon: Icons.handshake_outlined,
           onSelected: () => context.push(
-            RoutePaths.jobWorkLoadInvoice(
+            RoutePaths.jobWorkLoadCollectMaterial(
               jobWorkId: order.id,
-              loadId: load.id,
+              loadId: collectLoad!.id,
             ),
           ),
-        ),
-      );
-    } else if (invoicableLoads.isEmpty &&
-        !hasInvoice &&
-        loads.isEmpty &&
-        order.defaultLoadId != null &&
-        order.defaultLoadId!.isNotEmpty &&
-        JobWorkContainerSyncHelper.canGenerateInvoice(
-          order: order,
-          loads: loads,
-        )) {
-      actions.add(
-        TileMenuAction(
-          label: AppStrings.generateInvoice,
-          icon: Icons.receipt_long_outlined,
-          onSelected: () => context.push(
-            RoutePaths.jobWorkLoadInvoice(
-              jobWorkId: order.id,
-              loadId: order.defaultLoadId!,
-            ),
-          ),
-        ),
-      );
-    } else if (invoicableLoads.isEmpty &&
-        !hasInvoice &&
-        loads.isEmpty &&
-        !order.isLoadsAuthoritative &&
-        JobWorkContainerSyncHelper.canGenerateInvoice(
-          order: order,
-          loads: loads,
-        )) {
-      actions.add(
-        TileMenuAction(
-          label: AppStrings.generateInvoice,
-          icon: Icons.receipt_long_outlined,
-          onSelected: () => context.push(RoutePaths.jobWorkDetail(order.id)),
         ),
       );
     }
 
-    if (loadsWithInvoice.length == 1) {
-      final load = loadsWithInvoice.first;
+    final canGenerateGrand =
+        JobWorkContainerSyncHelper.canGenerateGrandInvoice(
+      order: order,
+      loads: persisted,
+    );
+    final canViewGrand = JobWorkContainerSyncHelper.canViewGrandInvoice(
+      order: order,
+      loads: persisted,
+    );
+
+    if (canEdit && canGenerateGrand) {
       actions.add(
         TileMenuAction(
-          label: AppStrings.viewInvoice,
+          label: AppStrings.generateGrandInvoice,
           icon: Icons.receipt_long_outlined,
           onSelected: () => context.push(
-            RoutePaths.jobWorkLoadInvoice(
-              jobWorkId: order.id,
-              loadId: load.id,
+            RoutePaths.jobWorkGrandInvoice(
+              order.id,
+              generateMissing: true,
             ),
           ),
         ),
       );
-      if (load.balanceDue > 0) {
-        actions.add(
-          TileMenuAction(
-            label: AppStrings.recordPayment,
-            icon: Icons.payments_outlined,
-            onSelected: () =>
-                context.push(RoutePaths.recordPayment(load.invoiceId!)),
-          ),
-        );
-      }
-    } else if (hasInvoice && loadsWithInvoice.isEmpty) {
-      final legacyLoadId = order.defaultLoadId;
+    } else if (canViewGrand) {
       actions.add(
         TileMenuAction(
-          label: AppStrings.viewInvoice,
-          icon: Icons.receipt_long_outlined,
-          onSelected: () {
-            if (legacyLoadId != null && legacyLoadId.isNotEmpty) {
-              context.push(
-                RoutePaths.jobWorkLoadInvoice(
-                  jobWorkId: order.id,
-                  loadId: legacyLoadId,
-                ),
-              );
-            } else {
-              context.push(RoutePaths.jobWorkDetail(order.id));
-            }
-          },
-        ),
-      );
-      if (displayStatus != JobWorkStatus.paid &&
-          displayStatus != JobWorkStatus.collected &&
-          displayStatus != JobWorkStatus.closed) {
-        actions.add(
-          TileMenuAction(
-            label: AppStrings.recordPayment,
-            icon: Icons.payments_outlined,
-            onSelected: () =>
-                context.push(RoutePaths.recordPayment(order.invoiceId!)),
-          ),
-        );
-      }
-    } else if (loadsWithInvoice.length > 1 || invoicableLoads.length > 1) {
-      actions.add(
-        TileMenuAction(
-          label: AppStrings.viewInvoice,
+          label: AppStrings.viewGrandInvoice,
           icon: Icons.receipt_long_outlined,
           onSelected: () =>
-              context.push(RoutePaths.jobWorkDetail(order.id)),
+              context.push(RoutePaths.jobWorkGrandInvoice(order.id)),
         ),
       );
     }
 
-    if (canEdit && displayStatus.isInProduction) {
+    if (canEdit &&
+        displayStatus != JobWorkStatus.cancelled &&
+        displayStatus != JobWorkStatus.closed) {
       actions.add(
         TileMenuAction(
           label: AppStrings.cancelOrder,
@@ -667,6 +606,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                           canEdit: canEdit,
                           canDelete: canDelete,
                           loads: orderLoads,
+                          collections: state.collections,
                         ),
                         onTap: () => context.push(
                           RoutePaths.jobWorkDetail(order.id),

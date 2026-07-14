@@ -74,6 +74,7 @@ import '../screens/job_work/add_job_work_load_screen.dart';
 import '../screens/job_work/collect_material_screen.dart';
 import '../screens/job_work/job_work_collection_slip_screen.dart';
 import '../screens/job_work/job_work_detail_screen.dart';
+import '../screens/job_work/job_work_grand_invoice_screen.dart';
 import '../screens/job_work/job_work_invoice_screen.dart';
 import '../screens/job_work/job_work_list_screen.dart';
 import '../screens/job_work/job_work_load_detail_screen.dart';
@@ -1548,6 +1549,20 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                             child: RecordJobWorkOutputScreen(
                               jobWorkId: jobWorkId,
                             ),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'grand-invoice',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          final generate = state.uri.queryParameters['generate'] ==
+                              '1';
+                          return JobWorkGrandInvoiceScreen(
+                            jobWorkId: jobWorkId,
+                            generateMissing: generate,
                           );
                         },
                       ),

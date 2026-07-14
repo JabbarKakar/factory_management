@@ -160,13 +160,33 @@ abstract final class AppStrings {
   static const String jobWorkDeleted = 'Job work order deleted';
   static const String jobWorkDeleteError =
       'Could not delete job work order. Please try again.';
-  static const String deleteJobWorkTitle = 'Delete job work order?';
+  static const String deleteJobWorkTitle = 'Delete Job Work and all Loads?';
   static const String deleteJobWorkMessage =
-      'This will permanently remove the order, shift logs, and recorded output. This action cannot be undone.';
-  static const String cancelJobWorkTitle = 'Cancel job work order?';
+      'This permanently deletes the Job Work container and every Load under it, '
+      'including output, collections, QC, invoices, and payments. This cannot be undone.';
+  static const String cancelJobWorkTitle = 'Cancel Job Work and all Loads?';
   static const String cancelJobWorkMessage =
-      'This order will be marked as cancelled.';
-  static const String cancelOrder = 'Cancel Order';
+      'This marks the Job Work and every Load under it as cancelled. '
+      'Use this only when the whole engagement should stop.';
+  static const String cancelOrder = 'Cancel Job Work';
+  static const String editJobWorkDetails = 'Edit Job Work details';
+  static const String viewJobWork = 'View Job Work';
+  static const String generateGrandInvoice = 'Generate Invoice';
+  static const String viewGrandInvoice = 'View Invoice';
+  static const String grandInvoiceTitle = 'Job Work Invoice';
+  static const String grandInvoiceSubtitle =
+      'Combined summary across all Loads';
+  static const String grandInvoiceGenerating = 'Generating Load invoices…';
+  static const String grandInvoiceIncomplete =
+      'Some Loads still need cutting charges before they can be invoiced.';
+  static const String loadPaid = 'Paid';
+  static const String loadPending = 'Pending';
+  static const String loadCollected = 'Collected';
+  static const String loadRemaining = 'Remaining';
+  static const String openLoadInvoice = 'Open Load invoice';
+  static const String charges = 'Charges';
+  static const String close = 'Close';
+  static const String summary = 'Summary';
   // Job Work Loads (Sprint 2)
   static const String load = 'Load';
   static const String loads = 'Loads';

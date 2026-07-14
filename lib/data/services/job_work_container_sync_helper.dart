@@ -129,4 +129,54 @@ abstract final class JobWorkContainerSyncHelper {
     // Any stage is fine; only charges (and cancelled above) gate generation.
     return rollupFinalCuttingCharges(order: order, loads: loads) > 0;
   }
+
+  /// Loads that should appear on the Job Work grand invoice (non-cancelled, with charges).
+  static List<JobWorkLoad> billableLoadsForGrandInvoice(
+    List<JobWorkLoad> loads,
+  ) {
+    return loads
+        .where(
+          (load) =>
+              !load.isVirtual &&
+              load.status != JobWorkStatus.cancelled &&
+              load.finalCuttingCharges > 0,
+        )
+        .toList()
+      ..sort((a, b) => a.loadSequence.compareTo(b.loadSequence));
+  }
+
+  /// True when every billable Load already has an invoice (grand invoice ready).
+  static bool isGrandInvoiceComplete({
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+  }) {
+    if (order.status == JobWorkStatus.cancelled) return false;
+    final billable = billableLoadsForGrandInvoice(loads);
+    if (billable.isEmpty) return false;
+    return billable.every(
+      (load) => load.invoiceId != null && load.invoiceId!.isNotEmpty,
+    );
+  }
+
+  /// Show Generate when any billable Load is still missing an invoice.
+  static bool canGenerateGrandInvoice({
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+  }) {
+    if (order.status == JobWorkStatus.cancelled) return false;
+    if (isGrandInvoiceComplete(order: order, loads: loads)) return false;
+    return billableLoadsForGrandInvoice(loads).any(
+      (load) =>
+          (load.invoiceId == null || load.invoiceId!.isEmpty) &&
+          canGenerateInvoiceForLoad(load),
+    );
+  }
+
+  /// Show View when the grand invoice is complete (mutually exclusive with Generate).
+  static bool canViewGrandInvoice({
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+  }) {
+    return isGrandInvoiceComplete(order: order, loads: loads);
+  }
 }

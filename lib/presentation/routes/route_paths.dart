@@ -68,6 +68,15 @@ abstract final class RoutePaths {
 
   static String jobWorkInvoice(String jobWorkId) => '/job-work/$jobWorkId/invoice';
 
+  static String jobWorkGrandInvoice(
+    String jobWorkId, {
+    bool generateMissing = false,
+  }) {
+    final base = '/job-work/$jobWorkId/grand-invoice';
+    if (!generateMissing) return base;
+    return '$base?generate=1';
+  }
+
   static String jobWorkLoadInvoice({
     required String jobWorkId,
     required String loadId,
