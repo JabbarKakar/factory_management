@@ -13,7 +13,9 @@ enum NotificationType {
   pendingDelivery,
   qcReject,
   jobWorkReadyForPickup,
-  jobWorkNotCollected;
+  jobWorkNotCollected,
+  /// Sprint 7: multi-Load JW with invoices/collections missing loadId.
+  jobWorkMigrationReview;
 
   String get firestoreValue => name;
 
@@ -38,7 +40,8 @@ enum NotificationType {
 
   bool get isJobWorkType => switch (this) {
         NotificationType.jobWorkReadyForPickup ||
-        NotificationType.jobWorkNotCollected =>
+        NotificationType.jobWorkNotCollected ||
+        NotificationType.jobWorkMigrationReview =>
           true,
         _ => false,
       };
@@ -54,7 +57,8 @@ enum NotificationType {
         NotificationType.equipmentMaintenanceDueSoon ||
         NotificationType.equipmentMaintenanceOverdue ||
         NotificationType.pendingDelivery ||
-        NotificationType.qcReject =>
+        NotificationType.qcReject ||
+        NotificationType.jobWorkMigrationReview =>
           true,
         _ => false,
       };

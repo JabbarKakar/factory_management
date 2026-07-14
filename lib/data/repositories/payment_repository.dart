@@ -318,22 +318,23 @@ class PaymentRepository {
       } else {
         final order =
             await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
-        if (order != null) {
-          final orderUpdates = <String, dynamic>{
-            'advanceReceived': paidAmount,
-            'balanceDue': dueAmount.toDouble(),
+        if (order == null) return;
+        // Sprint 7: migrated containers get money only via Loads; skip JW patches.
+        if (order.isLoadsAuthoritative) {
+          await _jobWorkLoadRepository
+              .refreshContainerFromLoads(invoice.jobWorkId);
+        } else {
+          await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
+            'pricing.advanceReceived': paidAmount,
+            'pricing.balanceDue': dueAmount.toDouble(),
+            if (dueAmount <= 0 &&
+                order.status != JobWorkStatus.paid &&
+                !order.status.isCollectionStatus)
+              'status': JobWorkStatus.paid.firestoreValue,
+            if (dueAmount > 0 && order.status == JobWorkStatus.paid)
+              'status': JobWorkStatus.invoiced.firestoreValue,
             'updatedAt': FieldValue.serverTimestamp(),
-          };
-          if (dueAmount <= 0 &&
-              order.status != JobWorkStatus.paid &&
-              !order.status.isCollectionStatus) {
-            orderUpdates['status'] = JobWorkStatus.paid.firestoreValue;
-          } else if (dueAmount > 0 && order.status == JobWorkStatus.paid) {
-            orderUpdates['status'] = JobWorkStatus.invoiced.firestoreValue;
-          }
-          await _jobWorkRepository
-              .jobWorkDoc(invoice.jobWorkId)
-              .update(orderUpdates);
+          });
         }
       }
 

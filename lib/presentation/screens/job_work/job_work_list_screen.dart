@@ -229,6 +229,8 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     } else if (invoicableLoads.isEmpty &&
         !hasInvoice &&
         loads.isEmpty &&
+        order.defaultLoadId != null &&
+        order.defaultLoadId!.isNotEmpty &&
         JobWorkContainerSyncHelper.canGenerateInvoice(
           order: order,
           loads: loads,
@@ -237,7 +239,27 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
         TileMenuAction(
           label: AppStrings.generateInvoice,
           icon: Icons.receipt_long_outlined,
-          onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
+          onSelected: () => context.push(
+            RoutePaths.jobWorkLoadInvoice(
+              jobWorkId: order.id,
+              loadId: order.defaultLoadId!,
+            ),
+          ),
+        ),
+      );
+    } else if (invoicableLoads.isEmpty &&
+        !hasInvoice &&
+        loads.isEmpty &&
+        !order.isLoadsAuthoritative &&
+        JobWorkContainerSyncHelper.canGenerateInvoice(
+          order: order,
+          loads: loads,
+        )) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.generateInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () => context.push(RoutePaths.jobWorkDetail(order.id)),
         ),
       );
     }
@@ -267,11 +289,23 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
         );
       }
     } else if (hasInvoice && loadsWithInvoice.isEmpty) {
+      final legacyLoadId = order.defaultLoadId;
       actions.add(
         TileMenuAction(
           label: AppStrings.viewInvoice,
           icon: Icons.receipt_long_outlined,
-          onSelected: () => context.push(RoutePaths.jobWorkInvoice(order.id)),
+          onSelected: () {
+            if (legacyLoadId != null && legacyLoadId.isNotEmpty) {
+              context.push(
+                RoutePaths.jobWorkLoadInvoice(
+                  jobWorkId: order.id,
+                  loadId: legacyLoadId,
+                ),
+              );
+            } else {
+              context.push(RoutePaths.jobWorkDetail(order.id));
+            }
+          },
         ),
       );
       if (displayStatus != JobWorkStatus.paid &&

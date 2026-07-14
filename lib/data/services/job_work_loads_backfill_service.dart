@@ -1,9 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/constants/app_strings.dart';
+import '../../domain/entities/app_notification.dart';
+import '../../domain/enums/notification_enums.dart';
 import '../repositories/job_work_invoice_repository.dart';
 import '../repositories/job_work_load_repository.dart';
 import '../repositories/job_work_repository.dart';
+import '../repositories/notification_repository.dart';
 
 /// Sprint 7 — factory-wide default-Load migration + orphan `loadId` stamp.
 ///
@@ -14,24 +19,37 @@ class JobWorkLoadsBackfillService {
     required JobWorkRepository jobWorkRepository,
     required JobWorkLoadRepository loadRepository,
     required JobWorkInvoiceRepository invoiceRepository,
+    required NotificationRepository notificationRepository,
     FirebaseFirestore? firestore,
     SharedPreferences? preferences,
   })  : _jobWorkRepository = jobWorkRepository,
         _loadRepository = loadRepository,
         _invoiceRepository = invoiceRepository,
+        _notificationRepository = notificationRepository,
         _firestore = firestore ?? FirebaseFirestore.instance,
         _preferences = preferences;
 
   static const _prefKeyPrefix = 'job_work_loads_backfill_v1_';
+  static const _orphanPrefSuffix = '_multi_load_orphans';
 
   final JobWorkRepository _jobWorkRepository;
   final JobWorkLoadRepository _loadRepository;
   final JobWorkInvoiceRepository _invoiceRepository;
+  final NotificationRepository _notificationRepository;
   final FirebaseFirestore _firestore;
   SharedPreferences? _preferences;
 
   Future<SharedPreferences> get _prefs async {
     return _preferences ??= await SharedPreferences.getInstance();
+  }
+
+  static String _orphanPrefsKey(String factoryId) =>
+      '$_prefKeyPrefix$factoryId$_orphanPrefSuffix';
+
+  /// Last multi-Load orphan JW ids persisted for [factoryId] (manual review).
+  Future<List<String>> multiLoadOrphanJobWorkIds(String factoryId) async {
+    final prefs = await _prefs;
+    return prefs.getStringList(_orphanPrefsKey(factoryId)) ?? const [];
   }
 
   /// Runs once per factory while migration is incomplete; retries until
@@ -44,8 +62,20 @@ class JobWorkLoadsBackfillService {
     }
 
     final report = await run(factoryId);
+    debugPrint('JobWorkLoadsBackfill: $report');
+
+    await prefs.setStringList(
+      _orphanPrefsKey(factoryId),
+      report.multiLoadOrphanJobWorkIds,
+    );
+
+    if (!report.isComplete) {
+      await _notifyMultiLoadOrphans(factoryId, report);
+    }
+
     if (report.isComplete) {
       await prefs.setBool(key, true);
+      await prefs.remove(_orphanPrefsKey(factoryId));
     }
     return report;
   }
@@ -89,8 +119,10 @@ class JobWorkLoadsBackfillService {
             multiLoadOrphanJobWorkIds.add(order.id);
           }
         }
-      } catch (_) {
-        // Continue remaining orders; incomplete report keeps retry enabled.
+      } catch (error, stack) {
+        debugPrint(
+          'JobWorkLoadsBackfill: failed for ${order.id}: $error\n$stack',
+        );
       }
     }
 
@@ -110,6 +142,44 @@ class JobWorkLoadsBackfillService {
       remainingLegacyContainers: remainingLegacyContainers,
       multiLoadOrphanJobWorkIds: List.unmodifiable(multiLoadOrphanJobWorkIds),
     );
+  }
+
+  Future<void> _notifyMultiLoadOrphans(
+    String factoryId,
+    JobWorkLoadsBackfillReport report,
+  ) async {
+    if (report.multiLoadOrphanJobWorkIds.isEmpty) return;
+
+    final count = report.multiLoadOrphanJobWorkIds.length;
+    await _notificationRepository.createNotification(
+      AppNotification(
+        id: '',
+        factoryId: factoryId,
+        type: NotificationType.jobWorkMigrationReview,
+        priority: NotificationPriority.high,
+        title: AppStrings.jobWorkMigrationReviewTitle,
+        body: AppStrings.jobWorkMigrationReviewBody(count),
+        createdAt: DateTime.now(),
+        dedupeKey: 'jw_migration_review_summary_$factoryId',
+        jobWorkId: report.multiLoadOrphanJobWorkIds.first,
+      ),
+    );
+
+    for (final jobWorkId in report.multiLoadOrphanJobWorkIds.take(20)) {
+      await _notificationRepository.createNotification(
+        AppNotification(
+          id: '',
+          factoryId: factoryId,
+          type: NotificationType.jobWorkMigrationReview,
+          priority: NotificationPriority.medium,
+          title: AppStrings.jobWorkMigrationReviewTitle,
+          body: AppStrings.jobWorkMigrationReviewItemBody(jobWorkId),
+          createdAt: DateTime.now(),
+          dedupeKey: 'jw_migration_review_${factoryId}_$jobWorkId',
+          jobWorkId: jobWorkId,
+        ),
+      );
+    }
   }
 
   Future<int> _countOrphanInvoices({

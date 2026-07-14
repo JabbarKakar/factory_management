@@ -224,14 +224,15 @@ class JobWorkInvoiceRepository {
         });
   }
 
-  /// Compatibility path: single Load → [generateFromLoad]; multi-Load → error.
+  /// Prefer [generateFromLoad]. Kept only to open/migrate a single default Load
+  /// invoice when a route still arrives without `loadId` (throws if multi-Load).
   Future<JobWorkInvoice> generateFromJobWorkOrder(String jobWorkId) async {
     final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
     if (order == null) {
       throw StateError('Job work order not found.');
     }
 
-    var loads = await _loadRepository.fetchLoadsForJobWork(
+    final loads = await _loadRepository.fetchLoadsForJobWork(
       factoryId: order.factoryId,
       jobWorkId: jobWorkId,
     );
@@ -239,22 +240,13 @@ class JobWorkInvoiceRepository {
         JobWorkContainerSyncHelper.persistedLoadsForOrder(order, loads);
 
     if (persisted.length > 1) {
-      throw StateError(
-        'Select a load before generating an invoice.',
-      );
+      throw StateError('Select a load before generating an invoice.');
     }
 
-    if (persisted.isEmpty) {
-      // Legacy JW invoice still openable.
-      if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
-        final existing = await getInvoice(order.invoiceId!);
-        if (existing != null) return existing;
-      }
-      final load = await _loadRepository.ensureDefaultLoad(jobWorkId);
-      return generateFromLoad(load.id);
-    }
-
-    return generateFromLoad(persisted.first.id);
+    final load = persisted.isEmpty
+        ? await _loadRepository.ensureDefaultLoad(jobWorkId)
+        : persisted.first;
+    return generateFromLoad(load.id);
   }
 
   Future<JobWorkInvoice> generateFromLoad(String loadId) async {
@@ -343,25 +335,7 @@ class JobWorkInvoiceRepository {
     }
     batch.update(_loadRepository.loadDoc(load.id), loadUpdates);
 
-    // Legacy dual-read: keep JW.invoiceId when this is the only Load.
-    final siblingLoads = await _loadRepository.fetchLoadsForJobWork(
-      factoryId: order.factoryId,
-      jobWorkId: order.id,
-    );
-    if (siblingLoads.length <= 1) {
-      final orderUpdates = <String, dynamic>{
-        'invoiceId': id,
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-      if (!order.status.isCollectionStatus) {
-        orderUpdates['status'] = (dueAmount <= 0
-                ? JobWorkStatus.paid
-                : JobWorkStatus.invoiced)
-            .firestoreValue;
-      }
-      batch.update(_jobWorkRepository.jobWorkDoc(order.id), orderUpdates);
-    }
-
+    // Container denorm (status / pricing rollups) comes from Load refresh only.
     await batch.commit();
     await _loadRepository.refreshContainerFromLoads(order.id);
 

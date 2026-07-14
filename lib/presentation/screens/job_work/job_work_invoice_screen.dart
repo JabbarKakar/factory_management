@@ -148,22 +148,24 @@ class JobWorkInvoiceScreen extends StatelessWidget {
               title: AppStrings.invoiceNotReady,
               action: FilledButton.icon(
                 onPressed: () {
-                  final loadId = this.loadId;
-                  if (loadId != null && loadId.isNotEmpty) {
+                  final scopedLoadId = loadId;
+                  if (scopedLoadId != null && scopedLoadId.isNotEmpty) {
                     context.read<JobWorkInvoiceBloc>().add(
                           JobWorkInvoiceGenerateFromLoadRequested(
                             jobWorkId: jobWorkId,
-                            loadId: loadId,
+                            loadId: scopedLoadId,
                           ),
                         );
                   } else {
-                    context.read<JobWorkInvoiceBloc>().add(
-                          JobWorkInvoiceGenerateRequested(jobWorkId),
-                        );
+                    context.push(RoutePaths.jobWorkDetail(jobWorkId));
                   }
                 },
                 icon: const Icon(Icons.receipt_long_outlined),
-                label: const Text(AppStrings.generateInvoice),
+                label: Text(
+                  (loadId ?? '').isNotEmpty
+                      ? AppStrings.generateInvoice
+                      : AppStrings.selectLoadToInvoice,
+                ),
               ),
             ),
           );

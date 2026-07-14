@@ -262,7 +262,26 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
   }
 
   Future<void> _openInvoice(BuildContext context) async {
-    await context.push(RoutePaths.jobWorkInvoice(jobWorkId));
+    final formState = context.read<JobWorkFormBloc>().state;
+    final order = formState.order;
+    final defaultLoadId = order?.defaultLoadId;
+    if (defaultLoadId != null && defaultLoadId.isNotEmpty) {
+      await context.push(
+        RoutePaths.jobWorkLoadInvoice(
+          jobWorkId: jobWorkId,
+          loadId: defaultLoadId,
+        ),
+      );
+    } else if (formState.loads.length == 1) {
+      await context.push(
+        RoutePaths.jobWorkLoadInvoice(
+          jobWorkId: jobWorkId,
+          loadId: formState.loads.first.id,
+        ),
+      );
+    } else {
+      await context.push(RoutePaths.jobWorkInvoice(jobWorkId));
+    }
     if (context.mounted) {
       context
           .read<JobWorkFormBloc>()
@@ -435,12 +454,14 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
         final hasLoads = state.loads.isNotEmpty;
         final canEditJobWork = context.userCanEdit(AppModule.jobWork);
         final canDeleteJobWork = context.userCanDelete(AppModule.jobWork);
-        // Cutting FSM lives on Loads when any Load exists (Sprint 3).
-        final canRecordOutput = !hasLoads &&
+        // Ops live on Loads once authoritative — never show JW nested actions.
+        final usesLegacyJwOps =
+            !hasLoads && !order.isLoadsAuthoritative;
+        final canRecordOutput = usesLegacyJwOps &&
             order.status.canRecordOutput &&
             canEditJobWork;
-        // Collect lives on Loads when any Load exists (Sprint 4).
-        final canCollectMaterial = !hasLoads &&
+        // Collect lives on Loads when any Load exists (or migrated container).
+        final canCollectMaterial = usesLegacyJwOps &&
             canEditJobWork &&
             JobWorkCollectionQuantityHelper.canOpenCollectMaterial(
               order,
@@ -542,8 +563,8 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                 hasOutput: hasOutput,
                 canRecordOutput: canRecordOutput,
                 canCollectMaterial: canCollectMaterial,
-                showOperationalAdvance: !hasLoads,
-                showCompletionAdvance: !hasLoads,
+                showOperationalAdvance: usesLegacyJwOps,
+                showCompletionAdvance: usesLegacyJwOps,
                 onAdvanceStatus: (s) => _advanceStatus(context, s),
                 onAdvanceCompletion: (s) => _advanceCompletion(context, s),
                 onRecordOutput: () => _openRecordOutput(context),
@@ -616,6 +637,35 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                   ),
                 ),
               ),
+              if (order.isLoadsAuthoritative && !hasLoads)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Material(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .errorContainer
+                        .withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.sync_problem_rounded,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              AppStrings.loadsMigrationIncomplete,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               if (hasLoads)
                 JobWorkDetailSection(
                   title: AppStrings.allLoadsProduction,
@@ -669,8 +719,8 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                     ),
                   ),
                 ),
-              if (!hasLoads) JobWorkOutputSummary(order: order),
-              if (!hasLoads && showCollectionSection)
+              if (usesLegacyJwOps) JobWorkOutputSummary(order: order),
+              if (usesLegacyJwOps && showCollectionSection)
                 JobWorkDetailSection(
                   title: AppStrings.materialCollectionSummary,
                   icon: Icons.inventory_2_outlined,
@@ -723,7 +773,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                     ],
                   ),
                 ),
-              if (!hasLoads && state.collections.isNotEmpty)
+              if (usesLegacyJwOps && state.collections.isNotEmpty)
                 JobWorkDetailSection(
                   title: AppStrings.collectionHistory,
                   icon: Icons.history_outlined,
@@ -734,7 +784,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                     ],
                   ),
                 ),
-              if (!hasLoads && hasOutput)
+              if (usesLegacyJwOps && hasOutput)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
                   child: QcReferenceSection(
@@ -754,12 +804,12 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                     },
                   ),
                 ),
-              if (!hasLoads && (hasInvoice || state.invoices.isNotEmpty))
+              if (usesLegacyJwOps && (hasInvoice || state.invoices.isNotEmpty))
                 JobWorkInvoicePaymentHistorySection(
                   payments: state.payments,
                 ),
-              // Legacy JW invoice when no Loads (or unstamped order.invoiceId).
-              if (!hasLoads &&
+              // Legacy JW invoice only for pre-migration containers.
+              if (usesLegacyJwOps &&
                   canGenerateInvoice &&
                   (order.invoiceId == null || order.invoiceId!.isEmpty))
                 _InvoicePromptCard(
@@ -768,7 +818,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                   primaryIcon: Icons.receipt_long_rounded,
                   onPrimary: () => _openInvoice(context),
                 ),
-              if (!hasLoads &&
+              if (usesLegacyJwOps &&
                   order.invoiceId != null &&
                   order.invoiceId!.isNotEmpty)
                 _InvoicePromptCard(

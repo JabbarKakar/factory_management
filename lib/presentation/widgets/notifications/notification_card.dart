@@ -232,6 +232,7 @@ class NotificationCard extends StatelessWidget {
       NotificationType.jobWorkReadyForPickup ||
       NotificationType.jobWorkNotCollected =>
         Icons.content_cut_rounded,
+      NotificationType.jobWorkMigrationReview => Icons.sync_problem_rounded,
       _ => Icons.notifications_active_outlined,
     };
   }

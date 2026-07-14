@@ -30,7 +30,6 @@ class JobWorkInvoiceBloc
     on<JobWorkInvoiceLoadByJobWork>(_onLoadByJobWork);
     on<JobWorkInvoiceLoadByLoad>(_onLoadByLoad);
     on<JobWorkInvoiceLoadById>(_onLoadById);
-    on<JobWorkInvoiceGenerateRequested>(_onGenerate);
     on<JobWorkInvoiceGenerateFromLoadRequested>(_onGenerateFromLoad);
     on<JobWorkInvoicePaymentSubmitted>(_onPaymentSubmitted);
     on<JobWorkInvoicePaymentUpdated>(_onPaymentUpdated);
@@ -165,33 +164,6 @@ class JobWorkInvoiceBloc
         state.copyWith(
           status: JobWorkInvoiceStatus.failure,
           errorMessage: 'Could not load invoice.',
-        ),
-      );
-    }
-  }
-
-  Future<void> _onGenerate(
-    JobWorkInvoiceGenerateRequested event,
-    Emitter<JobWorkInvoiceState> emit,
-  ) async {
-    emit(state.copyWith(status: JobWorkInvoiceStatus.saving));
-    try {
-      final invoice =
-          await _invoiceRepository.generateFromJobWorkOrder(event.jobWorkId);
-      await _paymentRepository.ensureInvoicePaidAmountRecorded(
-        invoiceId: invoice.id,
-        invoiceType: InvoiceType.jobWork,
-      );
-      await _ledgerService.syncCustomerBalance(invoice.customerId);
-      await _scannerService.scan(invoice.factoryId);
-      await _startWatching(invoice, emit, saved: true);
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: JobWorkInvoiceStatus.failure,
-          errorMessage: e is StateError
-              ? e.message
-              : 'Could not generate invoice.',
         ),
       );
     }

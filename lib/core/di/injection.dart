@@ -278,6 +278,7 @@ void setupDependencies() {
       jobWorkRepository: getIt<JobWorkRepository>(),
       loadRepository: getIt<JobWorkLoadRepository>(),
       invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+      notificationRepository: getIt<NotificationRepository>(),
     ),
   );
 

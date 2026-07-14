@@ -604,7 +604,8 @@ class JobWorkLoadRepository {
       'loadCount': loadCount,
       'activeLoadCount': activeLoadCount,
       'summaryStatus': summaryStatus.firestoreValue,
-      // Denormalized rollup for list/KPI filters; Loads remain source of truth.
+      // Container denorm for list/KPI only — Loads remain the ops/finance source.
+      // Nested input/cuttingSpec/output/shifts are never written here.
       'status': containerStatus.firestoreValue,
       'pricing.finalCuttingCharges': finalCuttingCharges,
       'pricing.advanceReceived': advanceReceived,

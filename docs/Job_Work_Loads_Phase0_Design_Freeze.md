@@ -130,7 +130,8 @@ jobWorkOrders/{jobWorkId}
   closedAt?              // only if JW-level close is added later
 ```
 
-**After Sprint 7:** nested `input` / `cuttingSpec` / `pricing` / `output` / `execution` / `outputShifts` / order-level `status` / `invoiceId` / `collectedAt` are **not written**. They may remain on legacy docs as read-only archive until purged.
+**After Sprint 7:** nested `input` / `cuttingSpec` / `output` / `execution` / `outputShifts` / order-level `invoiceId` / `collectedAt` are **not written** as the operational source of truth (archive only).  
+Container sync may still denormalize `status` + nested `pricing.{finalCuttingCharges,advanceReceived,balanceDue}` and `summaryStatus` for list/KPI — Loads remain authoritative for money and FSM.
 
 **During Sprint 1–6:** dual-read allowed (see §5).
 
@@ -248,8 +249,9 @@ ensureDefaultLoad(jobWorkId) → Load  // idempotent write
 |-----------|----------------------|
 | Read list/detail | Persisted Loads only when `schemaVersion >= 2`; virtual Load only for pre-migration legacy |
 | Record output / advance status / collect / invoice | Write **Load** only |
-| Legacy nested fields | **Not written** on authoritative JW (`toFirestore(containerOnly: true)`); archive remains on disk |
-| Batch backfill | `JobWorkLoadsBackfillService` on auth; stamps single-Load orphans; reports multi-Load orphans |
+| Legacy nested fields | **Not written** as ops source on authoritative JW (`toFirestore(containerOnly: true)`); archive remains on disk |
+| Container denorm only | Load → JW rollup may write `summaryStatus`, `status`, and nested `pricing.{finalCuttingCharges,advanceReceived,balanceDue}` for list/KPI — never `invoiceId`, nested input/cutting/output/shifts |
+| Batch backfill | `JobWorkLoadsBackfillService` on auth; stamps single-Load orphans; **notifies** multi-Load orphans |
 | Rules | `jobWorkInvoices` / `jobWorkCollections` **create** requires non-empty `loadId` |
 
 Operator note: [`Job_Work_Add_Load_vs_New_Job_Work.md`](Job_Work_Add_Load_vs_New_Job_Work.md).

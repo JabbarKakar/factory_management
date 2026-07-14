@@ -204,6 +204,17 @@ abstract final class AppStrings {
   static const String closeLoad = 'Close Load';
   static const String blocks = 'blocks';
   static const String virtualLoadHint = 'Pending migration to Load document';
+  static const String jobWorkMigrationReviewTitle =
+      'Job Work Load migration review';
+  static String jobWorkMigrationReviewBody(int count) =>
+      '$count Job Work(s) have invoices or collections without a Load. '
+      'Open each Job Work and stamp the correct Load manually.';
+  static String jobWorkMigrationReviewItemBody(String jobWorkId) =>
+      'Orphan invoice/collection under Job Work $jobWorkId — assign loadId.';
+  static const String selectLoadToInvoice =
+      'Open a Load to generate or view its invoice.';
+  static const String loadsMigrationIncomplete =
+      'Loads are still migrating. Pull to refresh or open this Job Work again.';
   static const String migratedLoadHint = 'Migrated from legacy Job Work';
   static const String searchJobWork =
       'Search JW #, load #, customer, variety, mine, size...';
