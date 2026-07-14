@@ -20,7 +20,7 @@ class DashboardState extends Equatable {
   final DashboardStatus status;
   final DashboardKpis kpis;
   final DashboardAnalytics analytics;
-  final List<JobWorkOrder> pendingPickups;
+  final List<DashboardPendingPickup> pendingPickups;
   final String? factoryId;
   final String? errorMessage;
 
@@ -28,7 +28,7 @@ class DashboardState extends Equatable {
     DashboardStatus? status,
     DashboardKpis? kpis,
     DashboardAnalytics? analytics,
-    List<JobWorkOrder>? pendingPickups,
+    List<DashboardPendingPickup>? pendingPickups,
     String? factoryId,
     String? errorMessage,
   }) {

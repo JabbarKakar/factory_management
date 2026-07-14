@@ -125,12 +125,22 @@ void main() {
       expect(load.id, JobWorkLoadResolver.virtualLoadId(order.id));
     });
 
-    test('resolveLoads returns virtual when no persisted loads', () {
+    test('resolveLoads returns virtual when no persisted loads (legacy)', () {
       final order = buildOrder();
       final resolved = JobWorkLoadResolver.resolveLoads(order, const []);
 
       expect(resolved, hasLength(1));
       expect(resolved.single.isVirtual, isTrue);
+    });
+
+    test('resolveLoads returns empty for authoritative JW with no loads', () {
+      final order = buildOrder().copyWith(
+        schemaVersion: JobWorkSchemaVersion.loadsAuthoritative,
+        defaultLoadId: 'missing',
+      );
+      final resolved = JobWorkLoadResolver.resolveLoads(order, const []);
+
+      expect(resolved, isEmpty);
     });
 
     test('resolveLoads prefers persisted loads and sorts by sequence', () {

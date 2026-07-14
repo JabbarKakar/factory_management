@@ -270,6 +270,83 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
     }
   }
 
+  List<Widget> _buildLoadsGroupedByYear(
+    BuildContext context, {
+    required List<JobWorkLoad> loads,
+    required bool isSaving,
+    required bool canEditJobWork,
+    required bool canDeleteJobWork,
+    required List<JobWorkCollection> collections,
+  }) {
+    final theme = Theme.of(context);
+    final byYear = <int, List<JobWorkLoad>>{};
+    for (final load in loads) {
+      byYear.putIfAbsent(load.receivedDate.year, () => []).add(load);
+    }
+    final years = byYear.keys.toList()..sort((a, b) => b.compareTo(a));
+    final showYearHeaders = years.length > 1;
+    final widgets = <Widget>[];
+
+    for (var yearIndex = 0; yearIndex < years.length; yearIndex++) {
+      final year = years[yearIndex];
+      final yearLoads = byYear[year]!
+        ..sort((a, b) => b.receivedDate.compareTo(a.receivedDate));
+
+      if (showYearHeaders) {
+        if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 12));
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '$year',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+      }
+
+      for (var i = 0; i < yearLoads.length; i++) {
+        final load = yearLoads[i];
+        widgets.add(
+          JobWorkLoadListTile(
+            load: load,
+            isBusy: isSaving || _busyLoadId == load.id,
+            menuActions: _loadMenuActions(
+              context,
+              load,
+              canEdit: canEditJobWork,
+              canDelete: canDeleteJobWork,
+              isLastLoad: loads.length <= 1,
+              collections: collections,
+            ),
+            onTap: load.isVirtual
+                ? null
+                : () async {
+                    await context.push(
+                      RoutePaths.jobWorkLoadDetail(
+                        jobWorkId: jobWorkId,
+                        loadId: load.id,
+                      ),
+                    );
+                    if (context.mounted) {
+                      context.read<JobWorkFormBloc>().add(
+                            JobWorkFormLoadRequested(jobWorkId),
+                          );
+                    }
+                  },
+          ),
+        );
+        if (i < yearLoads.length - 1) {
+          widgets.add(const SizedBox(height: 8));
+        }
+      }
+    }
+
+    return widgets;
+  }
+
   Future<void> _openRecordPayment(
     BuildContext context,
     String invoiceId,
@@ -518,39 +595,14 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                           style: Theme.of(context).textTheme.bodySmall,
                         )
                       else
-                        for (final load in state.loads) ...[
-                          JobWorkLoadListTile(
-                            load: load,
-                            isBusy: isSaving || _busyLoadId == load.id,
-                            menuActions: _loadMenuActions(
-                              context,
-                              load,
-                              canEdit: canEditJobWork,
-                              canDelete: canDeleteJobWork,
-                              isLastLoad: state.loads.length <= 1,
-                              collections: state.collections,
-                            ),
-                            onTap: load.isVirtual
-                                ? null
-                                : () async {
-                                    await context.push(
-                                      RoutePaths.jobWorkLoadDetail(
-                                        jobWorkId: jobWorkId,
-                                        loadId: load.id,
-                                      ),
-                                    );
-                                    if (context.mounted) {
-                                      context.read<JobWorkFormBloc>().add(
-                                            JobWorkFormLoadRequested(
-                                              jobWorkId,
-                                            ),
-                                          );
-                                    }
-                                  },
-                          ),
-                          if (load != state.loads.last)
-                            const SizedBox(height: 8),
-                        ],
+                        ..._buildLoadsGroupedByYear(
+                          context,
+                          loads: state.loads,
+                          isSaving: isSaving,
+                          canEditJobWork: canEditJobWork,
+                          canDeleteJobWork: canDeleteJobWork,
+                          collections: state.collections,
+                        ),
                       if (canAddLoad) ...[
                         const SizedBox(height: 12),
                         FilledButton.tonalIcon(

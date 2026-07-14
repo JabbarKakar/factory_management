@@ -148,13 +148,16 @@ class DashboardKpiGrid extends StatelessWidget {
         ),
       if (_canView(AppModule.jobWork))
         _KpiItem(
-          label: AppStrings.activeJobWork,
-          value: '${kpis.activeJobWorkCount}',
+          label: AppStrings.activeLoads,
+          value: '${kpis.activeLoadCount}',
+          subtitle: kpis.activeJobWorkCount > 0
+              ? '${kpis.activeJobWorkCount} ${AppStrings.activeJobWorkContainers}'
+              : AppStrings.activeLoadsSubtitle,
           icon: Icons.content_cut_rounded,
           color: AppColors.primary,
           onTap: _tap(
             () => context.go(
-              RoutePaths.jobWorkList(filter: JobWorkListStageFilter.inProgress),
+              RoutePaths.jobWorkList(filter: JobWorkListStageFilter.active),
             ),
             AppModule.jobWork,
           ),

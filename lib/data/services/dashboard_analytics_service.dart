@@ -1,5 +1,6 @@
 import '../../core/utils/dashboard_job_work_metrics.dart';
 import '../../domain/entities/dashboard_analytics.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/production_batch.dart';
@@ -10,6 +11,7 @@ class DashboardAnalyticsService {
     required List<Payment> payments,
     required List<ProductionBatch> productionBatches,
     required List<JobWorkOrder> jobWorkOrders,
+    List<JobWorkLoad> jobWorkLoads = const [],
     DateTime? now,
   }) {
     final reference = now ?? DateTime.now();
@@ -19,6 +21,7 @@ class DashboardAnalyticsService {
       productionLast7Days: _buildProductionSeries(
         productionBatches: productionBatches,
         jobWorkOrders: jobWorkOrders,
+        jobWorkLoads: jobWorkLoads,
         endDate: today,
         dayCount: 7,
       ),
@@ -39,6 +42,7 @@ class DashboardAnalyticsService {
   List<DailyProductionPoint> _buildProductionSeries({
     required List<ProductionBatch> productionBatches,
     required List<JobWorkOrder> jobWorkOrders,
+    required List<JobWorkLoad> jobWorkLoads,
     required DateTime endDate,
     required int dayCount,
   }) {
@@ -62,7 +66,11 @@ class DashboardAnalyticsService {
       for (var offset = 0; offset < dayCount; offset++) {
         final day = startDate.add(Duration(days: offset));
         jobWorkByDay[day] = (jobWorkByDay[day] ?? 0) +
-            DashboardJobWorkMetrics.sqFtOnDay(order, day);
+            DashboardJobWorkMetrics.sqFtOnDay(
+              order,
+              day,
+              loads: jobWorkLoads,
+            );
       }
     }
 

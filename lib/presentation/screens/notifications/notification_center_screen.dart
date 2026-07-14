@@ -248,12 +248,23 @@ class _NotificationCenterView extends StatelessWidget {
       context.push(RoutePaths.salesDetail(notification.salesOrderId!));
       return;
     }
-    if (notification.customerId != null) {
-      context.push(RoutePaths.customerDetail(notification.customerId!));
+    if (notification.jobWorkId != null &&
+        notification.loadId != null &&
+        notification.loadId!.isNotEmpty) {
+      context.push(
+        RoutePaths.jobWorkLoadDetail(
+          jobWorkId: notification.jobWorkId!,
+          loadId: notification.loadId!,
+        ),
+      );
       return;
     }
     if (notification.jobWorkId != null) {
       context.push(RoutePaths.jobWorkDetail(notification.jobWorkId!));
+      return;
+    }
+    if (notification.customerId != null) {
+      context.push(RoutePaths.customerDetail(notification.customerId!));
     }
   }
 

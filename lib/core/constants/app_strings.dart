@@ -308,17 +308,22 @@ abstract final class AppStrings {
   static const String jobWorkClosed = 'Job work order closed';
   static const String pendingPickups = 'Pending Pickups';
   static const String pendingPickupsSubtitle =
-      'Finished material still at the factory with remaining pieces to collect';
+      'Loads with finished material still at the factory';
   static const String awaitingCustomerPickup = 'Awaiting customer pickup';
   static const String partiallyCollectedOrders = 'Partially Collected';
   static const String partiallyCollectedOrdersSubtitle =
-      'Orders with material still at the factory after a partial pickup';
+      'Loads with material still at the factory after a partial pickup';
   static const String remainingToCollect = 'Remaining to collect';
   static const String pickupOverdue = 'Pickup overdue';
+  static const String activeLoadsSubtitle = 'Loads in active production';
+  static const String activeJobWorkContainers = 'active Job Work';
   static const String stalePickupAlert = 'Material not collected';
   static const String readyForPickupAlert = 'Ready for pickup';
   static const String readyForPickupAlertBody =
       'is ready. Notify the customer to collect material.';
+  static const String dateRangeFilter = 'Date range';
+  static const String clearDateFilter = 'Clear dates';
+  static const String filterByReceivedDate = 'Filter by received date';
   static const String viewAll = 'View all';
 
   // Job Work — Output (Sprint 4)

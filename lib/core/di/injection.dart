@@ -94,6 +94,7 @@ import '../../data/services/job_work_cleanup_service.dart';
 import '../../data/services/notification_engine_service.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
 import '../../data/services/dashboard_analytics_service.dart';
+import '../../data/services/job_work_loads_backfill_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../data/services/payment_reminder_message_service.dart';
 import '../../data/services/payment_reminder_service.dart';
@@ -271,6 +272,13 @@ void setupDependencies() {
   );
   getIt.registerLazySingleton<JobWorkCleanupService>(
     () => JobWorkCleanupService(jobWorkRepository: getIt<JobWorkRepository>()),
+  );
+  getIt.registerLazySingleton<JobWorkLoadsBackfillService>(
+    () => JobWorkLoadsBackfillService(
+      jobWorkRepository: getIt<JobWorkRepository>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
+      invoiceRepository: getIt<JobWorkInvoiceRepository>(),
+    ),
   );
 
   getIt.registerFactory<AuthBloc>(

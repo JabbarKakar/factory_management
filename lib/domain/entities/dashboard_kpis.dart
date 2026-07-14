@@ -4,6 +4,7 @@ class DashboardKpis extends Equatable {
   const DashboardKpis({
     required this.revenueToday,
     required this.activeJobWorkCount,
+    required this.activeLoadCount,
     required this.activeSalesCount,
     required this.pendingPickupCount,
     required this.partiallyCollectedOrdersCount,
@@ -41,6 +42,7 @@ class DashboardKpis extends Equatable {
   static const empty = DashboardKpis(
     revenueToday: 0,
     activeJobWorkCount: 0,
+    activeLoadCount: 0,
     activeSalesCount: 0,
     pendingPickupCount: 0,
     partiallyCollectedOrdersCount: 0,
@@ -76,10 +78,16 @@ class DashboardKpis extends Equatable {
   );
 
   final double revenueToday;
+  /// Job Work containers with an active status (rollup).
   final int activeJobWorkCount;
+  /// Persisted Loads currently in active production/ops statuses.
+  final int activeLoadCount;
   final int activeSalesCount;
+  /// Loads (or legacy JW) awaiting customer pickup.
   final int pendingPickupCount;
+  /// Loads (or legacy JW) that are partially collected.
   final int partiallyCollectedOrdersCount;
+  /// Loads (or legacy JW) with stale pending pickup.
   final int stalePickupCount;
   final double expensesThisMonth;
   final int expenseCountThisMonth;
@@ -117,6 +125,7 @@ class DashboardKpis extends Equatable {
   List<Object?> get props => [
         revenueToday,
         activeJobWorkCount,
+        activeLoadCount,
         activeSalesCount,
         pendingPickupCount,
         partiallyCollectedOrdersCount,

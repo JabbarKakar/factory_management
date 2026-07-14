@@ -242,19 +242,23 @@ ensureDefaultLoad(jobWorkId) → Load  // idempotent write
 
 **Idempotency:** second call must not create Load 2.
 
-### 5.3 Dual-read / dual-write window (Sprints 1–6)
+### 5.3 Dual-read / dual-write window (Sprints 1–6) — closed in Sprint 7
 
-| Operation | Behavior |
-|-----------|----------|
-| Read list/detail | Prefer loads; fall back to virtual Load |
-| Record output / advance status / collect / invoice | `ensureDefaultLoad` then write **Load** |
-| Legacy nested fields | Stop writing once Load exists; optional mirror write only if needed for old clients (prefer **no mirror**) |
+| Operation | Behavior (Sprint 7+) |
+|-----------|----------------------|
+| Read list/detail | Persisted Loads only when `schemaVersion >= 2`; virtual Load only for pre-migration legacy |
+| Record output / advance status / collect / invoice | Write **Load** only |
+| Legacy nested fields | **Not written** on authoritative JW (`toFirestore(containerOnly: true)`); archive remains on disk |
+| Batch backfill | `JobWorkLoadsBackfillService` on auth; stamps single-Load orphans; reports multi-Load orphans |
+| Rules | `jobWorkInvoices` / `jobWorkCollections` **create** requires non-empty `loadId` |
+
+Operator note: [`Job_Work_Add_Load_vs_New_Job_Work.md`](Job_Work_Add_Load_vs_New_Job_Work.md).
 
 ### 5.4 Data safety
 
-- Never delete nested legacy fields until Sprint 7 verification.
+- Nested legacy fields are **not deleted** automatically after Sprint 7 (archive until a purge sprint).
 - Customer delete / JW delete must cascade **loads** + existing children.
-- Orphan loads (missing jobWorkId) are invalid; cleanup service extended in Sprint 7.
+- Multi-Load invoices/collections with null `loadId` are **not** auto-stamped — manual attribution required.
 
 ---
 

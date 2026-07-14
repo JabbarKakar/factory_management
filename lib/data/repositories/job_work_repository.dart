@@ -48,6 +48,18 @@ class JobWorkRepository {
     return JobWorkOrderModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
+  Future<List<JobWorkOrder>> getJobWorkOrders(String factoryId) async {
+    final snapshot = await _jobWorkCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .get();
+    final orders = snapshot.docs
+        .map((doc) => JobWorkOrderModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return orders;
+  }
+
   Stream<JobWorkOrder?> watchJobWorkOrder(String id) {
     return _jobWorkCollection.doc(id).snapshots().map((doc) {
       if (!doc.exists || doc.data() == null) return null;
@@ -86,10 +98,13 @@ class JobWorkRepository {
   }
 
   Future<void> updateJobWorkOrder(JobWorkOrder order) async {
+    final existing = await getJobWorkOrder(order.id);
     final model = JobWorkOrderModel.fromEntity(order);
-    await _jobWorkCollection
-        .doc(order.id)
-        .update(model.toFirestoreWithComputedYield());
+    // Sprint 7: once Loads are authoritative, nested ops fields are archive-only.
+    final map = existing != null && existing.isLoadsAuthoritative
+        ? model.toFirestore(containerOnly: true)
+        : model.toFirestoreWithComputedYield();
+    await _jobWorkCollection.doc(order.id).update(map);
   }
 
   Future<void> deleteJobWorkOrder(String id) async {
@@ -193,6 +208,11 @@ class JobWorkRepository {
   }
 
   Future<void> advanceJobWorkStatus(String id, JobWorkStatus status) async {
+    final order = await getJobWorkOrder(id);
+    // Sprint 7: container status is rolled up from Loads — skip order-level FSM.
+    if (order != null && order.isLoadsAuthoritative) {
+      return;
+    }
     await _jobWorkCollection.doc(id).update({
       'status': status.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -229,6 +249,8 @@ class JobWorkRepository {
   Future<void> syncCollectionDerivedStatus(String jobWorkId) async {
     final order = await getJobWorkOrder(jobWorkId);
     if (order == null) return;
+    // Sprint 7: Load-scoped collection sync owns status when migrated.
+    if (order.isLoadsAuthoritative) return;
 
     final snapshot = await _firestore
         .collection('jobWorkCollections')
@@ -264,6 +286,13 @@ class JobWorkRepository {
   }
 
   Future<JobWorkOrder> recordJobWorkOutput(JobWorkOrder order) async {
+    final existing = await getJobWorkOrder(order.id) ?? order;
+    if (existing.isLoadsAuthoritative) {
+      throw StateError(
+        'Record output on a Load. Job Work no longer stores nested output.',
+      );
+    }
+
     final manualOutput = order.output ?? const JobWorkOutput();
     final output = order.shiftLogs.isNotEmpty
         ? JobWorkOutput.aggregateFromShifts(

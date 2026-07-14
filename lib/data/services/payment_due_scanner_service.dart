@@ -243,6 +243,7 @@ class PaymentDueScannerService {
       amountPaid: amountPaid,
       remainingDue: remainingDue,
       jobWorkId: invoice.jobWorkId,
+      loadId: invoice.loadId,
       invoiceType: InvoiceType.jobWork,
     );
   }
@@ -276,6 +277,7 @@ class PaymentDueScannerService {
     required double amountPaid,
     required double remainingDue,
     String? jobWorkId,
+    String? loadId,
     String? salesOrderId,
     InvoiceType? invoiceType,
   }) {
@@ -291,6 +293,7 @@ class PaymentDueScannerService {
       invoiceId: invoiceId,
       invoiceType: invoiceType,
       jobWorkId: jobWorkId,
+      loadId: loadId,
       salesOrderId: salesOrderId,
       invoiceNumber: invoiceLabel,
       amountDue: remainingDue,
@@ -321,6 +324,7 @@ class PaymentDueScannerService {
       invoiceId: invoice.id,
       invoiceType: invoice.invoiceType,
       jobWorkId: invoice.jobWorkId,
+      loadId: invoice.loadId,
       salesOrderId: invoice.salesOrderId,
       invoiceNumber: invoice.invoiceNumber,
       amountDue: invoice.dueAmount,
@@ -353,6 +357,7 @@ class _DueInvoiceRef {
     required this.dueAmount,
     required this.dueDate,
     this.jobWorkId,
+    this.loadId,
     this.jobWorkNumber,
     this.loadNumber,
     this.salesOrderId,
@@ -367,6 +372,7 @@ class _DueInvoiceRef {
   final double dueAmount;
   final DateTime? dueDate;
   final String? jobWorkId;
+  final String? loadId;
   final String? jobWorkNumber;
   final String? loadNumber;
   final String? salesOrderId;
@@ -392,6 +398,7 @@ class _DueInvoiceRef {
       dueAmount: invoice.dueAmount,
       dueDate: invoice.dueDate,
       jobWorkId: invoice.jobWorkId,
+      loadId: invoice.loadId,
       jobWorkNumber: invoice.jobWorkNumber,
       loadNumber: invoice.loadNumber,
       invoiceType: InvoiceType.jobWork,

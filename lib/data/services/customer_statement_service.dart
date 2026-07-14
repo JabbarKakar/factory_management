@@ -97,10 +97,16 @@ class CustomerStatementService {
   }
 
   _StatementTxn _txnFromJobWorkInvoice(JobWorkInvoice invoice) {
+    final refs = <String>[
+      invoice.invoiceNumber,
+      if (invoice.jobWorkNumber.isNotEmpty) invoice.jobWorkNumber,
+      if (invoice.loadNumber != null && invoice.loadNumber!.trim().isNotEmpty)
+        invoice.loadNumber!.trim(),
+    ];
     return _StatementTxn(
       date: invoice.createdAt,
       description: AppStrings.invoiceTypeJobWork,
-      reference: invoice.invoiceNumber,
+      reference: refs.join(' · '),
       debit: invoice.totalAmount,
       credit: 0,
     );

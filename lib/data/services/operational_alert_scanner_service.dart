@@ -137,17 +137,16 @@ class OperationalAlertScannerService {
           )) {
         created += await _createIfNew(_jobWorkReadyNotification(order));
       }
-      if (JobWorkCollectionQuantityHelper.isPickupOverdueForOrder(
-        order: order,
-        collections: jobWorkCollections,
-        loads: jobWorkLoads,
-        reference: todayDay,
-      )) {
+      if (orderLoads.isEmpty &&
+          JobWorkCollectionQuantityHelper.isPickupOverdue(
+            order,
+            collections,
+            reference: todayDay,
+          )) {
         created += await _createIfNew(
           _jobWorkStalePickupNotification(
             order,
-            jobWorkCollections,
-            jobWorkLoads,
+            collections,
             todayDay,
             scanDate,
           ),
@@ -157,18 +156,35 @@ class OperationalAlertScannerService {
 
     final ordersById = {for (final order in jobWorkOrders) order.id: order};
     for (final load in jobWorkLoads) {
-      if (load.status != JobWorkStatus.ready || load.isVirtual) continue;
-      if (!JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
-        load,
-        jobWorkCollections,
-      )) {
-        continue;
-      }
+      if (load.isVirtual) continue;
       final order = ordersById[load.jobWorkId];
       if (order == null) continue;
-      created += await _createIfNew(
-        _jobWorkLoadReadyNotification(order, load),
-      );
+
+      if (load.status == JobWorkStatus.ready &&
+          JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+            load,
+            jobWorkCollections,
+          )) {
+        created += await _createIfNew(
+          _jobWorkLoadReadyNotification(order, load),
+        );
+      }
+
+      if (JobWorkCollectionQuantityHelper.isPickupOverdueForLoad(
+        load,
+        jobWorkCollections,
+        reference: todayDay,
+      )) {
+        created += await _createIfNew(
+          _jobWorkLoadStalePickupNotification(
+            order,
+            load,
+            jobWorkCollections,
+            todayDay,
+            scanDate,
+          ),
+        );
+      }
     }
 
     return created;
@@ -178,9 +194,11 @@ class OperationalAlertScannerService {
     if (check.disposition != QcDisposition.reject) return;
 
     String? jobWorkId;
+    String? loadId;
     if (check.referenceType == QcReferenceType.jobWork) {
       jobWorkId = check.referenceId;
     } else if (check.referenceType == QcReferenceType.jobWorkLoad) {
+      loadId = check.referenceId;
       final load = await _jobWorkLoadRepository.getLoad(check.referenceId);
       jobWorkId = load?.jobWorkId;
     }
@@ -196,6 +214,7 @@ class OperationalAlertScannerService {
             '${check.referenceType.label} ${check.referenceNumber}: ${check.passRatePercent.toStringAsFixed(1)}% pass rate',
         qualityCheckId: check.id,
         jobWorkId: jobWorkId,
+        loadId: loadId,
         createdAt: DateTime.now(),
         dedupeKey: 'qc_reject_${check.id}',
       ),
@@ -223,8 +242,6 @@ class OperationalAlertScannerService {
       return;
     }
 
-    if (order.status != JobWorkStatus.ready) return;
-
     final collections =
         await _jobWorkCollectionRepository.fetchCollectionsForJobWork(
       factoryId: order.factoryId,
@@ -234,10 +251,28 @@ class OperationalAlertScannerService {
       factoryId: order.factoryId,
       jobWorkId: order.id,
     );
-    if (!JobWorkCollectionQuantityHelper.isPendingPickupForOrder(
-      order: order,
-      collections: collections,
-      loads: loads,
+    final persisted =
+        loads.where((item) => !item.isVirtual).toList(growable: false);
+
+    // When Loads exist, always notify per Load — never a JW-only ready alert.
+    if (persisted.isNotEmpty) {
+      for (final item in persisted) {
+        if (item.status != JobWorkStatus.ready) continue;
+        if (!JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+          item,
+          collections,
+        )) {
+          continue;
+        }
+        await _createIfNew(_jobWorkLoadReadyNotification(order, item));
+      }
+      return;
+    }
+
+    if (order.status != JobWorkStatus.ready) return;
+    if (!JobWorkCollectionQuantityHelper.isPendingPickup(
+      order,
+      collections,
     )) {
       return;
     }
@@ -387,6 +422,7 @@ class OperationalAlertScannerService {
           '${order.jobWorkNumber} · $loadLabel ${AppStrings.readyForPickupAlertBody}',
       customerId: order.customerId,
       jobWorkId: order.id,
+      loadId: load.id,
       createdAt: DateTime.now(),
       dedupeKey: 'jw_load_ready_${load.id}',
     );
@@ -395,15 +431,12 @@ class OperationalAlertScannerService {
   AppNotification? _jobWorkStalePickupNotification(
     JobWorkOrder order,
     List<JobWorkCollection> collections,
-    List<JobWorkLoad> loads,
     DateTime today,
     String scanDate,
   ) {
-    final daysWaiting =
-        JobWorkCollectionQuantityHelper.pickupDaysWaitingForOrder(
-      order: order,
-      collections: collections,
-      loads: loads,
+    final daysWaiting = JobWorkCollectionQuantityHelper.pickupDaysWaiting(
+      order,
+      collections,
       reference: today,
     );
     if (daysWaiting < JobWorkCollectionQuantityHelper.stalePickupAfterDays) {
@@ -413,7 +446,7 @@ class OperationalAlertScannerService {
     final totals = JobWorkCollectionQuantityHelper.aggregateTotals(
       order: order,
       collections: collections,
-      loads: loads,
+      loads: const [],
     );
 
     return AppNotification(
@@ -430,6 +463,48 @@ class OperationalAlertScannerService {
       daysOverdue: daysWaiting,
       createdAt: DateTime.now(),
       dedupeKey: 'jw_stale_${order.id}_$scanDate',
+    );
+  }
+
+  AppNotification? _jobWorkLoadStalePickupNotification(
+    JobWorkOrder order,
+    JobWorkLoad load,
+    List<JobWorkCollection> collections,
+    DateTime today,
+    String scanDate,
+  ) {
+    final daysWaiting = JobWorkCollectionQuantityHelper.pickupDaysWaitingForLoad(
+      load,
+      collections,
+      reference: today,
+    );
+    if (daysWaiting < JobWorkCollectionQuantityHelper.stalePickupAfterDays) {
+      return null;
+    }
+
+    final totals = JobWorkCollectionQuantityHelper.loadTotals(
+      load,
+      collections,
+    );
+    final loadLabel = load.loadNumber.isEmpty
+        ? 'Load #${load.loadSequence}'
+        : load.loadNumber;
+
+    return AppNotification(
+      id: '',
+      factoryId: order.factoryId,
+      type: NotificationType.jobWorkNotCollected,
+      priority: NotificationPriority.medium,
+      title: '${AppStrings.stalePickupAlert} — ${order.customerName}',
+      body:
+          '${order.jobWorkNumber} · $loadLabel has ${totals.remainingPieces} pcs remaining, '
+          'waiting $daysWaiting days for pickup',
+      customerId: order.customerId,
+      jobWorkId: order.id,
+      loadId: load.id,
+      daysOverdue: daysWaiting,
+      createdAt: DateTime.now(),
+      dedupeKey: 'jw_load_stale_${load.id}_$scanDate',
     );
   }
 }

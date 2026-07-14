@@ -604,10 +604,11 @@ class JobWorkLoadRepository {
       'loadCount': loadCount,
       'activeLoadCount': activeLoadCount,
       'summaryStatus': summaryStatus.firestoreValue,
+      // Denormalized rollup for list/KPI filters; Loads remain source of truth.
       'status': containerStatus.firestoreValue,
-      'finalCuttingCharges': finalCuttingCharges,
-      'advanceReceived': advanceReceived,
-      'balanceDue': balanceDue,
+      'pricing.finalCuttingCharges': finalCuttingCharges,
+      'pricing.advanceReceived': advanceReceived,
+      'pricing.balanceDue': balanceDue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

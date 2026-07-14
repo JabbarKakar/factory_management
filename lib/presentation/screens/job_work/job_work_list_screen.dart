@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../blocs/job_work/job_work_list_bloc.dart';
 import '../../../core/constants/app_colors.dart';
@@ -48,6 +49,29 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
   void _onSearchClear() {
     _searchController.clear();
     context.read<JobWorkListBloc>().add(const JobWorkListSearchChanged(''));
+  }
+
+  Future<void> _pickDateRange(
+    BuildContext context,
+    JobWorkListState state,
+  ) async {
+    final now = DateTime.now();
+    final initialStart = state.fromDate ?? now.subtract(const Duration(days: 30));
+    final initialEnd = state.toDate ?? now;
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
+      helpText: AppStrings.filterByReceivedDate,
+    );
+    if (range == null || !context.mounted) return;
+    context.read<JobWorkListBloc>().add(
+          JobWorkListDateRangeChanged(
+            fromDate: range.start,
+            toDate: range.end,
+          ),
+        );
   }
 
   void _showSnack(String message, {bool isError = false}) {
@@ -302,7 +326,6 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     JobWorkListState state,
     List<JobWorkLoad> loads,
   ) {
-    final invoice = state.invoicesByJobWorkId[order.id];
     final charges = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
       order: order,
       loads: loads,
@@ -315,8 +338,15 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       order: order,
       loads: loads,
     );
-    final showPayment =
-        invoice != null || charges > 0 || advance > 0;
+
+    final persistedLoads = loads.where((load) => !load.isVirtual).toList();
+    if (persistedLoads.isNotEmpty) {
+      if (charges <= 0 && advance <= 0 && balance <= 0) return null;
+      return (paid: advance, remaining: balance);
+    }
+
+    final invoice = state.invoicesByJobWorkId[order.id];
+    final showPayment = invoice != null || charges > 0 || advance > 0;
     if (!showPayment) return null;
 
     return (
@@ -375,13 +405,63 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: JobWorkSearchBar(
-              controller: _searchController,
-              onChanged: (value) => context
-                  .read<JobWorkListBloc>()
-                  .add(JobWorkListSearchChanged(value)),
-              onClear: _onSearchClear,
+            child: Row(
+              children: [
+                Expanded(
+                  child: JobWorkSearchBar(
+                    controller: _searchController,
+                    onChanged: (value) => context
+                        .read<JobWorkListBloc>()
+                        .add(JobWorkListSearchChanged(value)),
+                    onClear: _onSearchClear,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                BlocBuilder<JobWorkListBloc, JobWorkListState>(
+                  buildWhen: (prev, curr) =>
+                      prev.fromDate != curr.fromDate ||
+                      prev.toDate != curr.toDate,
+                  builder: (context, state) {
+                    return IconButton.filledTonal(
+                      tooltip: AppStrings.filterByReceivedDate,
+                      onPressed: () => _pickDateRange(context, state),
+                      icon: Icon(
+                        state.hasDateFilter
+                            ? Icons.date_range
+                            : Icons.calendar_month_outlined,
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
+          ),
+          BlocBuilder<JobWorkListBloc, JobWorkListState>(
+            buildWhen: (prev, curr) =>
+                prev.fromDate != curr.fromDate || prev.toDate != curr.toDate,
+            builder: (context, state) {
+              if (!state.hasDateFilter) return const SizedBox.shrink();
+              final fromLabel = state.fromDate != null
+                  ? DateFormat.yMMMd().format(state.fromDate!)
+                  : '…';
+              final toLabel = state.toDate != null
+                  ? DateFormat.yMMMd().format(state.toDate!)
+                  : '…';
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: InputChip(
+                    avatar: const Icon(Icons.date_range, size: 16),
+                    label: Text('$fromLabel – $toLabel'),
+                    onDeleted: () => context.read<JobWorkListBloc>().add(
+                          const JobWorkListDateRangeChanged(),
+                        ),
+                    deleteButtonTooltipMessage: AppStrings.clearDateFilter,
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 10),
           Padding(
@@ -499,13 +579,16 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                   return EmptyStateView(
                     icon: Icons.content_cut,
                     title: state.searchQuery.isNotEmpty ||
-                            state.stageFilter != JobWorkListStageFilter.all
+                            state.stageFilter != JobWorkListStageFilter.all ||
+                            state.hasDateFilter
                         ? AppStrings.noJobWorkFound
                         : AppStrings.noJobWorkYet,
-                    subtitle: state.searchQuery.isNotEmpty
+                    subtitle: state.searchQuery.isNotEmpty || state.hasDateFilter
                         ? AppStrings.tryDifferentSearch
                         : AppStrings.addFirstJobWork,
                     action: state.searchQuery.isEmpty &&
+                            state.stageFilter == JobWorkListStageFilter.all &&
+                            !state.hasDateFilter &&
                             context.userCanCreate(AppModule.jobWork)
                         ? ElevatedButton.icon(
                             onPressed: () =>

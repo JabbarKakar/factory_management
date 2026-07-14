@@ -37,6 +37,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     on<JobWorkListWatchStarted>(_onWatchStarted);
     on<JobWorkListSearchChanged>(_onSearchChanged);
     on<JobWorkListStageFilterChanged>(_onStageFilterChanged);
+    on<JobWorkListDateRangeChanged>(_onDateRangeChanged);
     on<_JobWorkListUpdated>(_onListUpdated);
     on<_JobWorkInvoicesUpdated>(_onInvoicesUpdated);
     on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
@@ -114,10 +115,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     emit(
       state.copyWith(
         searchQuery: event.query,
-        visibleOrders: _applyFilters(
-          state.orders,
+        visibleOrders: _filteredOrders(
+          orders: state.orders,
           query: event.query,
           stageFilter: state.stageFilter,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
           collections: state.collections,
           loads: state.loads,
         ),
@@ -132,14 +135,59 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     emit(
       state.copyWith(
         stageFilter: event.stageFilter,
-        visibleOrders: _applyFilters(
-          state.orders,
+        visibleOrders: _filteredOrders(
+          orders: state.orders,
           query: state.searchQuery,
           stageFilter: event.stageFilter,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
           collections: state.collections,
           loads: state.loads,
         ),
       ),
+    );
+  }
+
+  void _onDateRangeChanged(
+    JobWorkListDateRangeChanged event,
+    Emitter<JobWorkListState> emit,
+  ) {
+    final clear = event.fromDate == null && event.toDate == null;
+    emit(
+      state.copyWith(
+        fromDate: event.fromDate,
+        toDate: event.toDate,
+        clearDateFilter: clear,
+        visibleOrders: _filteredOrders(
+          orders: state.orders,
+          query: state.searchQuery,
+          stageFilter: state.stageFilter,
+          fromDate: event.fromDate,
+          toDate: event.toDate,
+          collections: state.collections,
+          loads: state.loads,
+        ),
+      ),
+    );
+  }
+
+  List<JobWorkOrder> _filteredOrders({
+    required List<JobWorkOrder> orders,
+    required String query,
+    required JobWorkListStageFilter stageFilter,
+    required DateTime? fromDate,
+    required DateTime? toDate,
+    required List<JobWorkCollection> collections,
+    required List<JobWorkLoad> loads,
+  }) {
+    return _applyFilters(
+      orders,
+      query: query,
+      stageFilter: stageFilter,
+      fromDate: fromDate,
+      toDate: toDate,
+      collections: collections,
+      loads: loads,
     );
   }
 
@@ -161,10 +209,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           loadIdsWithQc: loadIdsWithQc,
           jobWorkIdsWithQc: jobWorkIdsWithQc,
         ),
-        visibleOrders: _applyFilters(
-          event.orders,
+        visibleOrders: _filteredOrders(
+          orders: event.orders,
           query: state.searchQuery,
           stageFilter: state.stageFilter,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
           collections: state.collections,
           loads: state.loads,
         ),
@@ -200,10 +250,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           loadIdsWithQc: loadIdsWithQc,
           jobWorkIdsWithQc: jobWorkIdsWithQc,
         ),
-        visibleOrders: _applyFilters(
-          state.orders,
+        visibleOrders: _filteredOrders(
+          orders: state.orders,
           query: state.searchQuery,
           stageFilter: state.stageFilter,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
           collections: state.collections,
           loads: state.loads,
         ),
@@ -221,10 +273,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     emit(
       state.copyWith(
         collections: event.collections,
-        visibleOrders: _applyFilters(
-          state.orders,
+        visibleOrders: _filteredOrders(
+          orders: state.orders,
           query: state.searchQuery,
           stageFilter: state.stageFilter,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
           collections: event.collections,
           loads: state.loads,
         ),
@@ -245,10 +299,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           loadIdsWithQc: state.loadIdsWithQc,
           jobWorkIdsWithQc: state.jobWorkIdsWithQc,
         ),
-        visibleOrders: _applyFilters(
-          state.orders,
+        visibleOrders: _filteredOrders(
+          orders: state.orders,
           query: state.searchQuery,
           stageFilter: state.stageFilter,
+          fromDate: state.fromDate,
+          toDate: state.toDate,
           collections: state.collections,
           loads: event.loads,
         ),
@@ -286,10 +342,18 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     List<JobWorkOrder> orders, {
     required String query,
     required JobWorkListStageFilter stageFilter,
+    required DateTime? fromDate,
+    required DateTime? toDate,
     required List<JobWorkCollection> collections,
     required List<JobWorkLoad> loads,
   }) {
     final normalizedQuery = query.trim().toLowerCase();
+    final rangeStart = fromDate == null
+        ? null
+        : DateTime(fromDate.year, fromDate.month, fromDate.day);
+    final rangeEnd = toDate == null
+        ? null
+        : DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59, 999);
     final loadsByJobWorkId = <String, List<JobWorkLoad>>{};
     for (final load in loads) {
       loadsByJobWorkId.putIfAbsent(load.jobWorkId, () => []).add(load);
@@ -308,7 +372,9 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         loads: orderLoads,
       );
 
-      if (stageFilter == JobWorkListStageFilter.pendingPickup) {
+      if (stageFilter == JobWorkListStageFilter.all) {
+        // Keep all orders (still may filter by date/search below).
+      } else if (stageFilter == JobWorkListStageFilter.pendingPickup) {
         if (!JobWorkCollectionQuantityHelper.isPendingPickupForOrder(
           order: order,
           collections: collections,
@@ -316,13 +382,28 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         )) {
           return false;
         }
-      } else if (stageFilter == JobWorkListStageFilter.partiallyCollected) {
-        if (displayStatus != JobWorkStatus.partiallyCollected) {
+      } else if (stageFilter == JobWorkListStageFilter.cancelled) {
+        if (order.status != JobWorkStatus.cancelled &&
+            !(orderLoads.isEmpty && stageFilter.matches(order.status))) {
           return false;
         }
-      } else if (!stageFilter.matches(displayStatus)) {
+      } else if (orderLoads.isEmpty) {
+        if (!stageFilter.matches(order.status)) return false;
+      } else if (!orderLoads.any((load) => stageFilter.matches(load.status))) {
         return false;
       }
+
+      if (rangeStart != null || rangeEnd != null) {
+        if (!_matchesDateRange(
+          order: order,
+          loads: orderLoads,
+          rangeStart: rangeStart,
+          rangeEnd: rangeEnd,
+        )) {
+          return false;
+        }
+      }
+
       if (normalizedQuery.isEmpty) return true;
 
       final receiverNames = orderCollections
@@ -346,6 +427,15 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         ...order.smallSizes,
         ...order.largeSizes,
         ...order.legacySizes,
+        for (final load in orderLoads) ...[
+          load.marbleVariety,
+          load.mineLocation,
+          load.mineOwner,
+          ...load.smallSizes,
+          ...load.largeSizes,
+          ...load.legacySizes,
+          load.status.label,
+        ],
       ].join(' ').toLowerCase();
 
       return haystack.contains(normalizedQuery);
@@ -367,6 +457,25 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     });
 
     return filtered;
+  }
+
+  bool _matchesDateRange({
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+    required DateTime? rangeStart,
+    required DateTime? rangeEnd,
+  }) {
+    bool inRange(DateTime date) {
+      if (rangeStart != null && date.isBefore(rangeStart)) return false;
+      if (rangeEnd != null && date.isAfter(rangeEnd)) return false;
+      return true;
+    }
+
+    final persisted = loads.where((load) => !load.isVirtual).toList();
+    if (persisted.isNotEmpty) {
+      return persisted.any((load) => inRange(load.receivedDate));
+    }
+    return inRange(order.receivedDate);
   }
 
   @override

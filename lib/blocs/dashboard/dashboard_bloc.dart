@@ -36,6 +36,7 @@ import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_analytics.dart';
 import '../../domain/entities/dashboard_kpis.dart';
+import '../../domain/entities/dashboard_pending_pickup.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/entities/equipment.dart';
@@ -401,7 +402,12 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
     final jobWorkOutputTodaySqFt = _orders.fold<double>(
       0,
-      (sum, order) => sum + DashboardJobWorkMetrics.sqFtOnDay(order, today),
+      (sum, order) => sum +
+          DashboardJobWorkMetrics.sqFtOnDay(
+            order,
+            today,
+            loads: _jobWorkLoads,
+          ),
     );
 
     final productionThisMonthSqFt = _productionBatches
@@ -411,51 +417,139 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         })
         .fold<double>(0, (sum, batch) => sum + batch.totalUsableSqFt);
 
-    final activeJobWorkCount =
-        _orders.where((order) => order.status.isActive).length;
+    final persistedLoads =
+        _jobWorkLoads.where((load) => !load.isVirtual).toList();
+    final ordersWithLoads = {
+      for (final load in persistedLoads) load.jobWorkId,
+    };
+
+    final activeJobWorkCount = _orders.where((order) {
+      final orderLoads = persistedLoads
+          .where((load) => load.jobWorkId == order.id)
+          .toList();
+      if (orderLoads.isEmpty) return order.status.isActive;
+      return orderLoads.any((load) => load.status.isActive);
+    }).length;
+
+    final activeLoadCount = persistedLoads
+        .where((load) => load.status.isActive)
+        .length;
+    // Legacy JW with no Loads still counts toward active load work.
+    final legacyActiveWithoutLoads = _orders
+        .where(
+          (order) =>
+              !ordersWithLoads.contains(order.id) && order.status.isActive,
+        )
+        .length;
+    final activeLoadsAndLegacy = activeLoadCount + legacyActiveWithoutLoads;
 
     final activeSalesCount =
         _salesOrders.where((order) => order.status.isActive).length;
 
-    final pendingPickups = _orders.where((order) {
-      return JobWorkCollectionQuantityHelper.isPendingPickupForOrder(
-        order: order,
-        collections: _jobWorkCollections,
-        loads: _jobWorkLoads,
-      );
-    }).toList()
-      ..sort((a, b) {
-        final rankCompare = a.status.listSortRank.compareTo(b.status.listSortRank);
+    final pendingPickupCount = persistedLoads
+            .where(
+              (load) =>
+                  JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+                load,
+                _jobWorkCollections,
+              ),
+            )
+            .length +
+        _orders
+            .where(
+              (order) =>
+                  !ordersWithLoads.contains(order.id) &&
+                  JobWorkCollectionQuantityHelper.isPendingPickup(
+                    order,
+                    JobWorkCollectionQuantityHelper.collectionsForOrder(
+                      order.id,
+                      _jobWorkCollections,
+                    ),
+                  ),
+            )
+            .length;
+
+    final partiallyCollectedOrdersCount = persistedLoads
+            .where(
+              (load) => load.status == JobWorkStatus.partiallyCollected,
+            )
+            .length +
+        _orders
+            .where((order) {
+              if (ordersWithLoads.contains(order.id)) return false;
+              if (order.status == JobWorkStatus.partiallyCollected) return true;
+              final totals = JobWorkCollectionQuantityHelper.aggregateTotals(
+                order: order,
+                collections: _jobWorkCollections,
+                loads: const [],
+              );
+              return totals.hasCollections && !totals.isFullyCollected;
+            })
+            .length;
+
+    final stalePickupCount = persistedLoads
+            .where(
+              (load) => JobWorkCollectionQuantityHelper.isPickupOverdueForLoad(
+                load,
+                _jobWorkCollections,
+                reference: today,
+              ),
+            )
+            .length +
+        _orders
+            .where(
+              (order) =>
+                  !ordersWithLoads.contains(order.id) &&
+                  JobWorkCollectionQuantityHelper.isPickupOverdue(
+                    order,
+                    JobWorkCollectionQuantityHelper.collectionsForOrder(
+                      order.id,
+                      _jobWorkCollections,
+                    ),
+                    reference: today,
+                  ),
+            )
+            .length;
+
+    final pendingPickups = <DashboardPendingPickup>[
+      for (final load in persistedLoads)
+        if (JobWorkCollectionQuantityHelper.canOpenCollectMaterialForLoad(
+          load,
+          _jobWorkCollections,
+        ))
+          DashboardPendingPickup(
+            jobWorkId: load.jobWorkId,
+            jobWorkNumber: load.jobWorkNumber,
+            customerName: load.customerName,
+            status: load.status,
+            loadId: load.id,
+            loadNumber: load.loadNumber,
+            mineLocation: load.mineLocation,
+            mineOwner: load.mineOwner,
+          ),
+      for (final order in _orders)
+        if (!ordersWithLoads.contains(order.id) &&
+            JobWorkCollectionQuantityHelper.isPendingPickup(
+              order,
+              JobWorkCollectionQuantityHelper.collectionsForOrder(
+                order.id,
+                _jobWorkCollections,
+              ),
+            ))
+          DashboardPendingPickup(
+            jobWorkId: order.id,
+            jobWorkNumber: order.jobWorkNumber,
+            customerName: order.customerName,
+            status: order.status,
+            mineLocation: order.mineLocation,
+            mineOwner: order.mineOwner,
+          ),
+    ]..sort((a, b) {
+        final rankCompare =
+            a.status.listSortRank.compareTo(b.status.listSortRank);
         if (rankCompare != 0) return rankCompare;
-        return a.createdAt.compareTo(b.createdAt);
+        return a.jobWorkNumber.compareTo(b.jobWorkNumber);
       });
-    final pendingPickupCount = pendingPickups.length;
-
-    final partiallyCollectedOrdersCount = _orders.where((order) {
-      if (order.status == JobWorkStatus.partiallyCollected) return true;
-      final orderLoads =
-          _jobWorkLoads.where((load) => load.jobWorkId == order.id).toList();
-      if (orderLoads.any(
-        (load) => load.status == JobWorkStatus.partiallyCollected,
-      )) {
-        return true;
-      }
-      final totals = JobWorkCollectionQuantityHelper.aggregateTotals(
-        order: order,
-        collections: _jobWorkCollections,
-        loads: _jobWorkLoads,
-      );
-      return totals.hasCollections && !totals.isFullyCollected;
-    }).length;
-
-    final stalePickupCount = _orders.where((order) {
-      return JobWorkCollectionQuantityHelper.isPickupOverdueForOrder(
-        order: order,
-        collections: _jobWorkCollections,
-        loads: _jobWorkLoads,
-        reference: today,
-      );
-    }).length;
 
     final overdueSummary = _scannerService.summarizeAll(
       jobWorkInvoices: _jobWorkInvoices,
@@ -562,6 +656,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       payments: _payments,
       productionBatches: _productionBatches,
       jobWorkOrders: _orders,
+      jobWorkLoads: _jobWorkLoads,
       now: now,
     );
 
@@ -571,6 +666,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         kpis: DashboardKpis(
           revenueToday: revenueToday,
           activeJobWorkCount: activeJobWorkCount,
+          activeLoadCount: activeLoadsAndLegacy,
           activeSalesCount: activeSalesCount,
           pendingPickupCount: pendingPickupCount,
           partiallyCollectedOrdersCount: partiallyCollectedOrdersCount,

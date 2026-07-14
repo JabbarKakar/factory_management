@@ -35,6 +35,16 @@ final class JobWorkListStageFilterChanged extends JobWorkListEvent {
   List<Object?> get props => [stageFilter];
 }
 
+final class JobWorkListDateRangeChanged extends JobWorkListEvent {
+  const JobWorkListDateRangeChanged({this.fromDate, this.toDate});
+
+  final DateTime? fromDate;
+  final DateTime? toDate;
+
+  @override
+  List<Object?> get props => [fromDate, toDate];
+}
+
 final class _JobWorkListUpdated extends JobWorkListEvent {
   const _JobWorkListUpdated(this.orders);
 

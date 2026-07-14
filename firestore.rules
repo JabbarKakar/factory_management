@@ -290,13 +290,21 @@ service cloud.firestore {
 
     match /jobWorkCollections/{collectionId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && canWriteOperations();
+      // Sprint 7: new collections must be Load-scoped (non-empty loadId).
+      allow create: if canWriteFactoryDoc() && canWriteOperations()
+        && request.resource.data.loadId is string
+        && request.resource.data.loadId.size() > 0;
+      allow update: if canWriteFactoryDoc() && canWriteOperations();
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
     match /jobWorkInvoices/{invoiceId} {
       allow read: if canReadFactoryDoc() && canReadFinancial();
-      allow create, update: if canWriteFactoryDoc() && canWriteFinancial();
+      // Sprint 7: new invoices must be Load-scoped (non-empty loadId).
+      allow create: if canWriteFactoryDoc() && canWriteFinancial()
+        && request.resource.data.loadId is string
+        && request.resource.data.loadId.size() > 0;
+      allow update: if canWriteFactoryDoc() && canWriteFinancial();
       allow delete: if isOwner() && sameFactoryExisting();
     }
 

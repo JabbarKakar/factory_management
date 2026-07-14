@@ -389,7 +389,25 @@ class QcFormBloc extends Bloc<QcFormEvent, QcFormState> {
         final order =
             await _jobWorkRepository.getJobWorkOrder(event.check.referenceId);
         if (order != null) {
-          if (order.status == JobWorkStatus.qc) {
+          // Sprint 7: migrated containers — advance the default Load, not JW FSM.
+          if (order.isLoadsAuthoritative) {
+            final loadId = order.defaultLoadId;
+            final load = loadId == null || loadId.isEmpty
+                ? null
+                : await _loadRepository.getLoad(loadId);
+            if (load != null) {
+              if (load.status == JobWorkStatus.qc) {
+                pendingMarkReadyLoadId = load.id;
+              } else if (load.status == JobWorkStatus.inCutting ||
+                  load.status == JobWorkStatus.agreed) {
+                await _loadRepository.advanceLoadStatus(
+                  loadId: load.id,
+                  newStatus: JobWorkStatus.qc,
+                );
+                advancedToQc = true;
+              }
+            }
+          } else if (order.status == JobWorkStatus.qc) {
             pendingMarkReadyJobWorkId = order.id;
           } else if (order.status == JobWorkStatus.inCutting ||
               order.status == JobWorkStatus.agreed) {

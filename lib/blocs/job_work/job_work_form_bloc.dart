@@ -408,11 +408,14 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
           ),
         );
       } else {
+        await _loadRepository.ensureDefaultLoad(event.order.id);
         await _repository.updateJobWorkOrder(event.order);
+        final refreshed =
+            await _repository.getJobWorkOrder(event.order.id) ?? event.order;
         emit(
           state.copyWith(
             status: JobWorkFormStatus.saved,
-            order: event.order,
+            order: refreshed,
           ),
         );
       }

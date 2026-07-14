@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/utils/formatters.dart';
-import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/dashboard_pending_pickup.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../routes/route_paths.dart';
 import '../widgets/job_work/job_work_status_badge.dart';
@@ -17,7 +17,7 @@ class PendingPickupsCard extends StatelessWidget {
     super.key,
   });
 
-  final List<JobWorkOrder> pendingPickups;
+  final List<DashboardPendingPickup> pendingPickups;
   final int totalCount;
 
   static const double _wideBreakpoint = 900;
@@ -48,7 +48,7 @@ class PendingPickupsCard extends StatelessWidget {
         );
 
         final pickupList = _PickupList(
-          orders: pendingPickups,
+          items: pendingPickups,
           dense: isMobile,
           useGrid: useGrid,
         );
@@ -58,7 +58,7 @@ class PendingPickupsCard extends StatelessWidget {
                 padding: EdgeInsets.only(top: isMobile ? 6 : 8),
                 child: Center(
                   child: Text(
-                    '+ $remaining more orders',
+                    '+ $remaining more loads',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
@@ -224,14 +224,27 @@ class _CountChip extends StatelessWidget {
 
 class _PickupList extends StatelessWidget {
   const _PickupList({
-    required this.orders,
+    required this.items,
     required this.dense,
     required this.useGrid,
   });
 
-  final List<JobWorkOrder> orders;
+  final List<DashboardPendingPickup> items;
   final bool dense;
   final bool useGrid;
+
+  void _open(BuildContext context, DashboardPendingPickup item) {
+    if (item.hasLoad) {
+      context.push(
+        RoutePaths.jobWorkLoadDetail(
+          jobWorkId: item.jobWorkId,
+          loadId: item.loadId!,
+        ),
+      );
+      return;
+    }
+    context.push(RoutePaths.jobWorkDetail(item.jobWorkId));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,14 +258,14 @@ class _PickupList extends StatelessWidget {
           crossAxisSpacing: 8,
           mainAxisExtent: 72,
         ),
-        itemCount: orders.length,
+        itemCount: items.length,
         itemBuilder: (context, index) {
-          final order = orders[index];
+          final item = items[index];
           return _PickupRow(
-            order: order,
+            item: item,
             dense: true,
             compact: true,
-            onTap: () => context.push(RoutePaths.jobWorkDetail(order.id)),
+            onTap: () => _open(context, item),
           );
         },
       );
@@ -260,11 +273,11 @@ class _PickupList extends StatelessWidget {
 
     return Column(
       children: [
-        for (var i = 0; i < orders.length; i++)
+        for (final item in items)
           _PickupRow(
-            order: orders[i],
+            item: item,
             dense: dense,
-            onTap: () => context.push(RoutePaths.jobWorkDetail(orders[i].id)),
+            onTap: () => _open(context, item),
           ),
       ],
     );
@@ -273,13 +286,13 @@ class _PickupList extends StatelessWidget {
 
 class _PickupRow extends StatelessWidget {
   const _PickupRow({
-    required this.order,
+    required this.item,
     required this.onTap,
     this.dense = false,
     this.compact = false,
   });
 
-  final JobWorkOrder order;
+  final DashboardPendingPickup item;
   final VoidCallback onTap;
   final bool dense;
   final bool compact;
@@ -287,10 +300,10 @@ class _PickupRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final initials = Formatters.userInitials(order.customerName);
+    final initials = Formatters.userInitials(item.customerName);
     final avatarRadius = dense ? 14.0 : 18.0;
     final showMineDetails =
-        !compact && (order.mineLocation != null || order.mineOwner != null);
+        !compact && (item.mineLocation != null || item.mineOwner != null);
 
     return Padding(
       padding: EdgeInsets.only(bottom: dense ? 6 : 8),
@@ -345,7 +358,7 @@ class _PickupRow extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            order.jobWorkNumber,
+                            item.primaryLabel,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelLarge?.copyWith(
@@ -355,7 +368,7 @@ class _PickupRow extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            order.customerName,
+                            item.customerName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.labelSmall?.copyWith(
@@ -368,9 +381,9 @@ class _PickupRow extends StatelessWidget {
                             const SizedBox(height: 1),
                             Text(
                               [
-                                if (order.mineLocation != null)
-                                  order.mineLocation!,
-                                if (order.mineOwner != null) order.mineOwner!,
+                                if (item.mineLocation != null)
+                                  item.mineLocation!,
+                                if (item.mineOwner != null) item.mineOwner!,
                               ].join(' · '),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -386,7 +399,7 @@ class _PickupRow extends StatelessWidget {
                     ),
                     if (!dense) ...[
                       const SizedBox(width: 6),
-                      JobWorkStatusBadge(status: order.status, compact: true),
+                      JobWorkStatusBadge(status: item.status, compact: true),
                     ],
                     const SizedBox(width: 2),
                     Icon(

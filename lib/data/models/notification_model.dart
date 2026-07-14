@@ -18,6 +18,7 @@ class NotificationModel {
     this.invoiceId,
     this.invoiceType,
     this.jobWorkId,
+    this.loadId,
     this.salesOrderId,
     this.invoiceNumber,
     this.amountDue,
@@ -42,6 +43,7 @@ class NotificationModel {
   final String? invoiceId;
   final InvoiceType? invoiceType;
   final String? jobWorkId;
+  final String? loadId;
   final String? salesOrderId;
   final String? invoiceNumber;
   final double? amountDue;
@@ -74,6 +76,7 @@ class NotificationModel {
           ? null
           : InvoiceType.fromString(data['invoiceType'] as String?),
       jobWorkId: data['jobWorkId'] as String?,
+      loadId: data['loadId'] as String?,
       salesOrderId: data['salesOrderId'] as String?,
       invoiceNumber: data['invoiceNumber'] as String?,
       amountDue: (data['amountDue'] as num?)?.toDouble(),
@@ -102,6 +105,7 @@ class NotificationModel {
       if (invoiceId != null) 'invoiceId': invoiceId,
       if (invoiceType != null) 'invoiceType': invoiceType!.firestoreValue,
       if (jobWorkId != null) 'jobWorkId': jobWorkId,
+      if (loadId != null) 'loadId': loadId,
       if (salesOrderId != null) 'salesOrderId': salesOrderId,
       if (invoiceNumber != null) 'invoiceNumber': invoiceNumber,
       if (amountDue != null) 'amountDue': amountDue,
@@ -131,6 +135,7 @@ class NotificationModel {
       invoiceId: invoiceId,
       invoiceType: invoiceType,
       jobWorkId: jobWorkId,
+      loadId: loadId,
       salesOrderId: salesOrderId,
       invoiceNumber: invoiceNumber,
       amountDue: amountDue,
@@ -160,6 +165,7 @@ class NotificationModel {
       invoiceId: notification.invoiceId,
       invoiceType: notification.invoiceType,
       jobWorkId: notification.jobWorkId,
+      loadId: notification.loadId,
       salesOrderId: notification.salesOrderId,
       invoiceNumber: notification.invoiceNumber,
       amountDue: notification.amountDue,

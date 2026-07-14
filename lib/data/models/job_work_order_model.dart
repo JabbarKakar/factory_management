@@ -241,57 +241,66 @@ class JobWorkOrderModel {
     );
   }
 
-  Map<String, dynamic> toFirestore({bool isCreate = false}) {
+  /// [containerOnly] — Sprint 7 cutover: omit nested ops archive fields
+  /// (`input` / `cuttingSpec` / `pricing` / `output` / …). Used when
+  /// [JobWorkOrder.isLoadsAuthoritative] so Loads remain source of truth.
+  Map<String, dynamic> toFirestore({
+    bool isCreate = false,
+    bool containerOnly = false,
+  }) {
     return {
       'jobWorkNumber': jobWorkNumber,
       'factoryId': factoryId,
       'customerId': customerId,
       'customerName': customerName,
-      'status': status.firestoreValue,
+      if (!containerOnly) 'status': status.firestoreValue,
       'receivedDate': Timestamp.fromDate(receivedDate),
       if (expectedCompletionDate != null)
         'expectedCompletionDate': Timestamp.fromDate(expectedCompletionDate!),
       if (mineLocation != null) 'mineLocation': mineLocation,
       if (mineOwner != null) 'mineOwner': mineOwner,
-      'input': {
-        'variety': marbleVariety,
-        'blockCount': blockCount,
-        'totalTons': totalTons,
-        if (totalVolumeM3 != null) 'volumeM3': totalVolumeM3,
-        if (blockDimensions != null) 'dimensions': blockDimensions,
-        if (conditionNotes != null) 'notes': conditionNotes,
-        if (vehicleNumber != null) 'vehicleNumber': vehicleNumber,
+      if (!containerOnly) ...{
+        'input': {
+          'variety': marbleVariety,
+          'blockCount': blockCount,
+          'totalTons': totalTons,
+          if (totalVolumeM3 != null) 'volumeM3': totalVolumeM3,
+          if (blockDimensions != null) 'dimensions': blockDimensions,
+          if (conditionNotes != null) 'notes': conditionNotes,
+          if (vehicleNumber != null) 'vehicleNumber': vehicleNumber,
+        },
+        'cuttingSpec': {
+          'strategy': cuttingStrategy.firestoreValue,
+          'targetProduct': targetProduct.name,
+          'smallSizes': smallSizes,
+          'largeSizes': largeSizes,
+          if (legacySizes.isNotEmpty) 'legacySizes': legacySizes,
+          'thickness': thickness,
+          'finish': finish.name,
+          if (specialInstructions != null)
+            'specialInstructions': specialInstructions,
+        },
+        'pricing': {
+          'model': pricingModel.name,
+          'agreedRate': agreedRate,
+          'smallStockPrice': smallStockPrice,
+          'largeStockPrice': largeStockPrice,
+          if (finalCuttingCharges > 0)
+            'finalCuttingCharges': finalCuttingCharges,
+          'advanceReceived': advanceReceived,
+          'balanceDue': balanceDue,
+          'paymentTerms': paymentTerms.name,
+          if (paymentDueDate != null)
+            'paymentDueDate': Timestamp.fromDate(paymentDueDate!),
+        },
+        if (output != null) 'output': _outputToMap(output!, totalTons),
+        if (execution != null && execution!.hasData)
+          'execution': _executionToMap(execution!),
+        if (shiftLogs.isNotEmpty)
+          'outputShifts': shiftLogs.map(_shiftLogToMap).toList(),
+        if (invoiceId != null) 'invoiceId': invoiceId,
+        if (collectedAt != null) 'collectedAt': Timestamp.fromDate(collectedAt!),
       },
-      'cuttingSpec': {
-        'strategy': cuttingStrategy.firestoreValue,
-        'targetProduct': targetProduct.name,
-        'smallSizes': smallSizes,
-        'largeSizes': largeSizes,
-        if (legacySizes.isNotEmpty) 'legacySizes': legacySizes,
-        'thickness': thickness,
-        'finish': finish.name,
-        if (specialInstructions != null)
-          'specialInstructions': specialInstructions,
-      },
-      'pricing': {
-        'model': pricingModel.name,
-        'agreedRate': agreedRate,
-        'smallStockPrice': smallStockPrice,
-        'largeStockPrice': largeStockPrice,
-        if (finalCuttingCharges > 0) 'finalCuttingCharges': finalCuttingCharges,
-        'advanceReceived': advanceReceived,
-        'balanceDue': balanceDue,
-        'paymentTerms': paymentTerms.name,
-        if (paymentDueDate != null)
-          'paymentDueDate': Timestamp.fromDate(paymentDueDate!),
-      },
-      if (output != null) 'output': _outputToMap(output!, totalTons),
-      if (execution != null && execution!.hasData)
-        'execution': _executionToMap(execution!),
-      if (shiftLogs.isNotEmpty)
-        'outputShifts': shiftLogs.map(_shiftLogToMap).toList(),
-      if (invoiceId != null) 'invoiceId': invoiceId,
-      if (collectedAt != null) 'collectedAt': Timestamp.fromDate(collectedAt!),
       if (closedAt != null) 'closedAt': Timestamp.fromDate(closedAt!),
       'schemaVersion': schemaVersion,
       if (summaryStatus != null) 'summaryStatus': summaryStatus!.firestoreValue,

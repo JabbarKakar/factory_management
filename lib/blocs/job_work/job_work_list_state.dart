@@ -15,6 +15,8 @@ class JobWorkListState extends Equatable {
     this.awaitingQcCount = 0,
     this.searchQuery = '',
     this.stageFilter = JobWorkListStageFilter.all,
+    this.fromDate,
+    this.toDate,
     this.errorMessage,
     this.invoicesByJobWorkId = const {},
   });
@@ -30,8 +32,12 @@ class JobWorkListState extends Equatable {
   final int awaitingQcCount;
   final String searchQuery;
   final JobWorkListStageFilter stageFilter;
+  final DateTime? fromDate;
+  final DateTime? toDate;
   final String? errorMessage;
   final Map<String, JobWorkInvoice> invoicesByJobWorkId;
+
+  bool get hasDateFilter => fromDate != null || toDate != null;
 
   bool isAwaitingQcInspection(JobWorkOrder order) {
     return JobWorkLoadProductionHelper.isAwaitingQcInspection(
@@ -58,6 +64,9 @@ class JobWorkListState extends Equatable {
     int? awaitingQcCount,
     String? searchQuery,
     JobWorkListStageFilter? stageFilter,
+    DateTime? fromDate,
+    DateTime? toDate,
+    bool clearDateFilter = false,
     String? errorMessage,
     Map<String, JobWorkInvoice>? invoicesByJobWorkId,
   }) {
@@ -73,6 +82,8 @@ class JobWorkListState extends Equatable {
       awaitingQcCount: awaitingQcCount ?? this.awaitingQcCount,
       searchQuery: searchQuery ?? this.searchQuery,
       stageFilter: stageFilter ?? this.stageFilter,
+      fromDate: clearDateFilter ? null : (fromDate ?? this.fromDate),
+      toDate: clearDateFilter ? null : (toDate ?? this.toDate),
       errorMessage: errorMessage,
       invoicesByJobWorkId: invoicesByJobWorkId ?? this.invoicesByJobWorkId,
     );
@@ -91,6 +102,8 @@ class JobWorkListState extends Equatable {
         awaitingQcCount,
         searchQuery,
         stageFilter,
+        fromDate,
+        toDate,
         errorMessage,
         invoicesByJobWorkId,
       ];

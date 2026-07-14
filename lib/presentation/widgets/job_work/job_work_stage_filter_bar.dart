@@ -62,6 +62,7 @@ class JobWorkStageFilterBar extends StatelessWidget {
   IconData _iconFor(JobWorkListStageFilter filter) {
     return switch (filter) {
       JobWorkListStageFilter.all => Icons.inbox_rounded,
+      JobWorkListStageFilter.active => Icons.bolt_outlined,
       JobWorkListStageFilter.inProgress => Icons.pending_outlined,
       JobWorkListStageFilter.atQc => Icons.fact_check_outlined,
       JobWorkListStageFilter.ready => Icons.check_circle_outline_rounded,

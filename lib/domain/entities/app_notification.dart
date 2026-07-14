@@ -17,6 +17,7 @@ class AppNotification extends Equatable {
     this.invoiceId,
     this.invoiceType,
     this.jobWorkId,
+    this.loadId,
     this.salesOrderId,
     this.invoiceNumber,
     this.amountDue,
@@ -41,6 +42,7 @@ class AppNotification extends Equatable {
   final String? invoiceId;
   final InvoiceType? invoiceType;
   final String? jobWorkId;
+  final String? loadId;
   final String? salesOrderId;
   final String? invoiceNumber;
   final double? amountDue;
@@ -73,6 +75,7 @@ class AppNotification extends Equatable {
     String? invoiceId,
     InvoiceType? invoiceType,
     String? jobWorkId,
+    String? loadId,
     String? salesOrderId,
     String? invoiceNumber,
     double? amountDue,
@@ -99,6 +102,7 @@ class AppNotification extends Equatable {
       invoiceId: invoiceId ?? this.invoiceId,
       invoiceType: invoiceType ?? this.invoiceType,
       jobWorkId: jobWorkId ?? this.jobWorkId,
+      loadId: loadId ?? this.loadId,
       salesOrderId: salesOrderId ?? this.salesOrderId,
       invoiceNumber: invoiceNumber ?? this.invoiceNumber,
       amountDue: amountDue ?? this.amountDue,
@@ -128,6 +132,7 @@ class AppNotification extends Equatable {
         invoiceId,
         invoiceType,
         jobWorkId,
+        loadId,
         salesOrderId,
         invoiceNumber,
         amountDue,

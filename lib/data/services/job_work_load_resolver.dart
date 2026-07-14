@@ -12,7 +12,11 @@ abstract final class JobWorkLoadResolver {
     return 'JWL-$year-VIRTUAL';
   }
 
-  /// Returns persisted [loads] when non-empty; otherwise a single virtual Load.
+  /// Returns persisted [loads] when non-empty.
+  ///
+  /// Sprint 7: migrated containers never synthesize a virtual Load — empty
+  /// means ensure/backfill has not run yet (or data is corrupt). Legacy
+  /// (schemaVersion < 2) still gets one virtual Load for dual-read display.
   static List<JobWorkLoad> resolveLoads(
     JobWorkOrder order,
     List<JobWorkLoad> loads,
@@ -21,6 +25,9 @@ abstract final class JobWorkLoadResolver {
       final sorted = [...loads]
         ..sort((a, b) => a.loadSequence.compareTo(b.loadSequence));
       return sorted;
+    }
+    if (order.isLoadsAuthoritative) {
+      return const [];
     }
     return [synthesizeDefaultLoad(order)];
   }
