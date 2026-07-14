@@ -1,3 +1,4 @@
+import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/enums/job_work_enums.dart';
@@ -79,6 +80,101 @@ abstract final class JobWorkContainerSyncHelper {
     return orderLoads.fold<double>(
       0,
       (sum, load) => sum + load.balanceDue,
+    );
+  }
+
+  /// Non-cancelled persisted loads used for customer-facing money rollups.
+  static List<JobWorkLoad> activeLoadsForFinance(
+    JobWorkOrder order,
+    List<JobWorkLoad> loads,
+  ) {
+    return persistedLoadsForOrder(order, loads)
+        .where((load) => load.status != JobWorkStatus.cancelled)
+        .toList();
+  }
+
+  /// Per-Load money for UI (matches grand-invoice cards and list tile).
+  static ({double charges, double paid, double due}) financeForLoad({
+    required JobWorkLoad load,
+    JobWorkInvoice? invoice,
+  }) {
+    if (invoice != null) {
+      return (
+        charges: invoice.totalAmount,
+        paid: invoice.paidAmount,
+        due: invoice.dueAmount,
+      );
+    }
+    return (
+      charges: load.finalCuttingCharges,
+      paid: load.advanceReceived,
+      due: load.balanceDue,
+    );
+  }
+
+  /// Prefer invoice documents when present (authoritative paid/due/charges).
+  /// Only counts active (non-cancelled) Loads so Summary matches visible cards.
+  static ({double charges, double paid, double due}) rollupInvoiceFinance({
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+    required List<JobWorkInvoice> invoices,
+    List<JobWorkLoad>? loadsToSum,
+  }) {
+    final byLoadId = <String, JobWorkInvoice>{};
+    for (final invoice in invoices) {
+      final loadId = invoice.loadId?.trim();
+      if (loadId == null || loadId.isEmpty) continue;
+      // Prefer the invoice the Load points at when set.
+      byLoadId[loadId] = invoice;
+    }
+    for (final invoice in invoices) {
+      final loadId = invoice.loadId?.trim();
+      if (loadId == null || loadId.isEmpty) continue;
+      byLoadId.putIfAbsent(loadId, () => invoice);
+    }
+
+    final orderLoads = loadsToSum ??
+        activeLoadsForFinance(order, loads);
+    if (orderLoads.isNotEmpty) {
+      var charges = 0.0;
+      var paid = 0.0;
+      var due = 0.0;
+      for (final load in orderLoads) {
+        final invoice = byLoadId[load.id];
+        if (load.invoiceId != null &&
+            load.invoiceId!.isNotEmpty &&
+            invoice != null &&
+            invoice.id != load.invoiceId) {
+          // load.invoiceId wins when it differs from an older duplicate doc.
+          final linked = invoices
+              .where((item) => item.id == load.invoiceId)
+              .firstOrNull;
+          final finance = financeForLoad(load: load, invoice: linked);
+          charges += finance.charges;
+          paid += finance.paid;
+          due += finance.due;
+          continue;
+        }
+        final finance = financeForLoad(load: load, invoice: invoice);
+        charges += finance.charges;
+        paid += finance.paid;
+        due += finance.due;
+      }
+      return (charges: charges, paid: paid, due: due);
+    }
+
+    if (invoices.isNotEmpty) {
+      return (
+        charges: invoices.fold<double>(0, (s, i) => s + i.totalAmount),
+        paid: invoices.fold<double>(0, (s, i) => s + i.paidAmount),
+        due: invoices.fold<double>(0, (s, i) => s + i.dueAmount),
+      );
+    }
+
+    return (
+      charges: order.finalCuttingCharges,
+      paid: order.advanceReceived,
+      due: order.balanceDue,
     );
   }
 

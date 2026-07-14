@@ -35,7 +35,8 @@ class JobWorkListState extends Equatable {
   final DateTime? fromDate;
   final DateTime? toDate;
   final String? errorMessage;
-  final Map<String, JobWorkInvoice> invoicesByJobWorkId;
+  /// All invoices for each Job Work (multi-Load factories have many entries).
+  final Map<String, List<JobWorkInvoice>> invoicesByJobWorkId;
 
   bool get hasDateFilter => fromDate != null || toDate != null;
 
@@ -50,6 +51,10 @@ class JobWorkListState extends Equatable {
 
   List<JobWorkLoad> loadsForOrder(String jobWorkId) {
     return loads.where((load) => load.jobWorkId == jobWorkId).toList();
+  }
+
+  List<JobWorkInvoice> invoicesForOrder(String jobWorkId) {
+    return invoicesByJobWorkId[jobWorkId] ?? const [];
   }
 
   JobWorkListState copyWith({
@@ -68,7 +73,7 @@ class JobWorkListState extends Equatable {
     DateTime? toDate,
     bool clearDateFilter = false,
     String? errorMessage,
-    Map<String, JobWorkInvoice>? invoicesByJobWorkId,
+    Map<String, List<JobWorkInvoice>>? invoicesByJobWorkId,
   }) {
     return JobWorkListState(
       status: status ?? this.status,

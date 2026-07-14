@@ -227,9 +227,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     _JobWorkInvoicesUpdated event,
     Emitter<JobWorkListState> emit,
   ) {
-    final invoicesByJobWorkId = {
-      for (final invoice in event.invoices) invoice.jobWorkId: invoice,
-    };
+    final invoicesByJobWorkId = <String, List<JobWorkInvoice>>{};
+    for (final invoice in event.invoices) {
+      invoicesByJobWorkId
+          .putIfAbsent(invoice.jobWorkId, () => <JobWorkInvoice>[])
+          .add(invoice);
+    }
     emit(state.copyWith(invoicesByJobWorkId: invoicesByJobWorkId));
   }
 

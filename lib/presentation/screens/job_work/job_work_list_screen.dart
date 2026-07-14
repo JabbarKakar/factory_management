@@ -299,33 +299,25 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     JobWorkListState state,
     List<JobWorkLoad> loads,
   ) {
-    final charges = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+    final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
       order: order,
       loads: loads,
-    );
-    final advance = JobWorkContainerSyncHelper.rollupAdvanceReceived(
-      order: order,
-      loads: loads,
-    );
-    final balance = JobWorkContainerSyncHelper.rollupBalanceDue(
-      order: order,
-      loads: loads,
+      invoices: state.invoicesForOrder(order.id),
     );
 
     final persistedLoads = loads.where((load) => !load.isVirtual).toList();
     if (persistedLoads.isNotEmpty) {
-      if (charges <= 0 && advance <= 0 && balance <= 0) return null;
-      return (paid: advance, remaining: balance);
+      if (finance.charges <= 0 && finance.paid <= 0 && finance.due <= 0) {
+        return null;
+      }
+      return (paid: finance.paid, remaining: finance.due);
     }
 
-    final invoice = state.invoicesByJobWorkId[order.id];
-    final showPayment = invoice != null || charges > 0 || advance > 0;
+    final showPayment =
+        finance.charges > 0 || finance.paid > 0 || finance.due > 0;
     if (!showPayment) return null;
 
-    return (
-      paid: invoice?.paidAmount ?? advance,
-      remaining: invoice?.dueAmount ?? balance,
-    );
+    return (paid: finance.paid, remaining: finance.due);
   }
 
   @override

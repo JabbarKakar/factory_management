@@ -299,8 +299,8 @@ class PaymentRepository {
         final load = await _jobWorkLoadRepository.getLoad(loadId);
         if (load != null) {
           final loadUpdates = <String, dynamic>{
-            'advanceReceived': paidAmount,
-            'balanceDue': dueAmount.toDouble(),
+            'pricing.advanceReceived': paidAmount,
+            'pricing.balanceDue': dueAmount.toDouble(),
             'updatedAt': FieldValue.serverTimestamp(),
           };
           final financeStatus =

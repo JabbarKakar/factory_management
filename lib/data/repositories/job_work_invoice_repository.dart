@@ -406,8 +406,8 @@ class JobWorkInvoiceRepository {
       final load = await _loadRepository.getLoad(loadId);
       if (load != null) {
         final loadUpdates = <String, dynamic>{
-          'finalCuttingCharges': totalAmount,
-          'balanceDue': dueAmount,
+          'pricing.finalCuttingCharges': totalAmount,
+          'pricing.balanceDue': dueAmount,
           'updatedAt': FieldValue.serverTimestamp(),
         };
         final financeStatus = JobWorkContainerSyncHelper.financeStatusForLoad(
@@ -424,8 +424,8 @@ class JobWorkInvoiceRepository {
           await _jobWorkRepository.getJobWorkOrder(existing.jobWorkId);
       if (order != null) {
         final orderUpdates = <String, dynamic>{
-          'finalCuttingCharges': totalAmount,
-          'balanceDue': dueAmount,
+          'pricing.finalCuttingCharges': totalAmount,
+          'pricing.balanceDue': dueAmount,
           'updatedAt': FieldValue.serverTimestamp(),
         };
         if (!order.status.isCollectionStatus) {

@@ -155,9 +155,14 @@ class JobWorkOrderModel {
       finalCuttingCharges:
           (pricing['finalCuttingCharges'] as num?)?.toDouble() ??
               (pricing['negotiatedFinalAmount'] as num?)?.toDouble() ??
+              (data['finalCuttingCharges'] as num?)?.toDouble() ??
               0,
-      advanceReceived: (pricing['advanceReceived'] as num?)?.toDouble() ?? 0,
-      balanceDue: (pricing['balanceDue'] as num?)?.toDouble() ?? 0,
+      advanceReceived: (pricing['advanceReceived'] as num?)?.toDouble() ??
+          (data['advanceReceived'] as num?)?.toDouble() ??
+          0,
+      balanceDue: (pricing['balanceDue'] as num?)?.toDouble() ??
+          (data['balanceDue'] as num?)?.toDouble() ??
+          0,
       paymentTerms: PaymentTerms.fromString(pricing['paymentTerms'] as String?),
       paymentDueDate: (pricing['paymentDueDate'] as Timestamp?)?.toDate(),
       output: outputData == null ? null : _outputFromMap(outputData),

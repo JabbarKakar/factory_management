@@ -192,19 +192,14 @@ class _JobWorkGrandInvoiceScreenState extends State<JobWorkGrandInvoiceScreen> {
     final billable =
         JobWorkContainerSyncHelper.billableLoadsForGrandInvoice(_loads);
     final displayLoads = billable.isNotEmpty ? billable : _loads;
-    final totalCharges =
-        JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
+    final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
       order: order,
       loads: _loads,
+      invoices: _invoicesByLoadId.values.toList(),
     );
-    final totalPaid = JobWorkContainerSyncHelper.rollupAdvanceReceived(
-      order: order,
-      loads: _loads,
-    );
-    final totalDue = JobWorkContainerSyncHelper.rollupBalanceDue(
-      order: order,
-      loads: _loads,
-    );
+    final totalCharges = finance.charges;
+    final totalPaid = finance.paid;
+    final totalDue = finance.due;
     final allTotals = JobWorkCollectionQuantityHelper.aggregateTotals(
       order: order,
       collections: _collections,
