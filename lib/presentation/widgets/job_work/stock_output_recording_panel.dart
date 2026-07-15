@@ -92,6 +92,7 @@ class StockOutputReadOnlyPanel extends StatelessWidget {
     this.remainingPiecesBySize,
     this.remainingSquareFeetBySize,
     this.showCollected = false,
+    this.sizesInExpansionTile = false,
     super.key,
   });
 
@@ -104,6 +105,9 @@ class StockOutputReadOnlyPanel extends StatelessWidget {
 
   /// When true (and remaining maps are set), also shows Collected Pcs/Sq.Ft.
   final bool showCollected;
+
+  /// When true, renders small and large sizes tables inside a single ExpansionTile below grand totals
+  final bool sizesInExpansionTile;
 
   bool get _showRemaining =>
       remainingPiecesBySize != null && remainingSquareFeetBySize != null;
@@ -156,6 +160,87 @@ class StockOutputReadOnlyPanel extends StatelessWidget {
 
     final allActive = [...activeSmall, ...activeLarge];
 
+    final grandTotalsCard = _GrandTotalsCard(
+      totalPieces: StockOutputCalculator.totalPieces(allActive),
+      totalSquareFeet: StockOutputCalculator.totalSquareFeet(allActive),
+      grandCuttingTotal: StockOutputCalculator.grandTotal(allActive),
+      remainingPieces:
+          _showRemaining ? _sumRemainingPieces(allActive) : null,
+      remainingSquareFeet:
+          _showRemaining ? _sumRemainingSquareFeet(allActive) : null,
+      collectedPieces:
+          _showCollected ? _sumCollectedPieces(allActive) : null,
+      collectedSquareFeet:
+          _showCollected ? _sumCollectedSquareFeet(allActive) : null,
+    );
+
+    if (sizesInExpansionTile) {
+      final theme = Theme.of(context);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          grandTotalsCard,
+          const SizedBox(height: 10),
+          Theme(
+            data: theme.copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: Text(
+                AppStrings.productionDetails,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+              children: [
+                if (activeSmall.isNotEmpty)
+                  _ReadOnlyStockSection(
+                    title: AppStrings.smallSizes,
+                    outputs: activeSmall,
+                    showRemaining: _showRemaining,
+                    showCollected: _showCollected,
+                    remainingPiecesOf: _remainingPieces,
+                    remainingSquareFeetOf: _remainingSquareFeet,
+                    collectedPiecesOf: _collectedPieces,
+                    collectedSquareFeetOf: _collectedSquareFeet,
+                    totalSquareFeet:
+                        StockOutputCalculator.totalSquareFeet(activeSmall),
+                    totalAmount: StockOutputCalculator.grandTotal(activeSmall),
+                    totalPieces: StockOutputCalculator.totalPieces(activeSmall),
+                    totalRemainingPieces: _sumRemainingPieces(activeSmall),
+                    totalRemainingSquareFeet: _sumRemainingSquareFeet(activeSmall),
+                    totalCollectedPieces: _sumCollectedPieces(activeSmall),
+                    totalCollectedSquareFeet: _sumCollectedSquareFeet(activeSmall),
+                  ),
+                if (activeLarge.isNotEmpty) ...[
+                  if (activeSmall.isNotEmpty) const SizedBox(height: 14),
+                  _ReadOnlyStockSection(
+                    title: AppStrings.largeSizes,
+                    outputs: activeLarge,
+                    showRemaining: _showRemaining,
+                    showCollected: _showCollected,
+                    remainingPiecesOf: _remainingPieces,
+                    remainingSquareFeetOf: _remainingSquareFeet,
+                    collectedPiecesOf: _collectedPieces,
+                    collectedSquareFeetOf: _collectedSquareFeet,
+                    totalSquareFeet:
+                        StockOutputCalculator.totalSquareFeet(activeLarge),
+                    totalAmount: StockOutputCalculator.grandTotal(activeLarge),
+                    totalPieces: StockOutputCalculator.totalPieces(activeLarge),
+                    totalRemainingPieces: _sumRemainingPieces(activeLarge),
+                    totalRemainingSquareFeet: _sumRemainingSquareFeet(activeLarge),
+                    totalCollectedPieces: _sumCollectedPieces(activeLarge),
+                    totalCollectedSquareFeet: _sumCollectedSquareFeet(activeLarge),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -200,19 +285,7 @@ class StockOutputReadOnlyPanel extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 10),
-        _GrandTotalsCard(
-          totalPieces: StockOutputCalculator.totalPieces(allActive),
-          totalSquareFeet: StockOutputCalculator.totalSquareFeet(allActive),
-          grandCuttingTotal: StockOutputCalculator.grandTotal(allActive),
-          remainingPieces:
-              _showRemaining ? _sumRemainingPieces(allActive) : null,
-          remainingSquareFeet:
-              _showRemaining ? _sumRemainingSquareFeet(allActive) : null,
-          collectedPieces:
-              _showCollected ? _sumCollectedPieces(allActive) : null,
-          collectedSquareFeet:
-              _showCollected ? _sumCollectedSquareFeet(allActive) : null,
-        ),
+        grandTotalsCard,
       ],
     );
   }

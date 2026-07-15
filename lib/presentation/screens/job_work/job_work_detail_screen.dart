@@ -743,6 +743,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                               remainingSquareFeetBySize:
                                   remainingSquareFeetBySize,
                               showCollected: true,
+                              sizesInExpansionTile: true,
                             ),
                           ],
                         );

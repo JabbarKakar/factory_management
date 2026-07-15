@@ -209,6 +209,7 @@ abstract final class AppStrings {
   static const String loadsSummary = 'Loads Summary';
   static const String allLoads = 'All Loads';
   static const String allLoadsProduction = 'All Loads Production';
+  static const String productionDetails = 'Production Details';
   static const String activeLoads = 'Active Loads';
   static const String completedLoads = 'Completed Loads';
   static const String containerStatus = 'Container Status';
