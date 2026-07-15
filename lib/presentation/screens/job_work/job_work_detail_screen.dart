@@ -270,6 +270,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
     }
   }
 
+
   List<Widget> _buildLoadsGroupedByYear(
     BuildContext context, {
     required List<JobWorkLoad> loads,
@@ -484,8 +485,8 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
           order: order,
           loads: state.loads,
         );
-        final displayStatus =
-            JobWorkCollectionQuantityHelper.displayStatusForOrder(
+
+        final displayStatus = JobWorkCollectionQuantityHelper.displayStatusForOrder(
           order: order,
           loads: state.loads,
         );
@@ -546,6 +547,8 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                 canCollectMaterial: canCollectMaterial,
                 showOperationalAdvance: usesLegacyJwOps,
                 showCompletionAdvance: usesLegacyJwOps,
+                hasInvoice: hasInvoice,
+                onOpenInvoice: () => _openInvoice(context),
                 onAdvanceStatus: (s) => _advanceStatus(context, s),
                 onAdvanceCompletion: (s) => _advanceCompletion(context, s),
                 onRecordOutput: () => _openRecordOutput(context),

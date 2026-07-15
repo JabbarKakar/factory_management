@@ -4,7 +4,6 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/job_work_enums.dart';
-import 'job_work_status_badge.dart';
 
 class JobWorkDetailHero extends StatelessWidget {
   const JobWorkDetailHero({
@@ -15,6 +14,8 @@ class JobWorkDetailHero extends StatelessWidget {
     required this.onAdvanceStatus,
     required this.onAdvanceCompletion,
     required this.onRecordOutput,
+    required this.hasInvoice,
+    required this.onOpenInvoice,
     this.canCollectMaterial = false,
     this.onCollectMaterial,
     this.showOperationalAdvance = true,
@@ -29,6 +30,8 @@ class JobWorkDetailHero extends StatelessWidget {
   final bool canCollectMaterial;
   final bool showOperationalAdvance;
   final bool showCompletionAdvance;
+  final bool hasInvoice;
+  final VoidCallback onOpenInvoice;
   final ValueChanged<JobWorkStatus> onAdvanceStatus;
   final ValueChanged<JobWorkStatus> onAdvanceCompletion;
   final VoidCallback onRecordOutput;
@@ -88,9 +91,9 @@ class JobWorkDetailHero extends StatelessWidget {
                               ),
                             ),
                           ),
-                          JobWorkStatusBadge(
-                            status: order.status,
-                            compact: true,
+                          _InvoiceButton(
+                            hasInvoice: hasInvoice,
+                            onPressed: onOpenInvoice,
                           ),
                         ],
                       ),
@@ -247,6 +250,45 @@ class _ActionButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
         ),
         child: child,
+      ),
+    );
+  }
+}
+
+class _InvoiceButton extends StatelessWidget {
+  const _InvoiceButton({
+    required this.hasInvoice,
+    required this.onPressed,
+  });
+
+  final bool hasInvoice;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: Size.zero,
+        side: BorderSide(
+          color: theme.colorScheme.primary.withValues(alpha: 0.5),
+        ),
+      ),
+      icon: Icon(
+        hasInvoice ? Icons.receipt_long_outlined : Icons.add_circle_outline,
+        size: 14,
+      ),
+      label: Text(
+        hasInvoice ? AppStrings.viewInvoice : AppStrings.generateInvoice,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w600,
+          fontSize: 11,
+        ),
       ),
     );
   }
