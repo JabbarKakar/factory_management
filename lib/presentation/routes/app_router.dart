@@ -76,6 +76,7 @@ import '../screens/job_work/job_work_collection_slip_screen.dart';
 import '../screens/job_work/job_work_detail_screen.dart';
 import '../screens/job_work/job_work_grand_invoice_screen.dart';
 import '../screens/job_work/job_work_invoice_screen.dart';
+import '../screens/job_work/job_work_load_invoice_screen.dart';
 import '../screens/job_work/job_work_list_screen.dart';
 import '../screens/job_work/job_work_load_detail_screen.dart';
 import '../screens/job_work/record_job_work_output_screen.dart';
@@ -1463,7 +1464,7 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                                   loadId: loadId,
                                 ),
                               ),
-                            child: JobWorkInvoiceScreen(
+                            child: JobWorkLoadInvoiceScreen(
                               jobWorkId: jobWorkId,
                               loadId: loadId,
                             ),

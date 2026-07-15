@@ -80,7 +80,7 @@ class JobWorkInvoiceRepository {
     return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
   }
 
-  /// Load-scoped invoice, with fallback to Job Work level invoice if present.
+  /// Load-scoped invoice, with no fallback to Job Work level invoice.
   Future<JobWorkInvoice?> getInvoiceForLoad({
     required String factoryId,
     required String loadId,
@@ -90,12 +90,15 @@ class JobWorkInvoiceRepository {
 
     final stampedId = load.invoiceId?.trim();
     if (stampedId != null && stampedId.isNotEmpty) {
-      return getInvoice(stampedId);
+      final invoice = await getInvoice(stampedId);
+      if (invoice != null && invoice.loadId == loadId) {
+        return invoice;
+      }
     }
 
-    return getInvoiceByJobWorkId(
+    return getInvoiceByLoadId(
       factoryId: factoryId,
-      jobWorkId: load.jobWorkId,
+      loadId: loadId,
     );
   }
 
@@ -345,7 +348,83 @@ class JobWorkInvoiceRepository {
     if (load == null || load.isVirtual) {
       throw StateError('Load not found.');
     }
-    return generateFromJobWorkOrder(load.jobWorkId);
+
+    final order = await _jobWorkRepository.getJobWorkOrder(load.jobWorkId);
+    if (order == null) {
+      throw StateError('Job work order not found.');
+    }
+
+    final existing = await getInvoiceByLoadId(
+      factoryId: order.factoryId,
+      loadId: load.id,
+    );
+    if (existing != null) return existing;
+
+    final double totalAmount = load.finalCuttingCharges;
+    final double paidAmount = load.advanceReceived;
+    final dueAmount = (totalAmount - paidAmount).clamp(0, double.infinity).toDouble();
+
+    final lineItems = [
+      InvoiceLineItem(
+        description: 'Cutting fee — Load ${load.loadNumber.isNotEmpty ? load.loadNumber : "#" + load.loadSequence.toString()}',
+        amount: totalAmount,
+      ),
+    ];
+
+    final id = _uuid.v4();
+    final invoiceNumber = await _generateInvoiceNumber(order.factoryId);
+    final dueDate = order.paymentDueDate ?? DateTime.now().add(const Duration(days: 7));
+
+    final invoice = JobWorkInvoice(
+      id: id,
+      invoiceNumber: invoiceNumber,
+      factoryId: order.factoryId,
+      jobWorkId: order.id,
+      jobWorkNumber: order.jobWorkNumber,
+      loadId: load.id,
+      loadNumber: load.loadNumber,
+      customerId: order.customerId,
+      customerName: order.customerName,
+      lineItems: lineItems,
+      totalAmount: totalAmount,
+      paidAmount: paidAmount,
+      dueAmount: dueAmount,
+      dueDate: dueDate,
+      status: InvoiceStatus.fromAmounts(
+        dueAmount: dueAmount,
+        paidAmount: paidAmount,
+        totalAmount: totalAmount,
+        dueDate: dueDate,
+      ),
+      mineLocation: load.mineLocation,
+      mineOwner: load.mineOwner,
+      createdAt: DateTime.now(),
+    );
+
+    final model = JobWorkInvoiceModel.fromEntity(invoice);
+    final batch = _firestore.batch();
+    batch.set(_collection.doc(id), model.toFirestore(isCreate: true));
+
+    // Update the load doc with the invoiceId
+    final loadUpdates = <String, dynamic>{
+      'invoiceId': id,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    final financeStatus = JobWorkContainerSyncHelper.financeStatusForLoad(
+      load: load,
+      dueAmount: dueAmount,
+    );
+    if (financeStatus != null) {
+      loadUpdates['status'] = financeStatus.firestoreValue;
+    }
+    batch.update(_loadRepository.loadDoc(load.id), loadUpdates);
+
+    await batch.commit();
+
+    await _loadRepository.refreshContainerFromLoads(order.id);
+
+    final created = await getInvoice(id);
+    return created ?? invoice;
   }
 
   Future<JobWorkInvoice> updateInvoiceDetails({

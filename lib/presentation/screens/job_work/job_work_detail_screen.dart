@@ -10,10 +10,12 @@ import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/job_work_load_repository.dart';
+import '../../../data/repositories/payment_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
 import '../../../data/services/job_work_container_sync_helper.dart';
 import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/entities/job_work_load.dart';
+import '../../../domain/entities/payment.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_collection_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
@@ -362,6 +364,49 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
     }
   }
 
+  Future<void> _editPayment(BuildContext context, Payment payment) async {
+    final updated = await context.push<bool>(
+      RoutePaths.recordPaymentEdit(payment.invoiceId, payment.id),
+    );
+    if (updated == true && context.mounted) {
+      context
+          .read<JobWorkFormBloc>()
+          .add(JobWorkFormLoadRequested(jobWorkId));
+    }
+  }
+
+  Future<void> _deletePayment(BuildContext context, Payment payment) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deletePaymentTitle,
+      message: AppStrings.deletePaymentMessage,
+      confirmLabel: AppStrings.deletePayment,
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    try {
+      await getIt<PaymentRepository>().deletePayment(payment.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AppStrings.paymentDeleted)),
+        );
+        context
+            .read<JobWorkFormBloc>()
+            .add(JobWorkFormLoadRequested(jobWorkId));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e is StateError ? e.message : 'Could not delete payment.'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _advanceStatus(BuildContext context, JobWorkStatus nextStatus) {
     context.read<JobWorkFormBloc>().add(
           JobWorkFormStatusAdvanceRequested(
@@ -485,6 +530,8 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
           order: order,
           loads: state.loads,
         );
+        final canCorrectPayments =
+            context.userCanEdit(AppModule.jobWork) && state.payments.isNotEmpty;
 
         final displayStatus = JobWorkCollectionQuantityHelper.displayStatusForOrder(
           order: order,
@@ -791,6 +838,13 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
               if (hasInvoice)
                 JobWorkInvoicePaymentHistorySection(
                   payments: state.payments,
+                  canCorrect: canCorrectPayments,
+                  onEdit: canCorrectPayments
+                      ? (payment) => _editPayment(context, payment)
+                      : null,
+                  onDelete: canCorrectPayments
+                      ? (payment) => _deletePayment(context, payment)
+                      : null,
                 ),
               if (canGenerateInvoice &&
                   (order.invoiceId == null || order.invoiceId!.isEmpty))

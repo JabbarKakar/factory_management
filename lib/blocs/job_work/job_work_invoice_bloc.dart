@@ -46,6 +46,9 @@ class JobWorkInvoiceBloc
   final PaymentDueScannerService _scannerService;
   StreamSubscription<JobWorkInvoice?>? _invoiceSubscription;
   StreamSubscription<List<Payment>>? _paymentsSubscription;
+  StreamSubscription<List<JobWorkInvoice>>? _allInvoicesSubscription;
+  final Map<String, StreamSubscription<List<Payment>>> _paymentSubsByInvoice = {};
+  final Map<String, List<Payment>> _paymentsByInvoiceId = {};
   String? _watchedInvoiceId;
 
   Future<void> _onLoadByJobWork(
@@ -53,7 +56,12 @@ class JobWorkInvoiceBloc
     Emitter<JobWorkInvoiceState> emit,
   ) async {
     await _cancelSubscriptions();
-    emit(state.copyWith(status: JobWorkInvoiceStatus.loading));
+    emit(
+      state.copyWith(
+        status: JobWorkInvoiceStatus.loading,
+        clearLoadId: true,
+      ),
+    );
     try {
       final invoice = await _invoiceRepository.getInvoiceByJobWorkId(
         factoryId: event.factoryId,
@@ -77,7 +85,7 @@ class JobWorkInvoiceBloc
             );
         return;
       }
-      await _startWatching(invoice, emit);
+      await _startWatching(invoice, emit, watchAllJobWorkPayments: true);
     } catch (_) {
       emit(
         state.copyWith(
@@ -388,7 +396,11 @@ class JobWorkInvoiceBloc
       invoiceId: invoice.id,
       invoiceType: InvoiceType.jobWork,
     );
-    _ensurePaymentsWatch(invoice);
+    if (state.loadId == null || state.loadId!.isEmpty) {
+      _ensurePaymentsWatchForJobWork(invoice.factoryId, invoice.jobWorkId);
+    } else {
+      _ensurePaymentsWatch(invoice);
+    }
 
     emit(
       state.copyWith(
@@ -413,6 +425,7 @@ class JobWorkInvoiceBloc
     bool saved = false,
     bool paymentRecorded = false,
     bool updated = false,
+    bool watchAllJobWorkPayments = false,
   }) async {
     await _emitWithPayments(
       invoice,
@@ -429,7 +442,11 @@ class JobWorkInvoiceBloc
           },
           onError: (_) {},
         );
-    _ensurePaymentsWatch(invoice);
+    if (watchAllJobWorkPayments || state.loadId == null || state.loadId!.isEmpty) {
+      _ensurePaymentsWatchForJobWork(invoice.factoryId, invoice.jobWorkId);
+    } else {
+      _ensurePaymentsWatch(invoice);
+    }
   }
 
   void _ensurePaymentsWatch(JobWorkInvoice invoice) {
@@ -449,11 +466,59 @@ class JobWorkInvoiceBloc
         );
   }
 
+  void _ensurePaymentsWatchForJobWork(String factoryId, String jobWorkId) {
+    _allInvoicesSubscription?.cancel();
+    _allInvoicesSubscription = _invoiceRepository
+        .watchInvoicesByJobWorkId(
+          factoryId: factoryId,
+          jobWorkId: jobWorkId,
+        )
+        .listen(
+          (invoices) {
+            final ids = invoices.map((i) => i.id).toSet();
+            final toCancel = _paymentSubsByInvoice.keys.where((id) => !ids.contains(id)).toList();
+            for (final id in toCancel) {
+              _paymentSubsByInvoice[id]?.cancel();
+              _paymentSubsByInvoice.remove(id);
+              _paymentsByInvoiceId.remove(id);
+            }
+
+            for (final invoice in invoices) {
+              if (_paymentSubsByInvoice.containsKey(invoice.id)) continue;
+              _paymentSubsByInvoice[invoice.id] = _paymentRepository
+                  .watchPaymentsForInvoice(
+                    factoryId: invoice.factoryId,
+                    invoiceId: invoice.id,
+                  )
+                  .listen(
+                    (payments) {
+                      _paymentsByInvoiceId[invoice.id] = payments;
+                      final merged = _paymentsByInvoiceId.values
+                          .expand((items) => items)
+                          .toList()
+                        ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+                      if (!isClosed) add(_JobWorkInvoicePaymentsUpdated(merged));
+                    },
+                    onError: (_) {},
+                  );
+            }
+          },
+          onError: (_) {},
+        );
+  }
+
   Future<void> _cancelSubscriptions() async {
     await _invoiceSubscription?.cancel();
     await _paymentsSubscription?.cancel();
+    await _allInvoicesSubscription?.cancel();
+    for (final sub in _paymentSubsByInvoice.values) {
+      await sub.cancel();
+    }
     _invoiceSubscription = null;
     _paymentsSubscription = null;
+    _allInvoicesSubscription = null;
+    _paymentSubsByInvoice.clear();
+    _paymentsByInvoiceId.clear();
     _watchedInvoiceId = null;
   }
 
@@ -464,14 +529,36 @@ class JobWorkInvoiceBloc
     bool paymentRecorded = false,
     bool updated = false,
   }) async {
-    await _paymentRepository.ensureInvoicePaidAmountRecorded(
-      invoiceId: invoice.id,
-      invoiceType: InvoiceType.jobWork,
-    );
-    final invoicePayments = await _paymentRepository.getPaymentsForInvoice(
-      factoryId: invoice.factoryId,
-      invoiceId: invoice.id,
-    );
+    final List<Payment> invoicePayments;
+    if (state.loadId == null || state.loadId!.isEmpty) {
+      final invoices = await _invoiceRepository.getInvoicesByJobWorkId(
+        factoryId: invoice.factoryId,
+        jobWorkId: invoice.jobWorkId,
+      );
+      final allPayments = <Payment>[];
+      for (final inv in invoices) {
+        await _paymentRepository.ensureInvoicePaidAmountRecorded(
+          invoiceId: inv.id,
+          invoiceType: InvoiceType.jobWork,
+        );
+        final pmts = await _paymentRepository.getPaymentsForInvoice(
+          factoryId: inv.factoryId,
+          invoiceId: inv.id,
+        );
+        allPayments.addAll(pmts);
+      }
+      allPayments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+      invoicePayments = allPayments;
+    } else {
+      await _paymentRepository.ensureInvoicePaidAmountRecorded(
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.jobWork,
+      );
+      invoicePayments = await _paymentRepository.getPaymentsForInvoice(
+        factoryId: invoice.factoryId,
+        invoiceId: invoice.id,
+      );
+    }
 
     emit(
       state.copyWith(

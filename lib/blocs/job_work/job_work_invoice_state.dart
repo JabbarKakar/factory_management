@@ -35,6 +35,7 @@ class JobWorkInvoiceState extends Equatable {
     List<Payment>? payments,
     String? jobWorkId,
     String? loadId,
+    bool clearLoadId = false,
     String? errorMessage,
   }) {
     return JobWorkInvoiceState(
@@ -42,7 +43,7 @@ class JobWorkInvoiceState extends Equatable {
       invoice: invoice ?? this.invoice,
       payments: payments ?? this.payments,
       jobWorkId: jobWorkId ?? this.jobWorkId,
-      loadId: loadId ?? this.loadId,
+      loadId: clearLoadId ? null : (loadId ?? this.loadId),
       errorMessage: errorMessage,
     );
   }
