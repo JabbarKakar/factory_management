@@ -3,10 +3,14 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/di/injection.dart';
 import '../../data/repositories/invoice_exception.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
+import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/services/customer_ledger_service.dart';
+import '../../data/services/job_work_container_sync_helper.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/payment.dart';
@@ -412,11 +416,13 @@ class JobWorkInvoiceBloc
         ? JobWorkInvoiceStatus.saving
         : JobWorkInvoiceStatus.loaded;
 
+    final effectiveInvoice = await _getEffectiveInvoice(invoice);
+
     emit(
       state.copyWith(
         status: newStatus,
-        invoice: invoice,
-        jobWorkId: invoice.jobWorkId,
+        invoice: effectiveInvoice,
+        jobWorkId: effectiveInvoice.jobWorkId,
         errorMessage: null,
       ),
     );
@@ -532,6 +538,49 @@ class JobWorkInvoiceBloc
     _watchedInvoiceId = null;
   }
 
+  Future<JobWorkInvoice> _getEffectiveInvoice(JobWorkInvoice invoice) async {
+    final isGrandInvoice =
+        invoice.loadId == null || invoice.loadId!.trim().isEmpty;
+    if (isGrandInvoice) {
+      final synced = await _invoiceRepository.syncGrandInvoice(
+        factoryId: invoice.factoryId,
+        jobWorkId: invoice.jobWorkId,
+      );
+      return synced ?? invoice;
+    } else {
+      final order = await getIt<JobWorkRepository>().getJobWorkOrder(invoice.jobWorkId);
+      if (order != null) {
+        final loads = await getIt<JobWorkLoadRepository>().fetchLoadsForJobWork(
+          factoryId: invoice.factoryId,
+          jobWorkId: invoice.jobWorkId,
+        );
+        final invoices = await _invoiceRepository.getInvoicesByJobWorkId(
+          factoryId: invoice.factoryId,
+          jobWorkId: invoice.jobWorkId,
+        );
+        final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+          order: order,
+          loads: loads,
+          invoices: invoices,
+        );
+        final fin = financeMap[invoice.loadId];
+        if (fin != null) {
+          return invoice.copyWith(
+            paidAmount: fin.paid,
+            dueAmount: fin.due,
+            status: InvoiceStatus.fromAmounts(
+              dueAmount: fin.due,
+              paidAmount: fin.paid,
+              totalAmount: fin.charges,
+              dueDate: invoice.dueDate,
+            ),
+          );
+        }
+      }
+      return invoice;
+    }
+  }
+
   Future<void> _emitWithPayments(
     JobWorkInvoice invoice,
     Emitter<JobWorkInvoiceState> emit, {
@@ -540,19 +589,11 @@ class JobWorkInvoiceBloc
     bool updated = false,
   }) async {
     final List<Payment> invoicePayments;
-    var effectiveInvoice = invoice;
+    final effectiveInvoice = await _getEffectiveInvoice(invoice);
     final isGrandInvoice =
         invoice.loadId == null || invoice.loadId!.trim().isEmpty;
 
     if (isGrandInvoice) {
-      final synced = await _invoiceRepository.syncGrandInvoice(
-        factoryId: invoice.factoryId,
-        jobWorkId: invoice.jobWorkId,
-      );
-      if (synced != null) {
-        effectiveInvoice = synced;
-      }
-
       final invoices = await _invoiceRepository.getInvoicesByJobWorkId(
         factoryId: effectiveInvoice.factoryId,
         jobWorkId: effectiveInvoice.jobWorkId,
