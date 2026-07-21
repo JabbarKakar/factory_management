@@ -324,14 +324,19 @@ class PaymentRepository {
           dueDate: grandInvoice.dueDate,
         );
 
-        await _jobWorkInvoiceRepository.collection
-            .doc(grandInvoice.id)
-            .update({
-          'paid': totalGrandPaid,
-          'due': grandDue,
-          'status': grandStatus.firestoreValue,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        final grandLineItems = await _jobWorkInvoiceRepository
+            .rebuildGrandInvoiceLineItems(
+          jobWorkId: invoice.jobWorkId,
+          totalPaid: totalGrandPaid,
+        );
+
+        await _jobWorkInvoiceRepository.updateInvoicePaidAndDue(
+          invoiceId: grandInvoice.id,
+          paidAmount: totalGrandPaid,
+          dueAmount: grandDue,
+          status: grandStatus,
+          lineItems: grandLineItems.isNotEmpty ? grandLineItems : null,
+        );
       }
 
       final loadId = invoice.loadId?.trim();

@@ -284,7 +284,11 @@ class JobWorkInvoiceRepository {
       paidAmount = recordedPaymentsTotal > 0
           ? recordedPaymentsTotal
           : billable.fold<double>(0, (acc, load) => acc + load.advanceReceived);
-      lineItems = _buildLineItemsForGrandInvoice(order, billable);
+      lineItems = buildLineItemsForGrandInvoice(
+        order: order,
+        loads: billable,
+        totalPaid: paidAmount,
+      );
     } else {
       totalAmount = order.finalCuttingCharges;
       paidAmount = recordedPaymentsTotal > 0
@@ -559,22 +563,38 @@ class JobWorkInvoiceRepository {
 
 
 
-  List<InvoiceLineItem> _buildLineItemsForGrandInvoice(
-    JobWorkOrder order,
-    List<JobWorkLoad> loads,
-  ) {
+  List<InvoiceLineItem> buildLineItemsForGrandInvoice({
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+    double totalPaid = 0.0,
+  }) {
     final items = <InvoiceLineItem>[];
+    var paymentPool = totalPaid;
+
     for (final load in loads) {
       final label = load.loadNumber.isEmpty
           ? 'Load #${load.loadSequence}'
           : load.loadNumber;
-      final paid = load.advanceReceived;
-      final remaining = load.balanceDue;
       final total = load.finalCuttingCharges;
+
+      final double paid;
+      final double remaining;
+
+      if (totalPaid > 0) {
+        paid = paymentPool >= total
+            ? total
+            : (paymentPool > 0 ? paymentPool : 0.0);
+        remaining = (total - paid).clamp(0, total).toDouble();
+        paymentPool = (paymentPool - paid).clamp(0, double.infinity).toDouble();
+      } else {
+        paid = load.advanceReceived;
+        remaining = load.balanceDue;
+      }
 
       items.add(
         InvoiceLineItem(
-          description: '$label · Total: Rs ${total.toStringAsFixed(0)} · Paid: Rs ${paid.toStringAsFixed(0)} · Remaining: Rs ${remaining.toStringAsFixed(0)}',
+          description:
+              '$label · Total: Rs ${total.toStringAsFixed(0)} · Paid: Rs ${paid.toStringAsFixed(0)} · Remaining: Rs ${remaining.toStringAsFixed(0)}',
           amount: total,
         ),
       );
@@ -583,13 +603,33 @@ class JobWorkInvoiceRepository {
       if (output != null && output.isRecorded) {
         items.add(
           InvoiceLineItem(
-            description: '  └ Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
+            description:
+                '  └ Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
             amount: 0,
           ),
         );
       }
     }
     return items;
+  }
+
+  Future<List<InvoiceLineItem>> rebuildGrandInvoiceLineItems({
+    required String jobWorkId,
+    required double totalPaid,
+  }) async {
+    final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
+    if (order == null) return const [];
+    final loads = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+    final billable =
+        JobWorkContainerSyncHelper.billableLoadsForGrandInvoice(loads);
+    return buildLineItemsForGrandInvoice(
+      order: order,
+      loads: billable,
+      totalPaid: totalPaid,
+    );
   }
 
   /// Creates a single grand consolidated invoice for the Job Work order.
@@ -623,13 +663,25 @@ class JobWorkInvoiceRepository {
     required double paidAmount,
     required double dueAmount,
     required InvoiceStatus status,
+    List<InvoiceLineItem>? lineItems,
   }) async {
-    await _collection.doc(invoiceId).update({
+    final updates = <String, dynamic>{
       'paid': paidAmount,
       'due': dueAmount,
       'status': status.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    };
+    if (lineItems != null) {
+      updates['items'] = lineItems
+          .map(
+            (item) => {
+              'description': item.description,
+              'amount': item.amount,
+            },
+          )
+          .toList();
+    }
+    await _collection.doc(invoiceId).update(updates);
   }
 
   Future<String> _generateInvoiceNumber(String factoryId) async {

@@ -554,8 +554,24 @@ class JobWorkInvoiceBloc
 
       final totalPaidFromPayments =
           invoicePayments.fold<double>(0, (sum, p) => sum + p.amount);
-      if (invoicePayments.isNotEmpty &&
-          (invoice.paidAmount - totalPaidFromPayments).abs() > 0.01) {
+
+      final updatedLineItems = await _invoiceRepository
+          .rebuildGrandInvoiceLineItems(
+        jobWorkId: invoice.jobWorkId,
+        totalPaid: totalPaidFromPayments,
+      );
+
+      final lineItemsToUse = updatedLineItems.isNotEmpty
+          ? updatedLineItems
+          : invoice.lineItems;
+
+      final needsPaidSync =
+          (invoice.paidAmount - totalPaidFromPayments).abs() > 0.01;
+      final needsLineItemsSync = invoicePayments.isNotEmpty &&
+          updatedLineItems.isNotEmpty &&
+          !_areLineItemsEqual(invoice.lineItems, updatedLineItems);
+
+      if (needsPaidSync || needsLineItemsSync) {
         final newDue = (invoice.totalAmount - totalPaidFromPayments)
             .clamp(0, invoice.totalAmount)
             .toDouble();
@@ -568,6 +584,7 @@ class JobWorkInvoiceBloc
         effectiveInvoice = invoice.copyWith(
           paidAmount: totalPaidFromPayments,
           dueAmount: newDue,
+          lineItems: lineItemsToUse,
           status: newStatus,
           updatedAt: DateTime.now(),
         );
@@ -577,6 +594,7 @@ class JobWorkInvoiceBloc
           paidAmount: totalPaidFromPayments,
           dueAmount: newDue,
           status: newStatus,
+          lineItems: lineItemsToUse,
         );
       }
     } else {
@@ -605,6 +623,16 @@ class JobWorkInvoiceBloc
         errorMessage: null,
       ),
     );
+  }
+
+  bool _areLineItemsEqual(List<InvoiceLineItem> a, List<InvoiceLineItem> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].description != b[i].description || a[i].amount != b[i].amount) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @override
