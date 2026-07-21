@@ -8,6 +8,7 @@ import '../../domain/entities/job_work_output.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/job_work_load_enums.dart';
+import '../models/job_work_invoice_model.dart';
 import '../models/job_work_load_model.dart';
 import '../services/job_work_container_sync_helper.dart';
 import '../services/job_work_load_production_helper.dart';
@@ -604,25 +605,24 @@ class JobWorkLoadRepository {
               : order.advanceReceived;
       final newDue = (newTotal - newPaid).clamp(0, newTotal).toDouble();
 
-      var paymentPool = newPaid;
+      final allInvoices = invoicesSnap.docs
+          .map((doc) => JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity())
+          .toList();
+      final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+        order: order,
+        loads: loads,
+        invoices: allInvoices,
+      );
+
       final lineItemsMaps = <Map<String, dynamic>>[];
       for (final load in billable) {
         final label = load.loadNumber.isEmpty
             ? 'Load #${load.loadSequence}'
             : load.loadNumber;
         final total = load.finalCuttingCharges;
-        final double paid;
-        final double remaining;
-        if (newPaid > 0) {
-          paid = paymentPool >= total
-              ? total
-              : (paymentPool > 0 ? paymentPool : 0.0);
-          remaining = (total - paid).clamp(0, total).toDouble();
-          paymentPool = (paymentPool - paid).clamp(0, double.infinity).toDouble();
-        } else {
-          paid = load.advanceReceived;
-          remaining = load.balanceDue;
-        }
+        final fin = financeMap[load.id];
+        final paid = fin?.paid ?? (newPaid > 0 ? 0.0 : load.advanceReceived);
+        final remaining = fin?.due ?? (newPaid > 0 ? total : load.balanceDue);
 
         lineItemsMaps.add({
           'description':

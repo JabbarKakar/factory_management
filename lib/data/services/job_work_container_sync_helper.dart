@@ -113,7 +113,7 @@ abstract final class JobWorkContainerSyncHelper {
   }
 
   /// Map of per-load financial breakdown ({double charges, double paid, double due})
-  /// allocated sequentially using the Grand Invoice / total payments.
+  /// giving priority to load-specific invoice payments before distributing general payments.
   static Map<String, ({double charges, double paid, double due})>
       calculatePerLoadFinanceMap({
     required JobWorkOrder order,
@@ -121,6 +121,16 @@ abstract final class JobWorkContainerSyncHelper {
     required List<JobWorkInvoice> invoices,
   }) {
     final billable = billableLoadsForGrandInvoice(loads);
+    final loadsToProcess = billable.isNotEmpty ? billable : loads;
+
+    final byLoadId = <String, JobWorkInvoice>{};
+    for (final invoice in invoices) {
+      final loadId = invoice.loadId?.trim();
+      if (loadId != null && loadId.isNotEmpty) {
+        byLoadId[loadId] = invoice;
+      }
+    }
+
     final grandInvoice = invoices
         .where((i) =>
             i.loadId == null ||
@@ -128,39 +138,79 @@ abstract final class JobWorkContainerSyncHelper {
             i.id == order.invoiceId)
         .firstOrNull;
 
+    final totalPaymentsRecorded = grandInvoice != null
+        ? grandInvoice.paidAmount
+        : invoices.fold<double>(0, (sum, i) => sum + i.paidAmount);
+
     final result = <String, ({double charges, double paid, double due})>{};
-    if (grandInvoice != null) {
-      var paymentPool = grandInvoice.paidAmount;
-      for (final load in billable) {
+    var specificPaymentsSum = 0.0;
+
+    // Step 1: Assign specific payments to loads that have their own load invoice or advance
+    for (final load in loadsToProcess) {
+      final inv = byLoadId[load.id] ??
+          (load.invoiceId != null && load.invoiceId!.isNotEmpty
+              ? invoices.where((i) => i.id == load.invoiceId).firstOrNull
+              : null);
+
+      final total = load.finalCuttingCharges;
+      double specificPaid = 0.0;
+      if (inv != null && inv.paidAmount > 0) {
+        specificPaid = inv.paidAmount;
+      } else if (load.advanceReceived > 0) {
+        specificPaid = load.advanceReceived;
+      }
+
+      if (specificPaid > 0) {
+        final paid = specificPaid.clamp(0.0, total).toDouble();
+        final due = (total - paid).clamp(0.0, total).toDouble();
+        result[load.id] = (charges: total, paid: paid, due: due);
+        specificPaymentsSum += paid;
+      }
+    }
+
+    // Step 2: Distribute remaining general payments in FIFO sequence
+    var generalPool = (totalPaymentsRecorded - specificPaymentsSum)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+
+    for (final load in loadsToProcess) {
+      if (result.containsKey(load.id)) {
+        final existing = result[load.id]!;
+        if (existing.due > 0 && generalPool > 0) {
+          final additionalPaid = generalPool >= existing.due
+              ? existing.due
+              : generalPool;
+          final newPaid = existing.paid + additionalPaid;
+          final newDue = (existing.charges - newPaid)
+              .clamp(0.0, existing.charges)
+              .toDouble();
+          generalPool = (generalPool - additionalPaid)
+              .clamp(0.0, double.infinity)
+              .toDouble();
+          result[load.id] = (
+            charges: existing.charges,
+            paid: newPaid,
+            due: newDue,
+          );
+        }
+      } else {
         final total = load.finalCuttingCharges;
         final double paid;
         final double due;
-        if (grandInvoice.paidAmount > 0) {
-          paid = paymentPool >= total
-              ? total
-              : (paymentPool > 0 ? paymentPool : 0.0);
-          due = (total - paid).clamp(0, total).toDouble();
-          paymentPool = (paymentPool - paid).clamp(0, double.infinity).toDouble();
+        if (generalPool > 0) {
+          paid = generalPool >= total ? total : generalPool;
+          due = (total - paid).clamp(0.0, total).toDouble();
+          generalPool = (generalPool - paid)
+              .clamp(0.0, double.infinity)
+              .toDouble();
         } else {
-          paid = load.advanceReceived;
-          due = load.balanceDue;
+          paid = 0.0;
+          due = total;
         }
         result[load.id] = (charges: total, paid: paid, due: due);
       }
-    } else {
-      final byLoadId = <String, JobWorkInvoice>{};
-      for (final invoice in invoices) {
-        final loadId = invoice.loadId?.trim();
-        if (loadId != null && loadId.isNotEmpty) {
-          byLoadId[loadId] = invoice;
-        }
-      }
-      for (final load in loads) {
-        final inv = byLoadId[load.id];
-        final fin = financeForLoad(load: load, invoice: inv);
-        result[load.id] = fin;
-      }
     }
+
     return result;
   }
 

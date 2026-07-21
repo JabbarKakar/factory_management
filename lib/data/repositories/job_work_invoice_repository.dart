@@ -566,10 +566,15 @@ class JobWorkInvoiceRepository {
   List<InvoiceLineItem> buildLineItemsForGrandInvoice({
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
+    List<JobWorkInvoice> invoices = const [],
     double totalPaid = 0.0,
   }) {
     final items = <InvoiceLineItem>[];
-    var paymentPool = totalPaid;
+    final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+      order: order,
+      loads: loads,
+      invoices: invoices,
+    );
 
     for (final load in loads) {
       final label = load.loadNumber.isEmpty
@@ -577,19 +582,9 @@ class JobWorkInvoiceRepository {
           : load.loadNumber;
       final total = load.finalCuttingCharges;
 
-      final double paid;
-      final double remaining;
-
-      if (totalPaid > 0) {
-        paid = paymentPool >= total
-            ? total
-            : (paymentPool > 0 ? paymentPool : 0.0);
-        remaining = (total - paid).clamp(0, total).toDouble();
-        paymentPool = (paymentPool - paid).clamp(0, double.infinity).toDouble();
-      } else {
-        paid = load.advanceReceived;
-        remaining = load.balanceDue;
-      }
+      final fin = financeMap[load.id];
+      final paid = fin?.paid ?? (totalPaid > 0 ? 0.0 : load.advanceReceived);
+      final remaining = fin?.due ?? (totalPaid > 0 ? total : load.balanceDue);
 
       items.add(
         InvoiceLineItem(
@@ -625,9 +620,14 @@ class JobWorkInvoiceRepository {
     );
     final billable =
         JobWorkContainerSyncHelper.billableLoadsForGrandInvoice(loads);
+    final invoices = await getInvoicesByJobWorkId(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
     return buildLineItemsForGrandInvoice(
       order: order,
       loads: billable,
+      invoices: invoices,
       totalPaid: totalPaid,
     );
   }
@@ -721,6 +721,7 @@ class JobWorkInvoiceRepository {
     final newLineItems = buildLineItemsForGrandInvoice(
       order: order,
       loads: billable,
+      invoices: allInvoices,
       totalPaid: newPaidAmount,
     );
 

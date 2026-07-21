@@ -238,8 +238,7 @@ class JobWorkLoadListTile extends StatelessWidget {
                                   Container(
                                     width: 1,
                                     height: 14,
-                                    color: theme.colorScheme.outline
-                                        .withValues(alpha: 0.2),
+                                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
                                   ),
                                   Expanded(
                                     child: Padding(
