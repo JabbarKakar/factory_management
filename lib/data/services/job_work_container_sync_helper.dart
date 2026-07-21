@@ -112,6 +112,58 @@ abstract final class JobWorkContainerSyncHelper {
     );
   }
 
+  /// Map of per-load financial breakdown ({double charges, double paid, double due})
+  /// allocated sequentially using the Grand Invoice / total payments.
+  static Map<String, ({double charges, double paid, double due})>
+      calculatePerLoadFinanceMap({
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+    required List<JobWorkInvoice> invoices,
+  }) {
+    final billable = billableLoadsForGrandInvoice(loads);
+    final grandInvoice = invoices
+        .where((i) =>
+            i.loadId == null ||
+            i.loadId!.isEmpty ||
+            i.id == order.invoiceId)
+        .firstOrNull;
+
+    final result = <String, ({double charges, double paid, double due})>{};
+    if (grandInvoice != null) {
+      var paymentPool = grandInvoice.paidAmount;
+      for (final load in billable) {
+        final total = load.finalCuttingCharges;
+        final double paid;
+        final double due;
+        if (grandInvoice.paidAmount > 0) {
+          paid = paymentPool >= total
+              ? total
+              : (paymentPool > 0 ? paymentPool : 0.0);
+          due = (total - paid).clamp(0, total).toDouble();
+          paymentPool = (paymentPool - paid).clamp(0, double.infinity).toDouble();
+        } else {
+          paid = load.advanceReceived;
+          due = load.balanceDue;
+        }
+        result[load.id] = (charges: total, paid: paid, due: due);
+      }
+    } else {
+      final byLoadId = <String, JobWorkInvoice>{};
+      for (final invoice in invoices) {
+        final loadId = invoice.loadId?.trim();
+        if (loadId != null && loadId.isNotEmpty) {
+          byLoadId[loadId] = invoice;
+        }
+      }
+      for (final load in loads) {
+        final inv = byLoadId[load.id];
+        final fin = financeForLoad(load: load, invoice: inv);
+        result[load.id] = fin;
+      }
+    }
+    return result;
+  }
+
   /// Prefer invoice documents when present (authoritative paid/due/charges).
   /// Only counts active (non-cancelled) Loads so Summary matches visible cards.
   static ({double charges, double paid, double due}) rollupInvoiceFinance({

@@ -13,6 +13,8 @@ import 'job_work_status_badge.dart';
 class JobWorkLoadListTile extends StatelessWidget {
   const JobWorkLoadListTile({
     required this.load,
+    this.paidAmount,
+    this.dueAmount,
     this.onTap,
     this.menuActions = const [],
     this.isBusy = false,
@@ -20,6 +22,8 @@ class JobWorkLoadListTile extends StatelessWidget {
   });
 
   final JobWorkLoad load;
+  final double? paidAmount;
+  final double? dueAmount;
   final VoidCallback? onTap;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
@@ -45,7 +49,9 @@ class JobWorkLoadListTile extends StatelessWidget {
     final hasBlocksProgress =
         load.shiftLogs.isNotEmpty && load.blockCount > 0;
     final hasOutput = load.output?.isRecorded == true;
-    final hasBalance = load.balanceDue > 0 || load.hasFinalCuttingCharges;
+    final totalCharges = load.finalCuttingCharges;
+    final paid = paidAmount ?? load.advanceReceived;
+    final due = dueAmount ?? load.balanceDue;
 
     return Opacity(
       opacity: isMuted ? 0.72 : 1,
@@ -148,51 +154,161 @@ class JobWorkLoadListTile extends StatelessWidget {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.content_cut_outlined,
-                                size: 14,
-                                color: muted,
+                          if (load.hasFinalCuttingCharges) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
                               ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  '${load.cuttingStrategy.label} → ${load.targetProduct.label}',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: muted,
-                                    fontSize: 11,
-                                    height: 1.3,
-                                  ),
+                              decoration: BoxDecoration(
+                                color: theme
+                                    .colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: isDark ? 0.35 : 0.45),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: theme.colorScheme.outline
+                                      .withValues(alpha: 0.12),
                                 ),
                               ),
-                              if (hasBalance)
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 8),
-                                  child: Text(
-                                    load.hasFinalCuttingCharges
-                                        ? Formatters.currencyPkrWhole(
-                                            load.balanceDue > 0
-                                                ? load.balanceDue
-                                                : load.finalCuttingCharges,
-                                          )
-                                        : AppStrings.chargesPending,
-                                    style:
-                                        theme.textTheme.labelLarge?.copyWith(
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 12,
-                                      color: load.balanceDue > 0
-                                          ? AppColors.warning
-                                          : (load.hasFinalCuttingCharges
-                                              ? accent
-                                              : muted),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Total: ',
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                            color: muted,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        Text(
+                                          Formatters.currencyPkrWhole(
+                                            totalCharges,
+                                          ),
+                                          style: theme.textTheme.labelSmall
+                                              ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                            ],
-                          ),
+                                  Container(
+                                    width: 1,
+                                    height: 14,
+                                    color: theme.colorScheme.outline
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(left: 6),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Paid: ',
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                              color: muted,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          Text(
+                                            Formatters.currencyPkrWhole(paid),
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              color: paid > 0
+                                                  ? AppColors.success
+                                                  : muted,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: 14,
+                                    color: theme.colorScheme.outline
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(left: 6),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'Remaining: ',
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                              color: muted,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          Text(
+                                            Formatters.currencyPkrWhole(due),
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              color: due > 0
+                                                  ? AppColors.warning
+                                                  : AppColors.success,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme
+                                    .colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.pending_actions_outlined,
+                                    size: 13,
+                                    color: muted,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    AppStrings.chargesPending,
+                                    style:
+                                        theme.textTheme.labelSmall?.copyWith(
+                                      color: muted,
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           if (hasBlocksProgress || hasOutput) ...[
                             const SizedBox(height: 8),
                             Row(

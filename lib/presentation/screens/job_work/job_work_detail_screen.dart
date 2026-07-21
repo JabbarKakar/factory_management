@@ -14,7 +14,9 @@ import '../../../data/repositories/payment_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
 import '../../../data/services/job_work_container_sync_helper.dart';
 import '../../../domain/entities/job_work_collection.dart';
+import '../../../domain/entities/job_work_invoice.dart';
 import '../../../domain/entities/job_work_load.dart';
+import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/payment.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/job_work_collection_enums.dart';
@@ -275,13 +277,20 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
 
   List<Widget> _buildLoadsGroupedByYear(
     BuildContext context, {
+    required JobWorkOrder order,
     required List<JobWorkLoad> loads,
+    required List<JobWorkInvoice> invoices,
     required bool isSaving,
     required bool canEditJobWork,
     required bool canDeleteJobWork,
     required List<JobWorkCollection> collections,
   }) {
     final theme = Theme.of(context);
+    final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+      order: order,
+      loads: loads,
+      invoices: invoices,
+    );
     final byYear = <int, List<JobWorkLoad>>{};
     for (final load in loads) {
       byYear.putIfAbsent(load.receivedDate.year, () => []).add(load);
@@ -312,9 +321,12 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
 
       for (var i = 0; i < yearLoads.length; i++) {
         final load = yearLoads[i];
+        final fin = financeMap[load.id];
         widgets.add(
           JobWorkLoadListTile(
             load: load,
+            paidAmount: fin?.paid,
+            dueAmount: fin?.due,
             isBusy: isSaving || _busyLoadId == load.id,
             menuActions: _loadMenuActions(
               context,
@@ -648,7 +660,11 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                       else
                         ..._buildLoadsGroupedByYear(
                           context,
+                          order: order,
                           loads: state.loads,
+                          invoices: state.invoices.isNotEmpty
+                              ? state.invoices
+                              : (hasInvoice ? [invoice] : const []),
                           isSaving: isSaving,
                           canEditJobWork: canEditJobWork,
                           canDeleteJobWork: canDeleteJobWork,
