@@ -511,20 +511,14 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
             canCollectMaterial;
         final isSaving = state.status == JobWorkFormStatus.saving;
         final hasOutput = order.output?.isRecorded == true;
-        final balanceDue = hasInvoice
-            ? invoice.dueAmount
-            : JobWorkContainerSyncHelper.rollupBalanceDue(
-                order: order,
-                loads: state.loads,
-              );
-        // Container placeholder: prefer sum of Load balances; fall back to
-        // JW/invoice due during dual-read until Sprint 5 per-Load payments.
-        final loadsOutstanding = state.loads.fold<double>(
-          0,
-          (sum, load) => sum + load.balanceDue,
+        final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+          order: order,
+          loads: state.loads,
+          invoices: state.invoices.isNotEmpty
+              ? state.invoices
+              : (hasInvoice ? [invoice] : const []),
         );
-        final outstandingBalance =
-            hasLoads ? loadsOutstanding : balanceDue;
+        final outstandingBalance = finance.due;
         final canGenerateInvoice =
             JobWorkContainerSyncHelper.canGenerateInvoice(
           order: order,
@@ -618,6 +612,11 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                     JobWorkDetailRow(
                       label: AppStrings.completedLoads,
                       value: '${state.completedLoadCount}',
+                    ),
+                    JobWorkDetailRow(
+                      label: AppStrings.totalCuttingCharges,
+                      value: Formatters.currencyPkr(finance.charges),
+                      bold: true,
                     ),
                     JobWorkDetailRow(
                       label: AppStrings.outstandingBalance,

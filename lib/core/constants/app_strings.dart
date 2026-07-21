@@ -292,6 +292,7 @@ abstract final class AppStrings {
   static const String largeStockPriceRequired =
       'Enter large stock price for selected large sizes';
   static const String finalCuttingCharges = 'Final Cutting Charges';
+  static const String totalCuttingCharges = 'Total Cutting Charges';
   static const String chargesFinalizedOnOutput =
       'Final cutting charges are calculated when output is recorded.';
   static const String chargesPending = 'Charges pending output';
