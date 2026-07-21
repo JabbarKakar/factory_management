@@ -261,13 +261,35 @@ class JobWorkInvoiceRepository {
     final double paidAmount;
     final List<InvoiceLineItem> lineItems;
 
+    final existingInvoices = await getInvoicesByJobWorkId(
+      factoryId: order.factoryId,
+      jobWorkId: jobWorkId,
+    );
+    final invoiceIds = existingInvoices.map((i) => i.id).toSet();
+    var recordedPaymentsTotal = 0.0;
+    if (invoiceIds.isNotEmpty) {
+      final paymentsSnap = await _firestore
+          .collection('payments')
+          .where('factoryId', isEqualTo: order.factoryId)
+          .where('customerId', isEqualTo: order.customerId)
+          .get();
+      recordedPaymentsTotal = paymentsSnap.docs
+          .map((doc) => doc.data())
+          .where((data) => invoiceIds.contains(data['invoiceId']))
+          .fold<double>(0, (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0));
+    }
+
     if (billable.isNotEmpty) {
       totalAmount = billable.fold<double>(0, (acc, load) => acc + load.finalCuttingCharges);
-      paidAmount = billable.fold<double>(0, (acc, load) => acc + load.advanceReceived);
+      paidAmount = recordedPaymentsTotal > 0
+          ? recordedPaymentsTotal
+          : billable.fold<double>(0, (acc, load) => acc + load.advanceReceived);
       lineItems = _buildLineItemsForGrandInvoice(order, billable);
     } else {
       totalAmount = order.finalCuttingCharges;
-      paidAmount = order.advanceReceived;
+      paidAmount = recordedPaymentsTotal > 0
+          ? recordedPaymentsTotal
+          : order.advanceReceived;
       lineItems = [
         InvoiceLineItem(
           description: 'Cutting fee — Job Work #${order.jobWorkNumber}',
@@ -594,6 +616,20 @@ class JobWorkInvoiceRepository {
 
     final invoice = await generateFromJobWorkOrder(jobWorkId);
     return [invoice];
+  }
+
+  Future<void> updateInvoicePaidAndDue({
+    required String invoiceId,
+    required double paidAmount,
+    required double dueAmount,
+    required InvoiceStatus status,
+  }) async {
+    await _collection.doc(invoiceId).update({
+      'paid': paidAmount,
+      'due': dueAmount,
+      'status': status.firestoreValue,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   Future<String> _generateInvoiceNumber(String factoryId) async {

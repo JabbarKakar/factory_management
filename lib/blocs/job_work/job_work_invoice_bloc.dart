@@ -530,6 +530,8 @@ class JobWorkInvoiceBloc
     bool updated = false,
   }) async {
     final List<Payment> invoicePayments;
+    var effectiveInvoice = invoice;
+
     if (state.loadId == null || state.loadId!.isEmpty) {
       final invoices = await _invoiceRepository.getInvoicesByJobWorkId(
         factoryId: invoice.factoryId,
@@ -549,6 +551,34 @@ class JobWorkInvoiceBloc
       }
       allPayments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
       invoicePayments = allPayments;
+
+      final totalPaidFromPayments =
+          invoicePayments.fold<double>(0, (sum, p) => sum + p.amount);
+      if (invoicePayments.isNotEmpty &&
+          (invoice.paidAmount - totalPaidFromPayments).abs() > 0.01) {
+        final newDue = (invoice.totalAmount - totalPaidFromPayments)
+            .clamp(0, invoice.totalAmount)
+            .toDouble();
+        final newStatus = InvoiceStatus.fromAmounts(
+          dueAmount: newDue,
+          paidAmount: totalPaidFromPayments,
+          totalAmount: invoice.totalAmount,
+          dueDate: invoice.dueDate,
+        );
+        effectiveInvoice = invoice.copyWith(
+          paidAmount: totalPaidFromPayments,
+          dueAmount: newDue,
+          status: newStatus,
+          updatedAt: DateTime.now(),
+        );
+
+        await _invoiceRepository.updateInvoicePaidAndDue(
+          invoiceId: invoice.id,
+          paidAmount: totalPaidFromPayments,
+          dueAmount: newDue,
+          status: newStatus,
+        );
+      }
     } else {
       await _paymentRepository.ensureInvoicePaidAmountRecorded(
         invoiceId: invoice.id,
@@ -569,9 +599,9 @@ class JobWorkInvoiceBloc
                 : saved
                     ? JobWorkInvoiceStatus.generated
                     : JobWorkInvoiceStatus.loaded,
-        invoice: invoice,
+        invoice: effectiveInvoice,
         payments: invoicePayments,
-        jobWorkId: invoice.jobWorkId,
+        jobWorkId: effectiveInvoice.jobWorkId,
         errorMessage: null,
       ),
     );

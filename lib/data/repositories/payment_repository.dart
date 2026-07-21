@@ -294,6 +294,46 @@ class PaymentRepository {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
+      // Sync Grand Invoice for the Job Work container if one exists.
+      final allJobWorkInvoices =
+          await _jobWorkInvoiceRepository.getInvoicesByJobWorkId(
+        factoryId: invoice.factoryId,
+        jobWorkId: invoice.jobWorkId,
+      );
+      final grandInvoice = allJobWorkInvoices
+          .where((i) => i.loadId == null || i.loadId!.isEmpty)
+          .firstOrNull;
+
+      if (grandInvoice != null) {
+        var totalGrandPaid = 0.0;
+        for (final inv in allJobWorkInvoices) {
+          final invPayments = await getPaymentsForInvoice(
+            factoryId: inv.factoryId,
+            invoiceId: inv.id,
+          );
+          totalGrandPaid +=
+              invPayments.fold<double>(0, (total, p) => total + p.amount);
+        }
+        final grandDue = (grandInvoice.totalAmount - totalGrandPaid)
+            .clamp(0, grandInvoice.totalAmount)
+            .toDouble();
+        final grandStatus = InvoiceStatus.fromAmounts(
+          dueAmount: grandDue,
+          paidAmount: totalGrandPaid,
+          totalAmount: grandInvoice.totalAmount,
+          dueDate: grandInvoice.dueDate,
+        );
+
+        await _jobWorkInvoiceRepository.collection
+            .doc(grandInvoice.id)
+            .update({
+          'paid': totalGrandPaid,
+          'due': grandDue,
+          'status': grandStatus.firestoreValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
       final loadId = invoice.loadId?.trim();
       if (loadId != null && loadId.isNotEmpty) {
         final load = await _jobWorkLoadRepository.getLoad(loadId);
