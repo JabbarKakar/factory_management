@@ -39,6 +39,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   bool _populated = false;
   Payment? _editingPayment;
   bool _deletedPayment = false;
+  bool _submitting = false;
 
   bool get _isEditing => widget.paymentId != null;
 
@@ -91,7 +92,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
 
   Future<void> _deletePayment() async {
     final payment = _editingPayment;
-    if (payment == null) return;
+    if (payment == null || _submitting) return;
     final confirmed = await AppConfirmDialog.show(
       context,
       title: AppStrings.deletePaymentTitle,
@@ -100,16 +101,22 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
       destructive: true,
     );
     if (!confirmed || !mounted) return;
-    setState(() => _deletedPayment = true);
+    setState(() {
+      _deletedPayment = true;
+      _submitting = true;
+    });
     context.read<JobWorkInvoiceBloc>().add(
           JobWorkInvoicePaymentDeleteRequested(payment.id),
         );
   }
 
   void _submit() {
+    if (_submitting) return;
     if (!_formKey.currentState!.validate()) return;
     final amount = double.tryParse(_amountController.text.trim()) ?? 0;
     if (amount <= 0) return;
+
+    setState(() => _submitting = true);
 
     final reference = _referenceController.text.trim().isEmpty
         ? null
@@ -167,11 +174,13 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
           );
           context.pop(true);
         }
-        if (state.status == JobWorkInvoiceStatus.failure &&
-            state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.errorMessage!)),
-          );
+        if (state.status == JobWorkInvoiceStatus.failure) {
+          if (mounted) setState(() => _submitting = false);
+          if (state.errorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.errorMessage!)),
+            );
+          }
         }
       },
       builder: (context, state) {
@@ -200,7 +209,8 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         }
 
         _populate(invoice.dueAmount);
-        final isSaving = state.status == JobWorkInvoiceStatus.saving;
+        final isSaving =
+            state.status == JobWorkInvoiceStatus.saving || _submitting;
         final maxAmount = _isEditing
             ? invoice.dueAmount + (_editingPayment?.amount ?? 0)
             : invoice.dueAmount;

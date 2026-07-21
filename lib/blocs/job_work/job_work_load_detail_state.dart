@@ -12,6 +12,8 @@ class JobWorkLoadDetailState extends Equatable {
     this.qualityChecks = const [],
     this.invoice,
     this.payments = const [],
+    this.siblingLoads = const [],
+    this.invoices = const [],
     this.errorMessage,
   });
 
@@ -24,6 +26,8 @@ class JobWorkLoadDetailState extends Equatable {
   final List<QualityCheck> qualityChecks;
   final JobWorkInvoice? invoice;
   final List<Payment> payments;
+  final List<JobWorkLoad> siblingLoads;
+  final List<JobWorkInvoice> invoices;
   final String? errorMessage;
 
   bool get isLastLoad => siblingLoadCount <= 1;
@@ -38,6 +42,8 @@ class JobWorkLoadDetailState extends Equatable {
     JobWorkInvoice? invoice,
     bool clearInvoice = false,
     List<Payment>? payments,
+    List<JobWorkLoad>? siblingLoads,
+    List<JobWorkInvoice>? invoices,
     String? errorMessage,
   }) {
     return JobWorkLoadDetailState(
@@ -49,6 +55,8 @@ class JobWorkLoadDetailState extends Equatable {
       qualityChecks: qualityChecks ?? this.qualityChecks,
       invoice: clearInvoice ? null : (invoice ?? this.invoice),
       payments: payments ?? this.payments,
+      siblingLoads: siblingLoads ?? this.siblingLoads,
+      invoices: invoices ?? this.invoices,
       errorMessage: errorMessage,
     );
   }
@@ -63,6 +71,8 @@ class JobWorkLoadDetailState extends Equatable {
         qualityChecks,
         invoice,
         payments,
+        siblingLoads,
+        invoices,
         errorMessage,
       ];
 }

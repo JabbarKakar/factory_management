@@ -84,3 +84,21 @@ final class JobWorkLoadDetailAdvanceCompletionRequested
   @override
   List<Object?> get props => [nextStatus];
 }
+
+final class _JobWorkLoadDetailSiblingLoadsUpdated extends JobWorkLoadDetailEvent {
+  const _JobWorkLoadDetailSiblingLoadsUpdated(this.siblingLoads);
+
+  final List<JobWorkLoad> siblingLoads;
+
+  @override
+  List<Object?> get props => [siblingLoads];
+}
+
+final class _JobWorkLoadDetailAllInvoicesUpdated extends JobWorkLoadDetailEvent {
+  const _JobWorkLoadDetailAllInvoicesUpdated(this.invoices);
+
+  final List<JobWorkInvoice> invoices;
+
+  @override
+  List<Object?> get props => [invoices];
+}

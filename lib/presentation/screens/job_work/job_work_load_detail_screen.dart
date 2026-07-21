@@ -296,9 +296,21 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
           state.collections,
         );
         final isSaving = state.status == JobWorkLoadDetailStatus.saving;
+        final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+          order: order,
+          loads: state.siblingLoads,
+          invoices: state.invoices,
+        );
+        final fin = financeMap[load.id] ?? (
+          charges: load.finalCuttingCharges,
+          paid: load.advanceReceived,
+          due: load.balanceDue,
+        );
+
         final loadLabel = load.loadNumber.isEmpty
             ? '${AppStrings.load} #${load.loadSequence}'
             : load.loadNumber;
+
         final menuActions = _menuActions(
           context,
           load: load,
@@ -436,13 +448,13 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                     ),
                     JobWorkDetailRow(
                       label: AppStrings.advanceReceived,
-                      value: Formatters.currencyPkr(load.advanceReceived),
+                      value: Formatters.currencyPkr(fin.paid),
                     ),
                     JobWorkDetailRow(
                       label: AppStrings.balanceDue,
-                      value: Formatters.currencyPkr(load.balanceDue),
-                      bold: load.balanceDue > 0,
-                      highlight: load.balanceDue > 0,
+                      value: Formatters.currencyPkr(fin.due),
+                      bold: fin.due > 0,
+                      highlight: fin.due > 0,
                     ),
                     JobWorkDetailRow(
                       label: AppStrings.paymentTerms,

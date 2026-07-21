@@ -408,9 +408,13 @@ class JobWorkInvoiceBloc
       _ensurePaymentsWatch(invoice);
     }
 
+    final newStatus = state.status == JobWorkInvoiceStatus.saving
+        ? JobWorkInvoiceStatus.saving
+        : JobWorkInvoiceStatus.loaded;
+
     emit(
       state.copyWith(
-        status: JobWorkInvoiceStatus.loaded,
+        status: newStatus,
         invoice: invoice,
         jobWorkId: invoice.jobWorkId,
         errorMessage: null,

@@ -45,6 +45,8 @@ class JobWorkLoadDetailBloc
     on<_JobWorkLoadDetailPaymentsUpdated>(_onPaymentsUpdated);
     on<JobWorkLoadDetailAdvanceStatusRequested>(_onAdvanceStatus);
     on<JobWorkLoadDetailAdvanceCompletionRequested>(_onAdvanceCompletion);
+    on<_JobWorkLoadDetailSiblingLoadsUpdated>(_onSiblingLoadsUpdated);
+    on<_JobWorkLoadDetailAllInvoicesUpdated>(_onAllInvoicesUpdated);
   }
 
   final JobWorkRepository _jobWorkRepository;
@@ -59,6 +61,8 @@ class JobWorkLoadDetailBloc
   StreamSubscription<List<QualityCheck>>? _qualitySub;
   StreamSubscription<JobWorkInvoice?>? _invoiceSub;
   StreamSubscription<List<Payment>>? _paymentsSub;
+  StreamSubscription<List<JobWorkLoad>>? _siblingLoadsSub;
+  StreamSubscription<List<JobWorkInvoice>>? _allInvoicesSub;
   String? _watchedInvoiceId;
 
   Future<void> _onStarted(
@@ -100,6 +104,10 @@ class JobWorkLoadDetailBloc
         factoryId: order.factoryId,
         jobWorkId: order.id,
       );
+      final invoices = await _invoiceRepository.getInvoicesByJobWorkId(
+        factoryId: order.factoryId,
+        jobWorkId: order.id,
+      );
 
       emit(
         state.copyWith(
@@ -107,6 +115,8 @@ class JobWorkLoadDetailBloc
           order: order,
           load: syncedLoad,
           siblingLoadCount: siblingLoads.length,
+          siblingLoads: siblingLoads,
+          invoices: invoices,
           invoice: null,
           payments: const [],
           clearInvoice: true,
@@ -116,6 +126,22 @@ class JobWorkLoadDetailBloc
 
       _loadSub = _loadRepository.watchLoad(event.loadId).listen(
             (updated) => add(_JobWorkLoadDetailLoadUpdated(updated)),
+          );
+      _siblingLoadsSub = _loadRepository
+          .watchLoadsForJobWork(
+            factoryId: order.factoryId,
+            jobWorkId: order.id,
+          )
+          .listen(
+            (updated) => add(_JobWorkLoadDetailSiblingLoadsUpdated(updated)),
+          );
+      _allInvoicesSub = _invoiceRepository
+          .watchInvoicesByJobWorkId(
+            factoryId: order.factoryId,
+            jobWorkId: order.id,
+          )
+          .listen(
+            (updated) => add(_JobWorkLoadDetailAllInvoicesUpdated(updated)),
           );
       _collectionsSub = _collectionRepository
           .watchCollectionsForJobWork(
@@ -295,12 +321,35 @@ class JobWorkLoadDetailBloc
     await _qualitySub?.cancel();
     await _invoiceSub?.cancel();
     await _paymentsSub?.cancel();
+    await _siblingLoadsSub?.cancel();
+    await _allInvoicesSub?.cancel();
     _loadSub = null;
     _collectionsSub = null;
     _qualitySub = null;
     _invoiceSub = null;
     _paymentsSub = null;
+    _siblingLoadsSub = null;
+    _allInvoicesSub = null;
     _watchedInvoiceId = null;
+  }
+
+  void _onSiblingLoadsUpdated(
+    _JobWorkLoadDetailSiblingLoadsUpdated event,
+    Emitter<JobWorkLoadDetailState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        siblingLoads: event.siblingLoads,
+        siblingLoadCount: event.siblingLoads.length,
+      ),
+    );
+  }
+
+  void _onAllInvoicesUpdated(
+    _JobWorkLoadDetailAllInvoicesUpdated event,
+    Emitter<JobWorkLoadDetailState> emit,
+  ) {
+    emit(state.copyWith(invoices: event.invoices));
   }
 
   @override
