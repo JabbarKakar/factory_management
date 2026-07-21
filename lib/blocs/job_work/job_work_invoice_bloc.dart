@@ -113,6 +113,12 @@ class JobWorkInvoiceBloc
         );
         return;
       }
+      emit(
+        state.copyWith(
+          jobWorkId: invoice.jobWorkId,
+          loadId: invoice.loadId,
+        ),
+      );
       await _startWatching(invoice, emit);
     } catch (_) {
       emit(
@@ -531,8 +537,10 @@ class JobWorkInvoiceBloc
   }) async {
     final List<Payment> invoicePayments;
     var effectiveInvoice = invoice;
+    final isGrandInvoice =
+        invoice.loadId == null || invoice.loadId!.trim().isEmpty;
 
-    if (state.loadId == null || state.loadId!.isEmpty) {
+    if (isGrandInvoice) {
       final synced = await _invoiceRepository.syncGrandInvoice(
         factoryId: invoice.factoryId,
         jobWorkId: invoice.jobWorkId,
@@ -582,6 +590,7 @@ class JobWorkInvoiceBloc
         invoice: effectiveInvoice,
         payments: invoicePayments,
         jobWorkId: effectiveInvoice.jobWorkId,
+        loadId: effectiveInvoice.loadId,
         errorMessage: null,
       ),
     );
