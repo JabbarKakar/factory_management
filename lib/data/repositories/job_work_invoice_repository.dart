@@ -658,6 +658,92 @@ class JobWorkInvoiceRepository {
     return [invoice];
   }
 
+  /// Fully syncs a Grand Invoice for a Job Work order across all present and future loads & payments.
+  Future<JobWorkInvoice?> syncGrandInvoice({
+    required String factoryId,
+    required String jobWorkId,
+  }) async {
+    final grandInvoice = await getInvoiceByJobWorkId(
+      factoryId: factoryId,
+      jobWorkId: jobWorkId,
+    );
+    if (grandInvoice == null) return null;
+
+    final order = await _jobWorkRepository.getJobWorkOrder(jobWorkId);
+    if (order == null) return grandInvoice;
+
+    final loads = await _loadRepository.fetchLoadsForJobWork(
+      factoryId: factoryId,
+      jobWorkId: jobWorkId,
+    );
+    final billable =
+        JobWorkContainerSyncHelper.billableLoadsForGrandInvoice(loads);
+
+    final newTotalAmount = billable.isNotEmpty
+        ? billable.fold<double>(0, (sum, load) => sum + load.finalCuttingCharges)
+        : order.finalCuttingCharges;
+
+    final allInvoices = await getInvoicesByJobWorkId(
+      factoryId: factoryId,
+      jobWorkId: jobWorkId,
+    );
+    final invoiceIds = allInvoices.map((i) => i.id).toSet();
+
+    var recordedPaymentsTotal = 0.0;
+    if (invoiceIds.isNotEmpty) {
+      final paymentsSnap = await _firestore
+          .collection('payments')
+          .where('factoryId', isEqualTo: factoryId)
+          .where('customerId', isEqualTo: order.customerId)
+          .get();
+      recordedPaymentsTotal = paymentsSnap.docs
+          .map((doc) => doc.data())
+          .where((data) => invoiceIds.contains(data['invoiceId']))
+          .fold<double>(0, (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0));
+    }
+
+    final newPaidAmount = recordedPaymentsTotal > 0
+        ? recordedPaymentsTotal
+        : billable.isNotEmpty
+            ? billable.fold<double>(0, (sum, load) => sum + load.advanceReceived)
+            : order.advanceReceived;
+
+    final newDueAmount = (newTotalAmount - newPaidAmount)
+        .clamp(0, newTotalAmount)
+        .toDouble();
+    final newStatus = InvoiceStatus.fromAmounts(
+      dueAmount: newDueAmount,
+      paidAmount: newPaidAmount,
+      totalAmount: newTotalAmount,
+      dueDate: grandInvoice.dueDate,
+    );
+
+    final newLineItems = buildLineItemsForGrandInvoice(
+      order: order,
+      loads: billable,
+      totalPaid: newPaidAmount,
+    );
+
+    final updates = <String, dynamic>{
+      'total': newTotalAmount,
+      'paid': newPaidAmount,
+      'due': newDueAmount,
+      'status': newStatus.firestoreValue,
+      'items': newLineItems
+          .map(
+            (item) => {
+              'description': item.description,
+              'amount': item.amount,
+            },
+          )
+          .toList(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    await _collection.doc(grandInvoice.id).update(updates);
+    return getInvoice(grandInvoice.id);
+  }
+
   Future<void> updateInvoicePaidAndDue({
     required String invoiceId,
     required double paidAmount,

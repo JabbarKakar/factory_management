@@ -5,6 +5,7 @@ import '../../core/utils/job_work_charges_calculator.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
+import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/job_work_load_enums.dart';
 import '../models/job_work_load_model.dart';
@@ -573,10 +574,91 @@ class JobWorkLoadRepository {
     final double balanceDue;
 
     if (grandInvoiceDoc != null) {
-      final data = grandInvoiceDoc.data();
-      finalCuttingCharges = (data['total'] as num?)?.toDouble() ?? 0.0;
-      advanceReceived = (data['paid'] as num?)?.toDouble() ?? 0.0;
-      balanceDue = (data['due'] as num?)?.toDouble() ?? 0.0;
+      final billable =
+          JobWorkContainerSyncHelper.billableLoadsForGrandInvoice(loads);
+      final newTotal = billable.isNotEmpty
+          ? billable.fold<double>(0, (sum, load) => sum + load.finalCuttingCharges)
+          : order.finalCuttingCharges;
+
+      final invoiceIds = invoicesSnap.docs.map((d) => d.id).toSet();
+      var recordedPaymentsTotal = 0.0;
+      if (invoiceIds.isNotEmpty) {
+        final paymentsSnap = await _firestore
+            .collection('payments')
+            .where('factoryId', isEqualTo: order.factoryId)
+            .where('customerId', isEqualTo: order.customerId)
+            .get();
+        recordedPaymentsTotal = paymentsSnap.docs
+            .map((doc) => doc.data())
+            .where((data) => invoiceIds.contains(data['invoiceId']))
+            .fold<double>(
+              0,
+              (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0),
+            );
+      }
+
+      final newPaid = recordedPaymentsTotal > 0
+          ? recordedPaymentsTotal
+          : billable.isNotEmpty
+              ? billable.fold<double>(0, (sum, load) => sum + load.advanceReceived)
+              : order.advanceReceived;
+      final newDue = (newTotal - newPaid).clamp(0, newTotal).toDouble();
+
+      var paymentPool = newPaid;
+      final lineItemsMaps = <Map<String, dynamic>>[];
+      for (final load in billable) {
+        final label = load.loadNumber.isEmpty
+            ? 'Load #${load.loadSequence}'
+            : load.loadNumber;
+        final total = load.finalCuttingCharges;
+        final double paid;
+        final double remaining;
+        if (newPaid > 0) {
+          paid = paymentPool >= total
+              ? total
+              : (paymentPool > 0 ? paymentPool : 0.0);
+          remaining = (total - paid).clamp(0, total).toDouble();
+          paymentPool = (paymentPool - paid).clamp(0, double.infinity).toDouble();
+        } else {
+          paid = load.advanceReceived;
+          remaining = load.balanceDue;
+        }
+
+        lineItemsMaps.add({
+          'description':
+              '$label · Total: Rs ${total.toStringAsFixed(0)} · Paid: Rs ${paid.toStringAsFixed(0)} · Remaining: Rs ${remaining.toStringAsFixed(0)}',
+          'amount': total,
+        });
+
+        final output = load.output;
+        if (output != null && output.isRecorded) {
+          lineItemsMaps.add({
+            'description':
+                '  └ Output: ${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
+            'amount': 0,
+          });
+        }
+      }
+
+      final status = InvoiceStatus.fromAmounts(
+        dueAmount: newDue,
+        paidAmount: newPaid,
+        totalAmount: newTotal,
+        dueDate: (grandInvoiceDoc.data()['dueDate'] as Timestamp?)?.toDate(),
+      );
+
+      await _invoices.doc(grandInvoiceDoc.id).update({
+        'total': newTotal,
+        'paid': newPaid,
+        'due': newDue,
+        'status': status.firestoreValue,
+        'items': lineItemsMaps,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      finalCuttingCharges = newTotal;
+      advanceReceived = newPaid;
+      balanceDue = newDue;
     } else {
       finalCuttingCharges = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(
         order: order,

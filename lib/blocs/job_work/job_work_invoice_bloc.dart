@@ -533,9 +533,17 @@ class JobWorkInvoiceBloc
     var effectiveInvoice = invoice;
 
     if (state.loadId == null || state.loadId!.isEmpty) {
-      final invoices = await _invoiceRepository.getInvoicesByJobWorkId(
+      final synced = await _invoiceRepository.syncGrandInvoice(
         factoryId: invoice.factoryId,
         jobWorkId: invoice.jobWorkId,
+      );
+      if (synced != null) {
+        effectiveInvoice = synced;
+      }
+
+      final invoices = await _invoiceRepository.getInvoicesByJobWorkId(
+        factoryId: effectiveInvoice.factoryId,
+        jobWorkId: effectiveInvoice.jobWorkId,
       );
       final allPayments = <Payment>[];
       for (final inv in invoices) {
@@ -551,52 +559,6 @@ class JobWorkInvoiceBloc
       }
       allPayments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
       invoicePayments = allPayments;
-
-      final totalPaidFromPayments =
-          invoicePayments.fold<double>(0, (sum, p) => sum + p.amount);
-
-      final updatedLineItems = await _invoiceRepository
-          .rebuildGrandInvoiceLineItems(
-        jobWorkId: invoice.jobWorkId,
-        totalPaid: totalPaidFromPayments,
-      );
-
-      final lineItemsToUse = updatedLineItems.isNotEmpty
-          ? updatedLineItems
-          : invoice.lineItems;
-
-      final needsPaidSync =
-          (invoice.paidAmount - totalPaidFromPayments).abs() > 0.01;
-      final needsLineItemsSync = invoicePayments.isNotEmpty &&
-          updatedLineItems.isNotEmpty &&
-          !_areLineItemsEqual(invoice.lineItems, updatedLineItems);
-
-      if (needsPaidSync || needsLineItemsSync) {
-        final newDue = (invoice.totalAmount - totalPaidFromPayments)
-            .clamp(0, invoice.totalAmount)
-            .toDouble();
-        final newStatus = InvoiceStatus.fromAmounts(
-          dueAmount: newDue,
-          paidAmount: totalPaidFromPayments,
-          totalAmount: invoice.totalAmount,
-          dueDate: invoice.dueDate,
-        );
-        effectiveInvoice = invoice.copyWith(
-          paidAmount: totalPaidFromPayments,
-          dueAmount: newDue,
-          lineItems: lineItemsToUse,
-          status: newStatus,
-          updatedAt: DateTime.now(),
-        );
-
-        await _invoiceRepository.updateInvoicePaidAndDue(
-          invoiceId: invoice.id,
-          paidAmount: totalPaidFromPayments,
-          dueAmount: newDue,
-          status: newStatus,
-          lineItems: lineItemsToUse,
-        );
-      }
     } else {
       await _paymentRepository.ensureInvoicePaidAmountRecorded(
         invoiceId: invoice.id,
@@ -623,16 +585,6 @@ class JobWorkInvoiceBloc
         errorMessage: null,
       ),
     );
-  }
-
-  bool _areLineItemsEqual(List<InvoiceLineItem> a, List<InvoiceLineItem> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i].description != b[i].description || a[i].amount != b[i].amount) {
-        return false;
-      }
-    }
-    return true;
   }
 
   @override

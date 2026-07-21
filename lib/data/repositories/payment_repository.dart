@@ -295,49 +295,10 @@ class PaymentRepository {
       });
 
       // Sync Grand Invoice for the Job Work container if one exists.
-      final allJobWorkInvoices =
-          await _jobWorkInvoiceRepository.getInvoicesByJobWorkId(
+      await _jobWorkInvoiceRepository.syncGrandInvoice(
         factoryId: invoice.factoryId,
         jobWorkId: invoice.jobWorkId,
       );
-      final grandInvoice = allJobWorkInvoices
-          .where((i) => i.loadId == null || i.loadId!.isEmpty)
-          .firstOrNull;
-
-      if (grandInvoice != null) {
-        var totalGrandPaid = 0.0;
-        for (final inv in allJobWorkInvoices) {
-          final invPayments = await getPaymentsForInvoice(
-            factoryId: inv.factoryId,
-            invoiceId: inv.id,
-          );
-          totalGrandPaid +=
-              invPayments.fold<double>(0, (total, p) => total + p.amount);
-        }
-        final grandDue = (grandInvoice.totalAmount - totalGrandPaid)
-            .clamp(0, grandInvoice.totalAmount)
-            .toDouble();
-        final grandStatus = InvoiceStatus.fromAmounts(
-          dueAmount: grandDue,
-          paidAmount: totalGrandPaid,
-          totalAmount: grandInvoice.totalAmount,
-          dueDate: grandInvoice.dueDate,
-        );
-
-        final grandLineItems = await _jobWorkInvoiceRepository
-            .rebuildGrandInvoiceLineItems(
-          jobWorkId: invoice.jobWorkId,
-          totalPaid: totalGrandPaid,
-        );
-
-        await _jobWorkInvoiceRepository.updateInvoicePaidAndDue(
-          invoiceId: grandInvoice.id,
-          paidAmount: totalGrandPaid,
-          dueAmount: grandDue,
-          status: grandStatus,
-          lineItems: grandLineItems.isNotEmpty ? grandLineItems : null,
-        );
-      }
 
       final loadId = invoice.loadId?.trim();
       if (loadId != null && loadId.isNotEmpty) {
