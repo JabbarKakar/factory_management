@@ -754,10 +754,11 @@ abstract final class GrandInvoicePdfTemplate {
       pw.SizedBox(height: 8),
 
       // Table
-      if (produced.isNotEmpty) ...[
+      if (produced.isNotEmpty)
         pw.Table(
           border: const pw.TableBorder(
             horizontalInside: pw.BorderSide(color: _borderLight, width: 0.4),
+            verticalInside: pw.BorderSide(color: _borderLight, width: 0.4),
             top: pw.BorderSide(color: _borderLight, width: 0.6),
             bottom: pw.BorderSide(color: _borderLight, width: 0.6),
             left: pw.BorderSide(color: _borderLight, width: 0.8),
@@ -778,15 +779,15 @@ abstract final class GrandInvoicePdfTemplate {
             pw.TableRow(
               decoration: const pw.BoxDecoration(color: _cardHeaderBg),
               children: [
-                _tableHeader(fonts, isSingleLoad ? 'SIZE / DIMENSION (STATUS)' : 'SIZE CATEGORY', alignRight: false),
-                _tableHeader(fonts, 'TOTAL PCS', alignRight: true),
-                _tableHeader(fonts, 'COLL. PCS', alignRight: true),
-                _tableHeader(fonts, 'REM. PCS', alignRight: true),
-                _tableHeader(fonts, 'TOTAL SQFT', alignRight: true),
-                _tableHeader(fonts, 'COLL. SQFT', alignRight: true),
-                _tableHeader(fonts, 'REM. SQFT', alignRight: true),
-                _tableHeader(fonts, 'RATE (PKR)', alignRight: true),
-                _tableHeader(fonts, 'CHARGES (PKR)', alignRight: true),
+                _tableHeader(fonts, isSingleLoad ? 'SIZE / DIMENSION (STATUS)' : 'SIZE CATEGORY'),
+                _tableHeader(fonts, 'TOTAL PCS'),
+                _tableHeader(fonts, 'COLL. PCS'),
+                _tableHeader(fonts, 'REM. PCS'),
+                _tableHeader(fonts, 'TOTAL SQFT'),
+                _tableHeader(fonts, 'COLL. SQFT'),
+                _tableHeader(fonts, 'REM. SQFT'),
+                _tableHeader(fonts, 'RATE (PKR)'),
+                _tableHeader(fonts, 'CHARGES (PKR)'),
               ],
             ),
             if (isSingleLoad) ...[
@@ -795,15 +796,15 @@ abstract final class GrandInvoicePdfTemplate {
                 pw.TableRow(
                   decoration: const pw.BoxDecoration(color: _bgLight),
                   children: [
-                    _tableCell(fonts, 'Small Sizes', alignRight: false, isBold: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, 'Small Sizes', isBold: true),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
                   ],
                 ),
                 ...produced.where((s) => JobWorkSizes.isSmall(s.size)).map((stock) {
@@ -820,15 +821,15 @@ abstract final class GrandInvoicePdfTemplate {
 
                   return pw.TableRow(
                     children: [
-                      _tableCell(fonts, '    ${stock.size} ($sizeStatus)', alignRight: false),
-                      _tableCell(fonts, formatWhole(stock.pieces), alignRight: true),
-                      _tableCell(fonts, formatWhole(colPieces), alignRight: true),
-                      _tableCell(fonts, formatWhole(remPieces), alignRight: true),
-                      _tableCell(fonts, formatAmount(stock.squareFeet), alignRight: true),
-                      _tableCell(fonts, formatAmount(colSqFt), alignRight: true),
-                      _tableCell(fonts, formatAmount(remSqFt), alignRight: true),
-                      _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2), alignRight: true),
-                      _tableCell(fonts, formatAmount(stock.amount), alignRight: true),
+                      _tableCell(fonts, '${stock.size} ($sizeStatus)'),
+                      _tableCell(fonts, formatWhole(stock.pieces)),
+                      _tableCell(fonts, formatWhole(colPieces)),
+                      _tableCell(fonts, formatWhole(remPieces)),
+                      _tableCell(fonts, formatAmount(stock.squareFeet)),
+                      _tableCell(fonts, formatAmount(colSqFt)),
+                      _tableCell(fonts, formatAmount(remSqFt)),
+                      _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2)),
+                      _tableCell(fonts, formatAmount(stock.amount)),
                     ],
                   );
                 }),
@@ -837,15 +838,15 @@ abstract final class GrandInvoicePdfTemplate {
                 pw.TableRow(
                   decoration: const pw.BoxDecoration(color: _bgLight),
                   children: [
-                    _tableCell(fonts, 'Large Sizes', alignRight: false, isBold: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
-                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, 'Large Sizes', isBold: true),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
+                    _tableCell(fonts, ''),
                   ],
                 ),
                 ...produced.where((s) => !JobWorkSizes.isSmall(s.size)).map((stock) {
@@ -862,15 +863,15 @@ abstract final class GrandInvoicePdfTemplate {
 
                   return pw.TableRow(
                     children: [
-                      _tableCell(fonts, '    ${stock.size} ($sizeStatus)', alignRight: false),
-                      _tableCell(fonts, formatWhole(stock.pieces), alignRight: true),
-                      _tableCell(fonts, formatWhole(colPieces), alignRight: true),
-                      _tableCell(fonts, formatWhole(remPieces), alignRight: true),
-                      _tableCell(fonts, formatAmount(stock.squareFeet), alignRight: true),
-                      _tableCell(fonts, formatAmount(colSqFt), alignRight: true),
-                      _tableCell(fonts, formatAmount(remSqFt), alignRight: true),
-                      _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2), alignRight: true),
-                      _tableCell(fonts, formatAmount(stock.amount), alignRight: true),
+                      _tableCell(fonts, '${stock.size} ($sizeStatus)'),
+                      _tableCell(fonts, formatWhole(stock.pieces)),
+                      _tableCell(fonts, formatWhole(colPieces)),
+                      _tableCell(fonts, formatWhole(remPieces)),
+                      _tableCell(fonts, formatAmount(stock.squareFeet)),
+                      _tableCell(fonts, formatAmount(colSqFt)),
+                      _tableCell(fonts, formatAmount(remSqFt)),
+                      _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2)),
+                      _tableCell(fonts, formatAmount(stock.amount)),
                     ],
                   );
                 }),
@@ -879,34 +880,34 @@ abstract final class GrandInvoicePdfTemplate {
               // Summarized rendering (Grand Invoice)
               pw.TableRow(
                 children: [
-                  _tableCell(fonts, '    Small Sizes', alignRight: false),
-                  _tableCell(fonts, formatWhole(smallTotalPieces), alignRight: true),
-                  _tableCell(fonts, formatWhole(smallCollectedPieces), alignRight: true),
-                  _tableCell(fonts, formatWhole(smallRemainingPieces), alignRight: true),
-                  _tableCell(fonts, formatAmount(smallTotalSqFt), alignRight: true),
-                  _tableCell(fonts, formatAmount(smallCollectedSqFt), alignRight: true),
-                  _tableCell(fonts, formatAmount(smallRemainingSqFt), alignRight: true),
-                  _tableCell(fonts, smallRateStr, alignRight: true),
-                  _tableCell(fonts, formatAmount(smallTotalAmount), alignRight: true),
+                  _tableCell(fonts, 'Small Sizes'),
+                  _tableCell(fonts, formatWhole(smallTotalPieces)),
+                  _tableCell(fonts, formatWhole(smallCollectedPieces)),
+                  _tableCell(fonts, formatWhole(smallRemainingPieces)),
+                  _tableCell(fonts, formatAmount(smallTotalSqFt)),
+                  _tableCell(fonts, formatAmount(smallCollectedSqFt)),
+                  _tableCell(fonts, formatAmount(smallRemainingSqFt)),
+                  _tableCell(fonts, smallRateStr),
+                  _tableCell(fonts, formatAmount(smallTotalAmount)),
                 ],
               ),
               pw.TableRow(
                 children: [
-                  _tableCell(fonts, '    Large Sizes', alignRight: false),
-                  _tableCell(fonts, formatWhole(largeTotalPieces), alignRight: true),
-                  _tableCell(fonts, formatWhole(largeCollectedPieces), alignRight: true),
-                  _tableCell(fonts, formatWhole(largeRemainingPieces), alignRight: true),
-                  _tableCell(fonts, formatAmount(largeTotalSqFt), alignRight: true),
-                  _tableCell(fonts, formatAmount(largeCollectedSqFt), alignRight: true),
-                  _tableCell(fonts, formatAmount(largeRemainingSqFt), alignRight: true),
-                  _tableCell(fonts, largeRateStr, alignRight: true),
-                  _tableCell(fonts, formatAmount(largeTotalAmount), alignRight: true),
+                  _tableCell(fonts, 'Large Sizes'),
+                  _tableCell(fonts, formatWhole(largeTotalPieces)),
+                  _tableCell(fonts, formatWhole(largeCollectedPieces)),
+                  _tableCell(fonts, formatWhole(largeRemainingPieces)),
+                  _tableCell(fonts, formatAmount(largeTotalSqFt)),
+                  _tableCell(fonts, formatAmount(largeCollectedSqFt)),
+                  _tableCell(fonts, formatAmount(largeRemainingSqFt)),
+                  _tableCell(fonts, largeRateStr),
+                  _tableCell(fonts, formatAmount(largeTotalAmount)),
                 ],
               ),
             ],
           ],
-        ),
-      ] else ...[
+        )
+      else
         pw.Padding(
           padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: pw.Row(
@@ -923,7 +924,6 @@ abstract final class GrandInvoicePdfTemplate {
             ],
           ),
         ),
-      ],
 
       // Subtotals bar in Gold background with gold borders
       pw.Container(
@@ -1059,13 +1059,13 @@ abstract final class GrandInvoicePdfTemplate {
 
 
 
-  static pw.Widget _tableHeader(PdfFonts fonts, String text, {required bool alignRight}) {
+  static pw.Widget _tableHeader(PdfFonts fonts, String text, {pw.TextAlign align = pw.TextAlign.center}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.all(5),
       child: pw.Text(
         text,
         style: pw.TextStyle(font: fonts.bold, fontSize: 5.5, color: PdfColors.white),
-        textAlign: alignRight ? pw.TextAlign.right : pw.TextAlign.left,
+        textAlign: align,
       ),
     );
   }
@@ -1073,7 +1073,7 @@ abstract final class GrandInvoicePdfTemplate {
   static pw.Widget _tableCell(
     PdfFonts fonts,
     String text, {
-    required bool alignRight,
+    pw.TextAlign align = pw.TextAlign.center,
     bool isBold = false,
   }) {
     return pw.Padding(
@@ -1085,7 +1085,7 @@ abstract final class GrandInvoicePdfTemplate {
           fontSize: 7.5,
           color: _navy,
         ),
-        textAlign: alignRight ? pw.TextAlign.right : pw.TextAlign.left,
+        textAlign: align,
       ),
     );
   }
