@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -42,6 +43,7 @@ abstract final class GrandInvoicePdfTemplate {
     required List<Payment> payments,
     required FactoryProfile? factoryProfile,
     required PdfFonts fonts,
+    Uint8List? logoBytes,
   }) async {
     final doc = pw.Document(theme: fonts.theme);
     final dateFormat = DateFormat('MMM dd, yyyy');
@@ -123,6 +125,7 @@ abstract final class GrandInvoicePdfTemplate {
         header: (context) {
           if (context.pageNumber == 1) return pw.SizedBox.shrink();
           return pw.Container(
+            margin: const pw.EdgeInsets.only(bottom: 12),
             padding: const pw.EdgeInsets.only(bottom: 6),
             decoration: const pw.BoxDecoration(
               border: pw.Border(bottom: pw.BorderSide(color: _borderLight, width: 0.8)),
@@ -169,46 +172,71 @@ abstract final class GrandInvoicePdfTemplate {
           pw.Row(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Logo & Details (Aligned exactly like mockup)
+              // Left Column: Logo, Title & Slogan, and details block below
               pw.Expanded(
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text(
-                      factoryName.toUpperCase(),
-                      style: pw.TextStyle(font: fonts.bold, fontSize: 26, color: _accentBlue, letterSpacing: 0.4),
+                    // Logo + Title/Slogan Row
+                    pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        if (logoBytes != null) ...[
+                          pw.Container(
+                            width: 56,
+                            height: 56,
+                            child: pw.Image(
+                              pw.MemoryImage(logoBytes),
+                              fit: pw.BoxFit.contain,
+                            ),
+                          ),
+                          pw.SizedBox(width: 14),
+                        ],
+                        pw.Expanded(
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(
+                                factoryName.toUpperCase(),
+                                style: pw.TextStyle(font: fonts.bold, fontSize: 26, color: _accentBlue, letterSpacing: 0.4),
+                              ),
+                              pw.SizedBox(height: 1),
+                              pw.Text(
+                                'PREMIUM NATURAL STONE PROCESSING & EXPORT',
+                                style: pw.TextStyle(font: fonts.bold, fontSize: 8, color: _navy, letterSpacing: 0.2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    pw.SizedBox(height: 1),
-                    pw.Text(
-                      'PREMIUM NATURAL STONE PROCESSING & EXPORT',
-                      style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: _navy, letterSpacing: 0.2),
-                    ),
-                    pw.SizedBox(height: 6),
+                    pw.SizedBox(height: 8),
+                    // Details block
                     pw.Text(
                       'Proprietor: $factoryOwner',
-                      style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _navy),
+                      style: pw.TextStyle(font: fonts.bold, fontSize: 7, color: _navy),
                     ),
                     pw.Text(
                       'Factory & Processing Facility: $factoryAddress',
-                      style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: _mutedGrey),
+                      style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
                     ),
                     pw.Text(
                       'GPS Coordinates: $gpsCoordinates | Web: $website',
-                      style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: _mutedGrey),
+                      style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
                     ),
                     pw.Text(
                       'Phone: $factoryPhone | Email: $email',
-                      style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: _mutedGrey),
+                      style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
                     ),
                     pw.Text(
                       'STRN: ${taxRegNo.split('·').first.replaceAll('STRN:', '').trim()} | NTN: ${taxRegNo.split('·').last.replaceAll('NTN:', '').trim()}',
-                      style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: _mutedGrey),
+                      style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
                     ),
                   ],
                 ),
               ),
-              pw.SizedBox(width: 14),
-              // Grand Invoice Header Card
+              pw.SizedBox(width: 24),
+              // Right Column: Grand Invoice Header Card
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
@@ -251,7 +279,7 @@ abstract final class GrandInvoicePdfTemplate {
                       ),
                     ),
                     child: pw.Text(
-                      totalDue <= 0 ? '✓ FULLY PAID' : 'OUTSTANDING DUE',
+                      totalDue <= 0 ? 'FULLY PAID' : 'OUTSTANDING DUE',
                       style: pw.TextStyle(
                         font: fonts.bold,
                         fontSize: 9.5,
@@ -266,39 +294,36 @@ abstract final class GrandInvoicePdfTemplate {
           pw.SizedBox(height: 12),
           pw.Divider(color: _borderLight, height: 16, thickness: 0.8),
 
-          // Section 2: Bill To & Job Summary (Job summary removed as requested, Bill to spans 50% left next to blank space)
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Client / Bill To Card
-              pw.Expanded(
-                flex: 5,
-                child: pw.Container(
-                  padding: const pw.EdgeInsets.all(12),
-                  decoration: pw.BoxDecoration(
-                    color: _bgLight,
-                    borderRadius: pw.BorderRadius.circular(4),
-                    border: pw.Border.all(color: _borderLight, width: 0.8),
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'CLIENT / BILL TO',
-                        style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: _accentBlue, letterSpacing: 0.2),
-                      ),
-                      pw.SizedBox(height: 6),
-                      _gridRow(fonts, 'Client Name:', invoice.customerName),
-                      _gridRow(fonts, 'Account Type:', 'Job Work Processing (Contract)'),
-                      _gridRow(fonts, 'Facility Loc:', order.mineLocation?.isNotEmpty == true ? order.mineLocation! : 'Quetta Industrial Estate, Pakistan'),
-                    ],
-                  ),
+          // Section 2: CLIENT / BILL TO (Full Width & Multi-Row)
+          pw.Container(
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              color: _bgLight,
+              borderRadius: pw.BorderRadius.circular(4),
+              border: pw.Border.all(color: _borderLight, width: 0.8),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'CLIENT / BILL TO',
+                  style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: _accentBlue, letterSpacing: 0.2),
                 ),
-              ),
-              pw.SizedBox(width: 18),
-              // Empty space to preserve the layout balance
-              pw.Expanded(flex: 5, child: pw.SizedBox.shrink()),
-            ],
+                pw.SizedBox(height: 6),
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Expanded(
+                      child: _gridRow(fonts, 'Client Name:', invoice.customerName),
+                    ),
+                    pw.SizedBox(width: 24),
+                    pw.Expanded(
+                      child: _gridRow(fonts, 'Account Type:', 'Job Work Processing (Contract)'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           pw.SizedBox(height: 18),
 
@@ -365,7 +390,7 @@ abstract final class GrandInvoicePdfTemplate {
                         children: [
                           pw.Text('${formatWhole(aggregated.collectedPieces)} Collected ($collectedPercent%)', style: pw.TextStyle(font: fonts.bold, fontSize: 8, color: _greenText)),
                           pw.Text('  ·  ', style: pw.TextStyle(font: fonts.regular, fontSize: 8, color: _mutedGrey)),
-                          pw.Text('${formatWhole(aggregated.remainingPieces)} Remaining', style: pw.TextStyle(font: fonts.bold, fontSize: 8, color: _redText)),
+                          pw.Text('${formatWhole(aggregated.remainingPieces)} Rem', style: pw.TextStyle(font: fonts.bold, fontSize: 8, color: _redText)),
                         ],
                       ),
                     ],
@@ -494,12 +519,12 @@ abstract final class GrandInvoicePdfTemplate {
                       pw.SizedBox(height: 6),
                       pw.Container(
                         padding: const pw.EdgeInsets.all(8),
-                        color: _navy,
+                        decoration: pw.BoxDecoration(color: _navy, borderRadius: pw.BorderRadius.circular(3.3)),
                         child: pw.Row(
                           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                           children: [
                             pw.Text(
-                              'OUTSTANDING BALANCE\nDUE:',
+                              'OUTSTANDING BALANCE:',
                               style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: PdfColors.white),
                             ),
                             pw.Text(
@@ -520,7 +545,7 @@ abstract final class GrandInvoicePdfTemplate {
           // Section 6: QR, signatures, and bottom branding
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               // Scan to Verify
               pw.Row(
@@ -647,6 +672,15 @@ abstract final class GrandInvoicePdfTemplate {
     final smallRateStr = smallRates.isNotEmpty ? smallRates.map((r) => r.toStringAsFixed(2)).join(', ') : '0.00';
     final largeRateStr = largeRates.isNotEmpty ? largeRates.map((r) => r.toStringAsFixed(2)).join(', ') : '0.00';
 
+    final String thicknessClean;
+    final String rawThickness = load.thickness.toString();
+    if (rawThickness.toLowerCase().contains('sutar')) {
+      thicknessClean = rawThickness;
+    } else {
+      thicknessClean = '$rawThickness Sutar';
+    }
+    final String finishClean = load.finish.label;
+
     return pw.Container(
       decoration: pw.BoxDecoration(
         borderRadius: pw.BorderRadius.circular(4),
@@ -703,7 +737,7 @@ abstract final class GrandInvoicePdfTemplate {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       _gridRow(fonts, 'Cutting Strategy:', load.cuttingStrategy.label),
-                      _gridRow(fonts, 'Thickness/Finish:', '${load.thickness} Sutar ${load.finish}'),
+                      _gridRow(fonts, 'Thickness/Finish:', '$thicknessClean $finishClean'),
                     ],
                   ),
                 ),

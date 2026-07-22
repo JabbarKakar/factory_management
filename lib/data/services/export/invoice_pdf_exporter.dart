@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -166,6 +167,12 @@ class InvoicePdfExporter {
           factoryId: invoice.factoryId,
           jobWorkOrderId: invoice.jobWorkId,
         );
+        Uint8List? logoBytes;
+        try {
+          final byteData = await rootBundle.load('assets/images/app_logo.png');
+          logoBytes = byteData.buffer.asUint8List();
+        } catch (_) {}
+
         return GrandInvoicePdfTemplate.build(
           invoice: invoice,
           order: order,
@@ -174,6 +181,7 @@ class InvoicePdfExporter {
           payments: payments,
           factoryProfile: profile,
           fonts: fonts,
+          logoBytes: logoBytes,
         );
       }
     }
