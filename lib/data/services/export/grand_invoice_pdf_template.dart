@@ -245,7 +245,9 @@ abstract final class GrandInvoicePdfTemplate {
                     ),
                     alignment: pw.Alignment.center,
                     child: pw.Text(
-                      'GRAND INVOICE',
+                      invoice.loadId != null && invoice.loadId!.trim().isNotEmpty
+                          ? 'LOAD INVOICE'
+                          : 'GRAND INVOICE',
                       style: pw.TextStyle(
                         font: fonts.bold,
                         fontSize: 14,

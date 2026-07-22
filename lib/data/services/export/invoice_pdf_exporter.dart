@@ -152,37 +152,53 @@ class InvoicePdfExporter {
       factoryName = profile.name.trim();
     }
 
-    final isGrandInvoice = invoice.loadId == null || invoice.loadId!.trim().isEmpty;
-    if (isGrandInvoice) {
-      final jobWorkRepo = _jobWorkRepository ?? getIt<JobWorkRepository>();
-      final loadRepo = _loadRepository ?? getIt<JobWorkLoadRepository>();
+    final jobWorkRepo = _jobWorkRepository ?? getIt<JobWorkRepository>();
+    final loadRepo = _loadRepository ?? getIt<JobWorkLoadRepository>();
 
-      final order = await jobWorkRepo.getJobWorkOrder(invoice.jobWorkId);
-      if (order != null) {
-        final loads = await loadRepo.fetchLoadsForJobWork(
-          factoryId: invoice.factoryId,
-          jobWorkId: invoice.jobWorkId,
-        );
-        final collections = await getIt<JobWorkCollectionRepository>().fetchCollectionsForJobWork(
-          factoryId: invoice.factoryId,
-          jobWorkOrderId: invoice.jobWorkId,
-        );
-        Uint8List? logoBytes;
-        try {
-          final byteData = await rootBundle.load('assets/images/app_logo.png');
-          logoBytes = byteData.buffer.asUint8List();
-        } catch (_) {}
+    final order = await jobWorkRepo.getJobWorkOrder(invoice.jobWorkId);
+    if (order != null) {
+      final allLoads = await loadRepo.fetchLoadsForJobWork(
+        factoryId: invoice.factoryId,
+        jobWorkId: invoice.jobWorkId,
+      );
+      final collections = await getIt<JobWorkCollectionRepository>().fetchCollectionsForJobWork(
+        factoryId: invoice.factoryId,
+        jobWorkOrderId: invoice.jobWorkId,
+      );
 
+      Uint8List? logoBytes;
+      try {
+        final byteData = await rootBundle.load('assets/images/app_logo.png');
+        logoBytes = byteData.buffer.asUint8List();
+      } catch (_) {}
+
+      final isGrandInvoice = invoice.loadId == null || invoice.loadId!.trim().isEmpty;
+      if (isGrandInvoice) {
         return GrandInvoicePdfTemplate.build(
           invoice: invoice,
           order: order,
-          loads: loads,
+          loads: allLoads,
           collections: collections,
           payments: payments,
           factoryProfile: profile,
           fonts: fonts,
           logoBytes: logoBytes,
         );
+      } else {
+        final specificLoad = allLoads.where((l) => l.id == invoice.loadId).firstOrNull;
+        if (specificLoad != null) {
+          final loadCollections = collections.where((c) => c.loadId == invoice.loadId).toList();
+          return GrandInvoicePdfTemplate.build(
+            invoice: invoice,
+            order: order,
+            loads: [specificLoad],
+            collections: loadCollections,
+            payments: payments,
+            factoryProfile: profile,
+            fonts: fonts,
+            logoBytes: logoBytes,
+          );
+        }
       }
     }
 
