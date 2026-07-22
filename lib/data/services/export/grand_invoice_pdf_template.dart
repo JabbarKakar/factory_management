@@ -96,22 +96,18 @@ abstract final class GrandInvoicePdfTemplate {
       totalDue += fin.due;
     }
 
-    // Load status aggregation counts
-    final completedLoads = displayLoads.where((l) =>
-      l.status == JobWorkStatus.ready ||
-      l.status == JobWorkStatus.invoiced ||
-      l.status == JobWorkStatus.paid ||
-      l.status == JobWorkStatus.partiallyCollected ||
-      l.status == JobWorkStatus.collected ||
-      l.status == JobWorkStatus.closed
-    ).length;
+    // Load status aggregation counts over ALL active (non-cancelled, non-virtual) loads
+    final statusLoads = loads.where((l) => !l.isVirtual && l.status != JobWorkStatus.cancelled).toList();
+    final totalStatusLoads = statusLoads.length;
 
-    final inCuttingLoads = displayLoads.where((l) =>
+    final completedLoads = statusLoads.where((l) => l.status.isCompleted).length;
+
+    final inCuttingLoads = statusLoads.where((l) =>
       l.status == JobWorkStatus.inCutting ||
       l.status == JobWorkStatus.qc
     ).length;
 
-    final pendingLoads = displayLoads.length - completedLoads - inCuttingLoads;
+    final pendingLoads = totalStatusLoads - completedLoads - inCuttingLoads;
 
     final collectedPercent = aggregated.totalPieces > 0
         ? (aggregated.collectedPieces / aggregated.totalPieces * 100).toStringAsFixed(1)
@@ -346,7 +342,7 @@ abstract final class GrandInvoicePdfTemplate {
                       ),
                       pw.SizedBox(height: 4),
                       pw.Text(
-                        '${displayLoads.length} Total Loads',
+                        '$totalStatusLoads Total Loads',
                         style: pw.TextStyle(font: fonts.bold, fontSize: 13, color: _navy),
                       ),
                       pw.SizedBox(height: 4),
