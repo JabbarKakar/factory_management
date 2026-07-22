@@ -32,9 +32,13 @@ class JobWorkInvoiceRepository {
       _firestore.collection('jobWorkInvoices');
 
   Future<JobWorkInvoice?> getInvoice(String id) async {
-    final doc = await _collection.doc(id).get();
-    if (!doc.exists || doc.data() == null) return null;
-    return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    try {
+      final doc = await _collection.doc(id).get();
+      if (!doc.exists || doc.data() == null) return null;
+      return JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<JobWorkInvoice?> getInvoiceByJobWorkId({
@@ -46,8 +50,21 @@ class JobWorkInvoiceRepository {
       jobWorkId: jobWorkId,
     );
     final grandInvoices = invoices.where((i) => i.loadId == null || i.loadId!.isEmpty).toList();
-    if (grandInvoices.isEmpty) return null;
-    return grandInvoices.first;
+    if (grandInvoices.isNotEmpty) return grandInvoices.first;
+
+    // Fallback: If no grand invoice exists but load-scoped invoices do,
+    // and there is only 1 active load, return the first load-scoped invoice.
+    if (invoices.isNotEmpty) {
+      final loads = await _loadRepository.fetchLoadsForJobWork(
+        factoryId: factoryId,
+        jobWorkId: jobWorkId,
+      );
+      final activeLoads = loads.where((l) => !l.isVirtual && l.status != JobWorkStatus.cancelled).toList();
+      if (activeLoads.length == 1) {
+        return invoices.first;
+      }
+    }
+    return null;
   }
 
   Future<List<JobWorkInvoice>> getInvoicesByJobWorkId({
@@ -116,9 +133,23 @@ class JobWorkInvoiceRepository {
     return watchInvoicesByJobWorkId(
       factoryId: factoryId,
       jobWorkId: jobWorkId,
-    ).map((invoices) {
+    ).asyncMap((invoices) async {
       final grandInvoices = invoices.where((i) => i.loadId == null || i.loadId!.isEmpty).toList();
-      return grandInvoices.isEmpty ? null : grandInvoices.first;
+      if (grandInvoices.isNotEmpty) return grandInvoices.first;
+
+      // Fallback: If no grand invoice exists but load-scoped invoices do,
+      // and there is only 1 active load, return the first load-scoped invoice.
+      if (invoices.isNotEmpty) {
+        final loads = await _loadRepository.fetchLoadsForJobWork(
+          factoryId: factoryId,
+          jobWorkId: jobWorkId,
+        );
+        final activeLoads = loads.where((l) => !l.isVirtual && l.status != JobWorkStatus.cancelled).toList();
+        if (activeLoads.length == 1) {
+          return invoices.first;
+        }
+      }
+      return null;
     });
   }
 

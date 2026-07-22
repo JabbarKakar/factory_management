@@ -240,10 +240,13 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
       return;
     }
 
+    final preferred = _preferredInvoice(state.invoices, event.order, state.loads);
     emit(
       state.copyWith(
         status: JobWorkFormStatus.ready,
         order: event.order,
+        invoice: preferred,
+        clearInvoice: preferred == null,
       ),
     );
   }
@@ -253,7 +256,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     Emitter<JobWorkFormState> emit,
   ) async {
     final invoices = event.invoices;
-    final preferred = _preferredInvoice(invoices, state.order);
+    final preferred = _preferredInvoice(invoices, state.order, state.loads);
     emit(
       state.copyWith(
         invoices: invoices,
@@ -280,16 +283,28 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   JobWorkInvoice? _preferredInvoice(
     List<JobWorkInvoice> invoices,
     JobWorkOrder? order,
+    List<JobWorkLoad> loads,
   ) {
     final grandInvoices = invoices.where((i) => i.loadId == null || i.loadId!.isEmpty).toList();
-    if (grandInvoices.isEmpty) return null;
-    final orderInvoiceId = order?.invoiceId;
-    if (orderInvoiceId != null && orderInvoiceId.isNotEmpty) {
-      for (final invoice in grandInvoices) {
-        if (invoice.id == orderInvoiceId) return invoice;
+    if (grandInvoices.isNotEmpty) {
+      final orderInvoiceId = order?.invoiceId;
+      if (orderInvoiceId != null && orderInvoiceId.isNotEmpty) {
+        for (final invoice in grandInvoices) {
+          if (invoice.id == orderInvoiceId) return invoice;
+        }
+      }
+      return grandInvoices.first;
+    }
+
+    // Fallback: If no grand invoice exists but load-scoped invoices do,
+    // and there is only 1 active load, return the first load-scoped invoice.
+    if (invoices.isNotEmpty) {
+      final activeLoads = loads.where((l) => !l.isVirtual && l.status != JobWorkStatus.cancelled).toList();
+      if (activeLoads.length == 1) {
+        return invoices.first;
       }
     }
-    return grandInvoices.first;
+    return null;
   }
 
   void _onPaymentsUpdated(
@@ -376,9 +391,12 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     final loads = order == null
         ? event.loads
         : JobWorkLoadResolver.resolveLoads(order, event.loads);
+    final preferred = _preferredInvoice(state.invoices, order, loads);
     emit(
       state.copyWith(
         loads: loads,
+        invoice: preferred,
+        clearInvoice: preferred == null,
         qualityChecks: _relevantQualityChecks(loadIds: {
           for (final load in loads) load.id,
         }),
