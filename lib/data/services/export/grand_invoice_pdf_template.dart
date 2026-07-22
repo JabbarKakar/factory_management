@@ -435,7 +435,7 @@ abstract final class GrandInvoicePdfTemplate {
 
           // Section 4: Individual Loads Iteration
           for (var i = 0; i < displayLoads.length; i++) ...[
-            _buildLoadSection(
+            ..._buildLoadSection(
               load: displayLoads[i],
               index: i + 1,
               collections: collections,
@@ -605,7 +605,7 @@ abstract final class GrandInvoicePdfTemplate {
     return doc;
   }
 
-  static pw.Widget _buildLoadSection({
+  static List<pw.Widget> _buildLoadSection({
     required JobWorkLoad load,
     required int index,
     required List<JobWorkCollection> collections,
@@ -682,283 +682,280 @@ abstract final class GrandInvoicePdfTemplate {
     }
     final String finishClean = load.finish.label;
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-      children: [
-        // Header Bar
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
-          decoration: const pw.BoxDecoration(
-            color: _navy,
-            borderRadius: pw.BorderRadius.only(
-              topLeft: pw.Radius.circular(4),
-              topRight: pw.Radius.circular(4),
-            ),
+    return [
+      // Header Bar
+      pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+        decoration: const pw.BoxDecoration(
+          color: _navy,
+          borderRadius: pw.BorderRadius.only(
+            topLeft: pw.Radius.circular(4),
+            topRight: pw.Radius.circular(4),
           ),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Text(
+              'LOAD #$index: ${load.loadNumber.isNotEmpty ? load.loadNumber : "JWL-2026-000${load.loadSequence}"}',
+              style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: PdfColors.white),
+            ),
+            pw.Text(
+              'Received Date: ${dateFormat.format(load.receivedDate)}',
+              style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: PdfColors.white),
+            ),
+          ],
+        ),
+      ),
+
+      // Metadata Grid (Shifts removed, cutting strategy added)
+      pw.Container(
+        decoration: const pw.BoxDecoration(
+          border: pw.Border(
+            left: pw.BorderSide(color: _borderLight, width: 0.8),
+            right: pw.BorderSide(color: _borderLight, width: 0.8),
+            bottom: pw.BorderSide(color: _borderLight, width: 0.8),
+          ),
+        ),
+        padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _gridRow(fonts, 'Marble Variety:', load.marbleVariety),
+                  _gridRow(fonts, 'Block Details:', '${load.blockCount} blocks'),
+                ],
+              ),
+            ),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _gridRow(fonts, 'Mine Location:', load.mineLocation ?? 'N/A'),
+                  _gridRow(fonts, 'Mine Owner:', load.mineOwner ?? 'N/A'),
+                ],
+              ),
+            ),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _gridRow(fonts, 'Cutting Strategy:', load.cuttingStrategy.label),
+                  _gridRow(fonts, 'Thickness/Finish:', '$thicknessClean $finishClean'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      pw.SizedBox(height: 8),
+
+      // Table
+      if (produced.isNotEmpty) ...[
+        pw.Table(
+          border: const pw.TableBorder(
+            horizontalInside: pw.BorderSide(color: _borderLight, width: 0.4),
+            top: pw.BorderSide(color: _borderLight, width: 0.6),
+            bottom: pw.BorderSide(color: _borderLight, width: 0.6),
+            left: pw.BorderSide(color: _borderLight, width: 0.8),
+            right: pw.BorderSide(color: _borderLight, width: 0.8),
+          ),
+          columnWidths: {
+            0: const pw.FlexColumnWidth(3.2),
+            1: const pw.FlexColumnWidth(1.2),
+            2: const pw.FlexColumnWidth(1.2),
+            3: const pw.FlexColumnWidth(1.2),
+            4: const pw.FlexColumnWidth(1.5),
+            5: const pw.FlexColumnWidth(1.5),
+            6: const pw.FlexColumnWidth(1.5),
+            7: const pw.FlexColumnWidth(1.5),
+            8: const pw.FlexColumnWidth(2),
+          },
+          children: [
+            pw.TableRow(
+              decoration: const pw.BoxDecoration(color: _cardHeaderBg),
+              children: [
+                _tableHeader(fonts, isSingleLoad ? 'SIZE / DIMENSION (STATUS)' : 'SIZE CATEGORY', alignRight: false),
+                _tableHeader(fonts, 'TOTAL PCS', alignRight: true),
+                _tableHeader(fonts, 'COLL. PCS', alignRight: true),
+                _tableHeader(fonts, 'REM. PCS', alignRight: true),
+                _tableHeader(fonts, 'TOTAL SQFT', alignRight: true),
+                _tableHeader(fonts, 'COLL. SQFT', alignRight: true),
+                _tableHeader(fonts, 'REM. SQFT', alignRight: true),
+                _tableHeader(fonts, 'RATE (PKR)', alignRight: true),
+                _tableHeader(fonts, 'CHARGES (PKR)', alignRight: true),
+              ],
+            ),
+            if (isSingleLoad) ...[
+              // Detailed rendering for each individual size (small then large)
+              if (produced.where((s) => JobWorkSizes.isSmall(s.size)).isNotEmpty) ...[
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: _bgLight),
+                  children: [
+                    _tableCell(fonts, 'Small Sizes', alignRight: false, isBold: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                  ],
+                ),
+                ...produced.where((s) => JobWorkSizes.isSmall(s.size)).map((stock) {
+                  final colPieces = JobWorkCollectionQuantityHelper.collectedPiecesForSize(stock.size, loadCollections);
+                  final colSqFt = JobWorkCollectionQuantityHelper.collectedSquareFeetForSize(stock.size, loadCollections);
+                  final remPieces = math.max(0, stock.pieces - colPieces);
+                  final remSqFt = JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
+                    remainingPieces: remPieces,
+                    rawSquareFeet: stock.squareFeet - colSqFt,
+                  );
+                  final sizeStatus = colPieces == 0
+                      ? 'Ready'
+                      : (colPieces >= stock.pieces ? 'Collected' : 'Part. Coll.');
+
+                  return pw.TableRow(
+                    children: [
+                      _tableCell(fonts, '    ${stock.size} ($sizeStatus)', alignRight: false),
+                      _tableCell(fonts, formatWhole(stock.pieces), alignRight: true),
+                      _tableCell(fonts, formatWhole(colPieces), alignRight: true),
+                      _tableCell(fonts, formatWhole(remPieces), alignRight: true),
+                      _tableCell(fonts, formatAmount(stock.squareFeet), alignRight: true),
+                      _tableCell(fonts, formatAmount(colSqFt), alignRight: true),
+                      _tableCell(fonts, formatAmount(remSqFt), alignRight: true),
+                      _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2), alignRight: true),
+                      _tableCell(fonts, formatAmount(stock.amount), alignRight: true),
+                    ],
+                  );
+                }),
+              ],
+              if (produced.where((s) => !JobWorkSizes.isSmall(s.size)).isNotEmpty) ...[
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: _bgLight),
+                  children: [
+                    _tableCell(fonts, 'Large Sizes', alignRight: false, isBold: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                    _tableCell(fonts, '', alignRight: true),
+                  ],
+                ),
+                ...produced.where((s) => !JobWorkSizes.isSmall(s.size)).map((stock) {
+                  final colPieces = JobWorkCollectionQuantityHelper.collectedPiecesForSize(stock.size, loadCollections);
+                  final colSqFt = JobWorkCollectionQuantityHelper.collectedSquareFeetForSize(stock.size, loadCollections);
+                  final remPieces = math.max(0, stock.pieces - colPieces);
+                  final remSqFt = JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
+                    remainingPieces: remPieces,
+                    rawSquareFeet: stock.squareFeet - colSqFt,
+                  );
+                  final sizeStatus = colPieces == 0
+                      ? 'Ready'
+                      : (colPieces >= stock.pieces ? 'Collected' : 'Part. Coll.');
+
+                  return pw.TableRow(
+                    children: [
+                      _tableCell(fonts, '    ${stock.size} ($sizeStatus)', alignRight: false),
+                      _tableCell(fonts, formatWhole(stock.pieces), alignRight: true),
+                      _tableCell(fonts, formatWhole(colPieces), alignRight: true),
+                      _tableCell(fonts, formatWhole(remPieces), alignRight: true),
+                      _tableCell(fonts, formatAmount(stock.squareFeet), alignRight: true),
+                      _tableCell(fonts, formatAmount(colSqFt), alignRight: true),
+                      _tableCell(fonts, formatAmount(remSqFt), alignRight: true),
+                      _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2), alignRight: true),
+                      _tableCell(fonts, formatAmount(stock.amount), alignRight: true),
+                    ],
+                  );
+                }),
+              ],
+            ] else ...[
+              // Summarized rendering (Grand Invoice)
+              pw.TableRow(
+                children: [
+                  _tableCell(fonts, '    Small Sizes', alignRight: false),
+                  _tableCell(fonts, formatWhole(smallTotalPieces), alignRight: true),
+                  _tableCell(fonts, formatWhole(smallCollectedPieces), alignRight: true),
+                  _tableCell(fonts, formatWhole(smallRemainingPieces), alignRight: true),
+                  _tableCell(fonts, formatAmount(smallTotalSqFt), alignRight: true),
+                  _tableCell(fonts, formatAmount(smallCollectedSqFt), alignRight: true),
+                  _tableCell(fonts, formatAmount(smallRemainingSqFt), alignRight: true),
+                  _tableCell(fonts, smallRateStr, alignRight: true),
+                  _tableCell(fonts, formatAmount(smallTotalAmount), alignRight: true),
+                ],
+              ),
+              pw.TableRow(
+                children: [
+                  _tableCell(fonts, '    Large Sizes', alignRight: false),
+                  _tableCell(fonts, formatWhole(largeTotalPieces), alignRight: true),
+                  _tableCell(fonts, formatWhole(largeCollectedPieces), alignRight: true),
+                  _tableCell(fonts, formatWhole(largeRemainingPieces), alignRight: true),
+                  _tableCell(fonts, formatAmount(largeTotalSqFt), alignRight: true),
+                  _tableCell(fonts, formatAmount(largeCollectedSqFt), alignRight: true),
+                  _tableCell(fonts, formatAmount(largeRemainingSqFt), alignRight: true),
+                  _tableCell(fonts, largeRateStr, alignRight: true),
+                  _tableCell(fonts, formatAmount(largeTotalAmount), alignRight: true),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ] else ...[
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
-                'LOAD #$index: ${load.loadNumber.isNotEmpty ? load.loadNumber : "JWL-2026-000${load.loadSequence}"}',
-                style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: PdfColors.white),
+                'No individual stock outputs recorded. General cutting charges apply.',
+                style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: _mutedGrey, fontStyle: pw.FontStyle.italic),
               ),
               pw.Text(
-                'Received Date: ${dateFormat.format(load.receivedDate)}',
-                style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: PdfColors.white),
-              ),
-            ],
-          ),
-        ),
-
-        // Metadata Grid (Shifts removed, cutting strategy added)
-        pw.Container(
-          decoration: const pw.BoxDecoration(
-            border: pw.Border(
-              left: pw.BorderSide(color: _borderLight, width: 0.8),
-              right: pw.BorderSide(color: _borderLight, width: 0.8),
-              bottom: pw.BorderSide(color: _borderLight, width: 0.8),
-            ),
-          ),
-          padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-          child: pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    _gridRow(fonts, 'Marble Variety:', load.marbleVariety),
-                    _gridRow(fonts, 'Block Details:', '${load.blockCount} blocks'),
-                  ],
-                ),
-              ),
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    _gridRow(fonts, 'Mine Location:', load.mineLocation ?? 'N/A'),
-                    _gridRow(fonts, 'Mine Owner:', load.mineOwner ?? 'N/A'),
-                  ],
-                ),
-              ),
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    _gridRow(fonts, 'Cutting Strategy:', load.cuttingStrategy.label),
-                    _gridRow(fonts, 'Thickness/Finish:', '$thicknessClean $finishClean'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        pw.SizedBox(height: 8),
-
-        // Table
-        if (produced.isNotEmpty) ...[
-          pw.Table(
-            border: const pw.TableBorder(
-              horizontalInside: pw.BorderSide(color: _borderLight, width: 0.4),
-              top: pw.BorderSide(color: _borderLight, width: 0.6),
-              bottom: pw.BorderSide(color: _borderLight, width: 0.6),
-              left: pw.BorderSide(color: _borderLight, width: 0.8),
-              right: pw.BorderSide(color: _borderLight, width: 0.8),
-            ),
-            columnWidths: {
-              0: const pw.FlexColumnWidth(3.2),
-              1: const pw.FlexColumnWidth(1.2),
-              2: const pw.FlexColumnWidth(1.2),
-              3: const pw.FlexColumnWidth(1.2),
-              4: const pw.FlexColumnWidth(1.5),
-              5: const pw.FlexColumnWidth(1.5),
-              6: const pw.FlexColumnWidth(1.5),
-              7: const pw.FlexColumnWidth(1.5),
-              8: const pw.FlexColumnWidth(2),
-            },
-            children: [
-              pw.TableRow(
-                decoration: const pw.BoxDecoration(color: _cardHeaderBg),
-                children: [
-                  _tableHeader(fonts, isSingleLoad ? 'SIZE / DIMENSION (STATUS)' : 'SIZE CATEGORY', alignRight: false),
-                  _tableHeader(fonts, 'TOTAL PCS', alignRight: true),
-                  _tableHeader(fonts, 'COLL. PCS', alignRight: true),
-                  _tableHeader(fonts, 'REM. PCS', alignRight: true),
-                  _tableHeader(fonts, 'TOTAL SQFT', alignRight: true),
-                  _tableHeader(fonts, 'COLL. SQFT', alignRight: true),
-                  _tableHeader(fonts, 'REM. SQFT', alignRight: true),
-                  _tableHeader(fonts, 'RATE (PKR)', alignRight: true),
-                  _tableHeader(fonts, 'CHARGES (PKR)', alignRight: true),
-                ],
-              ),
-              if (isSingleLoad) ...[
-                // Detailed rendering for each individual size (small then large)
-                if (produced.where((s) => JobWorkSizes.isSmall(s.size)).isNotEmpty) ...[
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: _bgLight),
-                    children: [
-                      _tableCell(fonts, 'Small Sizes', alignRight: false, isBold: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                    ],
-                  ),
-                  ...produced.where((s) => JobWorkSizes.isSmall(s.size)).map((stock) {
-                    final colPieces = JobWorkCollectionQuantityHelper.collectedPiecesForSize(stock.size, loadCollections);
-                    final colSqFt = JobWorkCollectionQuantityHelper.collectedSquareFeetForSize(stock.size, loadCollections);
-                    final remPieces = math.max(0, stock.pieces - colPieces);
-                    final remSqFt = JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
-                      remainingPieces: remPieces,
-                      rawSquareFeet: stock.squareFeet - colSqFt,
-                    );
-                    final sizeStatus = colPieces == 0
-                        ? 'Ready'
-                        : (colPieces >= stock.pieces ? 'Collected' : 'Part. Coll.');
-
-                    return pw.TableRow(
-                      children: [
-                        _tableCell(fonts, '    ${stock.size} ($sizeStatus)', alignRight: false),
-                        _tableCell(fonts, formatWhole(stock.pieces), alignRight: true),
-                        _tableCell(fonts, formatWhole(colPieces), alignRight: true),
-                        _tableCell(fonts, formatWhole(remPieces), alignRight: true),
-                        _tableCell(fonts, formatAmount(stock.squareFeet), alignRight: true),
-                        _tableCell(fonts, formatAmount(colSqFt), alignRight: true),
-                        _tableCell(fonts, formatAmount(remSqFt), alignRight: true),
-                        _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2), alignRight: true),
-                        _tableCell(fonts, formatAmount(stock.amount), alignRight: true),
-                      ],
-                    );
-                  }),
-                ],
-                if (produced.where((s) => !JobWorkSizes.isSmall(s.size)).isNotEmpty) ...[
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: _bgLight),
-                    children: [
-                      _tableCell(fonts, 'Large Sizes', alignRight: false, isBold: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                      _tableCell(fonts, '', alignRight: true),
-                    ],
-                  ),
-                  ...produced.where((s) => !JobWorkSizes.isSmall(s.size)).map((stock) {
-                    final colPieces = JobWorkCollectionQuantityHelper.collectedPiecesForSize(stock.size, loadCollections);
-                    final colSqFt = JobWorkCollectionQuantityHelper.collectedSquareFeetForSize(stock.size, loadCollections);
-                    final remPieces = math.max(0, stock.pieces - colPieces);
-                    final remSqFt = JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
-                      remainingPieces: remPieces,
-                      rawSquareFeet: stock.squareFeet - colSqFt,
-                    );
-                    final sizeStatus = colPieces == 0
-                        ? 'Ready'
-                        : (colPieces >= stock.pieces ? 'Collected' : 'Part. Coll.');
-
-                    return pw.TableRow(
-                      children: [
-                        _tableCell(fonts, '    ${stock.size} ($sizeStatus)', alignRight: false),
-                        _tableCell(fonts, formatWhole(stock.pieces), alignRight: true),
-                        _tableCell(fonts, formatWhole(colPieces), alignRight: true),
-                        _tableCell(fonts, formatWhole(remPieces), alignRight: true),
-                        _tableCell(fonts, formatAmount(stock.squareFeet), alignRight: true),
-                        _tableCell(fonts, formatAmount(colSqFt), alignRight: true),
-                        _tableCell(fonts, formatAmount(remSqFt), alignRight: true),
-                        _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2), alignRight: true),
-                        _tableCell(fonts, formatAmount(stock.amount), alignRight: true),
-                      ],
-                    );
-                  }),
-                ],
-              ] else ...[
-                // Summarized rendering (Grand Invoice)
-                pw.TableRow(
-                  children: [
-                    _tableCell(fonts, '    Small Sizes', alignRight: false),
-                    _tableCell(fonts, formatWhole(smallTotalPieces), alignRight: true),
-                    _tableCell(fonts, formatWhole(smallCollectedPieces), alignRight: true),
-                    _tableCell(fonts, formatWhole(smallRemainingPieces), alignRight: true),
-                    _tableCell(fonts, formatAmount(smallTotalSqFt), alignRight: true),
-                    _tableCell(fonts, formatAmount(smallCollectedSqFt), alignRight: true),
-                    _tableCell(fonts, formatAmount(smallRemainingSqFt), alignRight: true),
-                    _tableCell(fonts, smallRateStr, alignRight: true),
-                    _tableCell(fonts, formatAmount(smallTotalAmount), alignRight: true),
-                  ],
-                ),
-                pw.TableRow(
-                  children: [
-                    _tableCell(fonts, '    Large Sizes', alignRight: false),
-                    _tableCell(fonts, formatWhole(largeTotalPieces), alignRight: true),
-                    _tableCell(fonts, formatWhole(largeCollectedPieces), alignRight: true),
-                    _tableCell(fonts, formatWhole(largeRemainingPieces), alignRight: true),
-                    _tableCell(fonts, formatAmount(largeTotalSqFt), alignRight: true),
-                    _tableCell(fonts, formatAmount(largeCollectedSqFt), alignRight: true),
-                    _tableCell(fonts, formatAmount(largeRemainingSqFt), alignRight: true),
-                    _tableCell(fonts, largeRateStr, alignRight: true),
-                    _tableCell(fonts, formatAmount(largeTotalAmount), alignRight: true),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ] else ...[
-          pw.Padding(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'No individual stock outputs recorded. General cutting charges apply.',
-                  style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: _mutedGrey, fontStyle: pw.FontStyle.italic),
-                ),
-                pw.Text(
-                  'PKR ${formatAmount(load.finalCuttingCharges)}',
-                  style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: _navy),
-                ),
-              ],
-            ),
-          ),
-        ],
-
-        // Subtotals bar in Gold background with gold borders
-        pw.Container(
-          padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
-          decoration: pw.BoxDecoration(
-            color: _goldBg,
-            border: pw.Border.all(color: _borderLight, width: 0.8),
-            borderRadius: const pw.BorderRadius.only(
-              bottomLeft: pw.Radius.circular(4),
-              bottomRight: pw.Radius.circular(4),
-            ),
-          ),
-          child: pw.Row(
-            children: [
-              pw.Text(
-                'Load #$index Total: PKR ${formatAmount(fin.charges)}',
-                style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _navy),
-              ),
-              pw.Spacer(),
-              pw.Text(
-                'Paid: PKR ${formatAmount(fin.paid)}',
-                style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _greenText),
-              ),
-              pw.SizedBox(width: 24),
-              pw.Text(
-                'Remaining Balance: PKR ${formatAmount(fin.due)}',
-                style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: fin.due > 0 ? _redText : _greenText),
+                'PKR ${formatAmount(load.finalCuttingCharges)}',
+                style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: _navy),
               ),
             ],
           ),
         ),
       ],
-    );
+
+      // Subtotals bar in Gold background with gold borders
+      pw.Container(
+        padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+        decoration: pw.BoxDecoration(
+          color: _goldBg,
+          border: pw.Border.all(color: _borderLight, width: 0.8),
+          borderRadius: const pw.BorderRadius.only(
+            bottomLeft: pw.Radius.circular(4),
+            bottomRight: pw.Radius.circular(4),
+          ),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Text(
+              'Load #$index Total: PKR ${formatAmount(fin.charges)}',
+              style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _navy),
+            ),
+            pw.Spacer(),
+            pw.Text(
+              'Paid: PKR ${formatAmount(fin.paid)}',
+              style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _greenText),
+            ),
+            pw.SizedBox(width: 24),
+            pw.Text(
+              'Remaining Balance: PKR ${formatAmount(fin.due)}',
+              style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: fin.due > 0 ? _redText : _greenText),
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   // Header helpers
