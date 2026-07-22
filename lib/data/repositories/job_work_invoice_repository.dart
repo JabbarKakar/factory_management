@@ -725,6 +725,26 @@ class JobWorkInvoiceRepository {
       totalPaid: newPaidAmount,
     );
 
+    final totalUnchanged = (newTotalAmount - grandInvoice.totalAmount).abs() < 0.01;
+    final paidUnchanged = (newPaidAmount - grandInvoice.paidAmount).abs() < 0.01;
+    final dueUnchanged = (newDueAmount - grandInvoice.dueAmount).abs() < 0.01;
+    final statusUnchanged = newStatus == grandInvoice.status;
+
+    var itemsUnchanged = grandInvoice.lineItems.length == newLineItems.length;
+    if (itemsUnchanged) {
+      for (var i = 0; i < newLineItems.length; i++) {
+        if (grandInvoice.lineItems[i].description != newLineItems[i].description ||
+            (grandInvoice.lineItems[i].amount - newLineItems[i].amount).abs() > 0.01) {
+          itemsUnchanged = false;
+          break;
+        }
+      }
+    }
+
+    if (totalUnchanged && paidUnchanged && dueUnchanged && statusUnchanged && itemsUnchanged) {
+      return grandInvoice;
+    }
+
     final updates = <String, dynamic>{
       'total': newTotalAmount,
       'paid': newPaidAmount,

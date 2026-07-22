@@ -2,21 +2,33 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../core/di/injection.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/job_work_invoice.dart';
 import '../../../domain/entities/payment.dart';
 import '../../../domain/entities/sales_invoice.dart';
 import '../../repositories/factory_repository.dart';
+import '../../repositories/job_work_repository.dart';
+import '../../repositories/job_work_load_repository.dart';
+import '../../repositories/job_work_collection_repository.dart';
 import 'pdf_document_theme.dart';
 import 'pdf_fonts.dart';
 import 'proforma_invoice_pdf_template.dart';
+import 'grand_invoice_pdf_template.dart';
 
 class InvoicePdfExporter {
-  InvoicePdfExporter({FactoryRepository? factoryRepository})
-      : _factoryRepository = factoryRepository;
+  InvoicePdfExporter({
+    FactoryRepository? factoryRepository,
+    JobWorkRepository? jobWorkRepository,
+    JobWorkLoadRepository? loadRepository,
+  })  : _factoryRepository = factoryRepository,
+        _jobWorkRepository = jobWorkRepository,
+        _loadRepository = loadRepository;
 
   final FactoryRepository? _factoryRepository;
+  final JobWorkRepository? _jobWorkRepository;
+  final JobWorkLoadRepository? _loadRepository;
   Future<pw.Document> buildSalesInvoicePdf({
     required SalesInvoice invoice,
     required List<Payment> payments,
@@ -131,14 +143,38 @@ class InvoicePdfExporter {
     final fonts = await PdfFonts.load();
     final dateFormat = DateFormat.yMMMd();
 
-    String? factoryPhone;
-    String? factoryAddress;
-    if (_factoryRepository != null) {
-      final profile = await _factoryRepository.getFactory(invoice.factoryId);
-      factoryPhone = profile?.phone?.trim();
-      factoryAddress = profile?.address?.trim();
-      if (profile != null && profile.name.trim().isNotEmpty) {
-        factoryName = profile.name.trim();
+    final factoryRepo = _factoryRepository ?? getIt<FactoryRepository>();
+    final profile = await factoryRepo.getFactory(invoice.factoryId);
+    String? factoryPhone = profile?.phone?.trim();
+    String? factoryAddress = profile?.address?.trim();
+    if (profile != null && profile.name.trim().isNotEmpty) {
+      factoryName = profile.name.trim();
+    }
+
+    final isGrandInvoice = invoice.loadId == null || invoice.loadId!.trim().isEmpty;
+    if (isGrandInvoice) {
+      final jobWorkRepo = _jobWorkRepository ?? getIt<JobWorkRepository>();
+      final loadRepo = _loadRepository ?? getIt<JobWorkLoadRepository>();
+
+      final order = await jobWorkRepo.getJobWorkOrder(invoice.jobWorkId);
+      if (order != null) {
+        final loads = await loadRepo.fetchLoadsForJobWork(
+          factoryId: invoice.factoryId,
+          jobWorkId: invoice.jobWorkId,
+        );
+        final collections = await getIt<JobWorkCollectionRepository>().fetchCollectionsForJobWork(
+          factoryId: invoice.factoryId,
+          jobWorkOrderId: invoice.jobWorkId,
+        );
+        return GrandInvoicePdfTemplate.build(
+          invoice: invoice,
+          order: order,
+          loads: loads,
+          collections: collections,
+          payments: payments,
+          factoryProfile: profile,
+          fonts: fonts,
+        );
       }
     }
 
