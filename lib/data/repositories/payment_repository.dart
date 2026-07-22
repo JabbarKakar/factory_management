@@ -141,9 +141,13 @@ class PaymentRepository {
   }
 
   Future<Payment?> getPayment(String id) async {
-    final doc = await _collection.doc(id).get();
-    if (!doc.exists || doc.data() == null) return null;
-    return PaymentModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    try {
+      final doc = await _collection.doc(id).get();
+      if (!doc.exists || doc.data() == null) return null;
+      return PaymentModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Payment> updatePayment({
@@ -277,8 +281,24 @@ class PaymentRepository {
         factoryId: invoice.factoryId,
         invoiceId: invoiceId,
       );
-      final paidAmount =
+      var paidAmount =
           payments.fold<double>(0, (sum, payment) => sum + payment.amount);
+
+      final loadId = invoice.loadId?.trim();
+      if (loadId != null && loadId.isNotEmpty) {
+        final advanceId = 'advance_load_$loadId';
+        DocumentSnapshot<Map<String, dynamic>>? advanceDoc;
+        try {
+          advanceDoc = await _firestore.collection('payments').doc(advanceId).get();
+        } catch (_) {}
+        if (advanceDoc != null && advanceDoc.exists) {
+          final isAlreadyCounted = payments.any((p) => p.id == advanceId);
+          if (!isAlreadyCounted) {
+            paidAmount += (advanceDoc.data()?['amount'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+      }
+
       final dueAmount = (invoice.totalAmount - paidAmount).clamp(0, invoice.totalAmount);
       final status = InvoiceStatus.fromAmounts(
         dueAmount: dueAmount.toDouble(),
@@ -300,7 +320,6 @@ class PaymentRepository {
         jobWorkId: invoice.jobWorkId,
       );
 
-      final loadId = invoice.loadId?.trim();
       if (loadId != null && loadId.isNotEmpty) {
         final load = await _jobWorkLoadRepository.getLoad(loadId);
         if (load != null) {
@@ -399,11 +418,17 @@ class PaymentRepository {
     if (invoiceType == InvoiceType.sales) {
       final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
       if (invoice == null || invoice.paidAmount <= 0) return;
-      final existing = await getPaymentsForInvoice(
-        factoryId: invoice.factoryId,
-        invoiceId: invoiceId,
-      );
-      if (existing.isNotEmpty) return;
+      
+      final paymentId = 'advance_sales_${invoice.salesOrderId}';
+      bool exists = false;
+      try {
+        final existingDoc = await _collection.doc(paymentId).get();
+        exists = existingDoc.exists;
+      } catch (_) {
+        exists = false;
+      }
+      if (exists) return;
+
       await _createStandalonePayment(
         factoryId: invoice.factoryId,
         customerId: invoice.customerId,
@@ -414,28 +439,79 @@ class PaymentRepository {
         amount: invoice.paidAmount,
         paymentDate: invoice.createdAt,
         notes: 'Amount received at invoicing (incl. advance)',
+        paymentId: paymentId,
       );
       return;
     }
 
     final invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
     if (invoice == null || invoice.paidAmount <= 0) return;
-    final existing = await getPaymentsForInvoice(
-      factoryId: invoice.factoryId,
-      invoiceId: invoiceId,
-    );
-    if (existing.isNotEmpty) return;
-    await _createStandalonePayment(
-      factoryId: invoice.factoryId,
-      customerId: invoice.customerId,
-      customerName: invoice.customerName,
-      invoiceId: invoice.id,
-      invoiceType: InvoiceType.jobWork,
-      invoiceNumber: invoice.invoiceNumber,
-      amount: invoice.paidAmount,
-      paymentDate: invoice.createdAt,
-      notes: 'Amount received at invoicing (incl. advance)',
-    );
+
+    final order = await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
+    if (order == null) return;
+
+    if (order.isLoadsAuthoritative) {
+      final loads = await _jobWorkLoadRepository.fetchLoadsForJobWork(
+        factoryId: invoice.factoryId,
+        jobWorkId: invoice.jobWorkId,
+      );
+      
+      final loadsToProcess = invoice.loadId != null && invoice.loadId!.trim().isNotEmpty
+          ? loads.where((l) => l.id == invoice.loadId)
+          : loads;
+
+      for (final load in loadsToProcess) {
+        if (load.advanceReceived <= 0) continue;
+
+        final paymentId = 'advance_load_${load.id}';
+        bool exists = false;
+        try {
+          final existingDoc = await _collection.doc(paymentId).get();
+          exists = existingDoc.exists;
+        } catch (_) {
+          exists = false;
+        }
+        if (exists) continue;
+
+        await _createStandalonePayment(
+          factoryId: invoice.factoryId,
+          customerId: invoice.customerId,
+          customerName: invoice.customerName,
+          invoiceId: invoice.id,
+          invoiceType: InvoiceType.jobWork,
+          invoiceNumber: invoice.invoiceNumber,
+          amount: load.advanceReceived,
+          paymentDate: invoice.createdAt,
+          notes: 'Amount received at invoicing (incl. advance)',
+          paymentId: paymentId,
+        );
+      }
+    } else {
+      if (order.advanceReceived <= 0) return;
+
+      final paymentId = 'advance_job_${order.id}';
+      bool exists = false;
+      try {
+        final existingDoc = await _collection.doc(paymentId).get();
+        exists = existingDoc.exists;
+      } catch (_) {
+        exists = false;
+      }
+      if (exists) return;
+
+      await _createStandalonePayment(
+        factoryId: invoice.factoryId,
+        customerId: invoice.customerId,
+        customerName: invoice.customerName,
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.jobWork,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: order.advanceReceived,
+        paymentDate: invoice.createdAt,
+        notes: 'Amount received at invoicing (incl. advance)',
+        paymentId: paymentId,
+      );
+    }
   }
 
   Future<Payment> recordJobWorkPayment({
@@ -667,10 +743,11 @@ class PaymentRepository {
     PaymentMethod method = PaymentMethod.cash,
     String? reference,
     String? notes,
+    String? paymentId,
   }) async {
-    final paymentId = _uuid.v4();
+    final id = paymentId ?? _uuid.v4();
     final payment = Payment(
-      id: paymentId,
+      id: id,
       factoryId: factoryId,
       customerId: customerId,
       customerName: customerName,
@@ -685,9 +762,9 @@ class PaymentRepository {
       createdAt: DateTime.now(),
     );
 
-    await _collection.doc(paymentId).set(
+    await _collection.doc(id).set(
           PaymentModel(
-            id: paymentId,
+            id: id,
             factoryId: payment.factoryId,
             customerId: payment.customerId,
             customerName: payment.customerName,

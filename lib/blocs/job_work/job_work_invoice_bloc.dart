@@ -511,9 +511,16 @@ class JobWorkInvoiceBloc
                       _paymentsByInvoiceId[invoice.id] = payments;
                       final merged = _paymentsByInvoiceId.values
                           .expand((items) => items)
-                          .toList()
+                          .toList();
+                      
+                      final unique = <String, Payment>{};
+                      for (final p in merged) {
+                        unique[p.id] = p;
+                      }
+                      
+                      final deduplicated = unique.values.toList()
                         ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
-                      if (!isClosed) add(_JobWorkInvoicePaymentsUpdated(merged));
+                      if (!isClosed) add(_JobWorkInvoicePaymentsUpdated(deduplicated));
                     },
                     onError: (_) {},
                   );
@@ -610,17 +617,34 @@ class JobWorkInvoiceBloc
         );
         allPayments.addAll(pmts);
       }
-      allPayments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
-      invoicePayments = allPayments;
+      final unique = <String, Payment>{};
+      for (final p in allPayments) {
+        unique[p.id] = p;
+      }
+      final deduplicated = unique.values.toList()
+        ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+      invoicePayments = deduplicated;
     } else {
       await _paymentRepository.ensureInvoicePaidAmountRecorded(
         invoiceId: invoice.id,
         invoiceType: InvoiceType.jobWork,
       );
-      invoicePayments = await _paymentRepository.getPaymentsForInvoice(
+      final pmts = await _paymentRepository.getPaymentsForInvoice(
         factoryId: invoice.factoryId,
         invoiceId: invoice.id,
       );
+      final list = List<Payment>.from(pmts);
+      if (invoice.loadId != null && invoice.loadId!.trim().isNotEmpty) {
+        final advanceId = 'advance_load_${invoice.loadId}';
+        final adv = await _paymentRepository.getPayment(advanceId);
+        if (adv != null) {
+          final isAlreadyCounted = list.any((p) => p.id == advanceId);
+          if (!isAlreadyCounted) {
+            list.add(adv);
+          }
+        }
+      }
+      invoicePayments = list..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
     }
 
     emit(

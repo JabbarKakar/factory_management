@@ -335,10 +335,17 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
               _paymentsByInvoiceId[invoice.id] = payments;
               final merged = _paymentsByInvoiceId.values
                   .expand((items) => items)
-                  .toList()
+                  .toList();
+              
+              final unique = <String, Payment>{};
+              for (final p in merged) {
+                unique[p.id] = p;
+              }
+              
+              final deduplicated = unique.values.toList()
                 ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
               if (!isClosed) {
-                add(_JobWorkPaymentsUpdated(merged));
+                add(_JobWorkPaymentsUpdated(deduplicated));
               }
             },
             onError: (_) {},

@@ -564,6 +564,57 @@ class JobWorkLoadRepository {
         .where('factoryId', isEqualTo: order.factoryId)
         .where('jobWorkId', isEqualTo: order.id)
         .get();
+    // Always sync load-scoped invoices to align with recorded output and advances
+    final loadInvoiceDocs = invoicesSnap.docs.where((doc) {
+      final loadId = doc.data()['loadId'] as String?;
+      return loadId != null && loadId.trim().isNotEmpty;
+    }).toList();
+
+    for (final doc in loadInvoiceDocs) {
+      final loadId = doc.data()['loadId'] as String;
+      final load = loads.where((l) => l.id == loadId).firstOrNull;
+      if (load != null) {
+        final total = load.finalCuttingCharges;
+        
+        final paymentsSnap = await _firestore
+            .collection('payments')
+            .where('factoryId', isEqualTo: order.factoryId)
+            .where('invoiceId', isEqualTo: doc.id)
+            .get();
+        var paid = paymentsSnap.docs
+            .map((d) => d.data())
+            .fold<double>(0.0, (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0));
+            
+        final advanceId = 'advance_load_${load.id}';
+        DocumentSnapshot<Map<String, dynamic>>? advanceDoc;
+        try {
+          advanceDoc = await _firestore.collection('payments').doc(advanceId).get();
+        } catch (_) {}
+        if (advanceDoc != null && advanceDoc.exists) {
+          final isAlreadyCounted = paymentsSnap.docs.any((d) => d.id == advanceId);
+          if (!isAlreadyCounted) {
+            paid += (advanceDoc.data()?['amount'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+        
+        final due = (total - paid).clamp(0.0, total).toDouble();
+        final status = InvoiceStatus.fromAmounts(
+          dueAmount: due,
+          paidAmount: paid,
+          totalAmount: total,
+          dueDate: (doc.data()['dueDate'] as Timestamp?)?.toDate(),
+        );
+        
+        await _invoices.doc(doc.id).update({
+          'total': total,
+          'paid': paid,
+          'due': due,
+          'status': status.firestoreValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
     final grandInvoiceDoc = invoicesSnap.docs
         .where((doc) =>
             doc.data()['loadId'] == null ||
