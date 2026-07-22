@@ -230,45 +230,63 @@ class JobWorkInvoiceScreen extends StatelessWidget {
               if (context.userCanExport(AppModule.jobWork))
                 ExportMenuButton(
                   onExportPdf: (origin) async {
-                    final factoryName = await resolveExportFactoryName(context);
-                    final exporter = getIt<InvoicePdfExporter>();
-                    final doc = await exporter.buildJobWorkInvoicePdf(
-                      invoice: invoice,
-                      payments: state.payments,
-                      factoryName: factoryName,
-                    );
-                    await ExportActions.sharePdf(
-                      document: doc,
-                      filename: '${invoice.invoiceNumber}.pdf',
-                      sharePositionOrigin: origin,
-                    );
+                    try {
+                      final factoryName = await resolveExportFactoryName(context);
+                      final exporter = getIt<InvoicePdfExporter>();
+                      final doc = await exporter.buildJobWorkInvoicePdf(
+                        invoice: invoice,
+                        payments: state.payments,
+                        factoryName: factoryName,
+                      );
+                      await ExportActions.sharePdf(
+                        document: doc,
+                        filename: '${invoice.invoiceNumber}.pdf',
+                        sharePositionOrigin: origin,
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ExportActions.showExportError(context, e);
+                      }
+                    }
                   },
                   onExportExcel: (origin) async {
-                    final factoryName = await resolveExportFactoryName(context);
-                    final bytes =
-                        getIt<InvoiceExcelExporter>().buildJobWorkInvoice(
-                      invoice: invoice,
-                      payments: state.payments,
-                      factoryName: factoryName,
-                    );
-                    await ExportActions.shareExcel(
-                      bytes: bytes,
-                      filename: '${invoice.invoiceNumber}.xlsx',
-                      sharePositionOrigin: origin,
-                    );
+                    try {
+                      final factoryName = await resolveExportFactoryName(context);
+                      final bytes =
+                          getIt<InvoiceExcelExporter>().buildJobWorkInvoice(
+                        invoice: invoice,
+                        payments: state.payments,
+                        factoryName: factoryName,
+                      );
+                      await ExportActions.shareExcel(
+                        bytes: bytes,
+                        filename: '${invoice.invoiceNumber}.xlsx',
+                        sharePositionOrigin: origin,
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ExportActions.showExportError(context, e);
+                      }
+                    }
                   },
                   onPrint: () async {
-                    final factoryName = await resolveExportFactoryName(context);
-                    final exporter = getIt<InvoicePdfExporter>();
-                    final doc = await exporter.buildJobWorkInvoicePdf(
-                      invoice: invoice,
-                      payments: state.payments,
-                      factoryName: factoryName,
-                    );
-                    await ExportActions.printPdf(
-                      document: doc,
-                      filename: '${invoice.invoiceNumber}.pdf',
-                    );
+                    try {
+                      final factoryName = await resolveExportFactoryName(context);
+                      final exporter = getIt<InvoicePdfExporter>();
+                      final doc = await exporter.buildJobWorkInvoicePdf(
+                        invoice: invoice,
+                        payments: state.payments,
+                        factoryName: factoryName,
+                      );
+                      await ExportActions.printPdf(
+                        document: doc,
+                        filename: '${invoice.invoiceNumber}.pdf',
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ExportActions.showExportError(context, e);
+                      }
+                    }
                   },
                 ),
               if (invoice.dueAmount > 0)
