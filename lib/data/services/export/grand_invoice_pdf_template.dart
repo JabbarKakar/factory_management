@@ -961,7 +961,7 @@ abstract final class GrandInvoicePdfTemplate {
       padding: const pw.EdgeInsets.all(5),
       child: pw.Text(
         text,
-        style: pw.TextStyle(font: fonts.bold, fontSize: 7, color: PdfColors.white),
+        style: pw.TextStyle(font: fonts.bold, fontSize: 5.5, color: PdfColors.white),
         textAlign: alignRight ? pw.TextAlign.right : pw.TextAlign.left,
       ),
     );
