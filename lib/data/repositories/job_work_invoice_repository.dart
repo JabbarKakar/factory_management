@@ -49,19 +49,25 @@ class JobWorkInvoiceRepository {
       factoryId: factoryId,
       jobWorkId: jobWorkId,
     );
-    final grandInvoices = invoices.where((i) => i.loadId == null || i.loadId!.isEmpty).toList();
+    final grandInvoices =
+        invoices.where((i) => i.loadId == null || i.loadId!.trim().isEmpty).toList();
     if (grandInvoices.isNotEmpty) return grandInvoices.first;
 
     // Fallback: If no grand invoice exists but load-scoped invoices do,
-    // and there is only 1 active load, return the first load-scoped invoice.
+    // and there is strictly 1 active load, return that load's invoice.
     if (invoices.isNotEmpty) {
       final loads = await _loadRepository.fetchLoadsForJobWork(
         factoryId: factoryId,
         jobWorkId: jobWorkId,
       );
-      final activeLoads = loads.where((l) => !l.isVirtual && l.status != JobWorkStatus.cancelled).toList();
+      final activeLoads = loads
+          .where((l) => !l.isVirtual && l.status != JobWorkStatus.cancelled)
+          .toList();
       if (activeLoads.length == 1) {
-        return invoices.first;
+        final loadInvoice = invoices
+            .where((i) => i.loadId?.trim() == activeLoads.first.id)
+            .firstOrNull;
+        if (loadInvoice != null) return loadInvoice;
       }
     }
     return null;
@@ -270,16 +276,21 @@ class JobWorkInvoiceRepository {
       throw StateError('Job work order not found.');
     }
 
-    if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
-      final existing = await getInvoice(order.invoiceId!);
-      if (existing != null) return existing;
-    }
-
-    final existingByJobWork = await getInvoiceByJobWorkId(
+    final existingInvoices = await getInvoicesByJobWorkId(
       factoryId: order.factoryId,
-      jobWorkId: order.id,
+      jobWorkId: jobWorkId,
     );
-    if (existingByJobWork != null) return existingByJobWork;
+    final existingGrand = existingInvoices
+        .where((i) => i.loadId == null || i.loadId!.trim().isEmpty)
+        .firstOrNull;
+
+    if (existingGrand != null) {
+      final synced = await syncGrandInvoice(
+        factoryId: order.factoryId,
+        jobWorkId: jobWorkId,
+      );
+      return synced ?? existingGrand;
+    }
 
     final loads = await _loadRepository.fetchLoadsForJobWork(
       factoryId: order.factoryId,
@@ -292,10 +303,6 @@ class JobWorkInvoiceRepository {
     final double paidAmount;
     final List<InvoiceLineItem> lineItems;
 
-    final existingInvoices = await getInvoicesByJobWorkId(
-      factoryId: order.factoryId,
-      jobWorkId: jobWorkId,
-    );
     final invoiceIds = existingInvoices.map((i) => i.id).toSet();
     var recordedPaymentsTotal = 0.0;
     if (invoiceIds.isNotEmpty) {

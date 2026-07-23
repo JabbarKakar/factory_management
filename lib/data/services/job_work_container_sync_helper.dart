@@ -222,13 +222,10 @@ abstract final class JobWorkContainerSyncHelper {
     required List<JobWorkInvoice> invoices,
     List<JobWorkLoad>? loadsToSum,
   }) {
-    // If there is a grand invoice (loadId is null/empty or matching order's invoiceId),
-    // then that single grand invoice is the authoritative source for the whole container's finance!
+    // A Grand Invoice MUST have a null/empty loadId.
+    // Never treat a single load-scoped invoice as the grand invoice for the entire container.
     final grandInvoice = invoices
-        .where((i) =>
-            i.loadId == null ||
-            i.loadId!.isEmpty ||
-            i.id == order.invoiceId)
+        .where((i) => i.loadId == null || i.loadId!.trim().isEmpty)
         .firstOrNull;
     if (grandInvoice != null) {
       return (
