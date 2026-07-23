@@ -132,10 +132,7 @@ abstract final class JobWorkContainerSyncHelper {
     }
 
     final grandInvoice = invoices
-        .where((i) =>
-            i.loadId == null ||
-            i.loadId!.isEmpty ||
-            i.id == order.invoiceId)
+        .where((i) => i.loadId == null || i.loadId!.trim().isEmpty)
         .firstOrNull;
 
     final totalPaymentsRecorded = grandInvoice != null
@@ -145,22 +142,27 @@ abstract final class JobWorkContainerSyncHelper {
     final result = <String, ({double charges, double paid, double due})>{};
     var specificPaymentsSum = 0.0;
 
-    // Step 1: Assign specific payments to loads that have their own load invoice or advance
+    // Step 1: Assign specific payments to loads that have their own load-scoped invoice or advance
     for (final load in loadsToProcess) {
       final inv = byLoadId[load.id] ??
           (load.invoiceId != null && load.invoiceId!.isNotEmpty
-              ? invoices.where((i) => i.id == load.invoiceId).firstOrNull
+              ? invoices
+                  .where((i) =>
+                      i.id == load.invoiceId &&
+                      i.loadId != null &&
+                      i.loadId!.trim() == load.id)
+                  .firstOrNull
               : null);
 
       final total = load.finalCuttingCharges;
       double specificPaid = 0.0;
-      if (inv != null && inv.paidAmount > 0) {
+      if (inv != null) {
         specificPaid = inv.paidAmount;
       } else if (load.advanceReceived > 0) {
         specificPaid = load.advanceReceived;
       }
 
-      if (specificPaid > 0) {
+      if (specificPaid > 0 || inv != null) {
         final paid = specificPaid.clamp(0.0, total).toDouble();
         final due = (total - paid).clamp(0.0, total).toDouble();
         result[load.id] = (charges: total, paid: paid, due: due);

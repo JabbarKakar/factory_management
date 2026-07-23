@@ -675,6 +675,22 @@ class JobWorkLoadRepository {
         final paid = fin?.paid ?? (newPaid > 0 ? 0.0 : load.advanceReceived);
         final remaining = fin?.due ?? (newPaid > 0 ? total : load.balanceDue);
 
+        // Self-heal load document in Firestore
+        final loadUpdates = <String, dynamic>{
+          'pricing.balanceDue': remaining,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (load.advanceReceived > 0) {
+          final advDoc = await _firestore
+              .collection('payments')
+              .doc('advance_load_${load.id}')
+              .get();
+          if (!advDoc.exists) {
+            loadUpdates['pricing.advanceReceived'] = 0;
+          }
+        }
+        await loadDoc(load.id).update(loadUpdates);
+
         lineItemsMaps.add({
           'description':
               '$label · Total: Rs ${total.toStringAsFixed(0)} · Paid: Rs ${paid.toStringAsFixed(0)} · Remaining: Rs ${remaining.toStringAsFixed(0)}',
