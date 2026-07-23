@@ -1447,7 +1447,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          key: PageStorageKey<String>('business_profile_section_${section.name}'),
+          key: ValueKey<String>('business_profile_section_${section.name}'),
           maintainState: true,
           initiallyExpanded: section == ProfileSection.identity ||
               section == ProfileSection.contact,
