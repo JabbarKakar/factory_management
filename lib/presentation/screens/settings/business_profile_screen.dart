@@ -605,6 +605,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               initialValue: _businessType,
+                              isExpanded: true,
                               decoration: AppFormFields.decoration(
                                 context,
                                 label: 'Business Entity Type',
@@ -612,7 +613,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               items: _businessTypes
                                   .map((t) => DropdownMenuItem(
                                         value: t,
-                                        child: Text(t),
+                                        child: Text(
+                                          t,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ))
                                   .toList(),
                               onChanged: canEdit
@@ -694,6 +698,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               initialValue: _province,
+                              isExpanded: true,
                               decoration: AppFormFields.decoration(
                                 context,
                                 label: 'Province',
@@ -1183,6 +1188,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           Expanded(
                             child: DropdownButtonFormField<String>(
                               initialValue: _currency,
+                              isExpanded: true,
                               decoration: AppFormFields.decoration(
                                 context,
                                 label: 'Base Currency',
@@ -1190,13 +1196,20 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               items: const [
                                 DropdownMenuItem(
                                     value: 'PKR',
-                                    child: Text('PKR - Pakistani Rupee')),
+                                    child: Text('PKR - Pakistani Rupee',
+                                        overflow: TextOverflow.ellipsis)),
                                 DropdownMenuItem(
-                                    value: 'USD', child: Text('USD - US Dollar')),
+                                    value: 'USD',
+                                    child: Text('USD - US Dollar',
+                                        overflow: TextOverflow.ellipsis)),
                                 DropdownMenuItem(
-                                    value: 'EUR', child: Text('EUR - Euro')),
+                                    value: 'EUR',
+                                    child: Text('EUR - Euro',
+                                        overflow: TextOverflow.ellipsis)),
                                 DropdownMenuItem(
-                                    value: 'AED', child: Text('AED - Dirham')),
+                                    value: 'AED',
+                                    child: Text('AED - Dirham',
+                                        overflow: TextOverflow.ellipsis)),
                               ],
                               onChanged: canEdit
                                   ? (val) {
@@ -1282,6 +1295,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                           Expanded(
                             child: DropdownButtonFormField<int>(
                               initialValue: _fiscalYearStartMonth,
+                              isExpanded: true,
                               decoration: AppFormFields.decoration(
                                 context,
                                 label: 'Fiscal Year Start Month',
@@ -1289,7 +1303,10 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                               items: _months.entries
                                   .map((entry) => DropdownMenuItem(
                                         value: entry.key,
-                                        child: Text(entry.value),
+                                        child: Text(
+                                          entry.value,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ))
                                   .toList(),
                               onChanged: canEdit
