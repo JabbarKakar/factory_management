@@ -287,6 +287,10 @@ abstract final class AppStrings {
   static const String lumpSumRate = 'Lump Sum Rate (PKR)';
   static const String smallStockPrice = 'Small Stock Price (PKR)';
   static const String largeStockPrice = 'Large Stock Price (PKR)';
+  static const String smallStockPricePerSqFt =
+      'Small Sizes Price (Per Sq. Ft)';
+  static const String largeStockPricePerSqFt =
+      'Large Sizes Price (Per Sq. Ft)';
   static const String smallStockPriceRequired =
       'Enter small stock price for selected small sizes';
   static const String largeStockPriceRequired =

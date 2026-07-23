@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/job_work/job_work_load_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/constants/marble_data.dart';
 import '../../../core/constants/mine_locations.dart';
 import '../../../core/constants/mine_owners.dart';
@@ -37,14 +38,14 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
   String? _mineLocation;
   String? _mineOwner;
   String _marbleVariety = MarbleData.varieties.first;
-  CuttingStrategy _cuttingStrategy = CuttingStrategy.gangSaw;
-  TargetProduct _targetProduct = TargetProduct.slabs;
-  final Set<String> _selectedSmallSizes = {};
-  final Set<String> _selectedLargeSizes = {};
+  CuttingStrategy _cuttingStrategy = CuttingStrategy.fourPiller;
+  TargetProduct _targetProduct = TargetProduct.sizeCutting;
+  final Set<String> _selectedSmallSizes = {...JobWorkSizes.smallSizes};
+  final Set<String> _selectedLargeSizes = {...JobWorkSizes.largeSizes};
   final Set<String> _selectedLegacySizes = {};
   String _thickness = MarbleData.jobWorkThicknesses.first;
   FinishType _finish = FinishType.unpolished;
-  PricingModel _pricingModel = PricingModel.perTon;
+  PricingModel _pricingModel = PricingModel.perSqFt;
   PaymentTerms _paymentTerms = PaymentTerms.cash;
 
   final _blockCountController = TextEditingController(text: '1');
@@ -635,7 +636,9 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                               style: AppFormFields.valueStyle(context),
                               decoration: AppFormFields.decoration(
                                 context,
-                                label: AppStrings.smallStockPrice,
+                                label: _pricingModel == PricingModel.perSqFt
+                                    ? AppStrings.smallStockPricePerSqFt
+                                    : AppStrings.smallStockPrice,
                               ),
                               enabled: !isSaving,
                             ),
@@ -649,7 +652,9 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                               style: AppFormFields.valueStyle(context),
                               decoration: AppFormFields.decoration(
                                 context,
-                                label: AppStrings.largeStockPrice,
+                                label: _pricingModel == PricingModel.perSqFt
+                                    ? AppStrings.largeStockPricePerSqFt
+                                    : AppStrings.largeStockPrice,
                               ),
                               enabled: !isSaving,
                             ),

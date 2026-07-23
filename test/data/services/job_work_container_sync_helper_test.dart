@@ -132,7 +132,7 @@ void main() {
       expect(can, isFalse);
     });
 
-    test('blocks JW-level generate when multiple loads exist', () {
+    test('allows JW-level generate when multiple loads exist with charges', () {
       final can = JobWorkContainerSyncHelper.canGenerateInvoice(
         order: buildOrder(status: JobWorkStatus.agreed),
         loads: [
@@ -140,7 +140,7 @@ void main() {
           buildLoad(id: 'l2', sequence: 2, status: JobWorkStatus.ready),
         ],
       );
-      expect(can, isFalse);
+      expect(can, isTrue);
     });
   });
 

@@ -13,6 +13,7 @@ class JobWorkSizeSelector extends StatelessWidget {
     required this.selectedLarge,
     required this.selectedLegacy,
     required this.onToggle,
+    this.onSelectAllCategory,
     this.enabled = true,
     super.key,
   });
@@ -25,6 +26,10 @@ class JobWorkSizeSelector extends StatelessWidget {
     bool isSelected,
     JobWorkSizeCategory category,
   ) onToggle;
+  final void Function(
+    JobWorkSizeCategory category,
+    bool selectAll,
+  )? onSelectAllCategory;
   final bool enabled;
 
   static const double _rowGap = 4;
@@ -38,12 +43,42 @@ class JobWorkSizeSelector extends StatelessWidget {
       fontSize: 11,
     );
 
+    final allSmallSelected =
+        JobWorkSizes.smallSizes.every(selectedSmall.contains);
+    final allLargeSelected =
+        JobWorkSizes.largeSizes.every(selectedLarge.contains);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(AppStrings.sizes, style: AppFormFields.labelStyle(context)),
         const SizedBox(height: 10),
-        Text(AppStrings.smallSize, style: subsectionStyle),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(AppStrings.smallSize, style: subsectionStyle),
+            if (onSelectAllCategory != null && enabled)
+              InkWell(
+                onTap: () => onSelectAllCategory!(
+                  JobWorkSizeCategory.small,
+                  !allSmallSelected,
+                ),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    allSmallSelected ? 'Deselect All' : 'Select All',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: 8),
         ...JobWorkSizes.smallSizeRows.map(
           (row) => Padding(
@@ -59,7 +94,32 @@ class JobWorkSizeSelector extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Text(AppStrings.largeSize, style: subsectionStyle),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(AppStrings.largeSize, style: subsectionStyle),
+            if (onSelectAllCategory != null && enabled)
+              InkWell(
+                onTap: () => onSelectAllCategory!(
+                  JobWorkSizeCategory.large,
+                  !allLargeSelected,
+                ),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    allLargeSelected ? 'Deselect All' : 'Select All',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
         const SizedBox(height: 8),
         _SizeChipRow(
           options: JobWorkSizes.largeSizes,

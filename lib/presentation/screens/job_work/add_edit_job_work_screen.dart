@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/job_work/job_work_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/constants/marble_data.dart';
 import '../../../core/constants/mine_locations.dart';
 import '../../../core/constants/mine_owners.dart';
@@ -38,14 +39,14 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
   String? _mineOwner;
 
   String _marbleVariety = MarbleData.varieties.first;
-  CuttingStrategy _cuttingStrategy = CuttingStrategy.gangSaw;
-  TargetProduct _targetProduct = TargetProduct.slabs;
-  final Set<String> _selectedSmallSizes = {};
-  final Set<String> _selectedLargeSizes = {};
+  CuttingStrategy _cuttingStrategy = CuttingStrategy.fourPiller;
+  TargetProduct _targetProduct = TargetProduct.sizeCutting;
+  final Set<String> _selectedSmallSizes = {...JobWorkSizes.smallSizes};
+  final Set<String> _selectedLargeSizes = {...JobWorkSizes.largeSizes};
   final Set<String> _selectedLegacySizes = {};
   String _thickness = MarbleData.jobWorkThicknesses.first;
   FinishType _finish = FinishType.unpolished;
-  PricingModel _pricingModel = PricingModel.perTon;
+  PricingModel _pricingModel = PricingModel.perSqFt;
   PaymentTerms _paymentTerms = PaymentTerms.cash;
 
   final _blockCountController = TextEditingController(text: '1');
@@ -730,6 +731,29 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                             }
                           });
                         },
+                        onSelectAllCategory: (category, selectAll) {
+                          setState(() {
+                            final (target, options) = switch (category) {
+                              JobWorkSizeCategory.small => (
+                                  _selectedSmallSizes,
+                                  JobWorkSizes.smallSizes
+                                ),
+                              JobWorkSizeCategory.large => (
+                                  _selectedLargeSizes,
+                                  JobWorkSizes.largeSizes
+                                ),
+                              JobWorkSizeCategory.legacy => (
+                                  _selectedLegacySizes,
+                                  _selectedLegacySizes.toList()
+                                ),
+                            };
+                            if (selectAll) {
+                              target.addAll(options);
+                            } else {
+                              target.removeAll(options);
+                            }
+                          });
+                        },
                       ),
                       AppFormFields.gap,
                       DropdownButtonFormField<String>(
@@ -878,7 +902,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
-                          label: AppStrings.smallStockPrice,
+                          label: _pricingModel == PricingModel.perSqFt
+                              ? AppStrings.smallStockPricePerSqFt
+                              : AppStrings.smallStockPrice,
                         ),
                         validator: (v) {
                           if (_selectedSmallSizes.isNotEmpty ||
@@ -899,7 +925,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
-                          label: AppStrings.largeStockPrice,
+                          label: _pricingModel == PricingModel.perSqFt
+                              ? AppStrings.largeStockPricePerSqFt
+                              : AppStrings.largeStockPrice,
                         ),
                         validator: (v) {
                           if (_selectedLargeSizes.isNotEmpty) {

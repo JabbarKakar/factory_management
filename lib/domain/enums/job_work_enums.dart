@@ -219,30 +219,30 @@ enum JobWorkListStageFilter {
 }
 
 enum CuttingStrategy {
+  fourPiller,
   gangSaw,
   bridgeSaw,
   wireSaw,
   waterJet,
   mixed,
-  fourPiller,
   vertical;
 
   String get firestoreValue => name;
 
   String get label => switch (this) {
+        CuttingStrategy.fourPiller => 'Four Piller',
         CuttingStrategy.gangSaw => 'Gang Saw (Slabs)',
         CuttingStrategy.bridgeSaw => 'Bridge Saw (Tiles)',
         CuttingStrategy.wireSaw => 'Wire Saw',
         CuttingStrategy.waterJet => 'Water Jet',
         CuttingStrategy.mixed => 'Mixed',
-        CuttingStrategy.fourPiller => 'Four Piller',
         CuttingStrategy.vertical => 'Vertical',
       };
 
   static CuttingStrategy fromString(String? value) {
     return CuttingStrategy.values.firstWhere(
       (e) => e.name == value,
-      orElse: () => CuttingStrategy.gangSaw,
+      orElse: () => CuttingStrategy.fourPiller,
     );
   }
 }
@@ -269,7 +269,7 @@ enum TargetProduct {
   static TargetProduct fromString(String? value) {
     return TargetProduct.values.firstWhere(
       (e) => e.name == value,
-      orElse: () => TargetProduct.slabs,
+      orElse: () => TargetProduct.sizeCutting,
     );
   }
 }
@@ -298,14 +298,14 @@ enum FinishType {
 }
 
 enum PricingModel {
-  perTon,
   perSqFt,
+  perTon,
   lumpSum,
   perBlock;
 
   String get label => switch (this) {
-        PricingModel.perTon => 'Per Ton',
         PricingModel.perSqFt => 'Per Sq. Ft',
+        PricingModel.perTon => 'Per Ton',
         PricingModel.lumpSum => 'Lump Sum',
         PricingModel.perBlock => 'Per Block',
       };
@@ -313,7 +313,7 @@ enum PricingModel {
   static PricingModel fromString(String? value) {
     return PricingModel.values.firstWhere(
       (e) => e.name == value,
-      orElse: () => PricingModel.perTon,
+      orElse: () => PricingModel.perSqFt,
     );
   }
 }

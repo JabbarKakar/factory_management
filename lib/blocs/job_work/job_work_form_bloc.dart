@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/constants/job_work_sizes.dart';
 import '../../core/constants/marble_data.dart';
 import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
@@ -649,13 +650,13 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
       marbleVariety: MarbleData.varieties.first,
       blockCount: 1,
       totalTons: 0,
-      cuttingStrategy: CuttingStrategy.gangSaw,
-      targetProduct: TargetProduct.slabs,
-      smallSizes: const [],
-      largeSizes: const [],
+      cuttingStrategy: CuttingStrategy.fourPiller,
+      targetProduct: TargetProduct.sizeCutting,
+      smallSizes: JobWorkSizes.smallSizes,
+      largeSizes: JobWorkSizes.largeSizes,
       thickness: MarbleData.jobWorkThicknesses.first,
       finish: FinishType.unpolished,
-      pricingModel: PricingModel.perTon,
+      pricingModel: PricingModel.perSqFt,
       agreedRate: 0,
       smallStockPrice: 0,
       largeStockPrice: 0,

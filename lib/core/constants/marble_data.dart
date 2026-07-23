@@ -1,5 +1,6 @@
 abstract final class MarbleData {
   static const List<String> varieties = [
+    'Travertine',
     'White Ziarat',
     'Green Onyx',
     'Verona Grey',
@@ -10,7 +11,6 @@ abstract final class MarbleData {
     'Thar White',
     'Mughal Pink',
     'Badal Grey',
-    'Travertine',
     'Custom',
   ];
 
@@ -33,7 +33,7 @@ abstract final class MarbleData {
 
   /// Thickness options for job work cutting specification.
   static const List<String> jobWorkThicknesses = [
-    '13.5 Sutar',
     '14 Sutar',
+    '13.5 Sutar',
   ];
 }
