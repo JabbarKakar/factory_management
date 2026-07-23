@@ -7,12 +7,14 @@ class JobWorkDetailSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.child,
+    this.action,
     super.key,
   });
 
   final String title;
   final IconData icon;
   final Widget child;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +56,10 @@ class JobWorkDetailSection extends StatelessWidget {
                       letterSpacing: 0.1,
                     ),
                   ),
+                  if (action != null) ...[
+                    const Spacer(),
+                    action!,
+                  ],
                 ],
               ),
             ),

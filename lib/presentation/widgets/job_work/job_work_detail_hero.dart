@@ -266,16 +266,14 @@ class _InvoiceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return OutlinedButton.icon(
+    return FilledButton.tonalIcon(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        visualDensity: VisualDensity.compact,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      style: FilledButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        minimumSize: const Size(0, 26),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        minimumSize: Size.zero,
-        side: BorderSide(
-          color: theme.colorScheme.primary.withValues(alpha: 0.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
         ),
       ),
       icon: Icon(
@@ -284,8 +282,7 @@ class _InvoiceButton extends StatelessWidget {
       ),
       label: Text(
         hasInvoice ? AppStrings.viewInvoice : AppStrings.generateInvoice,
-        style: theme.textTheme.labelSmall?.copyWith(
-          color: theme.colorScheme.primary,
+        style: const TextStyle(
           fontWeight: FontWeight.w600,
           fontSize: 11,
         ),

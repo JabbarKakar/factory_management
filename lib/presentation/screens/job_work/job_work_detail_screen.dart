@@ -634,6 +634,31 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
               JobWorkDetailSection(
                 title: AppStrings.allLoads,
                 icon: Icons.local_shipping_outlined,
+                action: canAddLoad
+                    ? FilledButton.tonalIcon(
+                        onPressed:
+                            isSaving ? null : () => _openAddLoad(context),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          minimumSize: const Size(0, 28),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text(
+                          AppStrings.addLoad,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    : null,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                   child: Column(
@@ -657,15 +682,6 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                           canDeleteJobWork: canDeleteJobWork,
                           collections: state.collections,
                         ),
-                      if (canAddLoad) ...[
-                        const SizedBox(height: 12),
-                        FilledButton.tonalIcon(
-                          onPressed:
-                              isSaving ? null : () => _openAddLoad(context),
-                          icon: const Icon(Icons.add),
-                          label: const Text(AppStrings.addLoad),
-                        ),
-                      ],
                     ],
                   ),
                 ),
