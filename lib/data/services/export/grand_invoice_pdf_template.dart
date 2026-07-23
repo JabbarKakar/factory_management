@@ -551,12 +551,12 @@ abstract final class GrandInvoicePdfTemplate {
                     // Terms
                     pw.Text(
                       'TERMS & CONDITIONS:',
-                      style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _navy),
+                      style: pw.TextStyle(font: fonts.bold, fontSize: 7, color: _navy),
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
                       termsText,
-                      style: pw.TextStyle(font: fonts.regular, fontSize: 8, color: _mutedGrey, height: 1.4),
+                      style: pw.TextStyle(font: fonts.regular, fontSize: 6, color: _mutedGrey, height: 1.1),
                     ),
                   ],
                 ),
@@ -588,11 +588,11 @@ abstract final class GrandInvoicePdfTemplate {
                           children: [
                             pw.Text(
                               'OUTSTANDING BALANCE:',
-                              style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: PdfColors.white),
+                              style: pw.TextStyle(font: fonts.bold, fontSize: 8, color: PdfColors.white),
                             ),
                             pw.Text(
                               'PKR ${formatAmount(totalDue)}',
-                              style: pw.TextStyle(font: fonts.bold, fontSize: 13, color: PdfColors.white),
+                              style: pw.TextStyle(font: fonts.bold, fontSize: 11, color: PdfColors.white),
                             ),
                           ],
                         ),
