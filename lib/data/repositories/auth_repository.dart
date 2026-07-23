@@ -96,7 +96,7 @@ class AuthRepository implements AuthRepositoryContract {
       factoryRef = _firestore.collection('factories').doc();
       final userRef = _firestore.collection('users').doc(uid);
 
-      final factoryModel = FactoryModel(
+      final factoryModel = FactoryModel.legacy(
         id: factoryRef.id,
         name: trimmedFactoryName,
         phone: factoryPhone?.trim(),

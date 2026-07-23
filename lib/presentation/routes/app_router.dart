@@ -42,6 +42,7 @@ import '../../blocs/raw_material/raw_material_detail_bloc.dart';
 import '../../blocs/raw_material/raw_material_list_bloc.dart';
 import '../../blocs/raw_material/stock_movement_bloc.dart';
 import '../../blocs/factory_profile/factory_profile_bloc.dart';
+import '../../blocs/business_profile/business_profile_bloc.dart';
 import '../../blocs/team/team_bloc.dart';
 import '../../blocs/supplier/supplier_form_bloc.dart';
 import '../../blocs/supplier/supplier_list_bloc.dart';
@@ -290,14 +291,27 @@ GoRouter createAppRouter(AuthBloc authBloc) {
         parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           final factoryId = readFactoryId(context);
-          return BlocProvider(
-            create: (_) {
-              final bloc = getIt<FactoryProfileBloc>();
-              if (factoryId != null) {
-                bloc.add(FactoryProfileWatchStarted(factoryId));
-              }
-              return bloc;
-            },
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider(
+                create: (_) {
+                  final bloc = getIt<FactoryProfileBloc>();
+                  if (factoryId != null) {
+                    bloc.add(FactoryProfileWatchStarted(factoryId));
+                  }
+                  return bloc;
+                },
+              ),
+              BlocProvider(
+                create: (_) {
+                  final bloc = getIt<BusinessProfileBloc>();
+                  if (factoryId != null) {
+                    bloc.add(FetchBusinessProfile(factoryId));
+                  }
+                  return bloc;
+                },
+              ),
+            ],
             child: const FactorySettingsScreen(),
           );
         },
