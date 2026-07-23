@@ -573,6 +573,7 @@ class JobWorkInvoiceBloc
         final fin = financeMap[invoice.loadId];
         if (fin != null) {
           return invoice.copyWith(
+            totalAmount: fin.charges,
             paidAmount: fin.paid,
             dueAmount: fin.due,
             status: InvoiceStatus.fromAmounts(

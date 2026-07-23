@@ -166,8 +166,9 @@ class AppDialogActions {
   static Widget confirm(
     BuildContext context, {
     required String label,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     bool destructive = false,
+    bool isLoading = false,
   }) {
     final theme = Theme.of(context);
 
@@ -180,7 +181,18 @@ class AppDialogActions {
         backgroundColor: destructive ? theme.colorScheme.error : null,
         foregroundColor: destructive ? theme.colorScheme.onError : null,
       ),
-      child: Text(label),
+      child: isLoading
+          ? SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: destructive
+                    ? theme.colorScheme.onError
+                    : theme.colorScheme.onPrimary,
+              ),
+            )
+          : Text(label),
     );
   }
 }

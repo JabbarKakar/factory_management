@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
@@ -234,6 +235,37 @@ class PaymentRepository {
     }
 
     await _collection.doc(paymentId).delete();
+
+    // Reset advanceReceived on load/order when a payment is deleted
+    // to prevent ensureInvoicePaidAmountRecorded from auto-recreating phantom advances.
+    if (existing.invoiceType == InvoiceType.jobWork) {
+      final invoice =
+          await _jobWorkInvoiceRepository.getInvoice(existing.invoiceId);
+      if (invoice != null) {
+        final loadId = (paymentId.startsWith('advance_load_'))
+            ? paymentId.replaceAll('advance_load_', '').trim()
+            : invoice.loadId?.trim();
+
+        if (loadId != null && loadId.isNotEmpty) {
+          await _jobWorkLoadRepository.loadDoc(loadId).update({
+            'pricing.advanceReceived': 0,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        final orderId = (paymentId.startsWith('advance_job_'))
+            ? paymentId.replaceAll('advance_job_', '').trim()
+            : invoice.jobWorkId;
+
+        if (orderId.isNotEmpty) {
+          await _jobWorkRepository.jobWorkDoc(orderId).update({
+            'pricing.advanceReceived': 0,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+    }
+
     await _syncInvoiceFromPayments(
       invoiceId: existing.invoiceId,
       invoiceType: existing.invoiceType,
@@ -299,15 +331,20 @@ class PaymentRepository {
         }
       }
 
-      final dueAmount = (invoice.totalAmount - paidAmount).clamp(0, invoice.totalAmount);
+      // Resolve effective total in case Firestore doc has stale totalAmount.
+      final effectiveInvoice = await _resolveEffectiveInvoice(invoice);
+      final effectiveTotal = effectiveInvoice.totalAmount;
+
+      final dueAmount = (effectiveTotal - paidAmount).clamp(0, effectiveTotal);
       final status = InvoiceStatus.fromAmounts(
         dueAmount: dueAmount.toDouble(),
         paidAmount: paidAmount,
-        totalAmount: invoice.totalAmount,
+        totalAmount: effectiveTotal,
         dueDate: invoice.dueDate,
       );
 
       await _jobWorkInvoiceRepository.collection.doc(invoiceId).update({
+        'total': effectiveTotal,
         'paid': paidAmount,
         'due': dueAmount,
         'status': status.firestoreValue,
@@ -324,7 +361,6 @@ class PaymentRepository {
         final load = await _jobWorkLoadRepository.getLoad(loadId);
         if (load != null) {
           final loadUpdates = <String, dynamic>{
-            'pricing.advanceReceived': paidAmount,
             'pricing.balanceDue': dueAmount.toDouble(),
             'updatedAt': FieldValue.serverTimestamp(),
           };
@@ -350,7 +386,6 @@ class PaymentRepository {
               .refreshContainerFromLoads(invoice.jobWorkId);
         } else {
           await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
-            'pricing.advanceReceived': paidAmount,
             'pricing.balanceDue': dueAmount.toDouble(),
             if (dueAmount <= 0 &&
                 order.status != JobWorkStatus.paid &&
@@ -526,12 +561,37 @@ class PaymentRepository {
       throw StateError('Payment amount must be greater than zero.');
     }
 
-    final invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
+    var invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
     if (invoice == null) {
       throw StateError('Invoice not found.');
     }
-    if (invoice.dueAmount <= 0) {
+
+    // The Firestore invoice may have stale financial data (e.g. total=0)
+    // if it was generated before cutting output was recorded. Compute the
+    // effective amounts from load data (same source of truth as the UI).
+    final effectiveInvoice = await _resolveEffectiveInvoice(invoice);
+
+    if (effectiveInvoice.dueAmount <= 0 && effectiveInvoice.totalAmount <= 0) {
+      throw StateError('This invoice has no charges yet. Please record cutting output first.');
+    }
+    if (effectiveInvoice.dueAmount <= 0) {
       throw StateError('This invoice is already fully paid.');
+    }
+
+    // If the Firestore document was stale, persist the corrected amounts
+    // before recording the payment so all downstream syncs are consistent.
+    if ((invoice.totalAmount - effectiveInvoice.totalAmount).abs() > 0.01 ||
+        (invoice.dueAmount - effectiveInvoice.dueAmount).abs() > 0.01 ||
+        (invoice.paidAmount - effectiveInvoice.paidAmount).abs() > 0.01) {
+      await _jobWorkInvoiceRepository.collection.doc(invoiceId).update({
+        'total': effectiveInvoice.totalAmount,
+        'paid': effectiveInvoice.paidAmount,
+        'due': effectiveInvoice.dueAmount,
+        'status': effectiveInvoice.status.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      // Re-read so downstream calculations use the corrected snapshot.
+      invoice = (await _jobWorkInvoiceRepository.getInvoice(invoiceId))!;
     }
 
     final appliedAmount =
@@ -781,6 +841,59 @@ class PaymentRepository {
         );
 
     return payment;
+  }
+
+  /// Computes effective financial amounts for a job work invoice by
+  /// consulting the load's financeMap. This handles cases where the
+  /// Firestore invoice doc has stale totals (e.g. total=0 because the
+  /// invoice was generated before cutting output was recorded).
+  Future<JobWorkInvoice> _resolveEffectiveInvoice(
+    JobWorkInvoice invoice,
+  ) async {
+    final loadId = invoice.loadId?.trim();
+    if (loadId != null && loadId.isNotEmpty) {
+      // Load-scoped invoice — use the per-load financeMap.
+      final order =
+          await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
+      if (order != null) {
+        final loads = await _jobWorkLoadRepository.fetchLoadsForJobWork(
+          factoryId: invoice.factoryId,
+          jobWorkId: invoice.jobWorkId,
+        );
+        final invoices = await _jobWorkInvoiceRepository.getInvoicesByJobWorkId(
+          factoryId: invoice.factoryId,
+          jobWorkId: invoice.jobWorkId,
+        );
+        final financeMap =
+            JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+          order: order,
+          loads: loads,
+          invoices: invoices,
+        );
+        final fin = financeMap[loadId];
+        if (fin != null) {
+          return invoice.copyWith(
+            totalAmount: fin.charges,
+            paidAmount: fin.paid,
+            dueAmount: fin.due,
+            status: InvoiceStatus.fromAmounts(
+              dueAmount: fin.due,
+              paidAmount: fin.paid,
+              totalAmount: fin.charges,
+              dueDate: invoice.dueDate,
+            ),
+          );
+        }
+      }
+    } else {
+      // Grand invoice — sync from all loads.
+      final synced = await _jobWorkInvoiceRepository.syncGrandInvoice(
+        factoryId: invoice.factoryId,
+        jobWorkId: invoice.jobWorkId,
+      );
+      if (synced != null) return synced;
+    }
+    return invoice;
   }
 }
 

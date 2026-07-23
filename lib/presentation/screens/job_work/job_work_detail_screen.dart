@@ -394,29 +394,16 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
       message: AppStrings.deletePaymentMessage,
       confirmLabel: AppStrings.deletePayment,
       destructive: true,
+      onConfirm: () async {
+        await getIt<PaymentRepository>().deletePayment(payment.id);
+      },
     );
     if (!confirmed || !context.mounted) return;
 
-    try {
-      await getIt<PaymentRepository>().deletePayment(payment.id);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.paymentDeleted)),
-        );
-        context
-            .read<JobWorkFormBloc>()
-            .add(JobWorkFormLoadRequested(jobWorkId));
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e is StateError ? e.message : 'Could not delete payment.'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.paymentDeleted)),
+    );
+    context.read<JobWorkFormBloc>().add(JobWorkFormLoadRequested(jobWorkId));
   }
 
   void _advanceStatus(BuildContext context, JobWorkStatus nextStatus) {

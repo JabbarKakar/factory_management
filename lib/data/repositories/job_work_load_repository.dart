@@ -708,7 +708,10 @@ class JobWorkLoadRepository {
       });
 
       finalCuttingCharges = newTotal;
-      advanceReceived = newPaid;
+      advanceReceived = JobWorkContainerSyncHelper.rollupAdvanceReceived(
+        order: order,
+        loads: loads,
+      );
       balanceDue = newDue;
     } else {
       finalCuttingCharges = JobWorkContainerSyncHelper.rollupFinalCuttingCharges(

@@ -69,32 +69,30 @@ class SalesInvoiceScreen extends StatelessWidget {
   }
 
   Future<void> _deletePayment(BuildContext context, Payment payment) async {
+    final bloc = context.read<SalesInvoiceBloc>();
     final confirmed = await AppConfirmDialog.show(
       context,
       title: AppStrings.deletePaymentTitle,
       message: AppStrings.deletePaymentMessage,
       confirmLabel: AppStrings.deletePayment,
       destructive: true,
+      onConfirm: () async {
+        bloc.add(SalesInvoicePaymentDeleteRequested(payment.id));
+        final next = await bloc.stream.firstWhere(
+          (state) =>
+              state.status == SalesInvoiceStatus.paymentRecorded ||
+              state.status == SalesInvoiceStatus.failure,
+        );
+        if (next.status == SalesInvoiceStatus.failure) {
+          throw Exception(next.errorMessage ?? 'Could not delete payment.');
+        }
+      },
     );
     if (!confirmed || !context.mounted) return;
 
-    final bloc = context.read<SalesInvoiceBloc>();
-    bloc.add(SalesInvoicePaymentDeleteRequested(payment.id));
-    final next = await bloc.stream.firstWhere(
-      (state) =>
-          state.status == SalesInvoiceStatus.paymentRecorded ||
-          state.status == SalesInvoiceStatus.failure,
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.paymentDeleted)),
     );
-    if (!context.mounted) return;
-    if (next.status == SalesInvoiceStatus.paymentRecorded) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(AppStrings.paymentDeleted)),
-      );
-    } else if (next.errorMessage != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(next.errorMessage!)),
-      );
-    }
   }
 
   @override

@@ -93,21 +93,30 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   Future<void> _deletePayment() async {
     final payment = _editingPayment;
     if (payment == null || _submitting) return;
+    final bloc = context.read<JobWorkInvoiceBloc>();
     final confirmed = await AppConfirmDialog.show(
       context,
       title: AppStrings.deletePaymentTitle,
       message: AppStrings.deletePaymentMessage,
       confirmLabel: AppStrings.deletePayment,
       destructive: true,
+      onConfirm: () async {
+        bloc.add(JobWorkInvoicePaymentDeleteRequested(payment.id));
+        final next = await bloc.stream.firstWhere(
+          (state) =>
+              state.status == JobWorkInvoiceStatus.paymentRecorded ||
+              state.status == JobWorkInvoiceStatus.failure,
+        );
+        if (next.status == JobWorkInvoiceStatus.failure) {
+          throw Exception(next.errorMessage ?? 'Could not delete payment.');
+        }
+      },
     );
     if (!confirmed || !mounted) return;
     setState(() {
       _deletedPayment = true;
       _submitting = true;
     });
-    context.read<JobWorkInvoiceBloc>().add(
-          JobWorkInvoicePaymentDeleteRequested(payment.id),
-        );
   }
 
   void _submit() {
