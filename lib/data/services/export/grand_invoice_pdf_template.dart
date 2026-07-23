@@ -48,26 +48,78 @@ abstract final class GrandInvoicePdfTemplate {
     final doc = pw.Document(theme: fonts.theme);
     final dateFormat = DateFormat('MMM dd, yyyy');
 
-    // Factory information with fallback default fields for completeness
-    final factoryName = factoryProfile?.name.trim().isNotEmpty == true
-        ? factoryProfile!.name.trim()
-        : 'JK MARBLE';
-    final factoryOwner = factoryProfile?.ownerName?.trim().isNotEmpty == true
-        ? factoryProfile!.ownerName!.trim()
-        : 'Jabbar Kakar';
-    final factoryAddress = factoryProfile?.address?.trim().isNotEmpty == true
-        ? factoryProfile!.address!.trim()
-        : 'Factory Road, Industrial Estate, Quetta, Balochistan, Pakistan';
-    final factoryPhone = factoryProfile?.phone?.trim().isNotEmpty == true
-        ? factoryProfile!.phone!.trim()
-        : '+92 346 4823221';
-    
-    // Derived professional details
-    final cleanDomain = factoryName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
-    final email = 'info@$cleanDomain.com';
-    final website = 'www.$cleanDomain.com';
-    const gpsCoordinates = '30.1978° N, 70.6212° E';
-    const taxRegNo = 'STRN: 3908671-5  ·  NTN: 9204856-1';
+    // Factory information with full dynamic extraction from FactoryProfile
+    final identity = factoryProfile?.identity;
+    final contact = factoryProfile?.contact;
+    final legal = factoryProfile?.legal;
+    final ownership = factoryProfile?.ownership;
+    final invSettings = factoryProfile?.invoiceSettings;
+
+    final rawBizName = identity?.businessName.trim();
+    final rawFacName = factoryProfile?.name.trim();
+    final factoryName = (rawBizName != null && rawBizName.isNotEmpty
+            ? rawBizName
+            : rawFacName != null && rawFacName.isNotEmpty
+                ? rawFacName
+                : 'JK MARBLE')
+        .toUpperCase();
+
+    final rawTagline = identity?.tagline?.trim();
+    final tagline = rawTagline != null && rawTagline.isNotEmpty
+        ? rawTagline.toUpperCase()
+        : 'PREMIUM NATURAL STONE PROCESSING & EXPORT';
+
+    final rawOwner = ownership?.ownerName?.trim();
+    final rawProfileOwner = factoryProfile?.ownerName?.trim();
+    final factoryOwner = rawOwner != null && rawOwner.isNotEmpty
+        ? rawOwner
+        : rawProfileOwner != null && rawProfileOwner.isNotEmpty
+            ? rawProfileOwner
+            : 'Jabbar Kakar';
+
+    final rawFullAddr = contact?.fullAddress.trim();
+    final rawProfileAddr = factoryProfile?.address?.trim();
+    final factoryAddress = rawFullAddr != null && rawFullAddr.isNotEmpty
+        ? rawFullAddr
+        : rawProfileAddr != null && rawProfileAddr.isNotEmpty
+            ? rawProfileAddr
+            : 'Factory Road, Industrial Estate, Quetta, Balochistan, Pakistan';
+
+    final rawPhone = contact?.phone.trim();
+    final rawProfilePhone = factoryProfile?.phone?.trim();
+    final factoryPhone = rawPhone != null && rawPhone.isNotEmpty
+        ? rawPhone
+        : rawProfilePhone != null && rawProfilePhone.isNotEmpty
+            ? rawProfilePhone
+            : '+92 346 4823221';
+
+    final rawEmail = contact?.email?.trim();
+    final email = rawEmail != null && rawEmail.isNotEmpty
+        ? rawEmail
+        : 'info@${factoryName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}.com';
+
+    final rawWeb = contact?.website?.trim();
+    final website = rawWeb != null && rawWeb.isNotEmpty
+        ? rawWeb
+        : 'www.${factoryName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}.com';
+
+    final rawNtn = legal?.ntn?.trim();
+    final ntn = rawNtn != null && rawNtn.isNotEmpty ? rawNtn : '9204856-1';
+
+    final rawStrn = legal?.strn?.trim();
+    final strn = rawStrn != null && rawStrn.isNotEmpty ? rawStrn : '3908671-5';
+
+    final rawTerms = invSettings?.termsAndConditions?.trim();
+    final termsText = rawTerms != null && rawTerms.isNotEmpty
+        ? rawTerms
+        : '1. Please review cutting charge calculations and report any discrepancies within 7 days.\n'
+          '2. Payments are to be settled as per agreed commercial terms.\n'
+          '3. All stone materials delivered remain under job work custody until final clearance.';
+
+    final rawFooter = invSettings?.footerNote?.trim();
+    final footerNoteText = rawFooter != null && rawFooter.isNotEmpty
+        ? rawFooter
+        : 'Thank you for your valuable business with $factoryName!';
 
     // Financial calculations
     final isSingleLoad = invoice.loadId != null && invoice.loadId!.trim().isNotEmpty;
@@ -199,7 +251,7 @@ abstract final class GrandInvoicePdfTemplate {
                               ),
                               pw.SizedBox(height: 1),
                               pw.Text(
-                                'PREMIUM NATURAL STONE PROCESSING & EXPORT',
+                                tagline,
                                 style: pw.TextStyle(font: fonts.bold, fontSize: 8, color: _navy, letterSpacing: 0.2),
                               ),
                             ],
@@ -210,23 +262,19 @@ abstract final class GrandInvoicePdfTemplate {
                     pw.SizedBox(height: 8),
                     // Details block
                     pw.Text(
-                      'Proprietor: $factoryOwner',
+                      'Proprietor / Management: $factoryOwner',
                       style: pw.TextStyle(font: fonts.bold, fontSize: 7, color: _navy),
                     ),
                     pw.Text(
-                      'Factory & Processing Facility: $factoryAddress',
+                      'Factory & Facility: $factoryAddress',
                       style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
                     ),
                     pw.Text(
-                      'GPS Coordinates: $gpsCoordinates | Web: $website',
+                      'Phone: $factoryPhone | Email: $email | Web: $website',
                       style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
                     ),
                     pw.Text(
-                      'Phone: $factoryPhone | Email: $email',
-                      style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
-                    ),
-                    pw.Text(
-                      'STRN: ${taxRegNo.split('·').first.replaceAll('STRN:', '').trim()} | NTN: ${taxRegNo.split('·').last.replaceAll('NTN:', '').trim()}',
+                      'STRN: $strn  ·  NTN: $ntn',
                       style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
                     ),
                   ],
@@ -475,10 +523,27 @@ abstract final class GrandInvoicePdfTemplate {
                             style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _accentBlue),
                           ),
                           pw.SizedBox(height: 4),
-                          _bankRow(fonts, 'Account Name:', 'Travertine Stone Processing'),
-                          _bankRow(fonts, 'Account Number:', '0924-8560192-005'),
-                          _bankRow(fonts, 'Bank & Branch:', 'Quetta Main Branch, Balochistan'),
-                          _bankRow(fonts, 'Swift/BIC Code:', 'TRVPPKKA'),
+                          if (factoryProfile != null && factoryProfile.bankAccounts.isNotEmpty) ...[
+                            for (final acc in factoryProfile.bankAccounts) ...[
+                              _bankRow(fonts, 'Account Title:', acc.accountName),
+                              _bankRow(fonts, 'Account Number:', acc.accountNumber),
+                              _bankRow(
+                                fonts,
+                                'Bank Name:',
+                                '${acc.bankName}${acc.branch != null && acc.branch!.isNotEmpty ? " (${acc.branch})" : ""}',
+                              ),
+                              if (acc.iban != null && acc.iban!.isNotEmpty)
+                                _bankRow(fonts, 'IBAN:', acc.iban!),
+                              if (acc.swiftCode != null && acc.swiftCode!.isNotEmpty)
+                                _bankRow(fonts, 'SWIFT / BIC:', acc.swiftCode!),
+                              if (factoryProfile.bankAccounts.indexOf(acc) < factoryProfile.bankAccounts.length - 1)
+                                pw.Divider(color: _borderLight, height: 6),
+                            ],
+                          ] else ...[
+                            _bankRow(fonts, 'Account Name:', '$factoryName Business Account'),
+                            _bankRow(fonts, 'Account Number:', '0924-8560192-005'),
+                            _bankRow(fonts, 'Bank & Branch:', 'Main Branch'),
+                          ],
                         ],
                       ),
                     ),
@@ -490,9 +555,7 @@ abstract final class GrandInvoicePdfTemplate {
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      '1. Please review cutting charge calculations and report any discrepancies within 7 days.\n'
-                      '2. Payments are to be settled as per agreed international commercial contract terms.\n'
-                      '3. All stone materials delivered remain under job work custody until final clearance.',
+                      termsText,
                       style: pw.TextStyle(font: fonts.regular, fontSize: 8, color: _mutedGrey, height: 1.4),
                     ),
                   ],
@@ -594,8 +657,9 @@ abstract final class GrandInvoicePdfTemplate {
           pw.Divider(color: _borderLight, height: 12, thickness: 0.8),
           pw.Center(
             child: pw.Text(
-              'Thank you for your valuable business with $factoryName!',
+              footerNoteText,
               style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: _accentBlue),
+              textAlign: pw.TextAlign.center,
             ),
           ),
         ],

@@ -194,12 +194,12 @@ class SalesInvoiceScreen extends StatelessWidget {
               if (context.userCanExport(AppModule.sales))
                 ExportMenuButton(
                   onExportPdf: (origin) async {
-                    final factoryName = await resolveExportFactoryName(context);
+                    final factoryProfile = await resolveExportFactoryProfile(context, invoice.factoryId);
                     final exporter = getIt<InvoicePdfExporter>();
                     final doc = await exporter.buildSalesInvoicePdf(
                       invoice: invoice,
                       payments: state.payments,
-                      factoryName: factoryName,
+                      factoryProfile: factoryProfile,
                     );
                     await ExportActions.sharePdf(
                       document: doc,
@@ -221,12 +221,12 @@ class SalesInvoiceScreen extends StatelessWidget {
                     );
                   },
                   onPrint: () async {
-                    final factoryName = await resolveExportFactoryName(context);
+                    final factoryProfile = await resolveExportFactoryProfile(context, invoice.factoryId);
                     final exporter = getIt<InvoicePdfExporter>();
                     final doc = await exporter.buildSalesInvoicePdf(
                       invoice: invoice,
                       payments: state.payments,
-                      factoryName: factoryName,
+                      factoryProfile: factoryProfile,
                     );
                     await ExportActions.printPdf(
                       document: doc,

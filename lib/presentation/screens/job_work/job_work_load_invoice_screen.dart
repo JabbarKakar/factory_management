@@ -283,12 +283,12 @@ class _JobWorkLoadInvoiceScreenState extends State<JobWorkLoadInvoiceScreen> {
                 ExportMenuButton(
                   onExportPdf: (origin) async {
                     try {
-                      final factoryName = await resolveExportFactoryName(context);
+                      final factoryProfile = await resolveExportFactoryProfile(context, invoice.factoryId);
                       final exporter = getIt<InvoicePdfExporter>();
                       final doc = await exporter.buildJobWorkInvoicePdf(
                         invoice: invoice,
                         payments: state.payments,
-                        factoryName: factoryName,
+                        factoryProfile: factoryProfile,
                       );
                       await ExportActions.sharePdf(
                         document: doc,
@@ -323,12 +323,12 @@ class _JobWorkLoadInvoiceScreenState extends State<JobWorkLoadInvoiceScreen> {
                   },
                   onPrint: () async {
                     try {
-                      final factoryName = await resolveExportFactoryName(context);
+                      final factoryProfile = await resolveExportFactoryProfile(context, invoice.factoryId);
                       final exporter = getIt<InvoicePdfExporter>();
                       final doc = await exporter.buildJobWorkInvoicePdf(
                         invoice: invoice,
                         payments: state.payments,
-                        factoryName: factoryName,
+                        factoryProfile: factoryProfile,
                       );
                       await ExportActions.printPdf(
                         document: doc,

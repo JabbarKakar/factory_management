@@ -99,6 +99,10 @@ class ContactInfo extends Equatable {
   final String? googleMapsLink;
   final List<AdditionalLocation> additionalLocations;
 
+  String get fullAddress => [address, city, province]
+      .where((s) => s.trim().isNotEmpty)
+      .join(', ');
+
   ContactInfo copyWith({
     String? address,
     String? city,

@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/di/injection.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/entities/factory_profile.dart';
 import '../../../domain/entities/job_work_invoice.dart';
 import '../../../domain/entities/payment.dart';
 import '../../../domain/entities/sales_invoice.dart';
@@ -30,14 +31,92 @@ class InvoicePdfExporter {
   final FactoryRepository? _factoryRepository;
   final JobWorkRepository? _jobWorkRepository;
   final JobWorkLoadRepository? _loadRepository;
+
+  /// Generates Sales Invoice PDF bytes (Uint8List).
+  Future<Uint8List> generateSalesInvoicePdf({
+    required SalesInvoice invoice,
+    FactoryProfile? factoryProfile,
+    List<Payment> payments = const [],
+  }) async {
+    final doc = await buildSalesInvoicePdf(
+      invoice: invoice,
+      factoryProfile: factoryProfile,
+      payments: payments,
+    );
+    return doc.save();
+  }
+
+  /// Builds a pw.Document for Sales Invoice with complete FactoryProfile branding.
   Future<pw.Document> buildSalesInvoicePdf({
     required SalesInvoice invoice,
-    required List<Payment> payments,
+    FactoryProfile? factoryProfile,
+    List<Payment> payments = const [],
     String factoryName = AppStrings.appName,
   }) async {
     final fonts = await PdfFonts.load();
     final doc = pw.Document();
     final dateFormat = DateFormat.yMMMd();
+
+    // Resolve FactoryProfile from repository if omitted
+    final factoryRepo = _factoryRepository ?? getIt<FactoryRepository>();
+    final profile = factoryProfile ??
+        (invoice.factoryId.isNotEmpty
+            ? await factoryRepo.getFactory(invoice.factoryId)
+            : null);
+
+    final identity = profile?.identity;
+    final contact = profile?.contact;
+    final legal = profile?.legal;
+    final ownership = profile?.ownership;
+    final invSettings = profile?.invoiceSettings;
+
+    final rawBizName = identity?.businessName.trim();
+    final rawProfileName = profile?.name.trim();
+    final resolvedFactoryName = (rawBizName != null && rawBizName.isNotEmpty
+            ? rawBizName
+            : rawProfileName != null && rawProfileName.isNotEmpty
+                ? rawProfileName
+                : factoryName)
+        .toUpperCase();
+
+    final rawTagline = identity?.tagline?.trim();
+    final tagline = rawTagline != null && rawTagline.isNotEmpty
+        ? rawTagline
+        : 'PREMIUM MANUFACTURING & SALES';
+
+    final rawOwner = ownership?.ownerName?.trim();
+    final rawProfileOwner = profile?.ownerName?.trim();
+    final ownerName = rawOwner != null && rawOwner.isNotEmpty
+        ? rawOwner
+        : rawProfileOwner != null && rawProfileOwner.isNotEmpty
+            ? rawProfileOwner
+            : null;
+
+    final rawAddr = contact?.fullAddress.trim();
+    final rawProfileAddr = profile?.address?.trim();
+    final address = rawAddr != null && rawAddr.isNotEmpty
+        ? rawAddr
+        : rawProfileAddr != null && rawProfileAddr.isNotEmpty
+            ? rawProfileAddr
+            : null;
+
+    final rawPhone = contact?.phone.trim();
+    final rawProfilePhone = profile?.phone?.trim();
+    final phone = rawPhone != null && rawPhone.isNotEmpty
+        ? rawPhone
+        : rawProfilePhone != null && rawProfilePhone.isNotEmpty
+            ? rawProfilePhone
+            : null;
+    final email = contact?.email?.trim().isNotEmpty == true ? contact!.email!.trim() : null;
+    final website = contact?.website?.trim().isNotEmpty == true ? contact!.website!.trim() : null;
+    final ntn = legal?.ntn?.trim().isNotEmpty == true ? legal!.ntn!.trim() : null;
+    final strn = legal?.strn?.trim().isNotEmpty == true ? legal!.strn!.trim() : null;
+    final termsText = invSettings?.termsAndConditions?.trim().isNotEmpty == true
+        ? invSettings!.termsAndConditions!.trim()
+        : null;
+    final footerNoteText = invSettings?.footerNote?.trim().isNotEmpty == true
+        ? invSettings!.footerNote!.trim()
+        : 'Thank you for your business with $resolvedFactoryName!';
 
     doc.addPage(
       pw.MultiPage(
@@ -45,28 +124,96 @@ class InvoicePdfExporter {
         margin: const pw.EdgeInsets.all(32),
         theme: fonts.theme,
         build: (context) => [
+          // Header Section
           PdfDocumentTheme.header(
             fonts: fonts,
-            title: factoryName,
-            subtitle: AppStrings.salesInvoice,
+            title: resolvedFactoryName,
+            subtitle: tagline,
             rightLabel: invoice.invoiceNumber,
           ),
+          if (ownerName != null || address != null || phone != null || email != null || strn != null || ntn != null) ...[
+            pw.SizedBox(height: 4),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    if (ownerName != null)
+                      pw.Text('Proprietor: $ownerName',
+                          style: PdfDocumentTheme.subtitleStyle(fonts)),
+                    if (address != null)
+                      pw.Text('Address: $address',
+                          style: PdfDocumentTheme.subtitleStyle(fonts)),
+                    if (phone != null || email != null || website != null)
+                      pw.Text(
+                        [
+                          if (phone != null) 'Ph: $phone',
+                          if (email != null) 'Email: $email',
+                          if (website != null) 'Web: $website',
+                        ].join(' | '),
+                        style: PdfDocumentTheme.subtitleStyle(fonts),
+                      ),
+                  ],
+                ),
+                if (strn != null || ntn != null)
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      if (strn != null)
+                        pw.Text('STRN: $strn',
+                            style: PdfDocumentTheme.subtitleStyle(fonts)),
+                      if (ntn != null)
+                        pw.Text('NTN: $ntn',
+                            style: PdfDocumentTheme.subtitleStyle(fonts)),
+                    ],
+                  ),
+              ],
+            ),
+          ],
           PdfDocumentTheme.divider(),
-          pw.Text(
-            Formatters.textForExport(invoice.customerName),
-            style: PdfDocumentTheme.titleStyle(fonts, size: 14),
-          ),
-          pw.SizedBox(height: 4),
-          pw.Text(
-            '${AppStrings.orderNumber}: ${Formatters.textForExport(invoice.orderNumber)}',
-            style: PdfDocumentTheme.subtitleStyle(fonts),
-          ),
-          pw.SizedBox(height: 4),
-          pw.Text(
-            '${AppStrings.date}: ${dateFormat.format(invoice.createdAt)}',
-            style: PdfDocumentTheme.subtitleStyle(fonts),
+
+          // Bill To & Order Details
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('BILL TO:',
+                      style: PdfDocumentTheme.bodyStyle(fonts, bold: true)),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    Formatters.textForExport(invoice.customerName),
+                    style: PdfDocumentTheme.titleStyle(fonts, size: 14),
+                  ),
+                ],
+              ),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text(
+                    '${AppStrings.orderNumber}: ${Formatters.textForExport(invoice.orderNumber)}',
+                    style: PdfDocumentTheme.subtitleStyle(fonts),
+                  ),
+                  pw.Text(
+                    '${AppStrings.date}: ${dateFormat.format(invoice.createdAt)}',
+                    style: PdfDocumentTheme.subtitleStyle(fonts),
+                  ),
+                  if (invoice.dueDate != null)
+                    pw.Text(
+                      '${AppStrings.paymentDueDate}: ${dateFormat.format(invoice.dueDate!)}',
+                      style: PdfDocumentTheme.subtitleStyle(fonts),
+                    ),
+                ],
+              ),
+            ],
           ),
           PdfDocumentTheme.divider(),
+
+          // Line Items Table
           pw.Text(
             AppStrings.lineItems,
             style: PdfDocumentTheme.bodyStyle(fonts, bold: true),
@@ -93,6 +240,8 @@ class InvoicePdfExporter {
             ],
           ),
           pw.SizedBox(height: 16),
+
+          // Summary Section
           PdfDocumentTheme.summaryRow(
             fonts,
             AppStrings.invoiceTotal,
@@ -109,12 +258,27 @@ class InvoicePdfExporter {
             Formatters.currencyForExport(invoice.dueAmount),
             bold: true,
           ),
-          if (invoice.dueDate != null)
-            PdfDocumentTheme.summaryRow(
-              fonts,
-              AppStrings.paymentDueDate,
-              dateFormat.format(invoice.dueDate!),
+
+          // Bank Accounts Section if present
+          if (profile != null && profile.bankAccounts.isNotEmpty) ...[
+            PdfDocumentTheme.divider(),
+            pw.Text(
+              'Bank Accounts & Remittance',
+              style: PdfDocumentTheme.bodyStyle(fonts, bold: true),
             ),
+            pw.SizedBox(height: 6),
+            for (final acc in profile.bankAccounts)
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 4),
+                child: pw.Text(
+                  '• ${acc.bankName}: Title: ${acc.accountName} | Acc #: ${acc.accountNumber}'
+                  '${acc.iban != null && acc.iban!.isNotEmpty ? " | IBAN: ${acc.iban}" : ""}',
+                  style: PdfDocumentTheme.subtitleStyle(fonts),
+                ),
+              ),
+          ],
+
+          // Payment History
           if (payments.isNotEmpty) ...[
             PdfDocumentTheme.divider(),
             pw.Text(
@@ -129,6 +293,29 @@ class InvoicePdfExporter {
                 Formatters.currencyForExport(payment.amount),
               ),
           ],
+
+          // Terms and Conditions
+          if (termsText != null) ...[
+            PdfDocumentTheme.divider(),
+            pw.Text(
+              'Terms & Conditions',
+              style: PdfDocumentTheme.bodyStyle(fonts, bold: true),
+            ),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              termsText,
+              style: PdfDocumentTheme.subtitleStyle(fonts),
+            ),
+          ],
+
+          PdfDocumentTheme.divider(),
+          pw.Center(
+            child: pw.Text(
+              footerNoteText,
+              style: PdfDocumentTheme.subtitleStyle(fonts),
+              textAlign: pw.TextAlign.center,
+            ),
+          ),
         ],
       ),
     );
@@ -136,18 +323,48 @@ class InvoicePdfExporter {
     return doc;
   }
 
+  /// Generates Job Work Invoice PDF bytes (Uint8List).
+  Future<Uint8List> generateJobWorkInvoicePdf({
+    required JobWorkInvoice invoice,
+    FactoryProfile? factoryProfile,
+    List<Payment> payments = const [],
+  }) async {
+    final doc = await buildJobWorkInvoicePdf(
+      invoice: invoice,
+      factoryProfile: factoryProfile,
+      payments: payments,
+    );
+    return doc.save();
+  }
+
+  /// Builds a pw.Document for Job Work Invoice.
   Future<pw.Document> buildJobWorkInvoicePdf({
     required JobWorkInvoice invoice,
-    required List<Payment> payments,
+    FactoryProfile? factoryProfile,
+    List<Payment> payments = const [],
     String factoryName = AppStrings.appName,
   }) async {
     final fonts = await PdfFonts.load();
     final dateFormat = DateFormat.yMMMd();
 
     final factoryRepo = _factoryRepository ?? getIt<FactoryRepository>();
-    final profile = await factoryRepo.getFactory(invoice.factoryId);
-    String? factoryPhone = profile?.phone?.trim();
-    String? factoryAddress = profile?.address?.trim();
+    final profile = factoryProfile ?? await factoryRepo.getFactory(invoice.factoryId);
+    final rawPhone = profile?.contact.phone.trim();
+    final rawProfPhone = profile?.phone?.trim();
+    String? factoryPhone = rawPhone != null && rawPhone.isNotEmpty
+        ? rawPhone
+        : rawProfPhone != null && rawProfPhone.isNotEmpty
+            ? rawProfPhone
+            : null;
+
+    final rawAddr = profile?.contact.fullAddress.trim();
+    final rawProfAddr = profile?.address?.trim();
+    String? factoryAddress = rawAddr != null && rawAddr.isNotEmpty
+        ? rawAddr
+        : rawProfAddr != null && rawProfAddr.isNotEmpty
+            ? rawProfAddr
+            : null;
+
     if (profile != null && profile.name.trim().isNotEmpty) {
       factoryName = profile.name.trim();
     }
