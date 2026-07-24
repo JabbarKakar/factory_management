@@ -566,14 +566,14 @@ abstract final class ProformaInvoicePdfTemplate {
     if (invoice.jobWorkNumber.isNotEmpty) {
       billToLines.add('Job Work: ${invoice.jobWorkNumber}');
     }
-    if (invoice.loadNumber != null && invoice.loadNumber!.trim().isNotEmpty) {
+    if (invoice.loadId != null && invoice.loadId!.trim().isNotEmpty) {
       billToLines.add('Load: ${invoice.loadNumber!.trim()}');
-    }
-    if (invoice.mineLocation != null && invoice.mineLocation!.trim().isNotEmpty) {
-      billToLines.add(invoice.mineLocation!.trim());
-    }
-    if (invoice.mineOwner != null && invoice.mineOwner!.trim().isNotEmpty) {
-      billToLines.add('Owner: ${invoice.mineOwner!.trim()}');
+      if (invoice.mineLocation != null && invoice.mineLocation!.trim().isNotEmpty) {
+        billToLines.add(invoice.mineLocation!.trim());
+      }
+      if (invoice.mineOwner != null && invoice.mineOwner!.trim().isNotEmpty) {
+        billToLines.add('Owner: ${invoice.mineOwner!.trim()}');
+      }
     }
 
     final lineItems = invoice.lineItems.map((item) {

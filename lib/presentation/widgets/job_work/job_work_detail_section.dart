@@ -31,7 +31,7 @@ class JobWorkDetailSection extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
               child: Row(
                 children: [
                   Container(

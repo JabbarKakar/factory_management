@@ -46,6 +46,8 @@ class JobWorkInvoiceModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  bool get isGrandInvoice => loadId == null || loadId!.trim().isEmpty;
+
   factory JobWorkInvoiceModel.fromFirestore(
     String id,
     Map<String, dynamic> data,

@@ -58,6 +58,8 @@ class JobWorkInvoice extends Equatable {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  bool get isGrandInvoice => loadId == null || loadId!.trim().isEmpty;
+
   JobWorkInvoice copyWith({
     String? id,
     String? invoiceNumber,

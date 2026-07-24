@@ -463,11 +463,8 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                   ],
                 ),
               ),
-              if (canEdit &&
-                  (JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load) ||
-                      state.invoice != null ||
-                      (load.invoiceId != null &&
-                          load.invoiceId!.isNotEmpty))) ...[
+              if (canEdit && (JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load) ||
+                      state.invoice != null || (load.invoiceId != null && load.invoiceId!.isNotEmpty))) ...[
                 JobWorkDetailSection(
                   title: AppStrings.jobWorkInvoice,
                   icon: Icons.receipt_long_outlined,

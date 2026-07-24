@@ -58,10 +58,12 @@ class InvoiceExcelExporter {
       dueAmount: invoice.dueAmount,
       payments: payments,
       extraDetails: [
-        if (invoice.mineLocation != null)
-          (AppStrings.mineLocation, invoice.mineLocation!),
-        if (invoice.mineOwner != null)
-          (AppStrings.mineOwner, invoice.mineOwner!),
+        if (invoice.loadId != null && invoice.loadId!.trim().isNotEmpty) ...[
+          if (invoice.mineLocation != null)
+            (AppStrings.mineLocation, invoice.mineLocation!),
+          if (invoice.mineOwner != null)
+            (AppStrings.mineOwner, invoice.mineOwner!),
+        ],
       ],
     );
   }
