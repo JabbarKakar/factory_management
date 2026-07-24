@@ -467,15 +467,29 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                   (JobWorkContainerSyncHelper.canGenerateInvoiceForLoad(load) ||
                       state.invoice != null ||
                       (load.invoiceId != null &&
-                          load.invoiceId!.isNotEmpty)))
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                          load.invoiceId!.isNotEmpty))) ...[
+                JobWorkDetailSection(
+                  title: AppStrings.jobWorkInvoice,
+                  icon: Icons.receipt_long_outlined,
+                  action: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (state.invoice == null &&
-                          (load.invoiceId == null || load.invoiceId!.isEmpty))
+                      if (state.invoice == null && (load.invoiceId == null || load.invoiceId!.isEmpty))
                         FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            minimumSize: const Size(0, 36),
+                            textStyle: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           onPressed: isSaving
                               ? null
                               : () async {
@@ -487,96 +501,125 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                                   );
                                   if (context.mounted) await _reload(context);
                                 },
-                          icon: const Icon(Icons.receipt_long_outlined),
+                          icon: const Icon(Icons.receipt_long_outlined, size: 15),
                           label: const Text(AppStrings.generateInvoice),
                         )
                       else ...[
                         OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            minimumSize: const Size(0, 36),
+                            textStyle: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           onPressed: isSaving
                               ? null
                               : () async {
                                   await context.push(
-                                    RoutePaths.jobWorkLoadInvoice(
-                                      jobWorkId: jobWorkId,
-                                      loadId: load.id,
-                                    ),
+                                    RoutePaths.jobWorkLoadInvoice(jobWorkId: jobWorkId, loadId: load.id),
                                   );
                                   if (context.mounted) await _reload(context);
                                 },
-                          icon: const Icon(Icons.receipt_long_outlined),
+                          icon: const Icon(Icons.receipt_long_outlined, size: 15),
                           label: const Text(AppStrings.viewInvoice),
                         ),
-                        if ((state.invoice?.dueAmount ?? load.balanceDue) >
-                            0) ...[
-                          const SizedBox(height: 8),
+                        if ((state.invoice?.dueAmount ?? load.balanceDue) > 0) ...[
+                          const SizedBox(width: 8),
                           FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              minimumSize: const Size(0, 36),
+                              textStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             onPressed: isSaving
                                 ? null
                                 : () async {
-                                    final invoiceId =
-                                        state.invoice?.id ?? load.invoiceId;
-                                    if (invoiceId == null ||
-                                        invoiceId.isEmpty) {
+                                    final invoiceId = state.invoice?.id ?? load.invoiceId;
+                                    if (invoiceId == null || invoiceId.isEmpty) {
                                       return;
                                     }
-                                    await context.push(
-                                      RoutePaths.recordPayment(invoiceId),
+                                    await context.push(RoutePaths.recordPayment(invoiceId),
                                     );
                                     if (context.mounted) {
                                       await _reload(context);
                                     }
                                   },
-                            icon: const Icon(Icons.payments_outlined),
+                            icon: const Icon(Icons.payments_outlined, size: 15),
                             label: const Text(AppStrings.recordPayment),
                           ),
                         ],
                       ],
                     ],
                   ),
+                  child: state.invoice != null
+                      ? JobWorkDetailRows(
+                          rows: [
+                            JobWorkDetailRow(
+                              label: AppStrings.invoiceNumber,
+                              value: state.invoice!.invoiceNumber,
+                              bold: true,
+                            ),
+                            JobWorkDetailRow(
+                              label: AppStrings.totalAmountLabel,
+                              value: Formatters.currencyPkr(
+                                state.invoice!.totalAmount,
+                              ),
+                            ),
+                            JobWorkDetailRow(
+                              label: AppStrings.amountPaid,
+                              value: Formatters.currencyPkr(
+                                state.invoice!.paidAmount,
+                              ),
+                            ),
+                            JobWorkDetailRow(
+                              label: AppStrings.balanceDue,
+                              value: Formatters.currencyPkr(
+                                state.invoice!.dueAmount,
+                              ),
+                              bold: state.invoice!.dueAmount > 0,
+                              highlight: state.invoice!.dueAmount > 0,
+                            ),
+                            if (state.invoice!.dueDate != null)
+                              JobWorkDetailRow(
+                                label: AppStrings.paymentDueDate,
+                                value: DateFormat.yMMMd().format(state.invoice!.dueDate!),
+                              ),
+                          ],
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Text(
+                            AppStrings.invoiceNotReady,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ),
                 ),
-              if (state.invoice != null) ...[
-                JobWorkDetailSection(
-                  title: AppStrings.jobWorkInvoice,
-                  icon: Icons.receipt_long_outlined,
-                  child: JobWorkDetailRows(
-                    rows: [
-                      JobWorkDetailRow(
-                        label: AppStrings.invoiceNumber,
-                        value: state.invoice!.invoiceNumber,
-                        bold: true,
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.totalAmountLabel,
-                        value: Formatters.currencyPkr(
-                          state.invoice!.totalAmount,
-                        ),
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.amountPaid,
-                        value: Formatters.currencyPkr(
-                          state.invoice!.paidAmount,
-                        ),
-                      ),
-                      JobWorkDetailRow(
-                        label: AppStrings.balanceDue,
-                        value: Formatters.currencyPkr(
-                          state.invoice!.dueAmount,
-                        ),
-                        bold: state.invoice!.dueAmount > 0,
-                        highlight: state.invoice!.dueAmount > 0,
-                      ),
-                      if (state.invoice!.dueDate != null)
-                        JobWorkDetailRow(
-                          label: AppStrings.paymentDueDate,
-                          value: DateFormat.yMMMd()
-                              .format(state.invoice!.dueDate!),
-                        ),
-                    ],
+                if (state.invoice != null)
+                  JobWorkInvoicePaymentHistorySection(
+                    payments: state.payments,
                   ),
-                ),
-                JobWorkInvoicePaymentHistorySection(
-                  payments: state.payments,
-                ),
               ],
               JobWorkDetailSection(
                 title: AppStrings.cuttingSpecification,
