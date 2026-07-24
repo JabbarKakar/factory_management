@@ -112,6 +112,80 @@ abstract final class JobWorkContainerSyncHelper {
     );
   }
 
+  /// Helper to extract paid amount for a specific load from stored invoice line items.
+  /// Line items are formatted as: '$label · Total: Rs X · Paid: Rs Y · Remaining: Rs Z'
+  /// Uses label-prefix isolation to prevent false matches against year/amount digits.
+  static double? extractPaidFromLineItems(
+    List<JobWorkInvoice> invoices,
+    JobWorkLoad load, {
+    int loadIndex = -1,
+  }) {
+    final loadNum = load.loadNumber.trim();
+    final seqStr = load.loadSequence.toString();
+
+    final paidReg = RegExp(
+      r'Paid:\s*(?:Rs|PKR)?\s*([\d,]+(?:\.\d+)?)',
+      caseSensitive: false,
+    );
+
+    for (final inv in invoices) {
+      if (inv.lineItems.isEmpty) continue;
+
+      // 1. Try label matching on each line item description
+      for (final item in inv.lineItems) {
+        final desc = item.description;
+        if (!desc.contains(RegExp(r'Paid\s*:', caseSensitive: false))) continue;
+
+        // Isolate the load label before '·' or 'Total:' to avoid matching
+        // sequence digits inside amounts (e.g. '1318692' ending in '2').
+        final labelPart = desc.split('·').first.split('Total:').first.trim();
+
+        bool isMatch = false;
+        if (loadNum.isNotEmpty && labelPart.contains(RegExp(r'\b' + RegExp.escape(loadNum) + r'\b', caseSensitive: false))) {
+          isMatch = true;
+        } else if (labelPart.contains(RegExp(r'(?:Load|LOAD)\s*#?\s*0*' + seqStr + r'$', caseSensitive: false)) ||
+            labelPart.contains(RegExp(r'-0*' + seqStr + r'$', caseSensitive: false))) {
+          isMatch = true;
+        }
+
+        if (isMatch) {
+          final match = paidReg.firstMatch(desc);
+          if (match != null) {
+            final valStr = match.group(1)?.replaceAll(',', '');
+            if (valStr != null) {
+              final parsed = double.tryParse(valStr);
+              if (parsed != null) {
+                return parsed;
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Try filtered positional match (N-th load header item with "Paid:")
+      //    Output detail lines ('└ Output: ...') are excluded so indices align
+      //    with the billable load sequence used when generating line items.
+      final paidItems = inv.lineItems
+          .where((item) => item.description.contains(RegExp(r'Paid\s*:', caseSensitive: false)))
+          .toList();
+
+      if (loadIndex >= 0 && loadIndex < paidItems.length) {
+        final desc = paidItems[loadIndex].description;
+        final match = paidReg.firstMatch(desc);
+        if (match != null) {
+          final valStr = match.group(1)?.replaceAll(',', '');
+          if (valStr != null) {
+            final parsed = double.tryParse(valStr);
+            if (parsed != null) {
+              return parsed;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }
+
   /// Map of per-load financial breakdown ({double charges, double paid, double due})
   /// giving priority to load-specific invoice payments before distributing general payments.
   static Map<String, ({double charges, double paid, double due})>
@@ -142,27 +216,34 @@ abstract final class JobWorkContainerSyncHelper {
     final result = <String, ({double charges, double paid, double due})>{};
     var specificPaymentsSum = 0.0;
 
-    // Step 1: Assign specific payments to loads that have their own load-scoped invoice or advance
-    for (final load in loadsToProcess) {
+    // Step 1: Assign specific payments to loads that have their own
+    // load-scoped invoice, advanceReceived, or stored line-item paid amount.
+    for (var i = 0; i < loadsToProcess.length; i++) {
+      final load = loadsToProcess[i];
       final inv = byLoadId[load.id] ??
           (load.invoiceId != null && load.invoiceId!.isNotEmpty
               ? invoices
-                  .where((i) =>
-                      i.id == load.invoiceId &&
-                      i.loadId != null &&
-                      i.loadId!.trim() == load.id)
+                  .where((inv) =>
+                      inv.id == load.invoiceId &&
+                      inv.loadId != null &&
+                      inv.loadId!.trim() == load.id)
                   .firstOrNull
               : null);
 
       final total = load.finalCuttingCharges;
       double specificPaid = 0.0;
+      final lineItemPaid = extractPaidFromLineItems(invoices, load, loadIndex: i);
+
       if (inv != null) {
         specificPaid = inv.paidAmount;
       } else if (load.advanceReceived > 0) {
         specificPaid = load.advanceReceived;
+      } else if (lineItemPaid != null) {
+        specificPaid = lineItemPaid;
       }
 
-      if (specificPaid > 0 || inv != null) {
+      // Mark load as having explicit payment data if ANY source provided a value
+      if (inv != null || load.advanceReceived > 0 || lineItemPaid != null) {
         final paid = specificPaid.clamp(0.0, total).toDouble();
         final due = (total - paid).clamp(0.0, total).toDouble();
         result[load.id] = (charges: total, paid: paid, due: due);
@@ -171,14 +252,25 @@ abstract final class JobWorkContainerSyncHelper {
     }
 
     // Step 2: Distribute remaining general payments in FIFO sequence
+    // ONLY to loads that don't already have explicit payment data.
     var generalPool = (totalPaymentsRecorded - specificPaymentsSum)
         .clamp(0.0, double.infinity)
         .toDouble();
 
-    for (final load in loadsToProcess) {
+    for (var i = 0; i < loadsToProcess.length; i++) {
+      final load = loadsToProcess[i];
+
+      // Check if this load has explicit payment data from any source
+      final inv = byLoadId[load.id];
+      final lineItemPaid = extractPaidFromLineItems(invoices, load, loadIndex: i);
+      final hasExplicitPayment = (load.advanceReceived > 0 ||
+          inv != null ||
+          (lineItemPaid != null));
+
       if (result.containsKey(load.id)) {
         final existing = result[load.id]!;
-        if (existing.due > 0 && generalPool > 0) {
+        // Only apply general pool to loads WITHOUT explicit payment data
+        if (existing.due > 0 && generalPool > 0 && !hasExplicitPayment) {
           final additionalPaid = generalPool >= existing.due
               ? existing.due
               : generalPool;
@@ -199,7 +291,7 @@ abstract final class JobWorkContainerSyncHelper {
         final total = load.finalCuttingCharges;
         final double paid;
         final double due;
-        if (generalPool > 0) {
+        if (generalPool > 0 && !hasExplicitPayment) {
           paid = generalPool >= total ? total : generalPool;
           due = (total - paid).clamp(0.0, total).toDouble();
           generalPool = (generalPool - paid)

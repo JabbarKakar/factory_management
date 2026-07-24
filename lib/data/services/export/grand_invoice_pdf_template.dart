@@ -44,6 +44,7 @@ abstract final class GrandInvoicePdfTemplate {
     required FactoryProfile? factoryProfile,
     required PdfFonts fonts,
     Uint8List? logoBytes,
+    List<JobWorkInvoice>? allInvoices,
   }) async {
     final doc = pw.Document(theme: fonts.theme);
     final dateFormat = DateFormat('MMM dd, yyyy');
@@ -126,10 +127,16 @@ abstract final class GrandInvoicePdfTemplate {
     final billable = JobWorkContainerSyncHelper.billableLoadsForGrandInvoice(loads);
     final displayLoads = billable.isNotEmpty ? billable : loads;
     
+    // Use real invoices from Firestore when available; fall back to stub-based
+    // invoicesForGrand only when allInvoices is not provided.
+    final effectiveInvoices = allInvoices != null && allInvoices.isNotEmpty
+        ? allInvoices
+        : invoicesForGrand(loads, invoice);
+
     final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
       order: order,
       loads: loads,
-      invoices: invoicesForGrand(loads, invoice),
+      invoices: effectiveInvoices,
     );
 
     final aggregated = JobWorkCollectionQuantityHelper.aggregateTotals(

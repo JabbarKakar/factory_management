@@ -14,6 +14,7 @@ import '../../repositories/factory_repository.dart';
 import '../../repositories/job_work_repository.dart';
 import '../../repositories/job_work_load_repository.dart';
 import '../../repositories/job_work_collection_repository.dart';
+import '../../repositories/job_work_invoice_repository.dart';
 import 'pdf_document_theme.dart';
 import 'pdf_fonts.dart';
 import 'proforma_invoice_pdf_template.dart';
@@ -390,6 +391,22 @@ class InvoicePdfExporter {
       } catch (_) {}
 
       final isGrandInvoice = invoice.loadId == null || invoice.loadId!.trim().isEmpty;
+
+      // Fetch ALL invoices for this job work so the PDF template gets
+      // authoritative per-load payment data (load-scoped invoices with
+      // correct paidAmount and loadId) instead of stubs with paidAmount=0.
+      List<JobWorkInvoice> allInvoices = [];
+      try {
+        final invoiceRepo = getIt<JobWorkInvoiceRepository>();
+        allInvoices = await invoiceRepo.getInvoicesByJobWorkId(
+          factoryId: invoice.factoryId,
+          jobWorkId: invoice.jobWorkId,
+        );
+      } catch (_) {
+        // Fall back to single invoice if fetch fails
+        allInvoices = [invoice];
+      }
+
       if (isGrandInvoice) {
         return GrandInvoicePdfTemplate.build(
           invoice: invoice,
@@ -400,6 +417,7 @@ class InvoicePdfExporter {
           factoryProfile: profile,
           fonts: fonts,
           logoBytes: logoBytes,
+          allInvoices: allInvoices,
         );
       } else {
         final specificLoad = allLoads.where((l) => l.id == invoice.loadId).firstOrNull;
@@ -414,6 +432,7 @@ class InvoicePdfExporter {
             factoryProfile: profile,
             fonts: fonts,
             logoBytes: logoBytes,
+            allInvoices: allInvoices,
           );
         }
       }
