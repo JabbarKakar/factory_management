@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../domain/entities/factory_profile.dart';
 
-/// Front side of the Onyx & Gold Business Card.
+/// Front side of the Onyx & Gold Business Card with high-contrast text.
 class BusinessCardFront extends StatelessWidget {
   const BusinessCardFront({
     super.key,
@@ -16,9 +16,9 @@ class BusinessCardFront extends StatelessWidget {
 
   static const Color darkBg = Color(0xFF1E1E1E);
   static const Color darkBgGradient = Color(0xFF121212);
-  static const Color goldAccent = Color(0xFFD4AF37);
-  static const Color goldLight = Color(0xFFF3E5AB);
-  static const Color warmGray = Color(0xFFA0A0A0);
+  static const Color goldAccent = Color(0xFFF5D061);
+  static const Color goldLight = Color(0xFFFFF1BD);
+  static const Color warmWhite = Color(0xFFF0F0F0);
 
   String _getInitials(String name) {
     final trimmed = name.trim();
@@ -53,58 +53,58 @@ class BusinessCardFront extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF252525),
+              Color(0xFF282828),
               darkBg,
               darkBgGradient,
             ],
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
           border: Border.all(
-            color: goldAccent.withValues(alpha: 0.3),
-            width: 1,
+            color: goldAccent.withValues(alpha: 0.4),
+            width: 1.2,
           ),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(13),
           child: Stack(
             children: [
               // Subtle background geometric accents
               Positioned(
-                top: -40,
-                right: -40,
+                top: -45,
+                right: -45,
                 child: Container(
-                  width: 130,
-                  height: 130,
+                  width: 140,
+                  height: 140,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: goldAccent.withValues(alpha: 0.06),
+                      color: goldAccent.withValues(alpha: 0.08),
                       width: 1.5,
                     ),
                   ),
                 ),
               ),
               Positioned(
-                top: -20,
-                right: -20,
+                top: -25,
+                right: -25,
                 child: Container(
-                  width: 90,
-                  height: 90,
+                  width: 100,
+                  height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: goldAccent.withValues(alpha: 0.08),
+                      color: goldAccent.withValues(alpha: 0.1),
                       width: 1,
                     ),
                   ),
@@ -122,15 +122,15 @@ class BusinessCardFront extends StatelessWidget {
                     // Logo or Monogram
                     if (logoUrl != null && logoUrl.isNotEmpty)
                       Container(
-                        width: 52,
-                        height: 52,
+                        width: 54,
+                        height: 54,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: goldAccent, width: 1.5),
+                          border: Border.all(color: goldAccent, width: 1.8),
                           boxShadow: [
                             BoxShadow(
-                              color: goldAccent.withValues(alpha: 0.2),
-                              blurRadius: 8,
+                              color: goldAccent.withValues(alpha: 0.25),
+                              blurRadius: 10,
                             ),
                           ],
                         ),
@@ -146,7 +146,7 @@ class BusinessCardFront extends StatelessWidget {
                     else
                       _buildMonogram(businessName),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
                     // Business Name
                     FittedBox(
@@ -156,30 +156,30 @@ class BusinessCardFront extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: goldAccent,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
                           letterSpacing: 1.4,
                           shadows: [
                             Shadow(
-                              color: Colors.black54,
-                              offset: Offset(0, 1),
-                              blurRadius: 2,
+                              color: Colors.black,
+                              offset: Offset(0, 1.5),
+                              blurRadius: 3,
                             ),
                           ],
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
 
                     // Gold decorative line divider
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          width: 24,
-                          height: 1,
-                          color: goldAccent.withValues(alpha: 0.5),
+                          width: 32,
+                          height: 1.2,
+                          color: goldAccent.withValues(alpha: 0.6),
                         ),
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 6),
@@ -190,9 +190,9 @@ class BusinessCardFront extends StatelessWidget {
                           ),
                         ),
                         Container(
-                          width: 24,
-                          height: 1,
-                          color: goldAccent.withValues(alpha: 0.5),
+                          width: 32,
+                          height: 1.2,
+                          color: goldAccent.withValues(alpha: 0.6),
                         ),
                       ],
                     ),
@@ -206,21 +206,28 @@ class BusinessCardFront extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: warmGray,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w500,
+                        color: warmWhite,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 1.0,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black87,
+                            offset: Offset(0, 1),
+                            blurRadius: 2,
+                          ),
+                        ],
                       ),
                     ),
 
                     if (establishedYear != null) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 5),
                       Text(
                         'EST. $establishedYear',
                         style: TextStyle(
-                          color: goldAccent.withValues(alpha: 0.7),
-                          fontSize: 8,
-                          fontWeight: FontWeight.w600,
+                          color: goldAccent.withValues(alpha: 0.9),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
                         ),
                       ),
@@ -237,15 +244,15 @@ class BusinessCardFront extends StatelessWidget {
                 left: 0,
                 right: 0,
                 child: Container(
-                  height: 3.5,
+                  height: 4.0,
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Color(0xFF997A15),
+                        Color(0xFFB8860B),
                         goldAccent,
                         goldLight,
                         goldAccent,
-                        Color(0xFF997A15),
+                        Color(0xFFB8860B),
                       ],
                     ),
                   ),
@@ -260,23 +267,23 @@ class BusinessCardFront extends StatelessWidget {
 
   Widget _buildMonogram(String businessName) {
     return Container(
-      width: 48,
-      height: 48,
+      width: 52,
+      height: 52,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            goldAccent.withValues(alpha: 0.2),
-            goldAccent.withValues(alpha: 0.05),
+            goldAccent.withValues(alpha: 0.25),
+            goldAccent.withValues(alpha: 0.08),
           ],
         ),
-        border: Border.all(color: goldAccent, width: 1.5),
+        border: Border.all(color: goldAccent, width: 1.8),
         boxShadow: [
           BoxShadow(
-            color: goldAccent.withValues(alpha: 0.15),
-            blurRadius: 6,
+            color: goldAccent.withValues(alpha: 0.2),
+            blurRadius: 8,
           ),
         ],
       ),
@@ -285,7 +292,7 @@ class BusinessCardFront extends StatelessWidget {
           _getInitials(businessName),
           style: const TextStyle(
             color: goldAccent,
-            fontSize: 16,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
           ),

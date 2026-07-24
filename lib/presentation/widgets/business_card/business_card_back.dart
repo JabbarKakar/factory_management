@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../domain/entities/factory_profile.dart';
 
-/// Back side of the Onyx & Gold Business Card.
+/// Back side of the Onyx & Gold Business Card with high-contrast text.
 class BusinessCardBack extends StatelessWidget {
   const BusinessCardBack({
     super.key,
@@ -17,9 +17,10 @@ class BusinessCardBack extends StatelessWidget {
 
   static const Color darkBg = Color(0xFF1E1E1E);
   static const Color darkBgGradient = Color(0xFF141414);
-  static const Color goldAccent = Color(0xFFD4AF37);
-  static const Color goldLight = Color(0xFFF3E5AB);
-  static const Color warmGray = Color(0xFFA0A0A0);
+  static const Color goldAccent = Color(0xFFF5D061);
+  static const Color goldLight = Color(0xFFFFF1BD);
+  static const Color pureWhite = Color(0xFFFFFFFF);
+  static const Color warmGray = Color(0xFFCCCCCC);
 
   String _generateQrData() {
     final mapsUrl = profile.contact.googleMapsLink?.trim();
@@ -40,7 +41,6 @@ class BusinessCardBack extends StatelessWidget {
     final email = profile.contact.email?.trim() ?? '';
     final address = profile.contact.fullAddress;
 
-    // Use vCard format so standard phone QR scanners can save contact easily
     final sb = StringBuffer();
     sb.writeln('BEGIN:VCARD');
     sb.writeln('VERSION:3.0');
@@ -61,7 +61,7 @@ class BusinessCardBack extends StatelessWidget {
         ? profile.ownership.ownerName!.trim()
         : (profile.ownerName != null && profile.ownerName!.trim().isNotEmpty
             ? profile.ownerName!.trim()
-            : 'FACTORY OWNER');
+            : 'JABBAR KAKAR');
 
     const role = 'Owner / Managing Director';
 
@@ -72,7 +72,7 @@ class BusinessCardBack extends StatelessWidget {
     final email = profile.contact.email?.trim();
     final address = profile.contact.fullAddress.isNotEmpty
         ? profile.contact.fullAddress
-        : 'Factory Road, Industrial Area';
+        : 'Industrial Estate Area';
 
     final ntn = profile.legal.ntn?.trim();
     final strn = profile.legal.strn?.trim();
@@ -85,30 +85,30 @@ class BusinessCardBack extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF222222),
+              Color(0xFF282828),
               darkBg,
               darkBgGradient,
             ],
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: 0.6),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
           ],
           border: Border.all(
-            color: goldAccent.withValues(alpha: 0.3),
-            width: 1,
+            color: goldAccent.withValues(alpha: 0.4),
+            width: 1.2,
           ),
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(13),
           child: Stack(
             children: [
               // Top Gold Accent Stripe
@@ -117,15 +117,15 @@ class BusinessCardBack extends StatelessWidget {
                 left: 0,
                 right: 0,
                 child: Container(
-                  height: 3.0,
+                  height: 3.5,
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        Color(0xFF997A15),
+                        Color(0xFFB8860B),
                         goldAccent,
                         goldLight,
                         goldAccent,
-                        Color(0xFF997A15),
+                        Color(0xFFB8860B),
                       ],
                     ),
                   ),
@@ -134,7 +134,7 @@ class BusinessCardBack extends StatelessWidget {
 
               // Content Padding
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -151,21 +151,28 @@ class BusinessCardBack extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
+                                  color: pureWhite,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
                                   letterSpacing: 0.8,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black87,
+                                      offset: Offset(0, 1),
+                                      blurRadius: 2,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 1),
+                              const SizedBox(height: 2),
                               Text(
                                 role.toUpperCase(),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: goldAccent,
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
                                   letterSpacing: 0.8,
                                 ),
                               ),
@@ -175,14 +182,14 @@ class BusinessCardBack extends StatelessWidget {
                         // Business Initials Badge
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(5),
                             border: Border.all(
-                              color: goldAccent.withValues(alpha: 0.4),
-                              width: 0.8,
+                              color: goldAccent.withValues(alpha: 0.6),
+                              width: 1.0,
                             ),
-                            color: goldAccent.withValues(alpha: 0.08),
+                            color: goldAccent.withValues(alpha: 0.12),
                           ),
                           child: Text(
                             profile.identity.businessName.isNotEmpty
@@ -192,8 +199,8 @@ class BusinessCardBack extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: goldAccent,
-                              fontSize: 7.5,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w800,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -201,14 +208,14 @@ class BusinessCardBack extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
 
                     Container(
-                      height: 0.6,
-                      color: goldAccent.withValues(alpha: 0.25),
+                      height: 0.8,
+                      color: goldAccent.withValues(alpha: 0.35),
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
 
                     // Body Grid (2 Columns)
                     Expanded(
@@ -216,7 +223,7 @@ class BusinessCardBack extends StatelessWidget {
                         children: [
                           // Left Column: Contact Info
                           Expanded(
-                            flex: 11,
+                            flex: 12,
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,8 +250,8 @@ class BusinessCardBack extends StatelessWidget {
 
                           // Vertical Separator Line
                           Container(
-                            width: 0.6,
-                            color: goldAccent.withValues(alpha: 0.2),
+                            width: 0.8,
+                            color: goldAccent.withValues(alpha: 0.3),
                           ),
 
                           const SizedBox(width: 8),
@@ -260,7 +267,7 @@ class BusinessCardBack extends StatelessWidget {
                                 Column(
                                   children: [
                                     _buildTaxRow('NTN:', ntn ?? 'N/A'),
-                                    const SizedBox(height: 2),
+                                    const SizedBox(height: 3),
                                     _buildTaxRow('STRN:', strn ?? 'N/A'),
                                   ],
                                 ),
@@ -269,21 +276,21 @@ class BusinessCardBack extends StatelessWidget {
 
                                 // QR Code Widget
                                 Container(
-                                  padding: const EdgeInsets.all(3),
+                                  padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: BorderRadius.circular(5),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.3),
-                                        blurRadius: 4,
+                                        color: Colors.black.withValues(alpha: 0.4),
+                                        blurRadius: 6,
                                       ),
                                     ],
                                   ),
                                   child: QrImageView(
                                     data: qrData,
                                     version: QrVersions.auto,
-                                    size: 44,
+                                    size: 50,
                                     gapless: true,
                                     backgroundColor: Colors.white,
                                     eyeStyle: const QrEyeStyle(
@@ -322,20 +329,20 @@ class BusinessCardBack extends StatelessWidget {
       children: [
         Icon(
           icon,
-          size: 11,
+          size: 13,
           color: goldAccent,
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
             maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 8.5,
-              fontWeight: FontWeight.w400,
-              height: 1.2,
+              color: pureWhite,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+              height: 1.25,
             ),
           ),
         ),
@@ -349,22 +356,22 @@ class BusinessCardBack extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: goldAccent.withValues(alpha: 0.85),
-            fontSize: 7.5,
+          style: const TextStyle(
+            color: goldAccent,
+            fontSize: 9.5,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(width: 3),
+        const SizedBox(width: 4),
         Flexible(
           child: Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: warmGray,
-              fontSize: 7.5,
-              fontWeight: FontWeight.w500,
+              color: pureWhite,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

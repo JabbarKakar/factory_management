@@ -5,12 +5,12 @@ import 'business_card_front.dart';
 import 'business_card_back.dart';
 
 /// Interactive preview widget rendering Front & Back sides of the card
-/// with a 3D flip animation and toggle buttons.
+/// with a 3D flip animation and theme-adaptive toggle controls.
 class BusinessCardPreviewWidget extends StatefulWidget {
   const BusinessCardPreviewWidget({
     super.key,
     required this.profile,
-    this.width = 340,
+    this.width = 440,
   });
 
   final FactoryProfile profile;
@@ -29,7 +29,7 @@ class _BusinessCardPreviewWidgetState extends State<BusinessCardPreviewWidget>
   bool _showFront = true;
 
   static const Color goldAccent = Color(0xFFD4AF37);
-  static const Color darkBg = Color(0xFF1E1E1E);
+  static const Color goldDark = Color(0xFFB8860B);
 
   @override
   void initState() {
@@ -79,21 +79,36 @@ class _BusinessCardPreviewWidgetState extends State<BusinessCardPreviewWidget>
 
   @override
   Widget build(BuildContext context) {
-    final height = widget.width * (2.0 / 3.5);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final cardWidth = math.min(widget.width, screenWidth - 32.0);
+    final height = cardWidth * (2.0 / 3.5);
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final toggleBg = isDark ? const Color(0xFF242424) : Colors.grey.shade200;
+    final hintTextColor = isDark ? Colors.white70 : Colors.grey.shade800;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Side Selector Toggle
         Container(
-          padding: const EdgeInsets.all(4),
+          padding: const EdgeInsets.all(5),
           decoration: BoxDecoration(
-            color: darkBg,
-            borderRadius: BorderRadius.circular(24),
+            color: toggleBg,
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: goldAccent.withValues(alpha: 0.3),
-              width: 1,
+              color: goldAccent.withValues(alpha: isDark ? 0.5 : 0.7),
+              width: 1.2,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.4)
+                    : Colors.black.withValues(alpha: 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -102,20 +117,22 @@ class _BusinessCardPreviewWidgetState extends State<BusinessCardPreviewWidget>
                 label: 'FRONT',
                 icon: Icons.subtitles_rounded,
                 isSelected: _showFront,
+                isDark: isDark,
                 onTap: () => _showSide(true),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
               _buildToggleButton(
                 label: 'BACK',
                 icon: Icons.qr_code_2_rounded,
                 isSelected: !_showFront,
+                isDark: isDark,
                 onTap: () => _showSide(false),
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
 
         // Interactive 3D Flip Card
         GestureDetector(
@@ -130,13 +147,23 @@ class _BusinessCardPreviewWidgetState extends State<BusinessCardPreviewWidget>
                   ..setEntry(3, 2, 0.001) // Perspective
                   ..rotateY(angle),
                 alignment: Alignment.center,
-                child: SizedBox(
-                  width: widget.width,
+                child: Container(
+                  width: cardWidth,
                   height: height,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.25),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
                   child: _showFront
                       ? BusinessCardFront(
                           profile: widget.profile,
-                          width: widget.width,
+                          width: cardWidth,
                           height: height,
                         )
                       : Transform(
@@ -144,7 +171,7 @@ class _BusinessCardPreviewWidgetState extends State<BusinessCardPreviewWidget>
                           alignment: Alignment.center,
                           child: BusinessCardBack(
                             profile: widget.profile,
-                            width: widget.width,
+                            width: cardWidth,
                             height: height,
                           ),
                         ),
@@ -154,29 +181,29 @@ class _BusinessCardPreviewWidgetState extends State<BusinessCardPreviewWidget>
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
 
         // Hint under card
         InkWell(
           onTap: _flipCard,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
                   Icons.flip_rounded,
-                  size: 16,
-                  color: goldAccent,
+                  size: 18,
+                  color: goldDark,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Text(
                   'Tap card to flip (${_showFront ? "Front" : "Back"})',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                    color: hintTextColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -191,22 +218,23 @@ class _BusinessCardPreviewWidgetState extends State<BusinessCardPreviewWidget>
     required String label,
     required IconData icon,
     required bool isSelected,
+    required bool isDark,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? goldAccent : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: goldAccent.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: goldAccent.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
                 ]
               : [],
@@ -215,15 +243,19 @@ class _BusinessCardPreviewWidgetState extends State<BusinessCardPreviewWidget>
           children: [
             Icon(
               icon,
-              size: 14,
-              color: isSelected ? darkBg : Colors.white70,
+              size: 16,
+              color: isSelected
+                  ? const Color(0xFF141414)
+                  : (isDark ? Colors.white70 : Colors.grey.shade800),
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? darkBg : Colors.white70,
-                fontSize: 11,
+                color: isSelected
+                    ? const Color(0xFF141414)
+                    : (isDark ? Colors.white70 : Colors.grey.shade800),
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.8,
               ),
