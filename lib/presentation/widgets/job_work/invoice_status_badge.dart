@@ -7,7 +7,7 @@ import '../compact_status_chip.dart';
 Color invoiceStatusAccent(InvoiceStatus status) {
   return switch (status) {
     InvoiceStatus.paid => AppColors.success,
-    InvoiceStatus.partial => AppColors.primary,
+    InvoiceStatus.partial => AppColors.warning,
     InvoiceStatus.overdue => AppColors.error,
     InvoiceStatus.cancelled => AppColors.textSecondary,
     InvoiceStatus.unpaid => AppColors.warning,
