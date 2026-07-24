@@ -94,6 +94,7 @@ import '../screens/sales/sales_order_detail_screen.dart';
 import '../screens/sales/sales_order_list_screen.dart';
 import '../screens/expenses/add_edit_expense_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
+import '../screens/business_card/business_card_screen.dart';
 import '../screens/reports/pl_report_screen.dart';
 import '../screens/reports/expense_summary_screen.dart';
 import '../screens/reports/reports_hub_screen.dart';
@@ -313,6 +314,23 @@ GoRouter createAppRouter(AuthBloc authBloc) {
               ),
             ],
             child: const FactorySettingsScreen(),
+          );
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.businessCard,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final factoryId = readFactoryId(context);
+          return BlocProvider(
+            create: (_) {
+              final bloc = getIt<FactoryProfileBloc>();
+              if (factoryId != null) {
+                bloc.add(FactoryProfileWatchStarted(factoryId));
+              }
+              return bloc;
+            },
+            child: const BusinessCardScreen(),
           );
         },
       ),

@@ -15,6 +15,7 @@ import '../../../domain/extensions/app_user_permissions.dart';
 import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/forms/app_form_fields.dart';
+import '../business_card/business_card_screen.dart';
 import 'widgets/bank_account_dialog.dart';
 
 class BusinessProfileScreen extends StatefulWidget {
@@ -520,6 +521,22 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                 ),
               ],
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.badge_rounded, color: Color(0xFFD4AF37)),
+                tooltip: 'Business Card Generator',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => BusinessCardScreen(
+                        factoryProfile: loaded.profile,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -540,6 +557,77 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                     ),
                   ),
                 ),
+
+              // Business Card Generator Banner Card
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: DashboardSurfaceCard(
+                  borderRadius: 14,
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD4AF37).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.badge_rounded,
+                          color: Color(0xFFD4AF37),
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Business Card Generator',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Interactive preview & 10-card A4 print sheet',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFD4AF37),
+                          side: const BorderSide(color: Color(0xFFD4AF37)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.style_outlined, size: 16),
+                        label: const Text('View Card'),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BusinessCardScreen(
+                                factoryProfile: loaded.profile,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
               // -------------------------------------------------------------
               // SECTION 1: CORE IDENTITY & BRANDING

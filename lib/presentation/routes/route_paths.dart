@@ -15,6 +15,7 @@ abstract final class RoutePaths {
   static const String acceptInvite = '/invite/accept';
   static const String onboarding = '/onboarding';
   static const String factorySettings = '/settings/factory';
+  static const String businessCard = '/settings/business-card';
   static String acceptInviteWithId(String inviteId) =>
       '$acceptInvite?id=$inviteId';
   static const String dashboard = '/dashboard';
