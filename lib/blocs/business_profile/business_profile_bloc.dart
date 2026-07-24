@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../data/repositories/factory_repository.dart';
 import '../../data/services/factory_display_service.dart';
 import '../../domain/entities/bank_account.dart';
@@ -260,6 +261,8 @@ class BusinessProfileBloc
       emit(const BusinessProfileFailure('Failed to load business profile.'));
       return;
     }
+
+    Formatters.activeCurrency = profile.invoiceSettings.currency;
 
     final currentState = state;
     if (currentState is BusinessProfileLoaded && currentState.isSaving) {

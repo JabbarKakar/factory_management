@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/constants/job_work_sizes.dart';
+import '../../../core/utils/currency_formatter.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/entities/job_work_invoice.dart';
 import '../../../domain/entities/job_work_load.dart';
@@ -121,6 +123,9 @@ abstract final class GrandInvoicePdfTemplate {
     final footerNoteText = rawFooter != null && rawFooter.isNotEmpty
         ? rawFooter
         : 'Thank you for your valuable business with $factoryName!';
+
+    final currencyCode = factoryProfile?.invoiceSettings.currency ?? Formatters.activeCurrency;
+    final currencySymbol = CurrencyFormatter.getSymbol(currencyCode, asciiSafe: true);
 
     // Financial calculations
     final isSingleLoad = invoice.loadId != null && invoice.loadId!.trim().isNotEmpty;
@@ -499,6 +504,7 @@ abstract final class GrandInvoicePdfTemplate {
               fonts: fonts,
               dateFormat: dateFormat,
               isSingleLoad: isSingleLoad,
+              currencySymbol: currencySymbol,
             ),
             if (i < displayLoads.length - 1) pw.SizedBox(height: 14),
           ],
@@ -580,12 +586,12 @@ abstract final class GrandInvoicePdfTemplate {
                   ),
                   child: pw.Column(
                     children: [
-                      _summaryRow(fonts, 'Total Cutting Charges:', 'Rs', formatAmount(totalCuttingCharges)),
-                      _summaryRow(fonts, 'Additional Processing Fees:', 'Rs', '0.00'),
-                      _summaryRow(fonts, 'Discounts / Adjustments:', 'Rs', '0.00'),
+                      _summaryRow(fonts, 'Total Cutting Charges:', currencySymbol, formatAmount(totalCuttingCharges)),
+                      _summaryRow(fonts, 'Additional Processing Fees:', currencySymbol, '0.00'),
+                      _summaryRow(fonts, 'Discounts / Adjustments:', currencySymbol, '0.00'),
                       pw.Divider(color: _borderLight, height: 10, thickness: 0.6),
-                      _summaryRow(fonts, 'Sub Total:', 'Rs', formatAmount(totalCuttingCharges), boldText: true),
-                      _summaryRow(fonts, 'Total Payments Allocated:', 'Rs', formatAmount(totalPaid), boldText: true),
+                      _summaryRow(fonts, 'Sub Total:', currencySymbol, formatAmount(totalCuttingCharges), boldText: true),
+                      _summaryRow(fonts, 'Total Payments Allocated:', currencySymbol, formatAmount(totalPaid), boldText: true),
                       pw.SizedBox(height: 6),
                       pw.Container(
                         padding: const pw.EdgeInsets.all(8),
@@ -598,7 +604,7 @@ abstract final class GrandInvoicePdfTemplate {
                               style: pw.TextStyle(font: fonts.bold, fontSize: 8, color: PdfColors.white),
                             ),
                             pw.Text(
-                              'PKR ${formatAmount(totalDue)}',
+                              '$currencySymbol ${formatAmount(totalDue)}',
                               style: pw.TextStyle(font: fonts.bold, fontSize: 11, color: PdfColors.white),
                             ),
                           ],
@@ -684,6 +690,7 @@ abstract final class GrandInvoicePdfTemplate {
     required PdfFonts fonts,
     required DateFormat dateFormat,
     required bool isSingleLoad,
+    required String currencySymbol,
   }) {
     // Collect sizes produced and partition them
     final produced = JobWorkCollectionQuantityHelper.producedStockForLoad(load);
@@ -857,8 +864,8 @@ abstract final class GrandInvoicePdfTemplate {
                 _tableHeader(fonts, 'TOTAL SQFT'),
                 _tableHeader(fonts, 'COLL. SQFT'),
                 _tableHeader(fonts, 'REM. SQFT'),
-                _tableHeader(fonts, 'RATE (PKR)'),
-                _tableHeader(fonts, 'CHARGES (PKR)'),
+                _tableHeader(fonts, 'RATE ($currencySymbol)'),
+                _tableHeader(fonts, 'CHARGES ($currencySymbol)'),
               ],
             ),
             if (isSingleLoad) ...[
@@ -989,7 +996,7 @@ abstract final class GrandInvoicePdfTemplate {
                 style: pw.TextStyle(font: fonts.regular, fontSize: 8.5, color: _mutedGrey, fontStyle: pw.FontStyle.italic),
               ),
               pw.Text(
-                'PKR ${formatAmount(load.finalCuttingCharges)}',
+                '$currencySymbol ${formatAmount(load.finalCuttingCharges)}',
                 style: pw.TextStyle(font: fonts.bold, fontSize: 9.5, color: _navy),
               ),
             ],
@@ -1010,17 +1017,17 @@ abstract final class GrandInvoicePdfTemplate {
         child: pw.Row(
           children: [
             pw.Text(
-              'Load #$index Total: PKR ${formatAmount(fin.charges)}',
+              'Load #$index Total: $currencySymbol ${formatAmount(fin.charges)}',
               style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _navy),
             ),
             pw.Spacer(),
             pw.Text(
-              'Paid: PKR ${formatAmount(fin.paid)}',
+              'Paid: $currencySymbol ${formatAmount(fin.paid)}',
               style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: _greenText),
             ),
             pw.SizedBox(width: 24),
             pw.Text(
-              'Remaining Balance: PKR ${formatAmount(fin.due)}',
+              'Remaining Balance: $currencySymbol ${formatAmount(fin.due)}',
               style: pw.TextStyle(font: fonts.bold, fontSize: 8.5, color: fin.due > 0 ? _redText : _greenText),
             ),
           ],

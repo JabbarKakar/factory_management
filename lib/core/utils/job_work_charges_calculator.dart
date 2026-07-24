@@ -1,3 +1,4 @@
+import 'formatters.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
@@ -174,13 +175,14 @@ abstract final class JobWorkChargesCalculator {
   }
 
   static List<JobWorkChargeLine> _stockOutputBreakdown(JobWorkOutput output) {
+    final sym = Formatters.activeCurrency;
     return output.allStockOutputs
         .where((stock) => stock.hasProduction)
         .map(
           (stock) => JobWorkChargeLine(
             label: stock.size,
             detail:
-                '${stock.pieces} pcs · ${stock.squareFeet.toStringAsFixed(2)} sq. ft × PKR ${stock.pricePerSqFt.toStringAsFixed(0)}',
+                '${stock.pieces} pcs · ${stock.squareFeet.toStringAsFixed(2)} sq. ft × $sym ${stock.pricePerSqFt.toStringAsFixed(0)}',
             amount: stock.amount,
           ),
         )
@@ -193,13 +195,14 @@ abstract final class JobWorkChargesCalculator {
     final lines = <JobWorkChargeLine>[];
     final smallCount = source.smallSizes.length + source.legacySizes.length;
     final largeCount = source.largeSizes.length;
+    final sym = Formatters.activeCurrency;
 
     if (smallCount > 0 && source.smallStockPrice > 0) {
       lines.add(
         JobWorkChargeLine(
           label: 'Small sizes',
           detail:
-              '$smallCount × PKR ${source.smallStockPrice.toStringAsFixed(0)}',
+              '$smallCount × $sym ${source.smallStockPrice.toStringAsFixed(0)}',
           amount: source.smallStockPrice * smallCount,
         ),
       );
@@ -209,7 +212,7 @@ abstract final class JobWorkChargesCalculator {
         JobWorkChargeLine(
           label: 'Large sizes',
           detail:
-              '$largeCount × PKR ${source.largeStockPrice.toStringAsFixed(0)}',
+              '$largeCount × $sym ${source.largeStockPrice.toStringAsFixed(0)}',
           amount: source.largeStockPrice * largeCount,
         ),
       );
@@ -222,13 +225,14 @@ abstract final class JobWorkChargesCalculator {
     required JobWorkOutput output,
   }) {
     if (source.agreedRate <= 0) return const [];
+    final sym = Formatters.activeCurrency;
 
     return switch (source.pricingModel) {
       PricingModel.perTon => [
           JobWorkChargeLine(
             label: source.pricingModel.label,
             detail:
-                '${source.totalTons.toStringAsFixed(2)} t × PKR ${source.agreedRate.toStringAsFixed(0)}',
+                '${source.totalTons.toStringAsFixed(2)} t × $sym ${source.agreedRate.toStringAsFixed(0)}',
             amount: source.agreedRate * source.totalTons,
           ),
         ],
@@ -236,7 +240,7 @@ abstract final class JobWorkChargesCalculator {
           JobWorkChargeLine(
             label: source.pricingModel.label,
             detail:
-                '${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft × PKR ${source.agreedRate.toStringAsFixed(0)}',
+                '${output.totalUsableSqFt.toStringAsFixed(0)} sq. ft × $sym ${source.agreedRate.toStringAsFixed(0)}',
             amount: source.agreedRate * output.totalUsableSqFt,
           ),
         ],
@@ -244,7 +248,7 @@ abstract final class JobWorkChargesCalculator {
           JobWorkChargeLine(
             label: source.pricingModel.label,
             detail:
-                '${source.blockCount} blocks × PKR ${source.agreedRate.toStringAsFixed(0)}',
+                '${source.blockCount} blocks × $sym ${source.agreedRate.toStringAsFixed(0)}',
             amount: source.agreedRate * source.blockCount,
           ),
         ],

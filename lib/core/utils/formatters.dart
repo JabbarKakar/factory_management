@@ -1,4 +1,5 @@
 import '../../domain/enums/factory_role_enums.dart';
+import 'currency_formatter.dart';
 
 abstract final class Formatters {
   static String roleLabel(String role) {
@@ -12,24 +13,49 @@ abstract final class Formatters {
     return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
-  static String currencyPkr(double amount) {
-    final formatted = amount.abs().toStringAsFixed(amount == amount.roundToDouble() ? 0 : 2);
-    final prefix = amount < 0 ? '- ' : '';
-    return '$prefix₨ $formatted';
+  static String get activeCurrency => CurrencyFormatter.activeCurrency;
+  static set activeCurrency(String code) {
+    CurrencyFormatter.activeCurrency = code;
   }
 
-  static String currencyPkrWhole(double amount) {
-    final value = amount.round();
-    final prefix = value < 0 ? '- ' : '';
-    return '$prefix₨ ${value.abs()}';
+  static String currency(
+    num amount, {
+    String? currencyCode,
+    bool showSymbol = true,
+    int? decimalDigits,
+    bool asciiSafe = false,
+  }) {
+    return CurrencyFormatter.format(
+      amount,
+      currencyCode: currencyCode,
+      showSymbol: showSymbol,
+      decimalDigits: decimalDigits,
+      asciiSafe: asciiSafe,
+    );
+  }
+
+  static String currencyPkr(double amount, {String? currencyCode}) {
+    return CurrencyFormatter.format(
+      amount,
+      currencyCode: currencyCode,
+    );
+  }
+
+  static String currencyPkrWhole(double amount, {String? currencyCode}) {
+    return CurrencyFormatter.format(
+      amount,
+      currencyCode: currencyCode,
+      decimalDigits: 0,
+    );
   }
 
   /// ASCII-safe currency for PDF/Excel exports (Helvetica fallback friendly).
-  static String currencyForExport(double amount) {
-    final formatted =
-        amount.abs().toStringAsFixed(amount == amount.roundToDouble() ? 0 : 2);
-    final prefix = amount < 0 ? '- ' : '';
-    return '$prefix Rs $formatted';
+  static String currencyForExport(double amount, {String? currencyCode}) {
+    return CurrencyFormatter.format(
+      amount,
+      currencyCode: currencyCode,
+      asciiSafe: true,
+    );
   }
 
   /// Replaces symbols that default PDF fonts cannot render.

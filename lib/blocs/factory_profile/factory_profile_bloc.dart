@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../core/constants/app_strings.dart';
+import '../../core/utils/formatters.dart';
 import '../../data/repositories/factory_repository.dart';
 import '../../data/services/factory_display_service.dart';
 import '../../domain/entities/factory_profile.dart';
@@ -97,6 +98,8 @@ class FactoryProfileBloc extends Bloc<FactoryProfileEvent, FactoryProfileState> 
     }
 
     if (state.status == FactoryProfileStatus.saving) return;
+
+    Formatters.activeCurrency = profile.invoiceSettings.currency;
 
     emit(
       state.copyWith(

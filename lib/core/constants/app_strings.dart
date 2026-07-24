@@ -1,3 +1,6 @@
+import '../utils/currency_formatter.dart';
+import '../utils/formatters.dart';
+
 abstract final class AppStrings {
   static const String appName = 'MFMS';
   static const String appFullName = 'Marble Factory Management';
@@ -138,8 +141,8 @@ abstract final class AppStrings {
   static const String cnicNtn = 'CNIC / NTN';
   static const String customerCategory = 'Category';
   static const String paymentTerms = 'Payment Terms';
-  static const String creditLimit = 'Credit Limit (PKR)';
-  static const String openingBalance = 'Opening Balance (PKR)';
+  static String get creditLimit => 'Credit Limit (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
+  static String get openingBalance => 'Opening Balance (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String referredBy = 'Referred By';
   static const String notes = 'Notes';
   static const String otherServiceDescription = 'Describe other services';
@@ -279,14 +282,14 @@ abstract final class AppStrings {
   static const String expectedOutput = 'Expected Output (sq. ft)';
   static const String specialInstructions = 'Special Instructions';
   static const String pricingModel = 'Pricing Model';
-  static const String agreedRate = 'Agreed Rate (PKR)';
+  static String get agreedRate => 'Agreed Rate (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String agreedRateRequired = 'Enter the agreed rate';
-  static const String ratePerTon = 'Rate Per Ton (PKR)';
-  static const String ratePerSqFt = 'Rate Per Sq. Ft (PKR)';
-  static const String ratePerBlock = 'Rate Per Block (PKR)';
-  static const String lumpSumRate = 'Lump Sum Rate (PKR)';
-  static const String smallStockPrice = 'Small Stock Price (PKR)';
-  static const String largeStockPrice = 'Large Stock Price (PKR)';
+  static String get ratePerTon => 'Rate Per Ton (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
+  static String get ratePerSqFt => 'Rate Per Sq. Ft (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
+  static String get ratePerBlock => 'Rate Per Block (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
+  static String get lumpSumRate => 'Lump Sum Rate (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
+  static String get smallStockPrice => 'Small Stock Price (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
+  static String get largeStockPrice => 'Large Stock Price (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String smallStockPricePerSqFt =
       'Small Sizes Price (Per Sq. Ft)';
   static const String largeStockPricePerSqFt =
@@ -303,7 +306,7 @@ abstract final class AppStrings {
   static const String finalCuttingChargesRequired =
       'Enter or confirm final cutting charges';
   static const String cuttingChargesBreakdown = 'Charges Breakdown';
-  static const String advanceReceived = 'Advance Received (PKR)';
+  static String get advanceReceived => 'Advance Received (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String balanceDue = 'Balance Due';
   static const String paymentDueDate = 'Payment Due Date';
   static const String collectedDate = 'Collected Date';
@@ -480,7 +483,7 @@ abstract final class AppStrings {
   static const String amountDue = 'Amount Due';
   static const String lineItems = 'Line Items';
   static const String paymentHistory = 'Payment History';
-  static const String paymentAmount = 'Payment Amount (PKR)';
+  static String get paymentAmount => 'Payment Amount (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String paymentMethod = 'Payment Method';
   static const String paymentDate = 'Payment Date';
   static const String paymentReference = 'Reference / Cheque #';
@@ -679,12 +682,12 @@ abstract final class AppStrings {
   static const String sizeThickness = 'Size / Thickness';
   static const String quantity = 'Quantity';
   static const String unit = 'Unit';
-  static const String unitRate = 'Unit Rate (PKR)';
+  static String get unitRate => 'Unit Rate (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String discountPercent = 'Discount %';
   static const String lineTotal = 'Line Total';
   static const String subtotal = 'Subtotal';
-  static const String orderDiscount = 'Order Discount (PKR)';
-  static const String taxAmount = 'Tax (PKR)';
+  static String get orderDiscount => 'Order Discount (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
+  static String get taxAmount => 'Tax (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String grandTotal = 'Grand Total';
   static const String salesInvoice = 'Sales Invoice';
   static const String salesInvoiceNotReady =
@@ -716,7 +719,7 @@ abstract final class AppStrings {
   static const String expenseDate = 'Expense Date';
   static const String expenseCategory = 'Category';
   static const String description = 'Description';
-  static const String amountPkr = 'Amount (PKR)';
+  static String get amountPkr => 'Amount (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String payeeName = 'Payee / Vendor';
   static const String billNumber = 'Bill / Invoice #';
   static const String factoryExpenses = 'Factory Expenses';
@@ -849,7 +852,7 @@ abstract final class AppStrings {
   static const String lowStock = 'Low Stock';
   static const String lowStockMaterials = 'Low Stock Items';
   static const String inStock = 'In Stock';
-  static const String unitCostPkr = 'Unit Cost (PKR)';
+  static String get unitCostPkr => 'Unit Cost (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String totalCost = 'Total Cost';
   static const String receiptDate = 'Receipt Date';
   static const String movementDate = 'Movement Date';
@@ -946,7 +949,7 @@ abstract final class AppStrings {
   static const String stockAdjustmentRecorded = 'Stock adjustment saved';
   static const String viewProductionBatch = 'View production batch';
   static const String fromProductionBatch = 'From production batch';
-  static const String unitCostPerSqFt = 'Unit Cost (PKR / sq. ft)';
+  static String get unitCostPerSqFt => 'Unit Cost (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)} / sq. ft)';
   static const String adjustmentUnitCostHint =
       'Required for empty stock; optional when adding to existing stock';
   static const String adjustmentUnitCostRequired =
@@ -976,7 +979,7 @@ abstract final class AppStrings {
   static const String workerCategory = 'Job Category';
   static const String employmentType = 'Employment Type';
   static const String salaryType = 'Salary Type';
-  static const String rateAmount = 'Rate Amount (PKR)';
+  static String get rateAmount => 'Rate Amount (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String employeeJoinDate = 'Date of Joining';
   static const String employeeStatus = 'Status';
   static const String saveEmployee = 'Save Worker';
@@ -1129,7 +1132,7 @@ abstract final class AppStrings {
   static const String serialNumber = 'Serial Number';
   static const String purchaseInfo = 'Purchase Info';
   static const String purchaseDate = 'Purchase Date';
-  static const String purchaseCost = 'Purchase Cost (PKR)';
+  static String get purchaseCost => 'Purchase Cost (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String supplierVendor = 'Supplier / Vendor';
   static const String depreciationRate = 'Depreciation Rate (% per year)';
   static const String bookValue = 'Current Book Value';
@@ -1145,7 +1148,7 @@ abstract final class AppStrings {
   static const String maintenanceDate = 'Maintenance Date';
   static const String maintenanceType = 'Maintenance Type';
   static const String maintenanceDescription = 'Work Description';
-  static const String maintenanceCost = 'Maintenance Cost (PKR)';
+  static String get maintenanceCost => 'Maintenance Cost (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String performedBy = 'Performed By';
   static const String performedByName = 'Technician / Vendor Name';
   static const String downtimeHours = 'Downtime (hours)';

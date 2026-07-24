@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../core/utils/formatters.dart';
 import '../enums/labour_enums.dart';
 
 class Employee extends Equatable {
@@ -40,9 +41,9 @@ class Employee extends Equatable {
   bool get isActive => status == EmployeeStatus.active;
 
   String get rateLabel => switch (salaryType) {
-        SalaryType.monthlyFixed => 'PKR / month',
-        SalaryType.dailyRate => 'PKR / day',
-        SalaryType.perPieceRate => 'PKR / piece',
+        SalaryType.monthlyFixed => '${Formatters.activeCurrency} / month',
+        SalaryType.dailyRate => '${Formatters.activeCurrency} / day',
+        SalaryType.perPieceRate => '${Formatters.activeCurrency} / piece',
       };
 
   Employee copyWith({

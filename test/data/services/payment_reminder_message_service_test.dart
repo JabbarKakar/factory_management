@@ -17,7 +17,7 @@ void main() {
 
     expect(message, contains('Ali Marble'));
     expect(message, contains('SINV-2026-0001'));
-    expect(message, contains('Rs 50000'));
+    expect(message, contains('50,000'));
     expect(message, contains('Test Factory'));
   });
 

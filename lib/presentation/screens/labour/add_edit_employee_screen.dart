@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 
 import '../../../blocs/labour/employee_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../core/utils/validators.dart';
 import '../../../domain/entities/employee.dart';
 import '../../../domain/enums/app_module_enums.dart';
@@ -380,10 +381,10 @@ class _AddEditEmployeeScreenState extends State<AddEditEmployeeScreen> {
                           label: AppStrings.rateAmount,
                         ).copyWith(
                           helperText: switch (_salaryType) {
-                            SalaryType.monthlyFixed => 'Monthly salary in PKR',
-                            SalaryType.dailyRate => 'Daily wage in PKR',
+                            SalaryType.monthlyFixed => 'Monthly salary in ${Formatters.activeCurrency}',
+                            SalaryType.dailyRate => 'Daily wage in ${Formatters.activeCurrency}',
                             SalaryType.perPieceRate =>
-                              'Rate per piece / sq. ft in PKR',
+                              'Rate per piece / sq. ft in ${Formatters.activeCurrency}',
                           },
                         ),
                         keyboardType: const TextInputType.numberWithOptions(

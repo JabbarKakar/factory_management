@@ -124,7 +124,7 @@ abstract final class JobWorkContainerSyncHelper {
     final seqStr = load.loadSequence.toString();
 
     final paidReg = RegExp(
-      r'Paid:\s*(?:Rs|PKR)?\s*([\d,]+(?:\.\d+)?)',
+      r'Paid:\s*(?:Rs|PKR|\$|€|£|AED|SAR|INR|[A-Z]{3})?\s*([\d,]+(?:\.\d+)?)',
       caseSensitive: false,
     );
 
