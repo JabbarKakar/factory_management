@@ -139,6 +139,9 @@ void setupDependencies() {
       customerRepository: getIt<CustomerRepository>(),
       jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+      jobWorkLoadRepository: getIt<JobWorkLoadRepository>(),
+      salesOrderRepository: getIt<SalesOrderRepository>(),
     ),
   );
   getIt.registerLazySingleton<DashboardAnalyticsService>(
@@ -318,7 +321,11 @@ void setupDependencies() {
     () => CustomerListBloc(
       repository: getIt<CustomerRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      jobWorkLoadRepository: getIt<JobWorkLoadRepository>(),
+      jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesOrderRepository: getIt<SalesOrderRepository>(),
+      salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
+      paymentRepository: getIt<PaymentRepository>(),
     ),
   );
   getIt.registerFactory<DashboardBloc>(

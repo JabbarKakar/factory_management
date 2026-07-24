@@ -91,6 +91,21 @@ class SalesInvoiceRepository {
         .toList();
   }
 
+  Stream<List<SalesInvoice>> watchInvoicesForFactory(String factoryId) {
+    return _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .snapshots()
+        .map((snapshot) {
+          final invoices = snapshot.docs
+              .map((doc) =>
+                  SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
+              .map((model) => model.toEntity())
+              .toList();
+          invoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return invoices;
+        });
+  }
+
   Stream<List<SalesInvoice>> watchOpenInvoicesForFactory(String factoryId) {
     return _collection
         .where('factoryId', isEqualTo: factoryId)

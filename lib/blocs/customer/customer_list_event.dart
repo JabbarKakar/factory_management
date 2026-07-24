@@ -38,31 +38,8 @@ final class CustomerListFilterChanged extends CustomerListEvent {
   List<Object?> get props => [serviceType];
 }
 
-final class _CustomerListUpdated extends CustomerListEvent {
-  const _CustomerListUpdated(this.customers);
-
-  final List<Customer> customers;
-
-  @override
-  List<Object?> get props => [customers];
-}
-
-final class _CustomerJobWorkCountsUpdated extends CustomerListEvent {
-  const _CustomerJobWorkCountsUpdated(this.counts);
-
-  final Map<String, int> counts;
-
-  @override
-  List<Object?> get props => [counts];
-}
-
-final class _CustomerSalesCountsUpdated extends CustomerListEvent {
-  const _CustomerSalesCountsUpdated(this.counts);
-
-  final Map<String, int> counts;
-
-  @override
-  List<Object?> get props => [counts];
+final class _CustomerDataChanged extends CustomerListEvent {
+  const _CustomerDataChanged();
 }
 
 final class _CustomerListStreamFailed extends CustomerListEvent {
