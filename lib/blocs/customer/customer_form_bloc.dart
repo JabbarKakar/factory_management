@@ -4,10 +4,20 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/customer_repository.dart';
+import '../../data/repositories/job_work_invoice_repository.dart';
+import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
+import '../../data/services/customer_balance_calculator.dart';
 import '../../domain/entities/customer.dart';
+import '../../domain/entities/job_work_invoice.dart';
+import '../../domain/entities/job_work_load.dart';
+import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/payment.dart';
+import '../../domain/entities/sales_invoice.dart';
+import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/customer_enums.dart';
 
 part 'customer_form_event.dart';
@@ -17,12 +27,18 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
   CustomerFormBloc({
     required CustomerRepository repository,
     required JobWorkRepository jobWorkRepository,
+    required JobWorkLoadRepository jobWorkLoadRepository,
+    required JobWorkInvoiceRepository jobWorkInvoiceRepository,
     required SalesOrderRepository salesOrderRepository,
     required SalesInvoiceRepository salesInvoiceRepository,
+    required PaymentRepository paymentRepository,
   })  : _repository = repository,
         _jobWorkRepository = jobWorkRepository,
+        _jobWorkLoadRepository = jobWorkLoadRepository,
+        _jobWorkInvoiceRepository = jobWorkInvoiceRepository,
         _salesOrderRepository = salesOrderRepository,
         _salesInvoiceRepository = salesInvoiceRepository,
+        _paymentRepository = paymentRepository,
         super(const CustomerFormState()) {
     on<CustomerFormLoadRequested>(_onLoadRequested);
     on<CustomerFormInitialized>(_onInitialized);
@@ -30,32 +46,149 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
     on<CustomerFormDeleteRequested>(_onDeleteRequested);
     on<_CustomerFormUpdated>(_onUpdated);
     on<_CustomerFormStreamFailed>(_onStreamFailed);
+    on<_CustomerDataChanged>(_onDataChanged);
   }
 
   final CustomerRepository _repository;
   final JobWorkRepository _jobWorkRepository;
+  final JobWorkLoadRepository _jobWorkLoadRepository;
+  final JobWorkInvoiceRepository _jobWorkInvoiceRepository;
   final SalesOrderRepository _salesOrderRepository;
   final SalesInvoiceRepository _salesInvoiceRepository;
-  StreamSubscription<Customer?>? _watchSubscription;
+  final PaymentRepository _paymentRepository;
+
+  StreamSubscription<Customer?>? _customerSub;
+  StreamSubscription<List<JobWorkOrder>>? _jobWorkSub;
+  StreamSubscription<List<JobWorkLoad>>? _loadSub;
+  StreamSubscription<List<JobWorkInvoice>>? _jwInvoiceSub;
+  StreamSubscription<List<SalesOrder>>? _salesOrderSub;
+  StreamSubscription<List<SalesInvoice>>? _salesInvoiceSub;
+  StreamSubscription<List<Payment>>? _paymentSub;
+
+  Customer? _currentCustomer;
+  List<JobWorkOrder> _jobWorkOrders = const [];
+  List<JobWorkLoad> _jobWorkLoads = const [];
+  List<JobWorkInvoice> _jwInvoices = const [];
+  List<SalesOrder> _salesOrders = const [];
+  List<SalesInvoice> _salesInvoices = const [];
+  List<Payment> _payments = const [];
+
+  Future<void> _cancelSubscriptions() async {
+    await _customerSub?.cancel();
+    await _jobWorkSub?.cancel();
+    await _loadSub?.cancel();
+    await _jwInvoiceSub?.cancel();
+    await _salesOrderSub?.cancel();
+    await _salesInvoiceSub?.cancel();
+    await _paymentSub?.cancel();
+    _customerSub = null;
+    _jobWorkSub = null;
+    _loadSub = null;
+    _jwInvoiceSub = null;
+    _salesOrderSub = null;
+    _salesInvoiceSub = null;
+    _paymentSub = null;
+  }
 
   Future<void> _onLoadRequested(
     CustomerFormLoadRequested event,
     Emitter<CustomerFormState> emit,
   ) async {
     emit(state.copyWith(status: CustomerFormStatus.loading, isEditing: true));
-    await _watchSubscription?.cancel();
-    _watchSubscription = _repository.watchCustomer(event.customerId).listen(
-          (customer) {
-            if (customer == null) {
-              add(const _CustomerFormStreamFailed('Customer not found.'));
-            } else {
-              add(_CustomerFormUpdated(customer));
-            }
-          },
-          onError: (_) => add(
-            const _CustomerFormStreamFailed('Could not load customer.'),
-          ),
-        );
+    await _cancelSubscriptions();
+
+    _customerSub = _repository.watchCustomer(event.customerId).listen(
+      (customer) {
+        if (customer == null) {
+          add(const _CustomerFormStreamFailed('Customer not found.'));
+        } else {
+          _currentCustomer = customer;
+          add(const _CustomerDataChanged());
+          _subscribeRelated(customer.factoryId, event.customerId);
+        }
+      },
+      onError: (_) => add(
+        const _CustomerFormStreamFailed('Could not load customer.'),
+      ),
+    );
+  }
+
+  void _subscribeRelated(String factoryId, String customerId) {
+    _jobWorkSub?.cancel();
+    _jobWorkSub = _jobWorkRepository.watchOrdersForCustomer(customerId).listen((orders) {
+      _jobWorkOrders = orders;
+      add(const _CustomerDataChanged());
+    });
+
+    _loadSub?.cancel();
+    _loadSub = _jobWorkLoadRepository.watchLoads(factoryId).listen((loads) {
+      _jobWorkLoads = loads;
+      add(const _CustomerDataChanged());
+    });
+
+    _jwInvoiceSub?.cancel();
+    _jwInvoiceSub = _jobWorkInvoiceRepository.watchInvoicesForCustomer(
+      factoryId: factoryId,
+      customerId: customerId,
+    ).listen((invoices) {
+      _jwInvoices = invoices;
+      add(const _CustomerDataChanged());
+    });
+
+    _salesOrderSub?.cancel();
+    _salesOrderSub = _salesOrderRepository.watchSalesOrders(factoryId).listen((orders) {
+      _salesOrders = orders;
+      add(const _CustomerDataChanged());
+    });
+
+    _salesInvoiceSub?.cancel();
+    _salesInvoiceSub = _salesInvoiceRepository.watchInvoicesForCustomer(
+      factoryId: factoryId,
+      customerId: customerId,
+    ).listen((invoices) {
+      _salesInvoices = invoices;
+      add(const _CustomerDataChanged());
+    });
+
+    _paymentSub?.cancel();
+    _paymentSub = _paymentRepository.watchPaymentsForCustomer(
+      factoryId: factoryId,
+      customerId: customerId,
+    ).listen((payments) {
+      _payments = payments;
+      add(const _CustomerDataChanged());
+    });
+  }
+
+  void _onDataChanged(
+    _CustomerDataChanged event,
+    Emitter<CustomerFormState> emit,
+  ) {
+    if (_currentCustomer == null) return;
+
+    final summary = CustomerBalanceCalculator.calculateCustomerSummary(
+      customer: _currentCustomer!,
+      salesOrders: _salesOrders,
+      salesInvoices: _salesInvoices,
+      jobWorkOrders: _jobWorkOrders,
+      jobWorkLoads: _jobWorkLoads,
+      jobWorkInvoices: _jwInvoices,
+      payments: _payments,
+    );
+
+    final computedCustomer = _currentCustomer!.copyWith(
+      balance: summary.totalDue,
+      nextDueDate: summary.nextDueDate,
+    );
+
+    emit(
+      state.copyWith(
+        status: CustomerFormStatus.ready,
+        customer: computedCustomer,
+        isEditing: true,
+        errorMessage: null,
+      ),
+    );
   }
 
   void _onUpdated(
@@ -88,10 +221,10 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
     CustomerFormInitialized event,
     Emitter<CustomerFormState> emit,
   ) async {
-    await _watchSubscription?.cancel();
-    _watchSubscription = null;
+    await _cancelSubscriptions();
 
     if (event.customer != null) {
+      _currentCustomer = event.customer;
       emit(
         state.copyWith(
           status: CustomerFormStatus.ready,
@@ -167,8 +300,7 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
       await _salesOrderRepository.deleteOrdersForCustomer(event.customerId);
       await _jobWorkRepository.deleteOrdersForCustomer(event.customerId);
       await _repository.deleteCustomer(event.customerId);
-      await _watchSubscription?.cancel();
-      _watchSubscription = null;
+      await _cancelSubscriptions();
       emit(state.copyWith(status: CustomerFormStatus.deleted));
     } catch (_) {
       emit(
@@ -182,9 +314,13 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
 
   @override
   Future<void> close() {
-    _watchSubscription?.cancel();
+    _cancelSubscriptions();
     return super.close();
   }
+}
+
+final class _CustomerDataChanged extends CustomerFormEvent {
+  const _CustomerDataChanged();
 }
 
 final class _CustomerFormUpdated extends CustomerFormEvent {

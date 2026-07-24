@@ -354,8 +354,11 @@ void setupDependencies() {
     () => CustomerFormBloc(
       repository: getIt<CustomerRepository>(),
       jobWorkRepository: getIt<JobWorkRepository>(),
+      jobWorkLoadRepository: getIt<JobWorkLoadRepository>(),
+      jobWorkInvoiceRepository: getIt<JobWorkInvoiceRepository>(),
       salesOrderRepository: getIt<SalesOrderRepository>(),
       salesInvoiceRepository: getIt<SalesInvoiceRepository>(),
+      paymentRepository: getIt<PaymentRepository>(),
     ),
   );
   getIt.registerFactory<JobWorkListBloc>(
