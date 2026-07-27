@@ -259,7 +259,7 @@ abstract final class GrandInvoicePdfTemplate {
                             children: [
                               pw.Text(
                                 factoryName.toUpperCase(),
-                                style: pw.TextStyle(font: fonts.bold, fontSize: 26, color: _accentBlue, letterSpacing: 0.4),
+                                style: pw.TextStyle(font: fonts.bold, fontSize: 16, color: _accentBlue, letterSpacing: 0.3),
                               ),
                               pw.SizedBox(height: 1),
                               pw.Text(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
+import '../../../data/repositories/factory_repository.dart';
 import '../../../data/repositories/job_work_collection_repository.dart';
 import '../../../data/services/export/job_work_collection_slip_pdf_exporter.dart';
 import '../../../domain/entities/job_work_collection.dart';
@@ -366,9 +368,24 @@ class _JobWorkCollectionSlipScreenState
     Rect? shareOrigin,
   }) async {
     final factoryName = await resolveExportFactoryName(context);
+    final factoryRepo = getIt.isRegistered<FactoryRepository>()
+        ? getIt<FactoryRepository>()
+        : null;
+    final profile = factoryRepo != null && collection.factoryId.isNotEmpty
+        ? await factoryRepo.getFactory(collection.factoryId)
+        : null;
+
+    Uint8List? logoBytes;
+    try {
+      final byteData = await rootBundle.load('assets/images/app_logo.png');
+      logoBytes = byteData.buffer.asUint8List();
+    } catch (_) {}
+
     final doc =
         await getIt<JobWorkCollectionSlipPdfExporter>().buildCollectionSlipPdf(
       collection: collection,
+      factoryProfile: profile,
+      logoBytes: logoBytes,
       factoryName: factoryName,
     );
     await ExportActions.sharePdf(
@@ -383,9 +400,24 @@ class _JobWorkCollectionSlipScreenState
     required JobWorkCollection collection,
   }) async {
     final factoryName = await resolveExportFactoryName(context);
+    final factoryRepo = getIt.isRegistered<FactoryRepository>()
+        ? getIt<FactoryRepository>()
+        : null;
+    final profile = factoryRepo != null && collection.factoryId.isNotEmpty
+        ? await factoryRepo.getFactory(collection.factoryId)
+        : null;
+
+    Uint8List? logoBytes;
+    try {
+      final byteData = await rootBundle.load('assets/images/app_logo.png');
+      logoBytes = byteData.buffer.asUint8List();
+    } catch (_) {}
+
     final doc =
         await getIt<JobWorkCollectionSlipPdfExporter>().buildCollectionSlipPdf(
       collection: collection,
+      factoryProfile: profile,
+      logoBytes: logoBytes,
       factoryName: factoryName,
     );
     await ExportActions.printPdf(
