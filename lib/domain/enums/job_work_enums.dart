@@ -107,6 +107,8 @@ enum JobWorkStatus {
         JobWorkStatus.inCutting ||
         JobWorkStatus.qc ||
         JobWorkStatus.ready ||
+        JobWorkStatus.invoiced ||
+        JobWorkStatus.paid ||
         JobWorkStatus.partiallyCollected =>
           true,
         _ => false,

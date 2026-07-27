@@ -156,9 +156,39 @@ void main() {
         JobWorkStatus.agreed,
       );
     });
+
+    test('invoiced status remains invoiced after output saved', () {
+      final load = buildLoad(
+        id: 'load-1',
+        jobWorkId: 'jw-1',
+        status: JobWorkStatus.invoiced,
+        output: recordedOutput.copyWith(recordedAt: DateTime(2026, 1, 2)),
+      );
+      expect(
+        JobWorkLoadProductionHelper.statusAfterOutputSaved(load),
+        JobWorkStatus.invoiced,
+      );
+    });
   });
 
   group('preferredLoadForRecordOutput', () {
+    test('returns invoiced load when it is the only recordable load', () {
+      final preferred = JobWorkLoadProductionHelper.preferredLoadForRecordOutput([
+        buildLoad(
+          id: 'load-1',
+          jobWorkId: 'jw-1',
+          sequence: 1,
+          status: JobWorkStatus.invoiced,
+        ),
+        buildLoad(
+          id: 'load-2',
+          jobWorkId: 'jw-1',
+          sequence: 2,
+          status: JobWorkStatus.closed,
+        ),
+      ]);
+      expect(preferred?.id, 'load-1');
+    });
     test('returns the only recordable load', () {
       final preferred = JobWorkLoadProductionHelper.preferredLoadForRecordOutput([
         buildLoad(

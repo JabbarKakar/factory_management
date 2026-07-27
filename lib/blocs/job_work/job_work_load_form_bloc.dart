@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/utils/job_work_charges_calculator.dart';
 import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../domain/entities/job_work_load.dart';
@@ -118,28 +119,44 @@ class JobWorkLoadFormBloc
           );
           return;
         }
+        final draftWithDetails = event.load.copyWith(
+          id: existing.id,
+          loadNumber: existing.loadNumber,
+          loadSequence: existing.loadSequence,
+          jobWorkId: parent.id,
+          jobWorkNumber: parent.jobWorkNumber,
+          factoryId: parent.factoryId,
+          customerId: parent.customerId,
+          customerName: parent.customerName,
+          status: existing.status,
+          output: existing.output,
+          shiftLogs: existing.shiftLogs,
+          execution: existing.execution,
+          invoiceId: existing.invoiceId,
+          isVirtual: false,
+          migratedFromJobWork: existing.migratedFromJobWork,
+          createdAt: existing.createdAt,
+          collectedAt: existing.collectedAt,
+          closedAt: existing.closedAt,
+        );
+
+        final recalculatedCharges = existing.output != null &&
+                existing.output!.isRecorded
+            ? JobWorkChargesCalculator.calculateForLoad(
+                load: draftWithDetails,
+                output: existing.output!,
+                shiftLogs: existing.shiftLogs,
+              )
+            : existing.finalCuttingCharges;
+        final finalCharges = recalculatedCharges > 0
+            ? recalculatedCharges
+            : existing.finalCuttingCharges;
+        final balanceDue = finalCharges - existing.advanceReceived;
+
         final updated = await _loadRepository.updateLoad(
-          event.load.copyWith(
-            id: existing.id,
-            loadNumber: existing.loadNumber,
-            loadSequence: existing.loadSequence,
-            jobWorkId: parent.id,
-            jobWorkNumber: parent.jobWorkNumber,
-            factoryId: parent.factoryId,
-            customerId: parent.customerId,
-            customerName: parent.customerName,
-            status: existing.status,
-            output: existing.output,
-            shiftLogs: existing.shiftLogs,
-            execution: existing.execution,
-            finalCuttingCharges: existing.finalCuttingCharges,
-            balanceDue: existing.balanceDue,
-            invoiceId: existing.invoiceId,
-            isVirtual: false,
-            migratedFromJobWork: existing.migratedFromJobWork,
-            createdAt: existing.createdAt,
-            collectedAt: existing.collectedAt,
-            closedAt: existing.closedAt,
+          draftWithDetails.copyWith(
+            finalCuttingCharges: finalCharges,
+            balanceDue: balanceDue,
           ),
         );
         emit(

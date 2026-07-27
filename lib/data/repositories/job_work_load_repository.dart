@@ -604,12 +604,28 @@ class JobWorkLoadRepository {
           totalAmount: total,
           dueDate: (doc.data()['dueDate'] as Timestamp?)?.toDate(),
         );
-        
+
+        final lineItems = <Map<String, dynamic>>[
+          {
+            'description':
+                'Cutting fee — Load ${load.loadNumber.isNotEmpty ? load.loadNumber : "#" + load.loadSequence.toString()}',
+            'amount': total,
+          },
+        ];
+        if (load.output != null && load.output!.isRecorded) {
+          lineItems.add({
+            'description':
+                '  └ Output: ${load.output!.totalUsableSqFt.toStringAsFixed(0)} sq. ft usable',
+            'amount': 0,
+          });
+        }
+
         await _invoices.doc(doc.id).update({
           'total': total,
           'paid': paid,
           'due': due,
           'status': status.firestoreValue,
+          'items': lineItems,
           'updatedAt': FieldValue.serverTimestamp(),
         });
       }
