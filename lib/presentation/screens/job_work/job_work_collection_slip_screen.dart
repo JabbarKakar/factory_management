@@ -11,6 +11,7 @@ import '../../utils/export_actions.dart';
 import '../../utils/export_factory_name.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/export_menu_button.dart';
+import '../../widgets/job_work/job_work_detail_section.dart';
 
 class JobWorkCollectionSlipScreen extends StatefulWidget {
   const JobWorkCollectionSlipScreen({required this.collectionId, super.key});
@@ -35,6 +36,8 @@ class _JobWorkCollectionSlipScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return FutureBuilder<JobWorkCollection?>(
       future: _future,
       builder: (context, snapshot) {
@@ -55,6 +58,17 @@ class _JobWorkCollectionSlipScreenState
 
         final canExport = context.userCanExport(AppModule.jobWork);
 
+        final hasReceiverDetails = (collection.receiverName?.isNotEmpty == true) ||
+            (collection.receiverPhone?.isNotEmpty == true) ||
+            (collection.receiverAddress?.isNotEmpty == true) ||
+            (collection.receiverEmail?.isNotEmpty == true);
+
+        final hasTransportDetails = (collection.vehicleNumber?.isNotEmpty == true) ||
+            (collection.driverName?.isNotEmpty == true) ||
+            (collection.driverPhone?.isNotEmpty == true) ||
+            (collection.driverCnic?.isNotEmpty == true) ||
+            (collection.vehicleType?.isNotEmpty == true);
+
         return Scaffold(
           appBar: AppBar(
             title: const Text(AppStrings.collectionSlip),
@@ -71,22 +85,89 @@ class _JobWorkCollectionSlipScreenState
             ],
           ),
           body: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(top: 8, bottom: 24),
             children: [
+              // Top Header Card Banner
               Card(
+                margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
                     children: [
-                      Text(
-                        AppStrings.collectionSlipTitle,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                            ),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primaryContainer
+                              .withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.receipt_long_outlined,
+                          color: theme.colorScheme.primary,
+                          size: 24,
+                        ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              AppStrings.collectionSlipTitle,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              collection.collectionNumber,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              theme.colorScheme.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color:
+                                theme.colorScheme.primary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Text(
+                          collection.status.label,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 1. Order & Collection Info Section
+              JobWorkDetailSection(
+                title: AppStrings.collectionDetails,
+                icon: Icons.assignment_outlined,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    children: [
                       _SlipRow(
                         label: AppStrings.slipNumber,
                         value: collection.collectionNumber,
@@ -107,108 +188,166 @@ class _JobWorkCollectionSlipScreenState
                       ),
                       _SlipRow(
                         label: AppStrings.collectionDate,
-                        value: DateFormat.yMMMd().format(collection.collectedAt),
+                        value:
+                            DateFormat.yMMMd().format(collection.collectedAt),
                       ),
                       _SlipRow(
                         label: AppStrings.statusLabel,
                         value: collection.status.label,
                       ),
-                      if (collection.receiverName != null &&
-                          collection.receiverName!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.receiverName,
-                          value: collection.receiverName!,
-                        ),
-                      if (collection.receiverPhone != null &&
-                          collection.receiverPhone!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.receiverPhone,
-                          value: collection.receiverPhone!,
-                        ),
-                      if (collection.receiverAddress != null &&
-                          collection.receiverAddress!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.deliveryAddress,
-                          value: collection.receiverAddress!,
-                        ),
-                      if (collection.receiverEmail != null &&
-                          collection.receiverEmail!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.receiverEmail,
-                          value: collection.receiverEmail!,
-                        ),
-                      if (collection.vehicleNumber != null &&
-                          collection.vehicleNumber!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.vehicleNumber,
-                          value: collection.vehicleNumber!,
-                        ),
-                      if (collection.driverName != null &&
-                          collection.driverName!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.driverName,
-                          value: collection.driverName!,
-                        ),
-                      if (collection.driverPhone != null &&
-                          collection.driverPhone!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.driverPhone,
-                          value: collection.driverPhone!,
-                        ),
-                      if (collection.driverCnic != null &&
-                          collection.driverCnic!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.driverCnic,
-                          value: collection.driverCnic!,
-                        ),
-                      if (collection.vehicleType != null &&
-                          collection.vehicleType!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.vehicleType,
-                          value: collection.vehicleType!,
-                        ),
-                      if (collection.notes != null &&
-                          collection.notes!.isNotEmpty)
-                        _SlipRow(
-                          label: AppStrings.notes,
-                          value: collection.notes!,
-                        ),
-                      const SizedBox(height: 16),
-                      Text(
-                        AppStrings.itemsCollected,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+              ),
+
+              // 2. Receiver / Consignee Details Section
+              if (hasReceiverDetails)
+                JobWorkDetailSection(
+                  title: AppStrings.receiverDetails,
+                  icon: Icons.person_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Column(
+                      children: [
+                        if (collection.receiverName != null &&
+                            collection.receiverName!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.receiverName,
+                            value: collection.receiverName!,
+                          ),
+                        if (collection.receiverPhone != null &&
+                            collection.receiverPhone!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.receiverPhone,
+                            value: collection.receiverPhone!,
+                          ),
+                        if (collection.receiverAddress != null &&
+                            collection.receiverAddress!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.deliveryAddress,
+                            value: collection.receiverAddress!,
+                          ),
+                        if (collection.receiverEmail != null &&
+                            collection.receiverEmail!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.receiverEmail,
+                            value: collection.receiverEmail!,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // 3. Transport & Vehicle Details Section
+              if (hasTransportDetails)
+                JobWorkDetailSection(
+                  title: AppStrings.transportAndVehicleInfo,
+                  icon: Icons.local_shipping_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Column(
+                      children: [
+                        if (collection.vehicleNumber != null &&
+                            collection.vehicleNumber!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.vehicleNumber,
+                            value: collection.vehicleNumber!,
+                          ),
+                        if (collection.driverName != null &&
+                            collection.driverName!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.driverName,
+                            value: collection.driverName!,
+                          ),
+                        if (collection.driverPhone != null &&
+                            collection.driverPhone!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.driverPhone,
+                            value: collection.driverPhone!,
+                          ),
+                        if (collection.driverCnic != null &&
+                            collection.driverCnic!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.driverCnic,
+                            value: collection.driverCnic!,
+                          ),
+                        if (collection.vehicleType != null &&
+                            collection.vehicleType!.isNotEmpty)
+                          _SlipRow(
+                            label: AppStrings.vehicleType,
+                            value: collection.vehicleType!,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // 4. Items Collected Section
+              JobWorkDetailSection(
+                title: AppStrings.itemsCollected,
+                icon: Icons.inventory_2_outlined,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
                       _SlipItemsTable(collection: collection),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _SlipRow(
                         label: AppStrings.totalPieces,
                         value: '${collection.totalPieces}',
+                        isBold: true,
                       ),
                       _SlipRow(
                         label: AppStrings.totalSquareFeet,
                         value: collection.totalSquareFeet.toStringAsFixed(2),
+                        isBold: true,
                       ),
-                      const SizedBox(height: 28),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _SignatureBlock(
-                              label: AppStrings.factorySignature,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _SignatureBlock(
-                              label: collection.receiverName != null &&
-                                      collection.receiverName!.isNotEmpty
-                                  ? '${AppStrings.receiverName}: ${collection.receiverName}'
-                                  : AppStrings.customerSignature,
-                            ),
-                          ),
-                        ],
+                    ],
+                  ),
+                ),
+              ),
+
+              // 5. Notes Section (if available)
+              if (collection.notes != null && collection.notes!.isNotEmpty)
+                JobWorkDetailSection(
+                  title: AppStrings.notes,
+                  icon: Icons.notes_outlined,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      collection.notes!,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                ),
+
+              // 6. Signatures Section
+              JobWorkDetailSection(
+                title: 'Signatures & Clearances',
+                icon: Icons.draw_outlined,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _SignatureBlock(
+                          label: AppStrings.factorySignature,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: _SignatureBlock(
+                          label: collection.receiverName != null &&
+                                  collection.receiverName!.isNotEmpty
+                              ? '${AppStrings.receiverName}: ${collection.receiverName}'
+                              : AppStrings.customerSignature,
+                        ),
                       ),
                     ],
                   ),
@@ -257,34 +396,43 @@ class _JobWorkCollectionSlipScreenState
 }
 
 class _SlipRow extends StatelessWidget {
-  const _SlipRow({required this.label, required this.value});
+  const _SlipRow({
+    required this.label,
+    required this.value,
+    this.isBold = false,
+  });
 
   final String label;
   final String value;
+  final bool isBold;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 145,
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -302,10 +450,10 @@ class _SlipItemsTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final headerStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w700,
-          fontSize: 10,
+          fontSize: 11,
         );
     final cellStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          fontSize: 11,
+          fontSize: 12,
         );
 
     return DecoratedBox(
@@ -318,7 +466,7 @@ class _SlipItemsTable extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
                 Expanded(
@@ -345,7 +493,7 @@ class _SlipItemsTable extends StatelessWidget {
           const Divider(height: 1),
           for (final item in collection.lineItems) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
                   Expanded(
@@ -404,6 +552,7 @@ class _SignatureBlock extends StatelessWidget {
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
               ),
         ),
       ],
