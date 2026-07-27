@@ -107,6 +107,14 @@ class JobWorkCollectionRepository {
     required List<JobWorkCollectionLineItem> lineItems,
     String? loadId,
     String? receiverName,
+    String? receiverPhone,
+    String? receiverAddress,
+    String? receiverEmail,
+    String? vehicleNumber,
+    String? driverName,
+    String? driverPhone,
+    String? driverCnic,
+    String? vehicleType,
     String? notes,
   }) async {
     final order = await _jobWorkRepository.getJobWorkOrder(jobWorkOrderId);
@@ -157,10 +165,16 @@ class JobWorkCollectionRepository {
       collectedAt: collectedAt,
       status: JobWorkCollectionStatus.collected,
       lineItems: normalized,
-      receiverName: receiverName?.trim().isEmpty ?? true
-          ? null
-          : receiverName?.trim(),
-      notes: notes?.trim().isEmpty ?? true ? null : notes?.trim(),
+      receiverName: _cleanString(receiverName),
+      receiverPhone: _cleanString(receiverPhone),
+      receiverAddress: _cleanString(receiverAddress),
+      receiverEmail: _cleanString(receiverEmail),
+      vehicleNumber: _cleanString(vehicleNumber),
+      driverName: _cleanString(driverName),
+      driverPhone: _cleanString(driverPhone),
+      driverCnic: _cleanString(driverCnic),
+      vehicleType: _cleanString(vehicleType),
+      notes: _cleanString(notes),
       createdAt: DateTime.now(),
     );
 
@@ -291,5 +305,11 @@ class JobWorkCollectionRepository {
         await _collection.where('factoryId', isEqualTo: factoryId).get();
     final count = snapshot.docs.length + 1;
     return 'JC-$year-${count.toString().padLeft(4, '0')}';
+  }
+
+  static String? _cleanString(String? val) {
+    if (val == null) return null;
+    final trimmed = val.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 }

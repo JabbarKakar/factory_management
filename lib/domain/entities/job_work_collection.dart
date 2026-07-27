@@ -53,6 +53,14 @@ class JobWorkCollection extends Equatable {
     this.loadId,
     this.loadNumber,
     this.receiverName,
+    this.receiverPhone,
+    this.receiverAddress,
+    this.receiverEmail,
+    this.vehicleNumber,
+    this.driverName,
+    this.driverPhone,
+    this.driverCnic,
+    this.vehicleType,
     this.notes,
     this.updatedAt,
   });
@@ -70,6 +78,14 @@ class JobWorkCollection extends Equatable {
   final JobWorkCollectionStatus status;
   final List<JobWorkCollectionLineItem> lineItems;
   final String? receiverName;
+  final String? receiverPhone;
+  final String? receiverAddress;
+  final String? receiverEmail;
+  final String? vehicleNumber;
+  final String? driverName;
+  final String? driverPhone;
+  final String? driverCnic;
+  final String? vehicleType;
   final String? notes;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -94,6 +110,14 @@ class JobWorkCollection extends Equatable {
     JobWorkCollectionStatus? status,
     List<JobWorkCollectionLineItem>? lineItems,
     String? receiverName,
+    String? receiverPhone,
+    String? receiverAddress,
+    String? receiverEmail,
+    String? vehicleNumber,
+    String? driverName,
+    String? driverPhone,
+    String? driverCnic,
+    String? vehicleType,
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -112,6 +136,14 @@ class JobWorkCollection extends Equatable {
       status: status ?? this.status,
       lineItems: lineItems ?? this.lineItems,
       receiverName: receiverName ?? this.receiverName,
+      receiverPhone: receiverPhone ?? this.receiverPhone,
+      receiverAddress: receiverAddress ?? this.receiverAddress,
+      receiverEmail: receiverEmail ?? this.receiverEmail,
+      vehicleNumber: vehicleNumber ?? this.vehicleNumber,
+      driverName: driverName ?? this.driverName,
+      driverPhone: driverPhone ?? this.driverPhone,
+      driverCnic: driverCnic ?? this.driverCnic,
+      vehicleType: vehicleType ?? this.vehicleType,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -133,6 +165,14 @@ class JobWorkCollection extends Equatable {
         status,
         lineItems,
         receiverName,
+        receiverPhone,
+        receiverAddress,
+        receiverEmail,
+        vehicleNumber,
+        driverName,
+        driverPhone,
+        driverCnic,
+        vehicleType,
         notes,
         createdAt,
         updatedAt,

@@ -70,6 +70,62 @@ class JobWorkCollectionSlipPdfExporter {
               AppStrings.receiverName,
               Formatters.textForExport(collection.receiverName!),
             ),
+          if (collection.receiverPhone != null &&
+              collection.receiverPhone!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.receiverPhone,
+              Formatters.textForExport(collection.receiverPhone!),
+            ),
+          if (collection.receiverAddress != null &&
+              collection.receiverAddress!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.deliveryAddress,
+              Formatters.textForExport(collection.receiverAddress!),
+            ),
+          if (collection.receiverEmail != null &&
+              collection.receiverEmail!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.receiverEmail,
+              Formatters.textForExport(collection.receiverEmail!),
+            ),
+          if (collection.vehicleNumber != null &&
+              collection.vehicleNumber!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.vehicleNumber,
+              Formatters.textForExport(collection.vehicleNumber!),
+            ),
+          if (collection.driverName != null &&
+              collection.driverName!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.driverName,
+              Formatters.textForExport(collection.driverName!),
+            ),
+          if (collection.driverPhone != null &&
+              collection.driverPhone!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.driverPhone,
+              Formatters.textForExport(collection.driverPhone!),
+            ),
+          if (collection.driverCnic != null &&
+              collection.driverCnic!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.driverCnic,
+              Formatters.textForExport(collection.driverCnic!),
+            ),
+          if (collection.vehicleType != null &&
+              collection.vehicleType!.trim().isNotEmpty)
+            PdfDocumentTheme.summaryRow(
+              fonts,
+              AppStrings.vehicleType,
+              Formatters.textForExport(collection.vehicleType!),
+            ),
           PdfDocumentTheme.divider(),
           pw.Text(
             AppStrings.itemsCollected,

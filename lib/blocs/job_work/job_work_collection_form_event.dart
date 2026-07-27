@@ -25,14 +25,43 @@ final class JobWorkCollectionFormSubmitted extends JobWorkCollectionFormEvent {
     required this.collectedAt,
     required this.lineItems,
     this.receiverName,
+    this.receiverPhone,
+    this.receiverAddress,
+    this.receiverEmail,
+    this.vehicleNumber,
+    this.driverName,
+    this.driverPhone,
+    this.driverCnic,
+    this.vehicleType,
     this.notes,
   });
 
   final DateTime collectedAt;
   final List<JobWorkCollectionLineItem> lineItems;
   final String? receiverName;
+  final String? receiverPhone;
+  final String? receiverAddress;
+  final String? receiverEmail;
+  final String? vehicleNumber;
+  final String? driverName;
+  final String? driverPhone;
+  final String? driverCnic;
+  final String? vehicleType;
   final String? notes;
 
   @override
-  List<Object?> get props => [collectedAt, lineItems, receiverName, notes];
+  List<Object?> get props => [
+        collectedAt,
+        lineItems,
+        receiverName,
+        receiverPhone,
+        receiverAddress,
+        receiverEmail,
+        vehicleNumber,
+        driverName,
+        driverPhone,
+        driverCnic,
+        vehicleType,
+        notes,
+      ];
 }

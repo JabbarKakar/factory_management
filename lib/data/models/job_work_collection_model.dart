@@ -20,6 +20,14 @@ class JobWorkCollectionModel {
     this.loadId,
     this.loadNumber,
     this.receiverName,
+    this.receiverPhone,
+    this.receiverAddress,
+    this.receiverEmail,
+    this.vehicleNumber,
+    this.driverName,
+    this.driverPhone,
+    this.driverCnic,
+    this.vehicleType,
     this.notes,
     this.updatedAt,
   });
@@ -37,6 +45,14 @@ class JobWorkCollectionModel {
   final JobWorkCollectionStatus status;
   final List<JobWorkCollectionLineItem> lineItems;
   final String? receiverName;
+  final String? receiverPhone;
+  final String? receiverAddress;
+  final String? receiverEmail;
+  final String? vehicleNumber;
+  final String? driverName;
+  final String? driverPhone;
+  final String? driverCnic;
+  final String? vehicleType;
   final String? notes;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -61,6 +77,14 @@ class JobWorkCollectionModel {
       status: JobWorkCollectionStatus.fromString(data['status'] as String?),
       lineItems: items.whereType<Map>().map(_lineItemFromMap).toList(),
       receiverName: data['receiverName'] as String?,
+      receiverPhone: data['receiverPhone'] as String?,
+      receiverAddress: data['receiverAddress'] as String?,
+      receiverEmail: data['receiverEmail'] as String?,
+      vehicleNumber: data['vehicleNumber'] as String?,
+      driverName: data['driverName'] as String?,
+      driverPhone: data['driverPhone'] as String?,
+      driverCnic: data['driverCnic'] as String?,
+      vehicleType: data['vehicleType'] as String?,
       notes: data['notes'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -101,6 +125,22 @@ class JobWorkCollectionModel {
       'lineItems': lineItems.map(_lineItemToMap).toList(),
       if (receiverName != null && receiverName!.isNotEmpty)
         'receiverName': receiverName,
+      if (receiverPhone != null && receiverPhone!.isNotEmpty)
+        'receiverPhone': receiverPhone,
+      if (receiverAddress != null && receiverAddress!.isNotEmpty)
+        'receiverAddress': receiverAddress,
+      if (receiverEmail != null && receiverEmail!.isNotEmpty)
+        'receiverEmail': receiverEmail,
+      if (vehicleNumber != null && vehicleNumber!.isNotEmpty)
+        'vehicleNumber': vehicleNumber,
+      if (driverName != null && driverName!.isNotEmpty)
+        'driverName': driverName,
+      if (driverPhone != null && driverPhone!.isNotEmpty)
+        'driverPhone': driverPhone,
+      if (driverCnic != null && driverCnic!.isNotEmpty)
+        'driverCnic': driverCnic,
+      if (vehicleType != null && vehicleType!.isNotEmpty)
+        'vehicleType': vehicleType,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -121,6 +161,14 @@ class JobWorkCollectionModel {
         status: status,
         lineItems: lineItems,
         receiverName: receiverName,
+        receiverPhone: receiverPhone,
+        receiverAddress: receiverAddress,
+        receiverEmail: receiverEmail,
+        vehicleNumber: vehicleNumber,
+        driverName: driverName,
+        driverPhone: driverPhone,
+        driverCnic: driverCnic,
+        vehicleType: vehicleType,
         notes: notes,
         createdAt: createdAt,
         updatedAt: updatedAt,
@@ -141,6 +189,14 @@ class JobWorkCollectionModel {
         status: collection.status,
         lineItems: collection.lineItems,
         receiverName: collection.receiverName,
+        receiverPhone: collection.receiverPhone,
+        receiverAddress: collection.receiverAddress,
+        receiverEmail: collection.receiverEmail,
+        vehicleNumber: collection.vehicleNumber,
+        driverName: collection.driverName,
+        driverPhone: collection.driverPhone,
+        driverCnic: collection.driverCnic,
+        vehicleType: collection.vehicleType,
         notes: collection.notes,
         createdAt: collection.createdAt,
         updatedAt: collection.updatedAt,

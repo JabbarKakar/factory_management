@@ -1,11 +1,13 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../data/services/job_work_load_resolver.dart';
+import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -19,9 +21,11 @@ class JobWorkCollectionFormBloc
     required JobWorkRepository jobWorkRepository,
     required JobWorkCollectionRepository collectionRepository,
     required JobWorkLoadRepository loadRepository,
+    CustomerRepository? customerRepository,
   })  : _jobWorkRepository = jobWorkRepository,
         _collectionRepository = collectionRepository,
         _loadRepository = loadRepository,
+        _customerRepository = customerRepository ?? CustomerRepository(),
         super(const JobWorkCollectionFormState()) {
     on<JobWorkCollectionFormInitialized>(_onInitialized);
     on<JobWorkCollectionFormSubmitted>(_onSubmitted);
@@ -30,6 +34,7 @@ class JobWorkCollectionFormBloc
   final JobWorkRepository _jobWorkRepository;
   final JobWorkCollectionRepository _collectionRepository;
   final JobWorkLoadRepository _loadRepository;
+  final CustomerRepository _customerRepository;
 
   Future<void> _onInitialized(
     JobWorkCollectionFormInitialized event,
@@ -49,6 +54,13 @@ class JobWorkCollectionFormBloc
         return;
       }
 
+      Customer? customer;
+      if (order.customerId.isNotEmpty) {
+        try {
+          customer = await _customerRepository.getCustomer(order.customerId);
+        } catch (_) {}
+      }
+
       final load = await _resolveLoad(
         jobWorkOrderId: order.id,
         loadId: event.loadId,
@@ -59,6 +71,7 @@ class JobWorkCollectionFormBloc
             status: JobWorkCollectionFormStatus.failure,
             errorMessage: 'Load not found.',
             order: order,
+            customer: customer,
           ),
         );
         return;
@@ -72,6 +85,7 @@ class JobWorkCollectionFormBloc
                 'Material can only be collected after cutting has started.',
             order: order,
             load: load,
+            customer: customer,
           ),
         );
         return;
@@ -93,6 +107,7 @@ class JobWorkCollectionFormBloc
             errorMessage: 'No remaining stock to collect.',
             order: order,
             load: load,
+            customer: customer,
             collections: collections,
           ),
         );
@@ -104,6 +119,7 @@ class JobWorkCollectionFormBloc
           status: JobWorkCollectionFormStatus.ready,
           order: order,
           load: load,
+          customer: customer,
           collections: collections,
           errorMessage: null,
         ),
@@ -171,6 +187,14 @@ class JobWorkCollectionFormBloc
         collectedAt: event.collectedAt,
         lineItems: event.lineItems,
         receiverName: event.receiverName,
+        receiverPhone: event.receiverPhone,
+        receiverAddress: event.receiverAddress,
+        receiverEmail: event.receiverEmail,
+        vehicleNumber: event.vehicleNumber,
+        driverName: event.driverName,
+        driverPhone: event.driverPhone,
+        driverCnic: event.driverCnic,
+        vehicleType: event.vehicleType,
         notes: event.notes,
       );
       emit(state.copyWith(status: JobWorkCollectionFormStatus.saved));

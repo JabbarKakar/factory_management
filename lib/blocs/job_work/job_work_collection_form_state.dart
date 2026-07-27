@@ -14,6 +14,7 @@ class JobWorkCollectionFormState extends Equatable {
     this.status = JobWorkCollectionFormStatus.initial,
     this.order,
     this.load,
+    this.customer,
     this.collections = const [],
     this.errorMessage,
   });
@@ -21,6 +22,7 @@ class JobWorkCollectionFormState extends Equatable {
   final JobWorkCollectionFormStatus status;
   final JobWorkOrder? order;
   final JobWorkLoad? load;
+  final Customer? customer;
   final List<JobWorkCollection> collections;
   final String? errorMessage;
 
@@ -28,6 +30,7 @@ class JobWorkCollectionFormState extends Equatable {
     JobWorkCollectionFormStatus? status,
     JobWorkOrder? order,
     JobWorkLoad? load,
+    Customer? customer,
     List<JobWorkCollection>? collections,
     String? errorMessage,
   }) {
@@ -35,11 +38,12 @@ class JobWorkCollectionFormState extends Equatable {
       status: status ?? this.status,
       order: order ?? this.order,
       load: load ?? this.load,
+      customer: customer ?? this.customer,
       collections: collections ?? this.collections,
       errorMessage: errorMessage,
     );
   }
 
   @override
-  List<Object?> get props => [status, order, load, collections, errorMessage];
+  List<Object?> get props => [status, order, load, customer, collections, errorMessage];
 }

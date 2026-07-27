@@ -119,6 +119,54 @@ class _JobWorkCollectionSlipScreenState
                           label: AppStrings.receiverName,
                           value: collection.receiverName!,
                         ),
+                      if (collection.receiverPhone != null &&
+                          collection.receiverPhone!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.receiverPhone,
+                          value: collection.receiverPhone!,
+                        ),
+                      if (collection.receiverAddress != null &&
+                          collection.receiverAddress!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.deliveryAddress,
+                          value: collection.receiverAddress!,
+                        ),
+                      if (collection.receiverEmail != null &&
+                          collection.receiverEmail!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.receiverEmail,
+                          value: collection.receiverEmail!,
+                        ),
+                      if (collection.vehicleNumber != null &&
+                          collection.vehicleNumber!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.vehicleNumber,
+                          value: collection.vehicleNumber!,
+                        ),
+                      if (collection.driverName != null &&
+                          collection.driverName!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.driverName,
+                          value: collection.driverName!,
+                        ),
+                      if (collection.driverPhone != null &&
+                          collection.driverPhone!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.driverPhone,
+                          value: collection.driverPhone!,
+                        ),
+                      if (collection.driverCnic != null &&
+                          collection.driverCnic!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.driverCnic,
+                          value: collection.driverCnic!,
+                        ),
+                      if (collection.vehicleType != null &&
+                          collection.vehicleType!.isNotEmpty)
+                        _SlipRow(
+                          label: AppStrings.vehicleType,
+                          value: collection.vehicleType!,
+                        ),
                       if (collection.notes != null &&
                           collection.notes!.isNotEmpty)
                         _SlipRow(

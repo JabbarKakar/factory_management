@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../blocs/job_work/job_work_collection_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
+import '../../../domain/entities/job_work_collection.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/collect_material_form_controller.dart';
 import '../../widgets/job_work/collect_material_recording_panel.dart';
@@ -26,17 +27,74 @@ class CollectMaterialScreen extends StatefulWidget {
 }
 
 class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _notesController = TextEditingController();
   final _receiverNameController = TextEditingController();
+  final _receiverPhoneController = TextEditingController();
+  final _receiverAddressController = TextEditingController();
+  final _receiverEmailController = TextEditingController();
+
+  final _vehicleNumberController = TextEditingController();
+  final _driverNameController = TextEditingController();
+  final _driverPhoneController = TextEditingController();
+  final _driverCnicController = TextEditingController();
+
+  String? _vehicleType;
   CollectMaterialFormController? _stockController;
   DateTime _collectedAt = DateTime.now();
+  bool _populatedReceiver = false;
+
+  static const List<String> _vehicleTypes = [
+    'Flatbed Truck',
+    'Trailer',
+    'Dumper',
+    'Pickup',
+    'Container Truck',
+    'Tractor Trolley',
+    'Other',
+  ];
 
   @override
   void dispose() {
     _notesController.dispose();
     _receiverNameController.dispose();
+    _receiverPhoneController.dispose();
+    _receiverAddressController.dispose();
+    _receiverEmailController.dispose();
+
+    _vehicleNumberController.dispose();
+    _driverNameController.dispose();
+    _driverPhoneController.dispose();
+    _driverCnicController.dispose();
+
     _stockController?.dispose();
     super.dispose();
+  }
+
+  void _populateReceiverDetails(JobWorkCollectionFormState state) {
+    if (_populatedReceiver) return;
+
+    final customer = state.customer;
+    if (customer != null) {
+      _receiverNameController.text =
+          customer.contactPersonName?.isNotEmpty == true
+              ? customer.contactPersonName!
+              : customer.name;
+      _receiverPhoneController.text = customer.phone;
+      _receiverEmailController.text = customer.email ?? '';
+
+      final street = customer.shippingStreet ?? customer.billingStreet;
+      final city = customer.shippingCity ?? customer.billingCity;
+      final province = customer.shippingProvince ?? customer.billingProvince;
+      final addressParts = [street, city, province]
+          .where((p) => p != null && p.trim().isNotEmpty)
+          .map((p) => p!.trim())
+          .toList();
+      _receiverAddressController.text = addressParts.join(', ');
+    } else if (state.order != null) {
+      _receiverNameController.text = state.order!.customerName;
+    }
+    _populatedReceiver = true;
   }
 
   void _ensureController(JobWorkCollectionFormState state) {
@@ -66,6 +124,10 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
   }
 
   void _submit(BuildContext context) {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
     final controller = _stockController;
     if (controller == null || !controller.hasCollectQuantity) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -79,9 +141,55 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
             collectedAt: _collectedAt,
             lineItems: controller.buildLineItems(),
             receiverName: _receiverNameController.text.trim(),
+            receiverPhone: _receiverPhoneController.text.trim(),
+            receiverAddress: _receiverAddressController.text.trim(),
+            receiverEmail: _receiverEmailController.text.trim(),
+            vehicleNumber: _vehicleNumberController.text.trim(),
+            driverName: _driverNameController.text.trim(),
+            driverPhone: _driverPhoneController.text.trim(),
+            driverCnic: _driverCnicController.text.trim(),
+            vehicleType: _vehicleType,
             notes: _notesController.text.trim(),
           ),
         );
+  }
+
+  List<JobWorkCollection> _extractRecentTransports(
+      List<JobWorkCollection> collections) {
+    final recent = <JobWorkCollection>[];
+    final seen = <String>{};
+    for (final col in collections) {
+      final vNo = col.vehicleNumber?.trim() ?? '';
+      final dName = col.driverName?.trim() ?? '';
+      if (vNo.isNotEmpty || dName.isNotEmpty) {
+        final key = '$vNo|$dName';
+        if (!seen.contains(key)) {
+          seen.add(key);
+          recent.add(col);
+        }
+      }
+    }
+    return recent;
+  }
+
+  void _applyRecentTransport(JobWorkCollection col) {
+    setState(() {
+      if (col.vehicleNumber != null) {
+        _vehicleNumberController.text = col.vehicleNumber!;
+      }
+      if (col.driverName != null) {
+        _driverNameController.text = col.driverName!;
+      }
+      if (col.driverPhone != null) {
+        _driverPhoneController.text = col.driverPhone!;
+      }
+      if (col.driverCnic != null) {
+        _driverCnicController.text = col.driverCnic!;
+      }
+      if (col.vehicleType != null && _vehicleTypes.contains(col.vehicleType)) {
+        _vehicleType = col.vehicleType;
+      }
+    });
   }
 
   @override
@@ -155,6 +263,7 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
         }
 
         _ensureController(state);
+        _populateReceiverDetails(state);
         final isSaving = state.status == JobWorkCollectionFormStatus.saving;
         final load = state.load;
         final loadLabel = load == null
@@ -166,6 +275,8 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
             ? '${order.jobWorkNumber} · ${order.customerName}'
             : '${order.jobWorkNumber} · $loadLabel · ${order.customerName}';
 
+        final recentTransports = _extractRecentTransports(state.collections);
+
         return Scaffold(
           appBar: AppBar(
             title: AppFormAppBarTitle(
@@ -173,74 +284,237 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
               subtitle: subtitle,
             ),
           ),
-          body: ListView(
-            padding: const EdgeInsets.only(top: 12, bottom: 24),
-            children: [
-              JobWorkDetailSection(
-                title: AppStrings.collectionDetails,
-                icon: Icons.event_outlined,
-                child: AppFormSectionBody(
-                  children: [
-                    AppFormDateField(
-                      label: AppStrings.collectionDate,
-                      value: DateFormat.yMMMd().format(_collectedAt),
-                      onTap: isSaving ? null : _pickDate,
-                    ),
-                    AppFormFields.gap,
-                    TextFormField(
-                      controller: _receiverNameController,
-                      enabled: !isSaving,
-                      style: AppFormFields.valueStyle(context),
-                      decoration: AppFormFields.decoration(
-                        context,
-                        label: AppStrings.receiverName,
+          body: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.only(top: 12, bottom: 24),
+              children: [
+                JobWorkDetailSection(
+                  title: AppStrings.collectionDetails,
+                  icon: Icons.event_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      AppFormDateField(
+                        label: AppStrings.collectionDate,
+                        value: DateFormat.yMMMd().format(_collectedAt),
+                        onTap: isSaving ? null : _pickDate,
                       ),
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                  ],
-                ),
-              ),
-              JobWorkDetailSection(
-                title: AppStrings.itemsToCollect,
-                icon: Icons.inventory_2_outlined,
-                child: AppFormSectionBody(
-                  children: [
-                    CollectMaterialRecordingPanel(
-                      controller: _stockController!,
-                      enabled: !isSaving,
-                      onChanged: () => setState(() {}),
-                    ),
-                  ],
-                ),
-              ),
-              JobWorkDetailSection(
-                title: AppStrings.notes,
-                icon: Icons.notes_outlined,
-                child: AppFormSectionBody(
-                  children: [
-                    TextFormField(
-                      controller: _notesController,
-                      enabled: !isSaving,
-                      style: AppFormFields.valueStyle(context),
-                      decoration: AppFormFields.decoration(
-                        context,
-                        label: AppStrings.notes,
-                      ),
-                      maxLines: 3,
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: FilledButton(
-                  onPressed: isSaving ? null : () => _submit(context),
-                  child: Text(
-                    isSaving ? 'Saving…' : AppStrings.confirmCollectMaterial,
+                    ],
                   ),
                 ),
-              ),
-            ],
+                JobWorkDetailSection(
+                  title: AppStrings.receiverDetails,
+                  icon: Icons.person_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      TextFormField(
+                        controller: _receiverNameController,
+                        enabled: !isSaving,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: '${AppStrings.receiverName} *',
+                        ),
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) => value == null || value.trim().isEmpty
+                            ? AppStrings.enterReceiverName
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _receiverPhoneController,
+                        enabled: !isSaving,
+                        keyboardType: TextInputType.phone,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: '${AppStrings.receiverPhone} *',
+                        ),
+                        validator: (value) => value == null || value.trim().isEmpty
+                            ? AppStrings.enterReceiverPhone
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _receiverAddressController,
+                        enabled: !isSaving,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: '${AppStrings.deliveryAddress} *',
+                        ),
+                        maxLines: 2,
+                        validator: (value) => value == null || value.trim().isEmpty
+                            ? AppStrings.enterDeliveryAddress
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _receiverEmailController,
+                        enabled: !isSaving,
+                        keyboardType: TextInputType.emailAddress,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.receiverEmail,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) return null;
+                          final emailRegex =
+                              RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                          return emailRegex.hasMatch(value.trim())
+                              ? null
+                              : AppStrings.invalidEmail;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                JobWorkDetailSection(
+                  title: AppStrings.transportAndVehicleInfo,
+                  icon: Icons.local_shipping_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      if (recentTransports.isNotEmpty) ...[
+                        Text(
+                          AppStrings.recentTransport,
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: recentTransports.map((col) {
+                            final label = [col.vehicleNumber, col.driverName]
+                                .where((s) => s != null && s.isNotEmpty)
+                                .join(' - ');
+                            return ActionChip(
+                              avatar: const Icon(Icons.directions_bus, size: 16),
+                              label: Text(label),
+                              onPressed: isSaving
+                                  ? null
+                                  : () => _applyRecentTransport(col),
+                            );
+                          }).toList(),
+                        ),
+                        AppFormFields.gap,
+                      ],
+                      TextFormField(
+                        controller: _vehicleNumberController,
+                        enabled: !isSaving,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: '${AppStrings.vehicleNumber} *',
+                        ),
+                        textCapitalization: TextCapitalization.characters,
+                        validator: (value) => value == null || value.trim().isEmpty
+                            ? AppStrings.enterVehicleNumber
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _driverNameController,
+                        enabled: !isSaving,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: '${AppStrings.driverName} *',
+                        ),
+                        textCapitalization: TextCapitalization.words,
+                        validator: (value) => value == null || value.trim().isEmpty
+                            ? AppStrings.enterDriverName
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _driverPhoneController,
+                        enabled: !isSaving,
+                        keyboardType: TextInputType.phone,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: '${AppStrings.driverPhone} *',
+                        ),
+                        validator: (value) => value == null || value.trim().isEmpty
+                            ? AppStrings.enterDriverPhone
+                            : null,
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _driverCnicController,
+                        enabled: !isSaving,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.driverCnic,
+                        ),
+                      ),
+                      AppFormFields.gap,
+                      DropdownButtonFormField<String>(
+                        value: _vehicleType,
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.vehicleType,
+                        ),
+                        items: _vehicleTypes.map((type) {
+                          return DropdownMenuItem(
+                            value: type,
+                            child: Text(type),
+                          );
+                        }).toList(),
+                        onChanged: isSaving
+                            ? null
+                            : (val) => setState(() => _vehicleType = val),
+                      ),
+                    ],
+                  ),
+                ),
+                JobWorkDetailSection(
+                  title: AppStrings.itemsToCollect,
+                  icon: Icons.inventory_2_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      CollectMaterialRecordingPanel(
+                        controller: _stockController!,
+                        enabled: !isSaving,
+                        onChanged: () => setState(() {}),
+                      ),
+                    ],
+                  ),
+                ),
+                JobWorkDetailSection(
+                  title: AppStrings.notes,
+                  icon: Icons.notes_outlined,
+                  child: AppFormSectionBody(
+                    children: [
+                      TextFormField(
+                        controller: _notesController,
+                        enabled: !isSaving,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: AppStrings.notes,
+                        ),
+                        maxLines: 3,
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: FilledButton(
+                    onPressed: isSaving ? null : () => _submit(context),
+                    child: Text(
+                      isSaving ? 'Saving…' : AppStrings.confirmCollectMaterial,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
