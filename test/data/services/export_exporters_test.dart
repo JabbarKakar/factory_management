@@ -3,11 +3,14 @@ import 'package:factory_management/data/services/export/customer_statement_pdf_e
 import 'package:factory_management/data/services/export/invoice_excel_exporter.dart';
 import 'package:factory_management/data/services/export/expense_summary_excel_exporter.dart';
 import 'package:factory_management/data/services/export/expense_summary_pdf_exporter.dart';
+import 'package:factory_management/data/services/export/job_work_collection_slip_pdf_exporter.dart';
 import 'package:factory_management/data/services/expense_summary_service.dart';
 import 'package:factory_management/domain/entities/expense.dart';
+import 'package:factory_management/domain/entities/job_work_collection.dart';
 import 'package:factory_management/domain/entities/job_work_invoice.dart';
 import 'package:factory_management/domain/entities/sales_invoice.dart';
 import 'package:factory_management/domain/enums/expense_enums.dart';
+import 'package:factory_management/domain/enums/job_work_collection_enums.dart';
 import 'package:factory_management/domain/enums/invoice_enums.dart';
 import 'package:factory_management/domain/entities/customer.dart';
 import 'package:factory_management/domain/entities/customer_statement.dart';
@@ -106,5 +109,46 @@ void main() {
     final doc = await ExpenseSummaryPdfExporter().build(report: report);
     final pdfBytes = await doc.save();
     expect(pdfBytes, isNotEmpty);
+  });
+
+  test('job work collection slip exporter produces pdf output with small and large stock summary', () async {
+    final collection = JobWorkCollection(
+      id: 'col-1',
+      collectionNumber: 'JWC-2026-0001',
+      factoryId: 'factory-1',
+      jobWorkOrderId: 'jw-1',
+      jobWorkNumber: 'JW-2026-0001',
+      loadId: 'load-1',
+      loadNumber: 'JWL-2026-0001',
+      customerId: 'cust-1',
+      customerName: 'Test Customer',
+      collectedAt: DateTime(2026, 1, 20),
+      status: JobWorkCollectionStatus.collected,
+      lineItems: const [
+        JobWorkCollectionLineItem(
+          size: '4x24',
+          pieces: 50,
+          squareFeet: 33.33,
+          isSmall: true,
+        ),
+        JobWorkCollectionLineItem(
+          size: '12x24',
+          pieces: 10,
+          squareFeet: 20.00,
+          isSmall: false,
+        ),
+      ],
+      createdAt: DateTime(2026, 1, 20),
+    );
+
+    final exporter = JobWorkCollectionSlipPdfExporter();
+    final bytes = await exporter.generateCollectionSlipPdf(
+      collection: collection,
+      smallStockRate: 75.0,
+      largeStockRate: 85.0,
+    );
+
+    expect(bytes, isNotEmpty);
+    expect(bytes.length, greaterThan(100));
   });
 }

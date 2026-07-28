@@ -4,19 +4,34 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../domain/entities/factory_profile.dart';
 import '../../../domain/entities/job_work_collection.dart';
+import '../../../domain/entities/job_work_load.dart';
+import '../../../domain/entities/job_work_order.dart';
 import '../../repositories/factory_repository.dart';
+import '../../repositories/job_work_load_repository.dart';
+import '../../repositories/job_work_repository.dart';
 import 'pdf_fonts.dart';
 
 class JobWorkCollectionSlipPdfExporter {
   JobWorkCollectionSlipPdfExporter({
     FactoryRepository? factoryRepository,
-  }) : _factoryRepository = factoryRepository;
+    JobWorkLoadRepository? loadRepository,
+    JobWorkRepository? jobWorkRepository,
+  })  : _factoryRepository = factoryRepository,
+        _loadRepository = loadRepository,
+        _jobWorkRepository = jobWorkRepository;
 
   final FactoryRepository? _factoryRepository;
+  final JobWorkLoadRepository? _loadRepository;
+  final JobWorkRepository? _jobWorkRepository;
+
+  static final NumberFormat _commaFormatter = NumberFormat('#,##0.00');
+  static final NumberFormat _wholeFormatter = NumberFormat('#,##0');
 
   // Color Palette matching GrandInvoicePdfTemplate & SingleLoadInvoicePdfExporter
   static const PdfColor _navy = PdfColor.fromInt(0xFF1B365D);
@@ -33,12 +48,20 @@ class JobWorkCollectionSlipPdfExporter {
     FactoryProfile? factoryProfile,
     Uint8List? logoBytes,
     String factoryName = AppStrings.appName,
+    JobWorkLoad? load,
+    JobWorkOrder? jobWorkOrder,
+    double? smallStockRate,
+    double? largeStockRate,
   }) async {
     final doc = await buildCollectionSlipPdf(
       collection: collection,
       factoryProfile: factoryProfile,
       logoBytes: logoBytes,
       factoryName: factoryName,
+      load: load,
+      jobWorkOrder: jobWorkOrder,
+      smallStockRate: smallStockRate,
+      largeStockRate: largeStockRate,
     );
     return doc.save();
   }
@@ -48,6 +71,10 @@ class JobWorkCollectionSlipPdfExporter {
     FactoryProfile? factoryProfile,
     Uint8List? logoBytes,
     String factoryName = AppStrings.appName,
+    JobWorkLoad? load,
+    JobWorkOrder? jobWorkOrder,
+    double? smallStockRate,
+    double? largeStockRate,
   }) async {
     final fonts = await PdfFonts.load();
     final doc = pw.Document(theme: fonts.theme);
@@ -62,6 +89,77 @@ class JobWorkCollectionSlipPdfExporter {
         (factoryRepo != null && collection.factoryId.isNotEmpty
             ? await factoryRepo.getFactory(collection.factoryId)
             : null);
+
+    // Resolve load and order for rate resolution if omitted
+    final loadRepo = _loadRepository ??
+        (getIt.isRegistered<JobWorkLoadRepository>()
+            ? getIt<JobWorkLoadRepository>()
+            : null);
+    final jobWorkRepo = _jobWorkRepository ??
+        (getIt.isRegistered<JobWorkRepository>()
+            ? getIt<JobWorkRepository>()
+            : null);
+
+    final resolvedLoad = load ??
+        (loadRepo != null &&
+                collection.loadId != null &&
+                collection.loadId!.isNotEmpty
+            ? await loadRepo.getLoad(collection.loadId!)
+            : null);
+
+    final resolvedOrder = jobWorkOrder ??
+        (jobWorkRepo != null && collection.jobWorkOrderId.isNotEmpty
+            ? await jobWorkRepo.getJobWorkOrder(collection.jobWorkOrderId)
+            : null);
+
+    double resolvedSmallRate = smallStockRate ?? 0;
+    double resolvedLargeRate = largeStockRate ?? 0;
+
+    if (resolvedSmallRate <= 0) {
+      if (resolvedLoad != null) {
+        resolvedSmallRate =
+            JobWorkChargesCalculator.defaultSmallPricePerSqFtForLoad(
+                resolvedLoad);
+      } else if (resolvedOrder != null) {
+        resolvedSmallRate =
+            JobWorkChargesCalculator.defaultSmallPricePerSqFt(resolvedOrder);
+      }
+    }
+
+    if (resolvedLargeRate <= 0) {
+      if (resolvedLoad != null) {
+        resolvedLargeRate =
+            JobWorkChargesCalculator.defaultLargePricePerSqFtForLoad(
+                resolvedLoad);
+      } else if (resolvedOrder != null) {
+        resolvedLargeRate =
+            JobWorkChargesCalculator.defaultLargePricePerSqFt(resolvedOrder);
+      }
+    }
+
+    // Consolidated Material Breakdown (Small vs Large Stock)
+    int smallPieces = 0;
+    double smallSqFt = 0.0;
+    int largePieces = 0;
+    double largeSqFt = 0.0;
+
+    for (final item in collection.lineItems) {
+      final isSmall = item.isSmall || JobWorkSizes.isSmall(item.size);
+      if (isSmall) {
+        smallPieces += item.pieces;
+        smallSqFt += item.squareFeet;
+      } else {
+        largePieces += item.pieces;
+        largeSqFt += item.squareFeet;
+      }
+    }
+
+    final smallCharges = smallSqFt * resolvedSmallRate;
+    final largeCharges = largeSqFt * resolvedLargeRate;
+
+    final totalPieces = smallPieces + largePieces;
+    final totalSqFt = smallSqFt + largeSqFt;
+    final totalCharges = smallCharges + largeCharges;
 
     // Resolve logo bytes if omitted
     if (logoBytes == null) {
@@ -483,7 +581,7 @@ class JobWorkCollectionSlipPdfExporter {
 
           pw.SizedBox(height: 16),
 
-          // Section 3: Line Items / Materials Table
+          // Section 3: Line Items / Consolidated Materials Table
           pw.Container(
             padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
             decoration: const pw.BoxDecoration(
@@ -504,9 +602,11 @@ class JobWorkCollectionSlipPdfExporter {
           pw.Table(
             border: pw.TableBorder.all(color: _borderLight, width: 0.8),
             columnWidths: const {
-              0: pw.FlexColumnWidth(3.5),
+              0: pw.FlexColumnWidth(2.8),
               1: pw.FlexColumnWidth(1.5),
               2: pw.FlexColumnWidth(1.8),
+              3: pw.FlexColumnWidth(1.8),
+              4: pw.FlexColumnWidth(2.1),
             },
             children: [
               // Header Row
@@ -519,10 +619,10 @@ class JobWorkCollectionSlipPdfExporter {
                       horizontal: 8,
                     ),
                     child: pw.Text(
-                      AppStrings.stockSize.toUpperCase(),
+                      'SIZE CATEGORY',
                       style: pw.TextStyle(
                         font: fonts.bold,
-                        fontSize: 8.5,
+                        fontSize: 8,
                         color: PdfColors.white,
                       ),
                     ),
@@ -533,10 +633,10 @@ class JobWorkCollectionSlipPdfExporter {
                       horizontal: 8,
                     ),
                     child: pw.Text(
-                      AppStrings.collectPiecesShort.toUpperCase(),
+                      'COLLECTED PCS',
                       style: pw.TextStyle(
                         font: fonts.bold,
-                        fontSize: 8.5,
+                        fontSize: 8,
                         color: PdfColors.white,
                       ),
                       textAlign: pw.TextAlign.center,
@@ -548,10 +648,40 @@ class JobWorkCollectionSlipPdfExporter {
                       horizontal: 8,
                     ),
                     child: pw.Text(
-                      AppStrings.collectSquareFeetShort.toUpperCase(),
+                      'COLLECTED SQ. FT.',
                       style: pw.TextStyle(
                         font: fonts.bold,
-                        fontSize: 8.5,
+                        fontSize: 8,
+                        color: PdfColors.white,
+                      ),
+                      textAlign: pw.TextAlign.right,
+                    ),
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 8,
+                    ),
+                    child: pw.Text(
+                      'CUTTING RATE (PKR)',
+                      style: pw.TextStyle(
+                        font: fonts.bold,
+                        fontSize: 8,
+                        color: PdfColors.white,
+                      ),
+                      textAlign: pw.TextAlign.right,
+                    ),
+                  ),
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 8,
+                    ),
+                    child: pw.Text(
+                      'CUTTING CHARGES (PKR)',
+                      style: pw.TextStyle(
+                        font: fonts.bold,
+                        fontSize: 8,
                         color: PdfColors.white,
                       ),
                       textAlign: pw.TextAlign.right,
@@ -559,24 +689,23 @@ class JobWorkCollectionSlipPdfExporter {
                   ),
                 ],
               ),
-              // Data Rows
-              for (int i = 0; i < collection.lineItems.length; i++)
+              // Small Sizes Row
+              if (smallPieces > 0 ||
+                  smallSqFt > 0 ||
+                  collection.lineItems.isEmpty ||
+                  (largePieces == 0 && largeSqFt == 0))
                 pw.TableRow(
-                  decoration: pw.BoxDecoration(
-                    color: i % 2 == 1 ? _bgLight : PdfColors.white,
-                  ),
+                  decoration: const pw.BoxDecoration(color: PdfColors.white),
                   children: [
                     pw.Padding(
                       padding: const pw.EdgeInsets.symmetric(
-                        vertical: 5,
+                        vertical: 6,
                         horizontal: 8,
                       ),
                       child: pw.Text(
-                        Formatters.textForExport(
-                          collection.lineItems[i].displayLabel,
-                        ),
+                        'Small Sizes',
                         style: pw.TextStyle(
-                          font: fonts.regular,
+                          font: fonts.bold,
                           fontSize: 8.5,
                           color: PdfColors.black,
                         ),
@@ -584,11 +713,11 @@ class JobWorkCollectionSlipPdfExporter {
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.symmetric(
-                        vertical: 5,
+                        vertical: 6,
                         horizontal: 8,
                       ),
                       child: pw.Text(
-                        '${collection.lineItems[i].pieces}',
+                        _wholeFormatter.format(smallPieces),
                         style: pw.TextStyle(
                           font: fonts.regular,
                           fontSize: 8.5,
@@ -599,11 +728,130 @@ class JobWorkCollectionSlipPdfExporter {
                     ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.symmetric(
-                        vertical: 5,
+                        vertical: 6,
                         horizontal: 8,
                       ),
                       child: pw.Text(
-                        collection.lineItems[i].squareFeet.toStringAsFixed(2),
+                        _commaFormatter.format(smallSqFt),
+                        style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: 8.5,
+                          color: PdfColors.black,
+                        ),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      child: pw.Text(
+                        resolvedSmallRate > 0
+                            ? _commaFormatter.format(resolvedSmallRate)
+                            : '0.00',
+                        style: pw.TextStyle(
+                          font: fonts.regular,
+                          fontSize: 8.5,
+                          color: PdfColors.black,
+                        ),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      child: pw.Text(
+                        _commaFormatter.format(smallCharges),
+                        style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: 8.5,
+                          color: PdfColors.black,
+                        ),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              // Large Sizes Row
+              if (largePieces > 0 ||
+                  largeSqFt > 0 ||
+                  (smallPieces == 0 &&
+                      smallSqFt == 0 &&
+                      collection.lineItems.isNotEmpty))
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: _bgLight),
+                  children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      child: pw.Text(
+                        'Large Sizes',
+                        style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: 8.5,
+                          color: PdfColors.black,
+                        ),
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      child: pw.Text(
+                        _wholeFormatter.format(largePieces),
+                        style: pw.TextStyle(
+                          font: fonts.regular,
+                          fontSize: 8.5,
+                          color: PdfColors.black,
+                        ),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      child: pw.Text(
+                        _commaFormatter.format(largeSqFt),
+                        style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: 8.5,
+                          color: PdfColors.black,
+                        ),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      child: pw.Text(
+                        resolvedLargeRate > 0
+                            ? _commaFormatter.format(resolvedLargeRate)
+                            : '0.00',
+                        style: pw.TextStyle(
+                          font: fonts.regular,
+                          fontSize: 8.5,
+                          color: PdfColors.black,
+                        ),
+                        textAlign: pw.TextAlign.right,
+                      ),
+                    ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 8,
+                      ),
+                      child: pw.Text(
+                        _commaFormatter.format(largeCharges),
                         style: pw.TextStyle(
                           font: fonts.bold,
                           fontSize: 8.5,
@@ -617,7 +865,7 @@ class JobWorkCollectionSlipPdfExporter {
             ],
           ),
 
-          // Total Bar Summary Row
+          // Total Collected Summary Row Container
           pw.Container(
             padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
             decoration: const pw.BoxDecoration(
@@ -632,7 +880,7 @@ class JobWorkCollectionSlipPdfExporter {
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
               children: [
                 pw.Text(
-                  'TOTAL ITEMS COLLECTED:',
+                  'TOTAL COLLECTED SUMMARY:',
                   style: pw.TextStyle(
                     font: fonts.bold,
                     fontSize: 8.5,
@@ -642,20 +890,29 @@ class JobWorkCollectionSlipPdfExporter {
                 pw.Row(
                   children: [
                     pw.Text(
-                      '${AppStrings.totalPieces}: ${collection.totalPieces} pcs',
+                      'Total Pieces: ${_wholeFormatter.format(totalPieces)} pcs',
                       style: pw.TextStyle(
                         font: fonts.bold,
                         fontSize: 8.5,
                         color: _navy,
                       ),
                     ),
-                    pw.SizedBox(width: 20),
+                    pw.SizedBox(width: 16),
                     pw.Text(
-                      '${AppStrings.totalSquareFeet}: ${collection.totalSquareFeet.toStringAsFixed(2)} sq ft',
+                      'Total Sq. Ft.: ${_commaFormatter.format(totalSqFt)} sq ft',
                       style: pw.TextStyle(
                         font: fonts.bold,
-                        fontSize: 9,
+                        fontSize: 8.5,
                         color: _accentBlue,
+                      ),
+                    ),
+                    pw.SizedBox(width: 16),
+                    pw.Text(
+                      'Total Charges: PKR ${_commaFormatter.format(totalCharges)}',
+                      style: pw.TextStyle(
+                        font: fonts.bold,
+                        fontSize: 8.5,
+                        color: _greenText,
                       ),
                     ),
                   ],
