@@ -229,6 +229,22 @@ class JobWorkCollectionSlipPdfExporter {
         ? rawFooter
         : '$resolvedFactoryName · ISO 9001:2015 Certified Marble & Natural Stone Processing';
 
+    final bankAcc = profile != null && profile.bankAccounts.isNotEmpty
+        ? profile.bankAccounts.first
+        : null;
+    final bankAccountTitle = bankAcc?.accountName ?? factoryOwner ?? 'Abdul Jabbar';
+    final bankAccountNumber = bankAcc?.accountNumber ?? '850855865565555';
+    final bankName = bankAcc != null
+        ? '${bankAcc.bankName}${bankAcc.branch != null && bankAcc.branch!.isNotEmpty ? " (${bankAcc.branch})" : ""}'
+        : 'HBL (678)';
+    final bankIban = bankAcc?.iban ?? 'ABNM567788876666';
+
+    final resolvedCity = contact?.city != null && contact!.city.trim().isNotEmpty
+        ? contact.city.trim()
+        : factoryAddress != null && factoryAddress.contains(',')
+            ? factoryAddress.split(',').last.trim()
+            : 'Loralai';
+
     final collectedDateStr = dateFormat.format(collection.collectedAt);
 
     doc.addPage(
@@ -921,123 +937,189 @@ class JobWorkCollectionSlipPdfExporter {
             ),
           ),
 
-          // Section 4: Notes / Instructions Block (if present)
-          if (collection.notes != null &&
-              collection.notes!.trim().isNotEmpty) ...[
-            pw.SizedBox(height: 12),
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(8),
-              decoration: pw.BoxDecoration(
-                color: _bgLight,
-                borderRadius: pw.BorderRadius.circular(4),
-                border: pw.Border.all(color: _borderLight, width: 0.8),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'NOTES & DISPATCH INSTRUCTIONS:',
-                    style: pw.TextStyle(
-                      font: fonts.bold,
-                      fontSize: 8,
-                      color: _navy,
-                    ),
-                  ),
-                  pw.SizedBox(height: 3),
-                  pw.Text(
-                    Formatters.textForExport(collection.notes!),
-                    style: pw.TextStyle(
-                      font: fonts.regular,
-                      fontSize: 8,
-                      color: _mutedGrey,
-                    ),
-                  ),
-                ],
-              ),
+          // Section 4: Bank & Remittance Details Box
+          pw.SizedBox(height: 14),
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.white,
+              borderRadius: pw.BorderRadius.circular(6),
+              border: pw.Border.all(color: _borderLight, width: 0.8),
             ),
-          ],
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'BANK & REMITTANCE DETAILS',
+                  style: pw.TextStyle(
+                    font: fonts.bold,
+                    fontSize: 8.5,
+                    color: _accentBlue,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                pw.SizedBox(height: 6),
+                _bankDetailRow(fonts, 'Account Title:', bankAccountTitle),
+                _bankDetailRow(fonts, 'Account Number:', bankAccountNumber),
+                _bankDetailRow(fonts, 'Bank Name:', bankName),
+                _bankDetailRow(fonts, 'IBAN:', bankIban),
+              ],
+            ),
+          ),
 
-          pw.SizedBox(height: 24),
+          pw.SizedBox(height: 12),
 
-          // Section 5: Sign-off & Signatures Block
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
+          // Section 5: Terms & Conditions Block
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Container(
-                      width: double.infinity,
-                      height: 28,
-                      decoration: const pw.BoxDecoration(
-                        border: pw.Border(
-                          bottom: pw.BorderSide(color: _navy, width: 1),
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      AppStrings.factorySignature.toUpperCase(),
-                      style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8,
-                        color: _navy,
-                      ),
-                    ),
-                    pw.Text(
-                      'Authorized Dispatch Stamp / Sign',
-                      style: pw.TextStyle(
-                        font: fonts.regular,
-                        fontSize: 7,
-                        color: _mutedGrey,
-                      ),
-                    ),
-                  ],
+              pw.Text(
+                'TERMS & CONDITIONS:',
+                style: pw.TextStyle(
+                  font: fonts.bold,
+                  fontSize: 7.5,
+                  color: _navy,
+                  letterSpacing: 0.2,
                 ),
               ),
-              pw.SizedBox(width: 32),
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Container(
-                      width: double.infinity,
-                      height: 28,
-                      decoration: const pw.BoxDecoration(
-                        border: pw.Border(
-                          bottom: pw.BorderSide(color: _navy, width: 1),
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      (collection.receiverName != null &&
-                              collection.receiverName!.trim().isNotEmpty
-                          ? 'RECEIVER: ${collection.receiverName!.toUpperCase()}'
-                          : AppStrings.customerSignature.toUpperCase()),
-                      style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8,
-                        color: _navy,
-                      ),
-                    ),
-                    pw.Text(
-                      'Consignee Acknowledgment & Gate Release',
-                      style: pw.TextStyle(
-                        font: fonts.regular,
-                        fontSize: 7,
-                        color: _mutedGrey,
-                      ),
-                    ),
-                  ],
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Payment Terms: Payment is due within [7 / 15 / 30] days from the invoice date unless explicitly agreed otherwise in writing. Late payments are subject to a 2% monthly charge.',
+                style: pw.TextStyle(
+                  font: fonts.regular,
+                  fontSize: 6.5,
+                  color: _mutedGrey,
+                  height: 1.15,
+                ),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Text(
+                'Goods Inspection & Claims: Claims regarding weight, quantity, size, or surface damage must be reported within 24 hours of delivery/unloading.',
+                style: pw.TextStyle(
+                  font: fonts.regular,
+                  fontSize: 6.5,
+                  color: _mutedGrey,
+                  height: 1.15,
+                ),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Text(
+                'Job-Work / Processing Risk: Material provided for cutting, polishing, or processing is handled with care; however, the factory is not responsible for natural stone breakage due to inherent material veins or hidden cracks.',
+                style: pw.TextStyle(
+                  font: fonts.regular,
+                  fontSize: 6.5,
+                  color: _mutedGrey,
+                  height: 1.15,
+                ),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Text(
+                'Title & Ownership: Ownership of goods remains with the seller until the invoice amount is paid in full.',
+                style: pw.TextStyle(
+                  font: fonts.regular,
+                  fontSize: 6.5,
+                  color: _mutedGrey,
+                  height: 1.15,
+                ),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Text(
+                'Dispute Jurisdiction: All disputes are subject to local court jurisdiction in ${resolvedCity}.',
+                style: pw.TextStyle(
+                  font: fonts.regular,
+                  fontSize: 6.5,
+                  color: _mutedGrey,
+                  height: 1.15,
                 ),
               ),
             ],
           ),
 
           pw.SizedBox(height: 16),
+
+          // Section 6: Scan To Verify & Signatures Block
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              // Left: Scan to Verify Box with QR Code
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  pw.Container(
+                    width: 38,
+                    height: 38,
+                    padding: const pw.EdgeInsets.all(2),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: _navy, width: 0.8),
+                      borderRadius: pw.BorderRadius.circular(3),
+                    ),
+                    child: pw.BarcodeWidget(
+                      barcode: pw.Barcode.qrCode(),
+                      data: '${collection.collectionNumber}-VERIFIED',
+                      drawText: false,
+                      color: _navy,
+                    ),
+                  ),
+                  pw.SizedBox(width: 8),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'SCAN TO VERIFY',
+                        style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: 8,
+                          color: _navy,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                      pw.SizedBox(height: 1),
+                      pw.Text(
+                        'Digital Authenticity Code',
+                        style: pw.TextStyle(
+                          font: fonts.regular,
+                          fontSize: 7,
+                          color: _mutedGrey,
+                        ),
+                      ),
+                      pw.SizedBox(height: 1),
+                      pw.Text(
+                        '${collection.collectionNumber}-VERIFIED',
+                        style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: 7,
+                          color: _accentBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // Right: Prepared By / Dispatch Officer Line
+              pw.Column(
+                children: [
+                  pw.Container(
+                    width: 160,
+                    height: 0.8,
+                    color: _navy,
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Prepared By / Dispatch Officer',
+                    style: pw.TextStyle(
+                      font: fonts.bold,
+                      fontSize: 7.5,
+                      color: _navy,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          pw.SizedBox(height: 14),
           pw.Center(
             child: pw.Text(
               'All stone products listed above have been inspected and collected in good order. Material custody is transferred upon signature.',
@@ -1054,6 +1136,37 @@ class JobWorkCollectionSlipPdfExporter {
     );
 
     return doc;
+  }
+
+  static pw.Widget _bankDetailRow(PdfFonts fonts, String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 2),
+      child: pw.Row(
+        children: [
+          pw.SizedBox(
+            width: 105,
+            child: pw.Text(
+              label,
+              style: pw.TextStyle(
+                font: fonts.bold,
+                fontSize: 7.5,
+                color: _navy,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                font: fonts.regular,
+                fontSize: 7.5,
+                color: PdfColors.black,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   static pw.Widget _metaRow(PdfFonts fonts, String label, String value) {

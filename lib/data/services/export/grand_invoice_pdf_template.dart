@@ -625,23 +625,39 @@ abstract final class GrandInvoicePdfTemplate {
             children: [
               // Scan to Verify
               pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  _qrCodeMock(),
+                  _buildQrCodeWidget('${invoice.invoiceNumber}-VERIFIED'),
                   pw.SizedBox(width: 8),
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
                         'SCAN TO VERIFY',
-                        style: pw.TextStyle(font: fonts.bold, fontSize: 7.5, color: _navy),
+                        style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: 8,
+                          color: _navy,
+                          letterSpacing: 0.3,
+                        ),
                       ),
+                      pw.SizedBox(height: 1),
                       pw.Text(
                         'Digital Authenticity Code',
-                        style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
+                        style: pw.TextStyle(
+                          font: fonts.regular,
+                          fontSize: 7,
+                          color: _mutedGrey,
+                        ),
                       ),
+                      pw.SizedBox(height: 1),
                       pw.Text(
                         '${invoice.invoiceNumber}-VERIFIED',
-                        style: pw.TextStyle(font: fonts.regular, fontSize: 7, color: _mutedGrey),
+                        style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: 7,
+                          color: _accentBlue,
+                        ),
                       ),
                     ],
                   ),
@@ -1212,32 +1228,20 @@ abstract final class GrandInvoicePdfTemplate {
     );
   }
 
-  static pw.Widget _qrCodeMock() {
+  static pw.Widget _buildQrCodeWidget(String code) {
     return pw.Container(
-      width: 28,
-      height: 28,
+      width: 38,
+      height: 38,
+      padding: const pw.EdgeInsets.all(2),
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: _navy, width: 0.8),
+        borderRadius: pw.BorderRadius.circular(3),
       ),
-      padding: const pw.EdgeInsets.all(2),
-      child: pw.Column(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Container(width: 6, height: 6, color: _navy),
-              pw.Container(width: 6, height: 6, color: _navy),
-            ],
-          ),
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Container(width: 6, height: 6, color: _navy),
-              pw.Container(width: 6, height: 6, color: _mutedGrey),
-            ],
-          ),
-        ],
+      child: pw.BarcodeWidget(
+        barcode: pw.Barcode.qrCode(),
+        data: code,
+        drawText: false,
+        color: _navy,
       ),
     );
   }
