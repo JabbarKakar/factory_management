@@ -917,6 +917,7 @@ class _InvoicePromptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -951,44 +952,71 @@ class _InvoicePromptCard extends StatelessWidget {
               const SizedBox(height: 10),
             ],
             if (primaryLabel != null && onPrimary != null)
-              FilledButton.icon(
+              FilledButton(
                 onPressed: onPrimary,
-                icon: Icon(primaryIcon, size: 16),
-                label: Text(
-                  primaryLabel!,
-                  style: const TextStyle(fontSize: 12),
-                ),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isCompact && primaryIcon != null) ...[
+                      Icon(primaryIcon, size: 16),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      primaryLabel!,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             if (showViewInvoice) ...[
-              OutlinedButton.icon(
+              OutlinedButton(
                 onPressed: onViewInvoice,
-                icon: const Icon(Icons.receipt_long_outlined, size: 16),
-                label: Text(
-                  AppStrings.viewInvoice,
-                  style: const TextStyle(fontSize: 12),
-                ),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isCompact) ...[
+                      const Icon(Icons.receipt_long_outlined, size: 16),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      AppStrings.viewInvoice,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
               ),
             ],
             if (showRecordPayment) ...[
-              const SizedBox(height: 6),
-              FilledButton.icon(
+              if (showViewInvoice) const SizedBox(height: 6),
+              FilledButton(
                 onPressed: onRecordPayment,
-                icon: const Icon(Icons.payments_outlined, size: 16),
-                label: Text(
-                  AppStrings.recordPayment,
-                  style: const TextStyle(fontSize: 12),
-                ),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isCompact) ...[
+                      const Icon(Icons.payments_outlined, size: 16),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      AppStrings.recordPayment,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
             ],

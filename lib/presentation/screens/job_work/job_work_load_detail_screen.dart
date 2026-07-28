@@ -254,6 +254,7 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
 
         final canEdit = context.userCanEdit(AppModule.jobWork);
         final canDelete = context.userCanDelete(AppModule.jobWork);
+        final isCompact = MediaQuery.sizeOf(context).width < 600;
         final loadCollections =
             JobWorkCollectionQuantityHelper.collectionsForLoad(
           load.id,
@@ -472,19 +473,20 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (state.invoice == null && (load.invoiceId == null || load.invoiceId!.isEmpty))
-                        FilledButton.icon(
+                        FilledButton(
                           style: FilledButton.styleFrom(
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isCompact ? 7 : 10,
+                              vertical: isCompact ? 3 : 4,
                             ),
-                            minimumSize: const Size(0, 36),
-                            textStyle: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                            minimumSize: Size(0, isCompact ? 26 : 30),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            textStyle: TextStyle(
+                              fontSize: isCompact ? 10.5 : 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           onPressed: isSaving
@@ -498,23 +500,32 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                                   );
                                   if (context.mounted) await _reload(context);
                                 },
-                          icon: const Icon(Icons.receipt_long_outlined, size: 15),
-                          label: const Text(AppStrings.generateInvoice),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isCompact) ...[
+                                const Icon(Icons.receipt_long_outlined, size: 14),
+                                const SizedBox(width: 4),
+                              ],
+                              const Text(AppStrings.generateInvoice),
+                            ],
+                          ),
                         )
                       else ...[
-                        OutlinedButton.icon(
+                        OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isCompact ? 7 : 10,
+                              vertical: isCompact ? 3 : 4,
                             ),
-                            minimumSize: const Size(0, 36),
-                            textStyle: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                            minimumSize: Size(0, isCompact ? 26 : 30),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            textStyle: TextStyle(
+                              fontSize: isCompact ? 10.5 : 11,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                           onPressed: isSaving
@@ -525,24 +536,33 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                                   );
                                   if (context.mounted) await _reload(context);
                                 },
-                          icon: const Icon(Icons.receipt_long_outlined, size: 15),
-                          label: const Text(AppStrings.viewInvoice),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isCompact) ...[
+                                const Icon(Icons.receipt_long_outlined, size: 14),
+                                const SizedBox(width: 4),
+                              ],
+                              const Text(AppStrings.viewInvoice),
+                            ],
+                          ),
                         ),
                         if ((state.invoice?.dueAmount ?? load.balanceDue) > 0) ...[
-                          const SizedBox(width: 8),
-                          FilledButton.icon(
+                          const SizedBox(width: 5),
+                          FilledButton(
                             style: FilledButton.styleFrom(
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                              padding: EdgeInsets.symmetric(
+                                horizontal: isCompact ? 7 : 10,
+                                vertical: isCompact ? 3 : 4,
                               ),
-                              minimumSize: const Size(0, 36),
-                              textStyle: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                              minimumSize: Size(0, isCompact ? 26 : 30),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              textStyle: TextStyle(
+                                fontSize: isCompact ? 10.5 : 11,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             onPressed: isSaving
@@ -552,14 +572,21 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                                     if (invoiceId == null || invoiceId.isEmpty) {
                                       return;
                                     }
-                                    await context.push(RoutePaths.recordPayment(invoiceId),
-                                    );
+                                    await context.push(RoutePaths.recordPayment(invoiceId));
                                     if (context.mounted) {
                                       await _reload(context);
                                     }
                                   },
-                            icon: const Icon(Icons.payments_outlined, size: 15),
-                            label: const Text(AppStrings.recordPayment),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!isCompact) ...[
+                                  const Icon(Icons.payments_outlined, size: 14),
+                                  const SizedBox(width: 4),
+                                ],
+                                const Text(AppStrings.recordPayment),
+                              ],
+                            ),
                           ),
                         ],
                       ],

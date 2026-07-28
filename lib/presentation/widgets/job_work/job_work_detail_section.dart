@@ -52,12 +52,22 @@ class JobWorkDetailSection extends StatelessWidget {
                     title,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
-                      fontSize: 13,
+                      fontSize: 12.5,
                       letterSpacing: 0.1,
                     ),
                   ),
-                  const Spacer(),
-                  if (action != null) action!,
+                  const SizedBox(width: 6),
+                  if (action != null)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: action!,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

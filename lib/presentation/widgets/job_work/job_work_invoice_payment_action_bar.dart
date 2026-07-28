@@ -15,22 +15,33 @@ class JobWorkInvoicePaymentActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: DashboardSurfaceCard(
         compact: true,
         borderRadius: 14,
         padding: const EdgeInsets.all(12),
-        child: FilledButton.icon(
+        child: FilledButton(
           onPressed: enabled ? onRecordPayment : null,
-          icon: const Icon(Icons.payments_outlined, size: 16),
-          label: Text(
-            AppStrings.recordPayment,
-            style: const TextStyle(fontSize: 12),
-          ),
           style: FilledButton.styleFrom(
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(vertical: 8),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isCompact) ...[
+                const Icon(Icons.payments_outlined, size: 16),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                AppStrings.recordPayment,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
           ),
         ),
       ),

@@ -91,6 +91,7 @@ class JobWorkDetailHero extends StatelessWidget {
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           _InvoiceButton(
                             hasInvoice: hasInvoice,
                             onPressed: onOpenInvoice,
@@ -200,8 +201,11 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = TextStyle(fontSize: 12, fontWeight: FontWeight.w600);
-    final child = icon != null
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
+    final style = const TextStyle(fontSize: 12, fontWeight: FontWeight.w600);
+    final showIcon = !isCompact && icon != null;
+
+    final child = showIcon
         ? Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
@@ -266,26 +270,41 @@ class _InvoiceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FilledButton.tonalIcon(
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
+
+    return FilledButton.tonal(
       onPressed: onPressed,
       style: FilledButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        minimumSize: const Size(0, 26),
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 7 : 12,
+          vertical: isCompact ? 3 : 4,
+        ),
+        minimumSize: Size(0, isCompact ? 25 : 28),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
         ),
       ),
-      icon: Icon(
-        hasInvoice ? Icons.receipt_long_outlined : Icons.add_circle_outline,
-        size: 14,
-      ),
-      label: Text(
-        hasInvoice ? AppStrings.viewInvoice : AppStrings.generateInvoice,
-        style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 11,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isCompact) ...[
+            Icon(
+              hasInvoice
+                  ? Icons.receipt_long_outlined
+                  : Icons.add_circle_outline,
+              size: 14,
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            hasInvoice ? AppStrings.viewInvoice : AppStrings.generateInvoice,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: isCompact ? 10.5 : 11,
+            ),
+          ),
+        ],
       ),
     );
   }
