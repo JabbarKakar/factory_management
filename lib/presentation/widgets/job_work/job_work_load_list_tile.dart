@@ -170,103 +170,90 @@ class JobWorkLoadListTile extends StatelessWidget {
                                   color: theme.colorScheme.outline
                                       .withValues(alpha: 0.12),
                                 ),
-                              ),
-                              child: Row(
+                              ),                              child: Row(
                                 children: [
                                   Expanded(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          'Total: ',
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                            color: muted,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        Text(
-                                          Formatters.currencyPkrWhole(
-                                            totalCharges,
-                                          ),
-                                          style: theme.textTheme.labelSmall
-                                              ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    width: 1,
-                                    height: 14,
-                                    color: theme.colorScheme.outline
-                                        .withValues(alpha: 0.2),
-                                  ),
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(left: 6),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            'Paid: ',
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                              color: muted,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          Text(
-                                            Formatters.currencyPkrWhole(paid),
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              color: paid > 0
-                                                  ? AppColors.success
-                                                  : muted,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
+                                    child: _financialCell(
+                                      label: 'Total: ',
+                                      value: Formatters.currencyPkrWhole(
+                                        totalCharges,
+                                      ),
+                                      labelStyle: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                        color: muted,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      valueStyle: theme.textTheme.labelSmall
+                                          ?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 11,
                                       ),
                                     ),
                                   ),
                                   Container(
                                     width: 1,
                                     height: 14,
-                                    color: theme.colorScheme.outline.withValues(alpha: 0.2),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                    ),
+                                    color: theme.colorScheme.outline
+                                        .withValues(alpha: 0.2),
                                   ),
                                   Expanded(
                                     child: Padding(
-                                      padding: const EdgeInsets.only(left: 6),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            'Remaining: ',
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                              color: muted,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          Text(
-                                            Formatters.currencyPkrWhole(due),
-                                            style: theme.textTheme.labelSmall
-                                                ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              color: due > 0
-                                                  ? AppColors.warning
-                                                  : AppColors.success,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
+                                      padding: const EdgeInsets.only(left: 2),
+                                      child: _financialCell(
+                                        label: 'Paid: ',
+                                        value: Formatters.currencyPkrWhole(
+                                          paid,
+                                        ),
+                                        labelStyle: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: muted,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        valueStyle: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: paid > 0
+                                              ? AppColors.success
+                                              : muted,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: 14,
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                    ),
+                                    color: theme.colorScheme.outline
+                                        .withValues(alpha: 0.2),
+                                  ),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(left: 2),
+                                      child: _financialCell(
+                                        label: 'Remaining: ',
+                                        value: Formatters.currencyPkrWhole(due),
+                                        labelStyle: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          color: muted,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        valueStyle: theme.textTheme.labelSmall
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          color: due > 0
+                                              ? AppColors.warning
+                                              : AppColors.success,
+                                          fontSize: 11,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -360,6 +347,26 @@ class JobWorkLoadListTile extends StatelessWidget {
     );
   }
 
+  static Widget _financialCell({
+    required String label,
+    required String value,
+    required TextStyle? labelStyle,
+    required TextStyle? valueStyle,
+  }) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: label, style: labelStyle),
+            TextSpan(text: value, style: valueStyle),
+          ],
+        ),
+      ),
+    );
+  }
+
   Color _accentFor(JobWorkStatus status) {
     return switch (status) {
       JobWorkStatus.received => AppColors.textSecondary,
@@ -387,20 +394,23 @@ class _SummaryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-            ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          label,
+          maxLines: 1,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+              ),
+        ),
       ),
     );
   }
@@ -421,6 +431,7 @@ class _MetaChip extends StatelessWidget {
     final muted = theme.colorScheme.onSurfaceVariant;
 
     return Container(
+      constraints: const BoxConstraints(maxWidth: 200),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
@@ -431,12 +442,16 @@ class _MetaChip extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: muted),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: muted,
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: muted,
+                fontWeight: FontWeight.w600,
+                fontSize: 10,
+              ),
             ),
           ),
         ],
