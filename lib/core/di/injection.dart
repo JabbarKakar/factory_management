@@ -213,7 +213,11 @@ void setupDependencies() {
     DeliveryChallanPdfExporter.new,
   );
   getIt.registerLazySingleton<JobWorkCollectionSlipPdfExporter>(
-    JobWorkCollectionSlipPdfExporter.new,
+    () => JobWorkCollectionSlipPdfExporter(
+      factoryRepository: getIt<FactoryRepository>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
+    ),
   );
   getIt.registerLazySingleton<InvoicePdfExporter>(
     () => InvoicePdfExporter(factoryRepository: getIt<FactoryRepository>()),

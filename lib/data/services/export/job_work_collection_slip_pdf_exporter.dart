@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/utils/currency_formatter.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/job_work_charges_calculator.dart';
 import '../../../domain/entities/factory_profile.dart';
@@ -33,7 +34,7 @@ class JobWorkCollectionSlipPdfExporter {
   static final NumberFormat _commaFormatter = NumberFormat('#,##0.00');
   static final NumberFormat _wholeFormatter = NumberFormat('#,##0');
 
-  // Color Palette matching GrandInvoicePdfTemplate & SingleLoadInvoicePdfExporter
+  // Compact Color Palette matching GrandInvoicePdfTemplate & SingleLoadInvoicePdfExporter
   static const PdfColor _navy = PdfColor.fromInt(0xFF1B365D);
   static const PdfColor _accentBlue = PdfColor.fromInt(0xFF0F3F70);
   static const PdfColor _mutedGrey = PdfColor.fromInt(0xFF556987);
@@ -137,29 +138,122 @@ class JobWorkCollectionSlipPdfExporter {
       }
     }
 
-    // Consolidated Material Breakdown (Small vs Large Stock)
-    int smallPieces = 0;
-    double smallSqFt = 0.0;
-    int largePieces = 0;
-    double largeSqFt = 0.0;
+    double getItemRate(JobWorkCollectionLineItem item) {
+      final isSmall = JobWorkSizes.isSmall(item.size) ||
+          (item.isSmall && !JobWorkSizes.isLarge(item.size));
 
-    for (final item in collection.lineItems) {
-      final isSmall = item.isSmall || JobWorkSizes.isSmall(item.size);
-      if (isSmall) {
-        smallPieces += item.pieces;
-        smallSqFt += item.squareFeet;
-      } else {
-        largePieces += item.pieces;
-        largeSqFt += item.squareFeet;
+      final outputs = isSmall
+          ? (resolvedLoad?.output?.smallStockOutputs ??
+              resolvedOrder?.output?.smallStockOutputs ??
+              const [])
+          : (resolvedLoad?.output?.largeStockOutputs ??
+              resolvedOrder?.output?.largeStockOutputs ??
+              const []);
+
+      for (final o in outputs) {
+        if (o.size.trim().toLowerCase() == item.size.trim().toLowerCase() &&
+            o.pricePerSqFt > 0) {
+          return o.pricePerSqFt;
+        }
       }
+
+      if (isSmall) {
+        if (resolvedSmallRate > 0) return resolvedSmallRate;
+        if (resolvedLoad != null && resolvedLoad.smallStockPrice > 0) {
+          return resolvedLoad.smallStockPrice;
+        }
+        if (resolvedOrder != null && resolvedOrder.smallStockPrice > 0) {
+          return resolvedOrder.smallStockPrice;
+        }
+      } else {
+        if (resolvedLargeRate > 0) return resolvedLargeRate;
+        if (resolvedLoad != null && resolvedLoad.largeStockPrice > 0) {
+          return resolvedLoad.largeStockPrice;
+        }
+        if (resolvedOrder != null && resolvedOrder.largeStockPrice > 0) {
+          return resolvedOrder.largeStockPrice;
+        }
+      }
+
+      if (resolvedLoad != null && resolvedLoad.agreedRate > 0) {
+        return resolvedLoad.agreedRate;
+      }
+      if (resolvedOrder != null && resolvedOrder.agreedRate > 0) {
+        return resolvedOrder.agreedRate;
+      }
+
+      return 0.0;
     }
 
-    final smallCharges = smallSqFt * resolvedSmallRate;
-    final largeCharges = largeSqFt * resolvedLargeRate;
+    // Filter active items with quantity
+    final activeItems = collection.lineItems
+        .where((item) => item.pieces > 0 || item.squareFeet > 0)
+        .toList();
+    final itemsToDisplay =
+        activeItems.isNotEmpty ? activeItems : collection.lineItems;
 
-    final totalPieces = smallPieces + largePieces;
-    final totalSqFt = smallSqFt + largeSqFt;
-    final totalCharges = smallCharges + largeCharges;
+    final smallItems = itemsToDisplay
+        .where((i) =>
+            JobWorkSizes.isSmall(i.size) ||
+            (i.isSmall && !JobWorkSizes.isLarge(i.size)))
+        .toList();
+
+    final largeItems = itemsToDisplay
+        .where((i) =>
+            JobWorkSizes.isLarge(i.size) ||
+            (!i.isSmall && !JobWorkSizes.isSmall(i.size)))
+        .toList();
+
+    final categorizedSet = {...smallItems, ...largeItems};
+    final uncategorized = itemsToDisplay
+        .where((item) => !categorizedSet.contains(item))
+        .toList();
+    if (uncategorized.isNotEmpty) {
+      smallItems.addAll(uncategorized);
+    }
+
+    final totalRows = smallItems.length + largeItems.length;
+
+    // Density calculation for auto-fit sizing
+    final isHighDensity = totalRows > 12;
+    final isUltraDensity = totalRows > 22;
+
+    final double cellPaddingV = isUltraDensity ? 1.8 : (isHighDensity ? 2.5 : 3.5);
+    final double cellPaddingH = isUltraDensity ? 3.0 : (isHighDensity ? 4.0 : 5.0);
+    final double tableFontSize = isUltraDensity ? 6.2 : (isHighDensity ? 6.8 : 7.5);
+    final double headerFontSize = isUltraDensity ? 6.5 : (isHighDensity ? 7.0 : 8.0);
+    final double sectionGap = isUltraDensity ? 3.0 : (isHighDensity ? 5.0 : 6.0);
+    final bool useSideBySideTables = totalRows > 14 && smallItems.isNotEmpty && largeItems.isNotEmpty;
+
+    int totalSmallPcs = 0;
+    double totalSmallSqFt = 0.0;
+    double totalSmallCharges = 0.0;
+
+    for (final item in smallItems) {
+      final rate = getItemRate(item);
+      final charges =
+          item.squareFeet > 0 ? item.squareFeet * rate : item.pieces * rate;
+      totalSmallPcs += item.pieces;
+      totalSmallSqFt += item.squareFeet;
+      totalSmallCharges += charges;
+    }
+
+    int totalLargePcs = 0;
+    double totalLargeSqFt = 0.0;
+    double totalLargeCharges = 0.0;
+
+    for (final item in largeItems) {
+      final rate = getItemRate(item);
+      final charges =
+          item.squareFeet > 0 ? item.squareFeet * rate : item.pieces * rate;
+      totalLargePcs += item.pieces;
+      totalLargeSqFt += item.squareFeet;
+      totalLargeCharges += charges;
+    }
+
+    final grandTotalPcs = totalSmallPcs + totalLargePcs;
+    final grandTotalSqFt = totalSmallSqFt + totalLargeSqFt;
+    final grandTotalCharges = totalSmallCharges + totalLargeCharges;
 
     // Resolve logo bytes if omitted
     if (logoBytes == null) {
@@ -232,11 +326,12 @@ class JobWorkCollectionSlipPdfExporter {
     final bankAcc = profile != null && profile.bankAccounts.isNotEmpty
         ? profile.bankAccounts.first
         : null;
-    final bankAccountTitle = bankAcc?.accountName ?? factoryOwner ?? 'Abdul Jabbar';
-    final bankAccountNumber = bankAcc?.accountNumber ?? '850855865565555';
+    final bankAccountTitle =
+        bankAcc?.accountName ?? factoryOwner ?? 'Hussain marble dealer';
+    final bankAccountNumber = bankAcc?.accountNumber ?? '104311645540001';
     final bankName = bankAcc != null
         ? '${bankAcc.bankName}${bankAcc.branch != null && bankAcc.branch!.isNotEmpty ? " (${bankAcc.branch})" : ""}'
-        : 'HBL (678)';
+        : 'BankIslami Pakistan Limited (1043)';
     final bankIban = bankAcc?.iban ?? 'ABNM567788876666';
 
     final resolvedCity = contact?.city != null && contact!.city.trim().isNotEmpty
@@ -245,371 +340,43 @@ class JobWorkCollectionSlipPdfExporter {
             ? factoryAddress.split(',').last.trim()
             : 'Loralai';
 
+    final termsText = invSettings?.termsAndConditions != null &&
+            invSettings!.termsAndConditions!.trim().isNotEmpty
+        ? invSettings.termsAndConditions!.trim()
+        : null;
+
+    final currencyCode =
+        profile?.invoiceSettings.currency ?? Formatters.activeCurrency;
+    final currencySymbol =
+        CurrencyFormatter.getSymbol(currencyCode, asciiSafe: true);
+
     final collectedDateStr = dateFormat.format(collection.collectedAt);
 
-    doc.addPage(
-      pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.symmetric(vertical: 24, horizontal: 32),
-        theme: fonts.theme,
-        header: (context) {
-          if (context.pageNumber == 1) return pw.SizedBox.shrink();
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(bottom: 12),
-            padding: const pw.EdgeInsets.only(bottom: 6),
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(
-                bottom: pw.BorderSide(color: _borderLight, width: 0.8),
-              ),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  '$resolvedFactoryName · MATERIAL COLLECTION SLIP',
-                  style: pw.TextStyle(
-                    font: fonts.bold,
-                    fontSize: 8,
-                    color: _mutedGrey,
-                  ),
-                ),
-                pw.Text(
-                  'Slip No: ${collection.collectionNumber}',
-                  style: pw.TextStyle(
-                    font: fonts.regular,
-                    fontSize: 8,
-                    color: _mutedGrey,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-        footer: (context) {
-          return pw.Container(
-            margin: const pw.EdgeInsets.only(top: 14),
-            padding: const pw.EdgeInsets.only(top: 8),
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(
-                top: pw.BorderSide(color: _borderLight, width: 0.8),
-              ),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Expanded(
-                  child: pw.Text(
-                    footerNoteText,
-                    style: pw.TextStyle(
-                      font: fonts.regular,
-                      fontSize: 7.5,
-                      color: _mutedGrey,
-                    ),
-                  ),
-                ),
-                pw.Text(
-                  'Page ${context.pageNumber} of ${context.pagesCount}',
-                  style: pw.TextStyle(
-                    font: fonts.bold,
-                    fontSize: 8,
-                    color: _accentBlue,
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-        build: (context) => [
-          // Section 1: Factory Header & Header Card
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Left Column: Logo & Dynamic Branding Details
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Row(
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
-                      children: [
-                        if (logoBytes != null && logoBytes.isNotEmpty) ...[
-                          pw.Container(
-                            width: 56,
-                            height: 56,
-                            child: pw.Image(
-                              pw.MemoryImage(logoBytes),
-                              fit: pw.BoxFit.contain,
-                            ),
-                          ),
-                          pw.SizedBox(width: 14),
-                        ],
-                        pw.Expanded(
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Text(
-                                resolvedFactoryName,
-                                style: pw.TextStyle(
-                                  font: fonts.bold,
-                                  fontSize: 16,
-                                  color: _accentBlue,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                              if (tagline != null) ...[
-                                pw.SizedBox(height: 1),
-                                pw.Text(
-                                  tagline,
-                                  style: pw.TextStyle(
-                                    font: fonts.bold,
-                                    fontSize: 7.5,
-                                    color: _navy,
-                                    letterSpacing: 0.2,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (factoryOwner != null ||
-                        factoryAddress != null ||
-                        factoryPhone != null ||
-                        email != null ||
-                        website != null ||
-                        strn != null ||
-                        ntn != null) ...[
-                      pw.SizedBox(height: 8),
-                      if (factoryOwner != null)
-                        pw.Text(
-                          'Proprietor / Management: $factoryOwner',
-                          style: pw.TextStyle(
-                            font: fonts.bold,
-                            fontSize: 7,
-                            color: _navy,
-                          ),
-                        ),
-                      if (factoryAddress != null)
-                        pw.Text(
-                          'Factory & Facility: $factoryAddress',
-                          style: pw.TextStyle(
-                            font: fonts.regular,
-                            fontSize: 7,
-                            color: _mutedGrey,
-                          ),
-                        ),
-                      if (factoryPhone != null ||
-                          email != null ||
-                          website != null)
-                        pw.Text(
-                          [
-                            if (factoryPhone != null) 'Phone: $factoryPhone',
-                            if (email != null) 'Email: $email',
-                            if (website != null) 'Web: $website',
-                          ].join(' | '),
-                          style: pw.TextStyle(
-                            font: fonts.regular,
-                            fontSize: 7,
-                            color: _mutedGrey,
-                          ),
-                        ),
-                      if (strn != null || ntn != null)
-                        pw.Text(
-                          [
-                            if (strn != null) 'STRN: $strn',
-                            if (ntn != null) 'NTN: $ntn',
-                          ].join('  ·  '),
-                          style: pw.TextStyle(
-                            font: fonts.regular,
-                            fontSize: 7,
-                            color: _mutedGrey,
-                          ),
-                        ),
-                    ],
-                  ],
-                ),
-              ),
-              pw.SizedBox(width: 20),
-              // Right Column: Collection Slip Header Card
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Container(
-                    width: 185,
-                    padding: const pw.EdgeInsets.symmetric(
-                      vertical: 7,
-                      horizontal: 12,
-                    ),
-                    decoration: const pw.BoxDecoration(
-                      color: _navy,
-                      borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
-                    ),
-                    alignment: pw.Alignment.center,
-                    child: pw.Text(
-                      'COLLECTION SLIP',
-                      style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 14,
-                        color: PdfColors.white,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(height: 8),
-                  _metaRow(fonts, 'Slip No:', collection.collectionNumber),
-                  _metaRow(fonts, 'Date Issued:', collectedDateStr),
-                  _metaRow(fonts, 'Job Work ID:', collection.jobWorkNumber),
-                  if (collection.loadNumber != null &&
-                      collection.loadNumber!.trim().isNotEmpty)
-                    _metaRow(fonts, 'Load No:', collection.loadNumber!),
-                  pw.SizedBox(height: 6),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: 18,
-                    ),
-                    decoration: pw.BoxDecoration(
-                      color: _greenBg,
-                      borderRadius: pw.BorderRadius.circular(4),
-                      border: pw.Border.all(color: _greenText, width: 0.8),
-                    ),
-                    child: pw.Text(
-                      collection.status.label.toUpperCase(),
-                      style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 9,
-                        color: _greenText,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+    pw.Widget buildStockCategoryTable({
+      required String categoryTitle,
+      required List<JobWorkCollectionLineItem> items,
+      required int categoryPcs,
+      required double categorySqFt,
+      required double categoryCharges,
+    }) {
+      if (items.isEmpty) return pw.SizedBox.shrink();
 
-          pw.SizedBox(height: 16),
-          pw.Divider(color: _borderLight, thickness: 1),
-          pw.SizedBox(height: 12),
-
-          // Section 2: Two-Column Card Grid (Customer & Receiver Details + Transport & Vehicle Info)
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              // Card 1: Customer & Receiver Details
-              pw.Expanded(
-                child: _buildDetailCard(
-                  fonts: fonts,
-                  title: 'CUSTOMER & RECEIVER DETAILS',
-                  rows: [
-                    _cardRow(
-                      fonts,
-                      'Customer Name:',
-                      Formatters.textForExport(collection.customerName),
-                    ),
-                    if (collection.receiverName != null &&
-                        collection.receiverName!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Received By:',
-                        Formatters.textForExport(collection.receiverName!),
-                      ),
-                    if (collection.receiverPhone != null &&
-                        collection.receiverPhone!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Receiver Phone:',
-                        Formatters.textForExport(collection.receiverPhone!),
-                      ),
-                    if (collection.receiverAddress != null &&
-                        collection.receiverAddress!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Delivery Address:',
-                        Formatters.textForExport(collection.receiverAddress!),
-                      ),
-                    if (collection.receiverEmail != null &&
-                        collection.receiverEmail!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Receiver Email:',
-                        Formatters.textForExport(collection.receiverEmail!),
-                      ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(width: 14),
-              // Card 2: Transport & Vehicle Details
-              pw.Expanded(
-                child: _buildDetailCard(
-                  fonts: fonts,
-                  title: 'TRANSPORT & VEHICLE INFO',
-                  rows: [
-                    if (collection.vehicleNumber != null &&
-                        collection.vehicleNumber!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Vehicle / Plate #:',
-                        Formatters.textForExport(collection.vehicleNumber!),
-                      ),
-                    if (collection.driverName != null &&
-                        collection.driverName!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Driver Name:',
-                        Formatters.textForExport(collection.driverName!),
-                      ),
-                    if (collection.driverPhone != null &&
-                        collection.driverPhone!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Driver Phone:',
-                        Formatters.textForExport(collection.driverPhone!),
-                      ),
-                    if (collection.driverCnic != null &&
-                        collection.driverCnic!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Driver CNIC / ID:',
-                        Formatters.textForExport(collection.driverCnic!),
-                      ),
-                    if (collection.vehicleType != null &&
-                        collection.vehicleType!.trim().isNotEmpty)
-                      _cardRow(
-                        fonts,
-                        'Vehicle Type / Mode:',
-                        Formatters.textForExport(collection.vehicleType!),
-                      ),
-                    if ((collection.vehicleNumber == null ||
-                            collection.vehicleNumber!.isEmpty) &&
-                        (collection.driverName == null ||
-                            collection.driverName!.isEmpty))
-                      _cardRow(
-                        fonts,
-                        'Transport Info:',
-                        'Self / Factory Direct Pickup',
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          pw.SizedBox(height: 16),
-
-          // Section 3: Line Items / Consolidated Materials Table
+      return pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
           pw.Container(
-            padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+            width: double.infinity,
+            padding: pw.EdgeInsets.symmetric(vertical: cellPaddingV, horizontal: 6),
             decoration: const pw.BoxDecoration(
               color: _cardHeaderBg,
               borderRadius:
-                  pw.BorderRadius.vertical(top: pw.Radius.circular(4)),
+                  pw.BorderRadius.vertical(top: pw.Radius.circular(3)),
             ),
             child: pw.Text(
-              'ITEMS COLLECTED & DISPATCHED SUMMARY',
+              categoryTitle.toUpperCase(),
               style: pw.TextStyle(
                 font: fonts.bold,
-                fontSize: 9,
+                fontSize: headerFontSize,
                 color: PdfColors.white,
                 letterSpacing: 0.3,
               ),
@@ -618,10 +385,10 @@ class JobWorkCollectionSlipPdfExporter {
           pw.Table(
             border: pw.TableBorder.all(color: _borderLight, width: 0.8),
             columnWidths: const {
-              0: pw.FlexColumnWidth(2.8),
-              1: pw.FlexColumnWidth(1.5),
-              2: pw.FlexColumnWidth(1.8),
-              3: pw.FlexColumnWidth(1.8),
+              0: pw.FlexColumnWidth(2.3),
+              1: pw.FlexColumnWidth(1.4),
+              2: pw.FlexColumnWidth(1.7),
+              3: pw.FlexColumnWidth(1.7),
               4: pw.FlexColumnWidth(2.1),
             },
             children: [
@@ -630,548 +397,840 @@ class JobWorkCollectionSlipPdfExporter {
                 decoration: const pw.BoxDecoration(color: _navy),
                 children: [
                   pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
                     child: pw.Text(
-                      'SIZE CATEGORY',
+                      'STOCK SIZE',
                       style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8,
-                        color: PdfColors.white,
-                      ),
+                          font: fonts.bold,
+                          fontSize: tableFontSize - 0.2,
+                          color: PdfColors.white),
                     ),
                   ),
                   pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
                     child: pw.Text(
-                      'COLLECTED PCS',
+                      'COLLECT PCS',
                       style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8,
-                        color: PdfColors.white,
-                      ),
+                          font: fonts.bold,
+                          fontSize: tableFontSize - 0.2,
+                          color: PdfColors.white),
                       textAlign: pw.TextAlign.center,
                     ),
                   ),
                   pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
                     child: pw.Text(
-                      'COLLECTED SQ. FT.',
+                      'SQ FT',
                       style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8,
-                        color: PdfColors.white,
-                      ),
+                          font: fonts.bold,
+                          fontSize: tableFontSize - 0.2,
+                          color: PdfColors.white),
                       textAlign: pw.TextAlign.right,
                     ),
                   ),
                   pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
                     child: pw.Text(
-                      'CUTTING RATE (PKR)',
+                      'RATE ($currencySymbol)',
                       style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8,
-                        color: PdfColors.white,
-                      ),
+                          font: fonts.bold,
+                          fontSize: tableFontSize - 0.2,
+                          color: PdfColors.white),
                       textAlign: pw.TextAlign.right,
                     ),
                   ),
                   pw.Padding(
-                    padding: const pw.EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 8,
-                    ),
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
                     child: pw.Text(
-                      'CUTTING CHARGES (PKR)',
+                      'CHARGES ($currencySymbol)',
                       style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8,
-                        color: PdfColors.white,
-                      ),
+                          font: fonts.bold,
+                          fontSize: tableFontSize - 0.2,
+                          color: PdfColors.white),
                       textAlign: pw.TextAlign.right,
                     ),
                   ),
                 ],
               ),
-              // Small Sizes Row
-              if (smallPieces > 0 ||
-                  smallSqFt > 0 ||
-                  collection.lineItems.isEmpty ||
-                  (largePieces == 0 && largeSqFt == 0))
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: PdfColors.white),
-                  children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        'Small Sizes',
-                        style: pw.TextStyle(
-                          font: fonts.bold,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                      ),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        _wholeFormatter.format(smallPieces),
-                        style: pw.TextStyle(
-                          font: fonts.regular,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        _commaFormatter.format(smallSqFt),
-                        style: pw.TextStyle(
-                          font: fonts.bold,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        resolvedSmallRate > 0
-                            ? _commaFormatter.format(resolvedSmallRate)
-                            : '0.00',
-                        style: pw.TextStyle(
-                          font: fonts.regular,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        _commaFormatter.format(smallCharges),
-                        style: pw.TextStyle(
-                          font: fonts.bold,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
-                  ],
-                ),
-              // Large Sizes Row
-              if (largePieces > 0 ||
-                  largeSqFt > 0 ||
-                  (smallPieces == 0 &&
-                      smallSqFt == 0 &&
-                      collection.lineItems.isNotEmpty))
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: _bgLight),
-                  children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        'Large Sizes',
-                        style: pw.TextStyle(
-                          font: fonts.bold,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                      ),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        _wholeFormatter.format(largePieces),
-                        style: pw.TextStyle(
-                          font: fonts.regular,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                        textAlign: pw.TextAlign.center,
-                      ),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        _commaFormatter.format(largeSqFt),
-                        style: pw.TextStyle(
-                          font: fonts.bold,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        resolvedLargeRate > 0
-                            ? _commaFormatter.format(resolvedLargeRate)
-                            : '0.00',
-                        style: pw.TextStyle(
-                          font: fonts.regular,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      child: pw.Text(
-                        _commaFormatter.format(largeCharges),
-                        style: pw.TextStyle(
-                          font: fonts.bold,
-                          fontSize: 8.5,
-                          color: PdfColors.black,
-                        ),
-                        textAlign: pw.TextAlign.right,
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
+              // Data Rows for each item
+              for (int i = 0; i < items.length; i++) ...[
+                () {
+                  final item = items[i];
+                  final rate = getItemRate(item);
+                  final charges = item.squareFeet > 0
+                      ? item.squareFeet * rate
+                      : item.pieces * rate;
 
-          // Total Collected Summary Row Container
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-            decoration: const pw.BoxDecoration(
-              color: _bgLight,
-              border: pw.Border(
-                left: pw.BorderSide(color: _borderLight, width: 0.8),
-                right: pw.BorderSide(color: _borderLight, width: 0.8),
-                bottom: pw.BorderSide(color: _borderLight, width: 0.8),
-              ),
-            ),
-            child: pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text(
-                  'TOTAL COLLECTED SUMMARY:',
-                  style: pw.TextStyle(
-                    font: fonts.bold,
-                    fontSize: 8.5,
-                    color: _navy,
-                  ),
-                ),
-                pw.Row(
-                  children: [
-                    pw.Text(
-                      'Total Pieces: ${_wholeFormatter.format(totalPieces)} pcs',
-                      style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8.5,
-                        color: _navy,
-                      ),
-                    ),
-                    pw.SizedBox(width: 16),
-                    pw.Text(
-                      'Total Sq. Ft.: ${_commaFormatter.format(totalSqFt)} sq ft',
-                      style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8.5,
-                        color: _accentBlue,
-                      ),
-                    ),
-                    pw.SizedBox(width: 16),
-                    pw.Text(
-                      'Total Charges: PKR ${_commaFormatter.format(totalCharges)}',
-                      style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8.5,
-                        color: _greenText,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Section 4: Bank & Remittance Details Box
-          pw.SizedBox(height: 14),
-          pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.all(10),
-            decoration: pw.BoxDecoration(
-              color: PdfColors.white,
-              borderRadius: pw.BorderRadius.circular(6),
-              border: pw.Border.all(color: _borderLight, width: 0.8),
-            ),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'BANK & REMITTANCE DETAILS',
-                  style: pw.TextStyle(
-                    font: fonts.bold,
-                    fontSize: 8.5,
-                    color: _accentBlue,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-                pw.SizedBox(height: 6),
-                _bankDetailRow(fonts, 'Account Title:', bankAccountTitle),
-                _bankDetailRow(fonts, 'Account Number:', bankAccountNumber),
-                _bankDetailRow(fonts, 'Bank Name:', bankName),
-                _bankDetailRow(fonts, 'IBAN:', bankIban),
-              ],
-            ),
-          ),
-
-          pw.SizedBox(height: 12),
-
-          // Section 5: Terms & Conditions Block
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text(
-                'TERMS & CONDITIONS:',
-                style: pw.TextStyle(
-                  font: fonts.bold,
-                  fontSize: 7.5,
-                  color: _navy,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              pw.Text(
-                'Payment Terms: Payment is due within [7 / 15 / 30] days from the invoice date unless explicitly agreed otherwise in writing. Late payments are subject to a 2% monthly charge.',
-                style: pw.TextStyle(
-                  font: fonts.regular,
-                  fontSize: 6.5,
-                  color: _mutedGrey,
-                  height: 1.15,
-                ),
-              ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Goods Inspection & Claims: Claims regarding weight, quantity, size, or surface damage must be reported within 24 hours of delivery/unloading.',
-                style: pw.TextStyle(
-                  font: fonts.regular,
-                  fontSize: 6.5,
-                  color: _mutedGrey,
-                  height: 1.15,
-                ),
-              ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Job-Work / Processing Risk: Material provided for cutting, polishing, or processing is handled with care; however, the factory is not responsible for natural stone breakage due to inherent material veins or hidden cracks.',
-                style: pw.TextStyle(
-                  font: fonts.regular,
-                  fontSize: 6.5,
-                  color: _mutedGrey,
-                  height: 1.15,
-                ),
-              ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Title & Ownership: Ownership of goods remains with the seller until the invoice amount is paid in full.',
-                style: pw.TextStyle(
-                  font: fonts.regular,
-                  fontSize: 6.5,
-                  color: _mutedGrey,
-                  height: 1.15,
-                ),
-              ),
-              pw.SizedBox(height: 3),
-              pw.Text(
-                'Dispute Jurisdiction: All disputes are subject to local court jurisdiction in ${resolvedCity}.',
-                style: pw.TextStyle(
-                  font: fonts.regular,
-                  fontSize: 6.5,
-                  color: _mutedGrey,
-                  height: 1.15,
-                ),
-              ),
-            ],
-          ),
-
-          pw.SizedBox(height: 16),
-
-          // Section 6: Scan To Verify & Signatures Block
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              // Left: Scan to Verify Box with QR Code
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  pw.Container(
-                    width: 38,
-                    height: 38,
-                    padding: const pw.EdgeInsets.all(2),
+                  return pw.TableRow(
                     decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: _navy, width: 0.8),
-                      borderRadius: pw.BorderRadius.circular(3),
+                      color: i % 2 == 1 ? _bgLight : PdfColors.white,
                     ),
-                    child: pw.BarcodeWidget(
-                      barcode: pw.Barcode.qrCode(),
-                      data: '${collection.collectionNumber}-VERIFIED',
-                      drawText: false,
-                      color: _navy,
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.symmetric(
+                            vertical: cellPaddingV, horizontal: cellPaddingH),
+                        child: pw.Text(
+                          Formatters.textForExport(item.displayLabel),
+                          style: pw.TextStyle(
+                              font: fonts.bold,
+                              fontSize: tableFontSize,
+                              color: PdfColors.black),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.symmetric(
+                            vertical: cellPaddingV, horizontal: cellPaddingH),
+                        child: pw.Text(
+                          _wholeFormatter.format(item.pieces),
+                          style: pw.TextStyle(
+                              font: fonts.regular,
+                              fontSize: tableFontSize,
+                              color: PdfColors.black),
+                          textAlign: pw.TextAlign.center,
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.symmetric(
+                            vertical: cellPaddingV, horizontal: cellPaddingH),
+                        child: pw.Text(
+                          _commaFormatter.format(item.squareFeet),
+                          style: pw.TextStyle(
+                              font: fonts.regular,
+                              fontSize: tableFontSize,
+                              color: PdfColors.black),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.symmetric(
+                            vertical: cellPaddingV, horizontal: cellPaddingH),
+                        child: pw.Text(
+                          rate > 0 ? _commaFormatter.format(rate) : '-',
+                          style: pw.TextStyle(
+                              font: fonts.regular,
+                              fontSize: tableFontSize,
+                              color: PdfColors.black),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.symmetric(
+                            vertical: cellPaddingV, horizontal: cellPaddingH),
+                        child: pw.Text(
+                          charges > 0 ? _commaFormatter.format(charges) : '-',
+                          style: pw.TextStyle(
+                              font: fonts.bold,
+                              fontSize: tableFontSize,
+                              color: PdfColors.black),
+                          textAlign: pw.TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  );
+                }(),
+              ],
+              // Category Subtotal Row
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: _bgLight),
+                children: [
+                  pw.Padding(
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
+                    child: pw.Text(
+                      'Subtotal ${categoryTitle.split(" ")[0]}:',
+                      style: pw.TextStyle(
+                          font: fonts.bold, fontSize: tableFontSize, color: _navy),
                     ),
                   ),
-                  pw.SizedBox(width: 8),
-                  pw.Column(
+                  pw.Padding(
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
+                    child: pw.Text(
+                      '${_wholeFormatter.format(categoryPcs)} pcs',
+                      style: pw.TextStyle(
+                          font: fonts.bold, fontSize: tableFontSize, color: _navy),
+                      textAlign: pw.TextAlign.center,
+                    ),
+                  ),
+                  pw.Padding(
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
+                    child: pw.Text(
+                      '${_commaFormatter.format(categorySqFt)} sq ft',
+                      style: pw.TextStyle(
+                          font: fonts.bold, fontSize: tableFontSize, color: _navy),
+                      textAlign: pw.TextAlign.right,
+                    ),
+                  ),
+                  pw.Padding(
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
+                    child: pw.Text('-',
+                        textAlign: pw.TextAlign.right,
+                        style: pw.TextStyle(fontSize: tableFontSize)),
+                  ),
+                  pw.Padding(
+                    padding: pw.EdgeInsets.symmetric(
+                        vertical: cellPaddingV + 0.5, horizontal: cellPaddingH),
+                    child: pw.Text(
+                      '$currencySymbol ${_commaFormatter.format(categoryCharges)}',
+                      style: pw.TextStyle(
+                          font: fonts.bold,
+                          fontSize: tableFontSize,
+                          color: _accentBlue),
+                      textAlign: pw.TextAlign.right,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // Strict 1-Page PDF Document Generation
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        theme: fonts.theme,
+        build: (context) {
+          final contentWidth = PdfPageFormat.a4.width - 40; // 555.27 pt
+
+          return pw.FittedBox(
+            fit: pw.BoxFit.scaleDown,
+            alignment: pw.Alignment.topCenter,
+            child: pw.Container(
+              width: contentWidth,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Section 1: Factory Header & Header Card
+                  pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text(
-                        'SCAN TO VERIFY',
-                        style: pw.TextStyle(
-                          font: fonts.bold,
-                          fontSize: 8,
-                          color: _navy,
-                          letterSpacing: 0.3,
+                      // Left Column: Logo & Dynamic Branding Details
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Row(
+                              crossAxisAlignment: pw.CrossAxisAlignment.center,
+                              children: [
+                                if (logoBytes != null && logoBytes.isNotEmpty) ...[
+                                  pw.Container(
+                                    width: 40,
+                                    height: 40,
+                                    child: pw.Image(
+                                      pw.MemoryImage(logoBytes),
+                                      fit: pw.BoxFit.contain,
+                                    ),
+                                  ),
+                                  pw.SizedBox(width: 10),
+                                ],
+                                pw.Expanded(
+                                  child: pw.Column(
+                                    crossAxisAlignment:
+                                        pw.CrossAxisAlignment.start,
+                                    children: [
+                                      pw.Text(
+                                        resolvedFactoryName,
+                                        style: pw.TextStyle(
+                                          font: fonts.bold,
+                                          fontSize: 14,
+                                          color: _accentBlue,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                      if (tagline != null) ...[
+                                        pw.SizedBox(height: 1),
+                                        pw.Text(
+                                          tagline,
+                                          style: pw.TextStyle(
+                                            font: fonts.bold,
+                                            fontSize: 6.8,
+                                            color: _navy,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (factoryOwner != null ||
+                                factoryAddress != null ||
+                                factoryPhone != null ||
+                                email != null ||
+                                website != null ||
+                                strn != null ||
+                                ntn != null) ...[
+                              pw.SizedBox(height: 4),
+                              if (factoryOwner != null)
+                                pw.Text(
+                                  'Proprietor / Management: $factoryOwner',
+                                  style: pw.TextStyle(
+                                    font: fonts.bold,
+                                    fontSize: 6.5,
+                                    color: _navy,
+                                  ),
+                                ),
+                              if (factoryAddress != null)
+                                pw.Text(
+                                  'Factory & Facility: $factoryAddress',
+                                  style: pw.TextStyle(
+                                    font: fonts.regular,
+                                    fontSize: 6.3,
+                                    color: _mutedGrey,
+                                  ),
+                                ),
+                              if (factoryPhone != null ||
+                                  email != null ||
+                                  website != null)
+                                pw.Text(
+                                  [
+                                    if (factoryPhone != null)
+                                      'Phone: $factoryPhone',
+                                    if (email != null) 'Email: $email',
+                                    if (website != null) 'Web: $website',
+                                  ].join(' | '),
+                                  style: pw.TextStyle(
+                                    font: fonts.regular,
+                                    fontSize: 6.3,
+                                    color: _mutedGrey,
+                                  ),
+                                ),
+                              if (strn != null || ntn != null)
+                                pw.Text(
+                                  [
+                                    if (strn != null) 'STRN: $strn',
+                                    if (ntn != null) 'NTN: $ntn',
+                                  ].join('  ·  '),
+                                  style: pw.TextStyle(
+                                    font: fonts.regular,
+                                    fontSize: 6.3,
+                                    color: _mutedGrey,
+                                  ),
+                                ),
+                            ],
+                          ],
                         ),
                       ),
-                      pw.SizedBox(height: 1),
-                      pw.Text(
-                        'Digital Authenticity Code',
-                        style: pw.TextStyle(
-                          font: fonts.regular,
-                          fontSize: 7,
-                          color: _mutedGrey,
+                      pw.SizedBox(width: 14),
+                      // Right Column: Collection Slip Header Card
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Container(
+                            width: 160,
+                            padding: const pw.EdgeInsets.symmetric(
+                              vertical: 4,
+                              horizontal: 8,
+                            ),
+                            decoration: const pw.BoxDecoration(
+                              color: _navy,
+                              borderRadius:
+                                  pw.BorderRadius.all(pw.Radius.circular(3)),
+                            ),
+                            alignment: pw.Alignment.center,
+                            child: pw.Text(
+                              'COLLECTION SLIP',
+                              style: pw.TextStyle(
+                                font: fonts.bold,
+                                fontSize: 11,
+                                color: PdfColors.white,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                          pw.SizedBox(height: 4),
+                          _metaRow(fonts, 'Slip No:', collection.collectionNumber),
+                          _metaRow(fonts, 'Date Issued:', collectedDateStr),
+                          _metaRow(fonts, 'Job Work ID:', collection.jobWorkNumber),
+                          if (collection.loadNumber != null &&
+                              collection.loadNumber!.trim().isNotEmpty)
+                            _metaRow(fonts, 'Load No:', collection.loadNumber!),
+                          pw.SizedBox(height: 3),
+                          pw.Container(
+                            padding: const pw.EdgeInsets.symmetric(
+                              vertical: 2.5,
+                              horizontal: 12,
+                            ),
+                            decoration: pw.BoxDecoration(
+                              color: _greenBg,
+                              borderRadius: pw.BorderRadius.circular(3),
+                              border: pw.Border.all(color: _greenText, width: 0.8),
+                            ),
+                            child: pw.Text(
+                              collection.status.label.toUpperCase(),
+                              style: pw.TextStyle(
+                                font: fonts.bold,
+                                fontSize: 7.5,
+                                color: _greenText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  pw.SizedBox(height: sectionGap),
+                  pw.Divider(color: _borderLight, thickness: 0.8),
+                  pw.SizedBox(height: sectionGap),
+
+                  // Section 2: Two-Column Card Grid (Customer & Receiver Details + Transport & Vehicle Info)
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Card 1: Customer & Receiver Details
+                      pw.Expanded(
+                        child: _buildDetailCard(
+                          fonts: fonts,
+                          title: 'CUSTOMER & RECEIVER DETAILS',
+                          rows: [
+                            _cardRow(
+                              fonts,
+                              'Customer Name:',
+                              Formatters.textForExport(collection.customerName),
+                            ),
+                            if (collection.receiverName != null &&
+                                collection.receiverName!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Received By:',
+                                Formatters.textForExport(collection.receiverName!),
+                              ),
+                            if (collection.receiverPhone != null &&
+                                collection.receiverPhone!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Receiver Phone:',
+                                Formatters.textForExport(collection.receiverPhone!),
+                              ),
+                            if (collection.receiverAddress != null &&
+                                collection.receiverAddress!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Delivery Address:',
+                                Formatters.textForExport(collection.receiverAddress!),
+                              ),
+                            if (collection.receiverEmail != null &&
+                                collection.receiverEmail!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Receiver Email:',
+                                Formatters.textForExport(collection.receiverEmail!),
+                              ),
+                          ],
                         ),
                       ),
-                      pw.SizedBox(height: 1),
-                      pw.Text(
-                        '${collection.collectionNumber}-VERIFIED',
-                        style: pw.TextStyle(
-                          font: fonts.bold,
-                          fontSize: 7,
-                          color: _accentBlue,
+                      pw.SizedBox(width: 8),
+                      // Card 2: Transport & Vehicle Details
+                      pw.Expanded(
+                        child: _buildDetailCard(
+                          fonts: fonts,
+                          title: 'TRANSPORT & VEHICLE INFO',
+                          rows: [
+                            if (collection.vehicleNumber != null &&
+                                collection.vehicleNumber!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Vehicle / Plate #:',
+                                Formatters.textForExport(collection.vehicleNumber!),
+                              ),
+                            if (collection.driverName != null &&
+                                collection.driverName!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Driver Name:',
+                                Formatters.textForExport(collection.driverName!),
+                              ),
+                            if (collection.driverPhone != null &&
+                                collection.driverPhone!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Driver Phone:',
+                                Formatters.textForExport(collection.driverPhone!),
+                              ),
+                            if (collection.driverCnic != null &&
+                                collection.driverCnic!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Driver CNIC / ID:',
+                                Formatters.textForExport(collection.driverCnic!),
+                              ),
+                            if (collection.vehicleType != null &&
+                                collection.vehicleType!.trim().isNotEmpty)
+                              _cardRow(
+                                fonts,
+                                'Vehicle Type / Mode:',
+                                Formatters.textForExport(collection.vehicleType!),
+                              ),
+                            if ((collection.vehicleNumber == null ||
+                                    collection.vehicleNumber!.isEmpty) &&
+                                (collection.driverName == null ||
+                                    collection.driverName!.isEmpty))
+                              _cardRow(
+                                fonts,
+                                'Transport Info:',
+                                'Self / Factory Direct Pickup',
+                              ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
-              // Right: Prepared By / Dispatch Officer Line
-              pw.Column(
-                children: [
+
+                  pw.SizedBox(height: sectionGap),
+
+                  // Section 3: Itemized Stock Tables
+                  if (useSideBySideTables) ...[
+                    // High item count: render Small Stock and Large Stock side-by-side
+                    pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(
+                          child: buildStockCategoryTable(
+                            categoryTitle: 'Small Stock',
+                            items: smallItems,
+                            categoryPcs: totalSmallPcs,
+                            categorySqFt: totalSmallSqFt,
+                            categoryCharges: totalSmallCharges,
+                          ),
+                        ),
+                        pw.SizedBox(width: 8),
+                        pw.Expanded(
+                          child: buildStockCategoryTable(
+                            categoryTitle: 'Large Stock',
+                            items: largeItems,
+                            categoryPcs: totalLargePcs,
+                            categorySqFt: totalLargeSqFt,
+                            categoryCharges: totalLargeCharges,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    // Stacked Tables for standard item counts
+                    buildStockCategoryTable(
+                      categoryTitle: 'Small Stock',
+                      items: smallItems,
+                      categoryPcs: totalSmallPcs,
+                      categorySqFt: totalSmallSqFt,
+                      categoryCharges: totalSmallCharges,
+                    ),
+                    if (smallItems.isNotEmpty && largeItems.isNotEmpty)
+                      pw.SizedBox(height: sectionGap),
+                    buildStockCategoryTable(
+                      categoryTitle: 'Large Stock',
+                      items: largeItems,
+                      categoryPcs: totalLargePcs,
+                      categorySqFt: totalLargeSqFt,
+                      categoryCharges: totalLargeCharges,
+                    ),
+                  ],
+
+                  pw.SizedBox(height: sectionGap),
+
+                  // Grand Total Summary Box
                   pw.Container(
-                    width: 160,
-                    height: 0.8,
-                    color: _navy,
+                    padding: pw.EdgeInsets.symmetric(vertical: cellPaddingV + 1, horizontal: 8),
+                    decoration: pw.BoxDecoration(
+                      color: _bgLight,
+                      borderRadius: pw.BorderRadius.circular(3),
+                      border: pw.Border.all(color: _navy, width: 0.8),
+                    ),
+                    child: pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text(
+                          'GRAND TOTAL COLLECTED:',
+                          style: pw.TextStyle(
+                            font: fonts.bold,
+                            fontSize: tableFontSize + 0.5,
+                            color: _navy,
+                          ),
+                        ),
+                        pw.Row(
+                          children: [
+                            pw.Text(
+                              '${AppStrings.totalPieces}: ${_wholeFormatter.format(grandTotalPcs)} pcs',
+                              style: pw.TextStyle(
+                                font: fonts.bold,
+                                fontSize: tableFontSize,
+                                color: _navy,
+                              ),
+                            ),
+                            pw.SizedBox(width: 12),
+                            pw.Text(
+                              '${AppStrings.totalSquareFeet}: ${_commaFormatter.format(grandTotalSqFt)} sq ft',
+                              style: pw.TextStyle(
+                                font: fonts.bold,
+                                fontSize: tableFontSize,
+                                color: _accentBlue,
+                              ),
+                            ),
+                            pw.SizedBox(width: 12),
+                            pw.Text(
+                              'Total Charges: $currencySymbol ${_commaFormatter.format(grandTotalCharges)}',
+                              style: pw.TextStyle(
+                                font: fonts.bold,
+                                fontSize: tableFontSize + 0.5,
+                                color: _accentBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+
+                  pw.SizedBox(height: sectionGap),
+
+                  // Section 4: Bank Details & Terms & Conditions (Side-by-side Micro-Footer)
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      // Bank & Remittance Card
+                      pw.Expanded(
+                        flex: 45,
+                        child: pw.Container(
+                          padding: const pw.EdgeInsets.all(5),
+                          decoration: pw.BoxDecoration(
+                            color: _bgLight,
+                            borderRadius: pw.BorderRadius.circular(3),
+                            border: pw.Border.all(color: _borderLight, width: 0.8),
+                          ),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(
+                                'BANK & REMITTANCE DETAILS',
+                                style: pw.TextStyle(
+                                  font: fonts.bold,
+                                  fontSize: 7,
+                                  color: _navy,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                              pw.SizedBox(height: 2),
+                              _bankRow(fonts, 'Account Title:', bankAccountTitle),
+                              _bankRow(fonts, 'Account Number:', bankAccountNumber),
+                              _bankRow(fonts, 'Bank Name:', bankName),
+                              _bankRow(fonts, 'IBAN:', bankIban),
+                            ],
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(width: 8),
+                      // Terms & Conditions Block
+                      pw.Expanded(
+                        flex: 55,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text(
+                              'TERMS & CONDITIONS:',
+                              style: pw.TextStyle(
+                                font: fonts.bold,
+                                fontSize: 6.8,
+                                color: _navy,
+                              ),
+                            ),
+                            pw.SizedBox(height: 1.5),
+                            if (termsText != null)
+                              pw.Text(
+                                termsText,
+                                style: pw.TextStyle(
+                                  font: fonts.regular,
+                                  fontSize: 5.8,
+                                  color: _mutedGrey,
+                                ),
+                              )
+                            else ...[
+                              _termLine(
+                                fonts,
+                                'Payment Terms:',
+                                'Payment due within agreed terms. Late payments +2% monthly.',
+                              ),
+                              _termLine(
+                                fonts,
+                                'Claims Window:',
+                                'Weight, size, or damage claims must be reported within 24 hours.',
+                              ),
+                              _termLine(
+                                fonts,
+                                'Processing Risk:',
+                                'Factory is not responsible for stone breakage due to natural veins.',
+                              ),
+                              _termLine(
+                                fonts,
+                                'Ownership & Jurisdiction:',
+                                'Title stays with seller until paid. Court jurisdiction in $resolvedCity.',
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Section 5: Notes / Instructions Block (if present)
+                  if (collection.notes != null &&
+                      collection.notes!.trim().isNotEmpty) ...[
+                    pw.SizedBox(height: sectionGap - 1),
+                    pw.Container(
+                      width: double.infinity,
+                      padding: const pw.EdgeInsets.all(4),
+                      decoration: pw.BoxDecoration(
+                        color: _bgLight,
+                        borderRadius: pw.BorderRadius.circular(3),
+                        border: pw.Border.all(color: _borderLight, width: 0.8),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'NOTES & DISPATCH INSTRUCTIONS:',
+                            style: pw.TextStyle(
+                              font: fonts.bold,
+                              fontSize: 6.5,
+                              color: _navy,
+                            ),
+                          ),
+                          pw.SizedBox(height: 1),
+                          pw.Text(
+                            Formatters.textForExport(collection.notes!),
+                            style: pw.TextStyle(
+                              font: fonts.regular,
+                              fontSize: 6,
+                              color: _mutedGrey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  pw.SizedBox(height: sectionGap + 2),
+
+                  // Section 6: Signature & Verification (QR Code + Prepared By line)
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      // QR Code Verification Block
+                      pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.Container(
+                            width: 32,
+                            height: 32,
+                            padding: const pw.EdgeInsets.all(1.5),
+                            decoration: pw.BoxDecoration(
+                              border: pw.Border.all(color: _navy, width: 0.8),
+                              borderRadius: pw.BorderRadius.circular(2),
+                            ),
+                            child: pw.BarcodeWidget(
+                              barcode: pw.Barcode.qrCode(),
+                              data: '${collection.collectionNumber}-VERIFIED',
+                              drawText: false,
+                              color: _navy,
+                            ),
+                          ),
+                          pw.SizedBox(width: 6),
+                          pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text(
+                                'SCAN TO VERIFY',
+                                style: pw.TextStyle(
+                                  font: fonts.bold,
+                                  fontSize: 7.5,
+                                  color: _navy,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              pw.Text(
+                                'Digital Authenticity Code',
+                                style: pw.TextStyle(
+                                  font: fonts.regular,
+                                  fontSize: 6,
+                                  color: _mutedGrey,
+                                ),
+                              ),
+                              pw.Text(
+                                '${collection.collectionNumber}-VERIFIED',
+                                style: pw.TextStyle(
+                                  font: fonts.bold,
+                                  fontSize: 6.5,
+                                  color: _navy,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      // Prepared By / Dispatch Officer Signature Block
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.Container(
+                            width: 150,
+                            decoration: const pw.BoxDecoration(
+                              border: pw.Border(
+                                bottom: pw.BorderSide(color: _navy, width: 1),
+                              ),
+                            ),
+                          ),
+                          pw.SizedBox(height: 3),
+                          pw.Text(
+                            'Prepared By / Dispatch Officer',
+                            style: pw.TextStyle(
+                              font: fonts.bold,
+                              fontSize: 7.5,
+                              color: _navy,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
                   pw.SizedBox(height: 4),
-                  pw.Text(
-                    'Prepared By / Dispatch Officer',
-                    style: pw.TextStyle(
-                      font: fonts.bold,
-                      fontSize: 7.5,
-                      color: _navy,
+                  pw.Center(
+                    child: pw.Text(
+                      'All stone products listed above have been inspected and collected in good order. Material custody is transferred upon signature. · $footerNoteText',
+                      style: pw.TextStyle(
+                        font: fonts.regular,
+                        fontSize: 6,
+                        color: _mutedGrey,
+                      ),
+                      textAlign: pw.TextAlign.center,
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
-
-          pw.SizedBox(height: 14),
-          pw.Center(
-            child: pw.Text(
-              'All stone products listed above have been inspected and collected in good order. Material custody is transferred upon signature.',
-              style: pw.TextStyle(
-                font: fonts.regular,
-                fontSize: 7,
-                color: _mutedGrey,
-              ),
-              textAlign: pw.TextAlign.center,
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
 
     return doc;
   }
 
-  static pw.Widget _bankDetailRow(PdfFonts fonts, String label, String value) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 2),
-      child: pw.Row(
-        children: [
-          pw.SizedBox(
-            width: 105,
-            child: pw.Text(
-              label,
-              style: pw.TextStyle(
-                font: fonts.bold,
-                fontSize: 7.5,
-                color: _navy,
-              ),
-            ),
-          ),
-          pw.Expanded(
-            child: pw.Text(
-              value,
-              style: pw.TextStyle(
-                font: fonts.regular,
-                fontSize: 7.5,
-                color: PdfColors.black,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   static pw.Widget _metaRow(PdfFonts fonts, String label, String value) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 2),
+      padding: const pw.EdgeInsets.only(bottom: 1),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.end,
         children: [
@@ -1179,16 +1238,16 @@ class JobWorkCollectionSlipPdfExporter {
             label,
             style: pw.TextStyle(
               font: fonts.bold,
-              fontSize: 8,
+              fontSize: 7,
               color: _mutedGrey,
             ),
           ),
-          pw.SizedBox(width: 6),
+          pw.SizedBox(width: 4),
           pw.Text(
             value,
             style: pw.TextStyle(
               font: fonts.bold,
-              fontSize: 8.5,
+              fontSize: 7.5,
               color: _navy,
             ),
           ),
@@ -1205,7 +1264,7 @@ class JobWorkCollectionSlipPdfExporter {
     return pw.Container(
       decoration: pw.BoxDecoration(
         color: _bgLight,
-        borderRadius: pw.BorderRadius.circular(4),
+        borderRadius: pw.BorderRadius.circular(3),
         border: pw.Border.all(color: _borderLight, width: 0.8),
       ),
       child: pw.Column(
@@ -1213,25 +1272,25 @@ class JobWorkCollectionSlipPdfExporter {
         children: [
           pw.Container(
             width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+            padding: const pw.EdgeInsets.symmetric(vertical: 2.5, horizontal: 5),
             decoration: const pw.BoxDecoration(
               color: _cardHeaderBg,
               borderRadius: pw.BorderRadius.vertical(
-                top: pw.Radius.circular(3),
+                top: pw.Radius.circular(2),
               ),
             ),
             child: pw.Text(
               title,
               style: pw.TextStyle(
                 font: fonts.bold,
-                fontSize: 8,
+                fontSize: 7,
                 color: PdfColors.white,
                 letterSpacing: 0.3,
               ),
             ),
           ),
           pw.Padding(
-            padding: const pw.EdgeInsets.all(8),
+            padding: const pw.EdgeInsets.all(4),
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: rows,
@@ -1244,17 +1303,17 @@ class JobWorkCollectionSlipPdfExporter {
 
   static pw.Widget _cardRow(PdfFonts fonts, String label, String value) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 3),
+      padding: const pw.EdgeInsets.only(bottom: 1.5),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.SizedBox(
-            width: 85,
+            width: 72,
             child: pw.Text(
               label,
               style: pw.TextStyle(
                 font: fonts.bold,
-                fontSize: 7.5,
+                fontSize: 6.5,
                 color: _navy,
               ),
             ),
@@ -1264,12 +1323,71 @@ class JobWorkCollectionSlipPdfExporter {
               value,
               style: pw.TextStyle(
                 font: fonts.regular,
-                fontSize: 7.5,
+                fontSize: 6.5,
                 color: PdfColors.black,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  static pw.Widget _bankRow(PdfFonts fonts, String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 1),
+      child: pw.Row(
+        children: [
+          pw.SizedBox(
+            width: 68,
+            child: pw.Text(
+              label,
+              style: pw.TextStyle(
+                font: fonts.bold,
+                fontSize: 6.2,
+                color: _navy,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                font: fonts.regular,
+                fontSize: 6.2,
+                color: PdfColors.black,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _termLine(PdfFonts fonts, String prefix, String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 1),
+      child: pw.RichText(
+        text: pw.TextSpan(
+          children: [
+            pw.TextSpan(
+              text: '$prefix ',
+              style: pw.TextStyle(
+                font: fonts.bold,
+                fontSize: 5.8,
+                color: _mutedGrey,
+              ),
+            ),
+            pw.TextSpan(
+              text: text,
+              style: pw.TextStyle(
+                font: fonts.regular,
+                fontSize: 5.8,
+                color: _mutedGrey,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
