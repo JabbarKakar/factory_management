@@ -123,7 +123,7 @@ service cloud.firestore {
     }
 
     function sameFactoryExisting() {
-      return resource.data.factoryId == myFactory();
+      return resource == null || resource.data.factoryId == myFactory();
     }
 
     function sameFactoryIncoming() {
@@ -169,11 +169,17 @@ service cloud.firestore {
     }
 
     function canReadLabour() {
-      return effectiveRole() in ['owner', 'factoryManager', 'supervisor', 'accountant'];
+      return effectiveRole() in [
+        'owner', 'factoryManager', 'supervisor', 'accountant',
+        'jobWorkClerk', 'storeKeeper', 'salesStaff'
+      ];
     }
 
     function canWriteLabour() {
-      return effectiveRole() in ['owner', 'factoryManager', 'supervisor'];
+      return effectiveRole() in [
+        'owner', 'factoryManager', 'supervisor', 'accountant',
+        'jobWorkClerk', 'storeKeeper', 'salesStaff'
+      ];
     }
 
     function canReadDelivery() {

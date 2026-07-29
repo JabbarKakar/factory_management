@@ -93,7 +93,7 @@ class AttendanceRepository {
       status: status,
       shift: shift,
       notes: notes?.trim().isEmpty ?? true ? null : notes?.trim(),
-      createdAt: isCreate
+      createdAt: (isCreate || existing.data() == null)
           ? DateTime.now()
           : AttendanceRecordModel.fromFirestore(
               docId,
@@ -138,7 +138,7 @@ class AttendanceRepository {
         attendanceDate: dateOnly,
         status: AttendanceStatus.present,
         shift: shift,
-        createdAt: isCreate
+        createdAt: (isCreate || existing.data() == null)
             ? DateTime.now()
             : AttendanceRecordModel.fromFirestore(
                 docId,
