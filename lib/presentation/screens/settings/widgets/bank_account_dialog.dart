@@ -166,6 +166,7 @@ class _BankAccountDialogState extends State<BankAccountDialog> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       initialValue: _accountType,
+                      isExpanded: true,
                       decoration: AppFormFields.decoration(
                         context,
                         label: 'Account Type',
@@ -173,7 +174,10 @@ class _BankAccountDialogState extends State<BankAccountDialog> {
                       items: _accountTypes
                           .map((t) => DropdownMenuItem(
                                 value: t,
-                                child: Text(t),
+                                child: Text(
+                                  t,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ))
                           .toList(),
                       onChanged: (val) {
