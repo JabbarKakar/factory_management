@@ -994,22 +994,21 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
                                     ),
                           ),
                           const SizedBox(height: 6),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
                             children: FilerStatus.values.map((status) {
                               final selected = _filerStatus == status;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(status.label),
-                                  selected: selected,
-                                  onSelected: canEdit
-                                      ? (val) {
-                                          if (val) {
-                                            setState(() => _filerStatus = status);
-                                          }
+                              return ChoiceChip(
+                                label: Text(status.label),
+                                selected: selected,
+                                onSelected: canEdit
+                                    ? (val) {
+                                        if (val) {
+                                          setState(() => _filerStatus = status);
                                         }
-                                      : null,
-                                ),
+                                      }
+                                    : null,
                               );
                             }).toList(),
                           ),
@@ -1561,7 +1560,7 @@ class _BusinessProfileScreenState extends State<BusinessProfileScreen> {
             section.title,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
           ),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           children: [
             child,
             if (canEdit && showSaveButton && onSave != null) ...[

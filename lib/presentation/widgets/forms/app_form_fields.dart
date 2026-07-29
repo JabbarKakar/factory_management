@@ -43,17 +43,19 @@ abstract final class AppFormFields {
         fontSize: 11,
         fontWeight: FontWeight.w500,
         color: muted,
+        height: 1.0,
       ),
       floatingLabelStyle: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
         color: theme.colorScheme.primary,
+        height: 1.0,
       ),
       hintStyle: TextStyle(
         fontSize: 12,
         color: muted.withValues(alpha: 0.85),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      contentPadding: const EdgeInsets.fromLTRB(12, 16, 12, 10),
       filled: true,
       fillColor: isDark
           ? theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.35)
