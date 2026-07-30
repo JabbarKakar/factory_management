@@ -75,8 +75,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
       // Same cascade as CustomerFormBloc: remove dependent records first.
       await getIt<SalesInvoiceRepository>()
           .deleteInvoicesForCustomer(customer.id);
-      await getIt<SalesOrderRepository>().deleteOrdersForCustomer(customer.id);
-      await getIt<JobWorkRepository>().deleteOrdersForCustomer(customer.id);
+      await getIt<SalesOrderRepository>().deleteOrdersForCustomer(
+        factoryId: customer.factoryId,
+        customerId: customer.id,
+      );
+      await getIt<JobWorkRepository>().deleteOrdersForCustomer(
+        factoryId: customer.factoryId,
+        customerId: customer.id,
+      );
       await getIt<CustomerRepository>().deleteCustomer(customer.id);
       if (!mounted) return;
       _showSnack(AppStrings.customerDeleted);

@@ -43,11 +43,16 @@ class CustomerOrdersSummarySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final jobWorkStream = _tracksJobWork
-        ? getIt<JobWorkRepository>().watchOrdersForCustomer(customer.id)
+        ? getIt<JobWorkRepository>().watchOrdersForCustomer(
+            factoryId: customer.factoryId,
+            customerId: customer.id,
+          )
         : Stream<List<JobWorkOrder>>.value(const []);
     final salesStream = _tracksSales
-        ? getIt<SalesOrderRepository>()
-            .watchActiveOrderCountForCustomer(customer.id)
+        ? getIt<SalesOrderRepository>().watchActiveOrderCountForCustomer(
+            factoryId: customer.factoryId,
+            customerId: customer.id,
+          )
         : Stream<int>.value(0);
 
     return StreamBuilder<List<JobWorkOrder>>(

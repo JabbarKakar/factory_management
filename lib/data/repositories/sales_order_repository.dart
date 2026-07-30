@@ -170,28 +170,39 @@ class SalesOrderRepository {
   }
 
   /// Live count of non-cancelled sales orders for a customer.
-  Stream<int> watchActiveOrderCountForCustomer(String customerId) {
-    return _ordersCollection
-        .where('customerId', isEqualTo: customerId)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .where((doc) =>
-                  doc.data()['status'] !=
-                  SalesOrderStatus.cancelled.firestoreValue)
-              .length,
-        );
+  ///
+  /// Scoped by [factoryId] first so the query satisfies Firestore rules
+  /// (`resource.data.factoryId == myFactory()`), then filtered by customer.
+  Stream<int> watchActiveOrderCountForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) {
+    return watchSalesOrders(factoryId).map(
+      (orders) => orders
+          .where(
+            (order) =>
+                order.customerId == customerId &&
+                order.status != SalesOrderStatus.cancelled,
+          )
+          .length,
+    );
   }
 
-  Future<void> deleteOrdersForCustomer(String customerId) async {
+  Future<void> deleteOrdersForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
     final snapshot = await _ordersCollection
-        .where('customerId', isEqualTo: customerId)
+        .where('factoryId', isEqualTo: factoryId)
         .get();
+    final docs = snapshot.docs
+        .where((doc) => doc.data()['customerId'] == customerId)
+        .toList();
 
-    if (snapshot.docs.isEmpty) return;
+    if (docs.isEmpty) return;
 
     final batch = _firestore.batch();
-    for (final doc in snapshot.docs) {
+    for (final doc in docs) {
       batch.delete(doc.reference);
     }
     await batch.commit();

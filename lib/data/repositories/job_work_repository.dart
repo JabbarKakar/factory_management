@@ -387,41 +387,57 @@ class JobWorkRepository {
   }
 
   /// Live count of non-cancelled job work orders for a customer.
-  Stream<int> watchActiveOrderCountForCustomer(String customerId) {
-    return watchOrdersForCustomer(customerId).map((orders) => orders.length);
+  Stream<int> watchActiveOrderCountForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) {
+    return watchOrdersForCustomer(
+      factoryId: factoryId,
+      customerId: customerId,
+    ).map((orders) => orders.length);
   }
 
   /// Non-cancelled job work orders for a customer (newest first).
-  Stream<List<JobWorkOrder>> watchOrdersForCustomer(String customerId) {
-    return _jobWorkCollection
-        .where('customerId', isEqualTo: customerId)
-        .snapshots()
-        .map((snapshot) {
-      final orders = snapshot.docs
-          .map((doc) => JobWorkOrderModel.fromFirestore(doc.id, doc.data()))
-          .map((model) => model.toEntity())
-          .where((order) => order.status != JobWorkStatus.cancelled)
+  ///
+  /// Scoped by [factoryId] first so the query satisfies Firestore rules
+  /// (`resource.data.factoryId == myFactory()`), then filtered by customer.
+  Stream<List<JobWorkOrder>> watchOrdersForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) {
+    return watchJobWorkOrders(factoryId).map((orders) {
+      return orders
+          .where(
+            (order) =>
+                order.customerId == customerId &&
+                order.status != JobWorkStatus.cancelled,
+          )
           .toList();
-      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return orders;
     });
   }
 
-  Future<int> countOrdersForCustomer(String customerId) async {
-    final snapshot = await _jobWorkCollection
-        .where('customerId', isEqualTo: customerId)
-        .get();
-    return snapshot.docs.length;
+  Future<int> countOrdersForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
+    final orders = await getJobWorkOrders(factoryId);
+    return orders.where((order) => order.customerId == customerId).length;
   }
 
-  Future<void> deleteOrdersForCustomer(String customerId) async {
+  Future<void> deleteOrdersForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
     final snapshot = await _jobWorkCollection
-        .where('customerId', isEqualTo: customerId)
+        .where('factoryId', isEqualTo: factoryId)
         .get();
+    final docs = snapshot.docs
+        .where((doc) => doc.data()['customerId'] == customerId)
+        .toList();
 
-    if (snapshot.docs.isEmpty) return;
+    if (docs.isEmpty) return;
 
-    for (final doc in snapshot.docs) {
+    for (final doc in docs) {
       await deleteJobWorkOrder(doc.id);
     }
   }

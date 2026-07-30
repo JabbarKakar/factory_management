@@ -61,7 +61,12 @@ class CustomerLedgerService {
     );
 
     final List<JobWorkOrder> jobWorkOrders = _jobWorkRepository != null
-        ? await _jobWorkRepository!.watchOrdersForCustomer(customerId).first
+        ? await _jobWorkRepository!
+            .watchOrdersForCustomer(
+              factoryId: factoryId,
+              customerId: customerId,
+            )
+            .first
         : const [];
     final List<JobWorkLoad> jobWorkLoads = _jobWorkLoadRepository != null
         ? await _jobWorkLoadRepository!.watchLoads(factoryId).first
