@@ -13,6 +13,7 @@ import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/payment.dart';
 import '../../../domain/entities/factory_profile.dart';
+import '../../../domain/entities/stock_output.dart';
 import '../../../domain/enums/invoice_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../../data/services/job_work_container_sync_helper.dart';
@@ -847,186 +848,212 @@ abstract final class GrandInvoicePdfTemplate {
       ),
       pw.SizedBox(height: 8),
 
-      // Table
-      if (produced.isNotEmpty)
-        pw.Table(
-          border: const pw.TableBorder(
-            horizontalInside: pw.BorderSide(color: _borderLight, width: 0.4),
-            verticalInside: pw.BorderSide(color: _borderLight, width: 0.4),
-            top: pw.BorderSide(color: _borderLight, width: 0.6),
-            bottom: pw.BorderSide(color: _borderLight, width: 0.6),
-            left: pw.BorderSide(color: _borderLight, width: 0.8),
-            right: pw.BorderSide(color: _borderLight, width: 0.8),
-          ),
-          columnWidths: {
-            0: const pw.FlexColumnWidth(3.2),
-            1: const pw.FlexColumnWidth(1.2),
-            2: const pw.FlexColumnWidth(1.2),
-            3: const pw.FlexColumnWidth(1.2),
-            4: const pw.FlexColumnWidth(1.5),
-            5: const pw.FlexColumnWidth(1.5),
-            6: const pw.FlexColumnWidth(1.5),
-            7: const pw.FlexColumnWidth(1.5),
-            8: const pw.FlexColumnWidth(2),
-          },
-          children: [
-            pw.TableRow(
+      // Table — zebra striping matches Collection slip (white / _bgLight)
+      if (produced.isNotEmpty) ...[
+        () {
+          final smallStocks =
+              produced.where((s) => JobWorkSizes.isSmall(s.size)).toList();
+          final largeStocks =
+              produced.where((s) => !JobWorkSizes.isSmall(s.size)).toList();
+
+          pw.TableRow stockDataRow({
+            required int index,
+            required String label,
+            required int pieces,
+            required int colPieces,
+            required int remPieces,
+            required double squareFeet,
+            required double colSqFt,
+            required double remSqFt,
+            required String rate,
+            required double amount,
+          }) {
+            return pw.TableRow(
+              decoration: pw.BoxDecoration(
+                color: index % 2 == 1 ? _bgLight : PdfColors.white,
+              ),
+              children: [
+                _tableCell(fonts, label),
+                _tableCell(fonts, formatWhole(pieces)),
+                _tableCell(fonts, formatWhole(colPieces)),
+                _tableCell(fonts, formatWhole(remPieces)),
+                _tableCell(fonts, formatAmount(squareFeet)),
+                _tableCell(fonts, formatAmount(colSqFt)),
+                _tableCell(fonts, formatAmount(remSqFt)),
+                _tableCell(fonts, rate),
+                _tableCell(fonts, formatAmount(amount)),
+              ],
+            );
+          }
+
+          pw.TableRow categoryHeaderRow(String title) {
+            return pw.TableRow(
               decoration: const pw.BoxDecoration(color: _cardHeaderBg),
               children: [
-                _tableHeader(fonts, isSingleLoad ? 'SIZE / DIMENSION (STATUS)' : 'SIZE CATEGORY'),
-                _tableHeader(fonts, 'TOTAL PCS'),
-                _tableHeader(fonts, 'COLL. PCS'),
-                _tableHeader(fonts, 'REM. PCS'),
-                _tableHeader(fonts, 'TOTAL SQFT'),
-                _tableHeader(fonts, 'COLL. SQFT'),
-                _tableHeader(fonts, 'REM. SQFT'),
-                _tableHeader(fonts, 'RATE ($currencySymbol)'),
-                _tableHeader(fonts, 'CHARGES ($currencySymbol)'),
+                _tableCell(fonts, title, isBold: true, color: PdfColors.white),
+                _tableCell(fonts, ''),
+                _tableCell(fonts, ''),
+                _tableCell(fonts, ''),
+                _tableCell(fonts, ''),
+                _tableCell(fonts, ''),
+                _tableCell(fonts, ''),
+                _tableCell(fonts, ''),
+                _tableCell(fonts, ''),
               ],
+            );
+          }
+
+          List<pw.TableRow> sizeRows(List<StockOutput> stocks) {
+            final rows = <pw.TableRow>[];
+            for (var i = 0; i < stocks.length; i++) {
+              final stock = stocks[i];
+              final colPieces =
+                  JobWorkCollectionQuantityHelper.collectedPiecesForSize(
+                stock.size,
+                loadCollections,
+              );
+              final colSqFt =
+                  JobWorkCollectionQuantityHelper.collectedSquareFeetForSize(
+                stock.size,
+                loadCollections,
+              );
+              final remPieces = math.max(0, stock.pieces - colPieces);
+              final remSqFt =
+                  JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
+                remainingPieces: remPieces,
+                rawSquareFeet: stock.squareFeet - colSqFt,
+              );
+              final sizeStatus = colPieces == 0
+                  ? 'Ready'
+                  : (colPieces >= stock.pieces ? 'Collected' : 'Part. Coll.');
+
+              rows.add(
+                stockDataRow(
+                  index: i,
+                  label: '${stock.size} ($sizeStatus)',
+                  pieces: stock.pieces,
+                  colPieces: colPieces,
+                  remPieces: remPieces,
+                  squareFeet: stock.squareFeet,
+                  colSqFt: colSqFt,
+                  remSqFt: remSqFt,
+                  rate: stock.pricePerSqFt.toStringAsFixed(2),
+                  amount: stock.amount,
+                ),
+              );
+            }
+            return rows;
+          }
+
+          return pw.Table(
+            border: const pw.TableBorder(
+              horizontalInside: pw.BorderSide(color: _borderLight, width: 0.4),
+              verticalInside: pw.BorderSide(color: _borderLight, width: 0.4),
+              top: pw.BorderSide(color: _borderLight, width: 0.6),
+              bottom: pw.BorderSide(color: _borderLight, width: 0.6),
+              left: pw.BorderSide(color: _borderLight, width: 0.8),
+              right: pw.BorderSide(color: _borderLight, width: 0.8),
             ),
-            if (isSingleLoad) ...[
-              // Detailed rendering for each individual size (small then large),
-              // with Collection-slip-style category subtotals after each section.
-              if (produced.where((s) => JobWorkSizes.isSmall(s.size)).isNotEmpty) ...[
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: _bgLight),
-                  children: [
-                    _tableCell(fonts, 'Small Sizes', isBold: true),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                  ],
-                ),
-                ...produced.where((s) => JobWorkSizes.isSmall(s.size)).map((stock) {
-                  final colPieces = JobWorkCollectionQuantityHelper.collectedPiecesForSize(stock.size, loadCollections);
-                  final colSqFt = JobWorkCollectionQuantityHelper.collectedSquareFeetForSize(stock.size, loadCollections);
-                  final remPieces = math.max(0, stock.pieces - colPieces);
-                  final remSqFt = JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
-                    remainingPieces: remPieces,
-                    rawSquareFeet: stock.squareFeet - colSqFt,
-                  );
-                  final sizeStatus = colPieces == 0
-                      ? 'Ready'
-                      : (colPieces >= stock.pieces ? 'Collected' : 'Part. Coll.');
-
-                  return pw.TableRow(
-                    children: [
-                      _tableCell(fonts, '${stock.size} ($sizeStatus)'),
-                      _tableCell(fonts, formatWhole(stock.pieces)),
-                      _tableCell(fonts, formatWhole(colPieces)),
-                      _tableCell(fonts, formatWhole(remPieces)),
-                      _tableCell(fonts, formatAmount(stock.squareFeet)),
-                      _tableCell(fonts, formatAmount(colSqFt)),
-                      _tableCell(fonts, formatAmount(remSqFt)),
-                      _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2)),
-                      _tableCell(fonts, formatAmount(stock.amount)),
-                    ],
-                  );
-                }),
-                _categorySubtotalRow(
-                  fonts: fonts,
-                  label: 'Subtotal Small:',
-                  totalPieces: smallTotalPieces,
-                  collectedPieces: smallCollectedPieces,
-                  remainingPieces: smallRemainingPieces,
-                  totalSqFt: smallTotalSqFt,
-                  collectedSqFt: smallCollectedSqFt,
-                  remainingSqFt: smallRemainingSqFt,
-                  rateStr: smallRateStr,
-                  charges: smallTotalAmount,
-                ),
-              ],
-              if (produced.where((s) => !JobWorkSizes.isSmall(s.size)).isNotEmpty) ...[
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: _bgLight),
-                  children: [
-                    _tableCell(fonts, 'Large Sizes', isBold: true),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                    _tableCell(fonts, ''),
-                  ],
-                ),
-                ...produced.where((s) => !JobWorkSizes.isSmall(s.size)).map((stock) {
-                  final colPieces = JobWorkCollectionQuantityHelper.collectedPiecesForSize(stock.size, loadCollections);
-                  final colSqFt = JobWorkCollectionQuantityHelper.collectedSquareFeetForSize(stock.size, loadCollections);
-                  final remPieces = math.max(0, stock.pieces - colPieces);
-                  final remSqFt = JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
-                    remainingPieces: remPieces,
-                    rawSquareFeet: stock.squareFeet - colSqFt,
-                  );
-                  final sizeStatus = colPieces == 0
-                      ? 'Ready'
-                      : (colPieces >= stock.pieces ? 'Collected' : 'Part. Coll.');
-
-                  return pw.TableRow(
-                    children: [
-                      _tableCell(fonts, '${stock.size} ($sizeStatus)'),
-                      _tableCell(fonts, formatWhole(stock.pieces)),
-                      _tableCell(fonts, formatWhole(colPieces)),
-                      _tableCell(fonts, formatWhole(remPieces)),
-                      _tableCell(fonts, formatAmount(stock.squareFeet)),
-                      _tableCell(fonts, formatAmount(colSqFt)),
-                      _tableCell(fonts, formatAmount(remSqFt)),
-                      _tableCell(fonts, stock.pricePerSqFt.toStringAsFixed(2)),
-                      _tableCell(fonts, formatAmount(stock.amount)),
-                    ],
-                  );
-                }),
-                _categorySubtotalRow(
-                  fonts: fonts,
-                  label: 'Subtotal Large:',
-                  totalPieces: largeTotalPieces,
-                  collectedPieces: largeCollectedPieces,
-                  remainingPieces: largeRemainingPieces,
-                  totalSqFt: largeTotalSqFt,
-                  collectedSqFt: largeCollectedSqFt,
-                  remainingSqFt: largeRemainingSqFt,
-                  rateStr: largeRateStr,
-                  charges: largeTotalAmount,
-                ),
-              ],
-            ] else ...[
-              // Summarized rendering (Grand Invoice)
+            columnWidths: {
+              0: const pw.FlexColumnWidth(3.2),
+              1: const pw.FlexColumnWidth(1.2),
+              2: const pw.FlexColumnWidth(1.2),
+              3: const pw.FlexColumnWidth(1.2),
+              4: const pw.FlexColumnWidth(1.5),
+              5: const pw.FlexColumnWidth(1.5),
+              6: const pw.FlexColumnWidth(1.5),
+              7: const pw.FlexColumnWidth(1.5),
+              8: const pw.FlexColumnWidth(2),
+            },
+            children: [
               pw.TableRow(
+                decoration: const pw.BoxDecoration(color: _navy),
                 children: [
-                  _tableCell(fonts, 'Small Sizes'),
-                  _tableCell(fonts, formatWhole(smallTotalPieces)),
-                  _tableCell(fonts, formatWhole(smallCollectedPieces)),
-                  _tableCell(fonts, formatWhole(smallRemainingPieces)),
-                  _tableCell(fonts, formatAmount(smallTotalSqFt)),
-                  _tableCell(fonts, formatAmount(smallCollectedSqFt)),
-                  _tableCell(fonts, formatAmount(smallRemainingSqFt)),
-                  _tableCell(fonts, smallRateStr),
-                  _tableCell(fonts, formatAmount(smallTotalAmount)),
+                  _tableHeader(
+                    fonts,
+                    isSingleLoad
+                        ? 'SIZE / DIMENSION (STATUS)'
+                        : 'SIZE CATEGORY',
+                  ),
+                  _tableHeader(fonts, 'TOTAL PCS'),
+                  _tableHeader(fonts, 'COLL. PCS'),
+                  _tableHeader(fonts, 'REM. PCS'),
+                  _tableHeader(fonts, 'TOTAL SQFT'),
+                  _tableHeader(fonts, 'COLL. SQFT'),
+                  _tableHeader(fonts, 'REM. SQFT'),
+                  _tableHeader(fonts, 'RATE ($currencySymbol)'),
+                  _tableHeader(fonts, 'CHARGES ($currencySymbol)'),
                 ],
               ),
-              pw.TableRow(
-                children: [
-                  _tableCell(fonts, 'Large Sizes'),
-                  _tableCell(fonts, formatWhole(largeTotalPieces)),
-                  _tableCell(fonts, formatWhole(largeCollectedPieces)),
-                  _tableCell(fonts, formatWhole(largeRemainingPieces)),
-                  _tableCell(fonts, formatAmount(largeTotalSqFt)),
-                  _tableCell(fonts, formatAmount(largeCollectedSqFt)),
-                  _tableCell(fonts, formatAmount(largeRemainingSqFt)),
-                  _tableCell(fonts, largeRateStr),
-                  _tableCell(fonts, formatAmount(largeTotalAmount)),
+              if (isSingleLoad) ...[
+                if (smallStocks.isNotEmpty) ...[
+                  categoryHeaderRow('Small Sizes'),
+                  ...sizeRows(smallStocks),
+                  _categorySubtotalRow(
+                    fonts: fonts,
+                    label: 'Subtotal Small:',
+                    totalPieces: smallTotalPieces,
+                    collectedPieces: smallCollectedPieces,
+                    remainingPieces: smallRemainingPieces,
+                    totalSqFt: smallTotalSqFt,
+                    collectedSqFt: smallCollectedSqFt,
+                    remainingSqFt: smallRemainingSqFt,
+                    rateStr: smallRateStr,
+                    charges: smallTotalAmount,
+                  ),
                 ],
-              ),
+                if (largeStocks.isNotEmpty) ...[
+                  categoryHeaderRow('Large Sizes'),
+                  ...sizeRows(largeStocks),
+                  _categorySubtotalRow(
+                    fonts: fonts,
+                    label: 'Subtotal Large:',
+                    totalPieces: largeTotalPieces,
+                    collectedPieces: largeCollectedPieces,
+                    remainingPieces: largeRemainingPieces,
+                    totalSqFt: largeTotalSqFt,
+                    collectedSqFt: largeCollectedSqFt,
+                    remainingSqFt: largeRemainingSqFt,
+                    rateStr: largeRateStr,
+                    charges: largeTotalAmount,
+                  ),
+                ],
+              ] else ...[
+                if (smallTotalPieces > 0 || smallTotalSqFt > 0 || smallTotalAmount > 0)
+                  stockDataRow(
+                    index: 0,
+                    label: 'Small Sizes',
+                    pieces: smallTotalPieces,
+                    colPieces: smallCollectedPieces,
+                    remPieces: smallRemainingPieces,
+                    squareFeet: smallTotalSqFt,
+                    colSqFt: smallCollectedSqFt,
+                    remSqFt: smallRemainingSqFt,
+                    rate: smallRateStr,
+                    amount: smallTotalAmount,
+                  ),
+                if (largeTotalPieces > 0 || largeTotalSqFt > 0 || largeTotalAmount > 0)
+                  stockDataRow(
+                    index: smallTotalPieces > 0 ||
+                            smallTotalSqFt > 0 ||
+                            smallTotalAmount > 0
+                        ? 1
+                        : 0,
+                    label: 'Large Sizes',
+                    pieces: largeTotalPieces,
+                    colPieces: largeCollectedPieces,
+                    remPieces: largeRemainingPieces,
+                    squareFeet: largeTotalSqFt,
+                    colSqFt: largeCollectedSqFt,
+                    remSqFt: largeRemainingSqFt,
+                    rate: largeRateStr,
+                    amount: largeTotalAmount,
+                  ),
+              ],
             ],
-          ],
-        )
-      else
+          );
+        }(),
+      ] else
         pw.Padding(
           padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           child: pw.Row(
@@ -1191,7 +1218,7 @@ abstract final class GrandInvoicePdfTemplate {
     required double charges,
   }) {
     return pw.TableRow(
-      decoration: const pw.BoxDecoration(color: _goldBg),
+      decoration: const pw.BoxDecoration(color: _bgLight),
       children: [
         _tableCell(fonts, label, isBold: true),
         _tableCell(fonts, formatWhole(totalPieces), isBold: true),
@@ -1222,6 +1249,7 @@ abstract final class GrandInvoicePdfTemplate {
     String text, {
     pw.TextAlign align = pw.TextAlign.center,
     bool isBold = false,
+    PdfColor? color,
   }) {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 5),
@@ -1230,7 +1258,7 @@ abstract final class GrandInvoicePdfTemplate {
         style: pw.TextStyle(
           font: isBold ? fonts.bold : fonts.regular,
           fontSize: 7.5,
-          color: _navy,
+          color: color ?? _navy,
         ),
         textAlign: align,
       ),
