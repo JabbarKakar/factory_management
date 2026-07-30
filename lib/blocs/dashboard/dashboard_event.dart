@@ -19,3 +19,12 @@ final class DashboardWatchStarted extends DashboardEvent {
 final class DashboardWatchStopped extends DashboardEvent {
   const DashboardWatchStopped();
 }
+
+final class DashboardFinancePeriodChanged extends DashboardEvent {
+  const DashboardFinancePeriodChanged(this.period);
+
+  final DashboardFinancePeriod period;
+
+  @override
+  List<Object?> get props => [period];
+}

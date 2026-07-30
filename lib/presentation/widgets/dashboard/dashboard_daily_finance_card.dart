@@ -3,21 +3,26 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/app_user.dart';
-import '../../../domain/entities/dashboard_kpis.dart';
+import '../../../domain/entities/dashboard_cashflow_metrics.dart';
 import '../../../domain/enums/app_module_enums.dart';
+import '../../../domain/enums/dashboard_finance_period.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
 import '../dialogs/app_dialog.dart';
 
-/// Daily income, expenses, and net — tap for full-digit breakdown.
+/// Period-aware income / expenses / net row — tap for full-digit breakdown.
 class DashboardDailyFinanceCard extends StatelessWidget {
   const DashboardDailyFinanceCard({
-    required this.kpis,
+    required this.metrics,
+    required this.period,
     required this.user,
+    required this.onPeriodChanged,
     super.key,
   });
 
-  final DashboardKpis kpis;
+  final DashboardCashflowMetrics metrics;
+  final DashboardFinancePeriod period;
   final AppUser? user;
+  final ValueChanged<DashboardFinancePeriod> onPeriodChanged;
 
   static const Color _panelDark = Color(0xFF121826);
   static const Color _panelLight = Color(0xFFF3F5F8);
@@ -43,20 +48,21 @@ class DashboardDailyFinanceCard extends StatelessWidget {
 
     final showIncome = _canViewIncome;
     final showExpenses = _canViewExpenses;
-    final net = kpis.netCashflowToday;
+    final net = metrics.net;
     final netAccent = net > 0
         ? _income
         : (net < 0 ? _expense : _netBlue);
     final netSign = net > 0 ? '+' : '';
+    final vsLabel = period.vsPreviousLabel;
 
     final detailRows = <Widget>[
       if (showIncome)
         _DetailRow(
           icon: Icons.south_west_rounded,
           label: AppStrings.dailyIncomeReceived,
-          value: Formatters.currencyPkr(kpis.revenueToday),
+          value: Formatters.currencyPkr(metrics.income),
           color: _income,
-          caption: _dodCaption(kpis.revenueDayOverDayPercent),
+          caption: _changeCaption(metrics.incomeChangePercent, vsLabel),
         ),
       if (showIncome && showExpenses)
         Divider(
@@ -69,9 +75,9 @@ class DashboardDailyFinanceCard extends StatelessWidget {
         _DetailRow(
           icon: Icons.north_east_rounded,
           label: AppStrings.dailyExpenses,
-          value: Formatters.currencyPkr(kpis.expensesToday),
+          value: Formatters.currencyPkr(metrics.expenses),
           color: _expense,
-          caption: _dodCaption(kpis.expensesDayOverDayPercent),
+          caption: _changeCaption(metrics.expensesChangePercent, vsLabel),
         ),
       if (showIncome && showExpenses) ...[
         Divider(
@@ -141,7 +147,7 @@ class DashboardDailyFinanceCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                AppStrings.dailyFinanceTitle,
+                                '${AppStrings.dailyFinanceTitle} · ${period.label}',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 16,
@@ -198,10 +204,11 @@ class DashboardDailyFinanceCard extends StatelessWidget {
     );
   }
 
-  String? _dodCaption(double? change) {
-    if (change == null) return AppStrings.vsYesterdayNa;
-    return AppStrings.vsYesterdayPercent(
+  String _changeCaption(double? change, String vsLabel) {
+    if (change == null) return '${AppStrings.vsYesterdayNa} $vsLabel';
+    return AppStrings.vsPeriodPercent(
       '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}',
+      vsLabel,
     );
   }
 
@@ -216,7 +223,7 @@ class DashboardDailyFinanceCard extends StatelessWidget {
     final panelBg = isDark ? _panelDark : _panelLight;
     final outline =
         theme.colorScheme.outline.withValues(alpha: isDark ? 0.32 : 0.4);
-    final net = kpis.netCashflowToday;
+    final net = metrics.net;
     final netAccent = net > 0
         ? _income
         : (net < 0 ? _expense : _netBlue);
@@ -225,17 +232,17 @@ class DashboardDailyFinanceCard extends StatelessWidget {
       if (showIncome)
         _MetricCell(
           label: AppStrings.dailyIncomeShort,
-          amount: kpis.revenueToday,
+          amount: metrics.income,
           accent: _income,
-          changePercent: kpis.revenueDayOverDayPercent,
+          changePercent: metrics.incomeChangePercent,
           risingIsPositive: true,
         ),
       if (showExpenses)
         _MetricCell(
           label: AppStrings.dailyExpensesShort,
-          amount: kpis.expensesToday,
+          amount: metrics.expenses,
           accent: _expense,
-          changePercent: kpis.expensesDayOverDayPercent,
+          changePercent: metrics.expensesChangePercent,
           risingIsPositive: false,
         ),
       if (showIncome && showExpenses)
@@ -289,13 +296,10 @@ class DashboardDailyFinanceCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
-                AppStrings.today,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10.5,
-                ),
+              _PeriodSelector(
+                period: period,
+                isDark: isDark,
+                onChanged: onPeriodChanged,
               ),
             ],
           ),
@@ -320,28 +324,137 @@ class DashboardDailyFinanceCard extends StatelessWidget {
                         ),
                       ],
               ),
-              child: IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < cells.length; i++) ...[
-                      if (i > 0)
-                        VerticalDivider(
-                          width: 1,
-                          thickness: 1,
-                          indent: 12,
-                          endIndent: 12,
-                          color: outline.withValues(alpha: 0.85),
-                        ),
-                      Expanded(child: cells[i]),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: IntrinsicHeight(
+                  key: ValueKey(period),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < cells.length; i++) ...[
+                        if (i > 0)
+                          VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            indent: 12,
+                            endIndent: 12,
+                            color: outline.withValues(alpha: 0.85),
+                          ),
+                        Expanded(child: cells[i]),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PeriodSelector extends StatelessWidget {
+  const _PeriodSelector({
+    required this.period,
+    required this.isDark,
+    required this.onChanged,
+  });
+
+  final DashboardFinancePeriod period;
+  final bool isDark;
+  final ValueChanged<DashboardFinancePeriod> onChanged;
+
+  static const Color _inputDark = Color(0xFF151F33);
+  static const Color _accentGold = Color(0xFFFDD343);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bg = isDark ? _inputDark : theme.colorScheme.surfaceContainerHighest;
+    final border = isDark
+        ? _accentGold.withValues(alpha: 0.35)
+        : theme.colorScheme.outline.withValues(alpha: 0.45);
+    final fg = isDark ? _accentGold : theme.colorScheme.onSurface;
+
+    return Material(
+      color: Colors.transparent,
+      child: PopupMenuButton<DashboardFinancePeriod>(
+        tooltip: AppStrings.selectPeriod,
+        initialValue: period,
+        onSelected: onChanged,
+        offset: const Offset(0, 36),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: isDark
+                ? _accentGold.withValues(alpha: 0.2)
+                : theme.colorScheme.outline.withValues(alpha: 0.35),
+          ),
+        ),
+        color: isDark ? _inputDark : theme.colorScheme.surface,
+        itemBuilder: (context) {
+          return [
+            for (final option in DashboardFinancePeriod.values)
+              PopupMenuItem<DashboardFinancePeriod>(
+                value: option,
+                child: Row(
+                  children: [
+                    Icon(
+                      option == period
+                          ? Icons.check_circle_rounded
+                          : Icons.circle_outlined,
+                      size: 16,
+                      color: option == period
+                          ? (isDark ? _accentGold : theme.colorScheme.primary)
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      option.label,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight:
+                            option == period ? FontWeight.w800 : FontWeight.w600,
+                        fontSize: 12.5,
+                        color: option == period
+                            ? (isDark ? _accentGold : theme.colorScheme.primary)
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ];
+        },
+        child: Ink(
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: border),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 6, 8, 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  period.label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: fg,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: fg),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

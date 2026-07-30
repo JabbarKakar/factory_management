@@ -561,21 +561,24 @@ abstract final class AppStrings {
 
   // Dashboard (Sprint 7)
   static const String revenueToday = 'Revenue Today';
-  static const String dailyFinanceTitle = 'Today\'s Cashflow';
+  static const String dailyFinanceTitle = 'Cashflow';
   static const String dailyFinanceSubtitle =
-      'Income received and expenses recorded today';
-  static const String dailyIncomeReceived = 'Daily Income';
-  static const String dailyExpenses = 'Daily Expenses';
+      'Income received and expenses for the selected period';
+  static const String dailyIncomeReceived = 'Income Received';
+  static const String dailyExpenses = 'Expenses';
   static const String dailyIncomeShort = 'Income';
   static const String dailyExpensesShort = 'Expenses';
-  static const String dailyNet = 'Net Today';
+  static const String dailyNet = 'Net';
   static const String dailyNetShort = 'Net';
   static const String dailyNetSubtitle = 'Income − Expenses';
-  static const String vsYesterdayNa = 'N/A vs yesterday';
+  static const String selectPeriod = 'Period';
+  static const String vsYesterdayNa = 'N/A';
+  static String vsPeriodPercent(String signedPercent, String vsLabel) =>
+      '$signedPercent% $vsLabel';
   static String vsYesterdayPercent(String signedPercent) =>
       '$signedPercent% vs yesterday';
   static String expensesOfDailyIncome(String percent) =>
-      '$percent% of today\'s income';
+      '$percent% of income';
   static const String activeJobWork = 'Active Job Work';
   static const String activeSales = 'Active Sales';
   static const String activeSalesOrders =

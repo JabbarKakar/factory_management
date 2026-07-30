@@ -82,8 +82,12 @@ class DashboardScreen extends StatelessWidget {
                         user.canView(AppModule.expenses))) ...[
                   const SizedBox(height: 16),
                   DashboardDailyFinanceCard(
-                    kpis: state.kpis,
+                    metrics: state.cashflow,
+                    period: state.financePeriod,
                     user: user,
+                    onPeriodChanged: (period) => context
+                        .read<DashboardBloc>()
+                        .add(DashboardFinancePeriodChanged(period)),
                   ),
                 ],
                 if (user != null &&

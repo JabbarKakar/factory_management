@@ -26,15 +26,10 @@ import '../../data/services/dashboard_analytics_service.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../data/services/job_work_load_production_helper.dart';
 import '../../data/services/payment_due_scanner_service.dart';
-import '../../domain/enums/invoice_enums.dart';
-import '../../domain/enums/job_work_enums.dart';
-import '../../domain/enums/labour_enums.dart';
-import '../../domain/enums/quality_enums.dart';
-import '../../domain/enums/delivery_enums.dart';
-import '../../domain/enums/sales_enums.dart';
 import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_analytics.dart';
+import '../../domain/entities/dashboard_cashflow_metrics.dart';
 import '../../domain/entities/dashboard_kpis.dart';
 import '../../domain/entities/dashboard_pending_pickup.dart';
 import '../../domain/entities/delivery.dart';
@@ -51,6 +46,13 @@ import '../../domain/entities/quality_check.dart';
 import '../../domain/entities/raw_material.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
+import '../../domain/enums/dashboard_finance_period.dart';
+import '../../domain/enums/delivery_enums.dart';
+import '../../domain/enums/invoice_enums.dart';
+import '../../domain/enums/job_work_enums.dart';
+import '../../domain/enums/labour_enums.dart';
+import '../../domain/enums/quality_enums.dart';
+import '../../domain/enums/sales_enums.dart';
 
 part 'dashboard_event.dart';
 part 'dashboard_state.dart';
@@ -96,6 +98,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted);
     on<DashboardWatchStopped>(_onWatchStopped);
+    on<DashboardFinancePeriodChanged>(_onFinancePeriodChanged);
     on<_DashboardDataUpdated>(_onDataUpdated);
     on<_DashboardRecomputeRequested>(_onRecomputeRequested);
   }
@@ -348,6 +351,15 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     _recomputeDebounce?.cancel();
     await _cancelSubscriptions();
+  }
+
+  Future<void> _onFinancePeriodChanged(
+    DashboardFinancePeriodChanged event,
+    Emitter<DashboardState> emit,
+  ) async {
+    if (state.financePeriod == event.period) return;
+    emit(state.copyWith(financePeriod: event.period));
+    add(const _DashboardRecomputeRequested());
   }
 
   void _onDataUpdated(
@@ -674,9 +686,16 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       now: now,
     );
 
+    final cashflow = _buildCashflowMetrics(
+      period: state.financePeriod,
+      now: now,
+    );
+
     emit(
       state.copyWith(
         status: DashboardStatus.loaded,
+        cashflow: cashflow,
+        financePeriod: state.financePeriod,
         kpis: DashboardKpis(
           revenueToday: revenueToday,
           activeJobWorkCount: activeJobWorkCount,
@@ -726,6 +745,45 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  DashboardCashflowMetrics _buildCashflowMetrics({
+    required DashboardFinancePeriod period,
+    required DateTime now,
+  }) {
+    final range = DashboardFinancePeriodRange.forPeriod(period, now);
+
+    double sumPayments(DateTime start, DateTime end) {
+      return _payments
+          .where(
+            (payment) => DashboardFinancePeriodRange.contains(
+              payment.paymentDate,
+              start,
+              end,
+            ),
+          )
+          .fold<double>(0, (sum, payment) => sum + payment.amount);
+    }
+
+    double sumExpenses(DateTime start, DateTime end) {
+      return _expenses
+          .where(
+            (expense) => DashboardFinancePeriodRange.contains(
+              expense.expenseDate,
+              start,
+              end,
+            ),
+          )
+          .fold<double>(0, (sum, expense) => sum + expense.amount);
+    }
+
+    return DashboardCashflowMetrics(
+      period: period,
+      income: sumPayments(range.currentStart, range.currentEnd),
+      expenses: sumExpenses(range.currentStart, range.currentEnd),
+      previousIncome: sumPayments(range.previousStart, range.previousEnd),
+      previousExpenses: sumExpenses(range.previousStart, range.previousEnd),
+    );
   }
 
   Future<void> _cancelSubscriptions() async {
