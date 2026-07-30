@@ -149,9 +149,11 @@ class _ExpenseSummaryScreenState extends State<ExpenseSummaryScreen> {
             ExportMenuButton(
               onExportPdf: (origin) async {
                 final factoryName = await resolveExportFactoryName(context);
+                final factoryProfile = await resolveExportFactoryProfile(context);
                 final doc = await _pdfExporter.build(
                   report: report,
                   factoryName: factoryName,
+                  factoryProfile: factoryProfile,
                 );
                 await ExportActions.sharePdf(
                   document: doc,

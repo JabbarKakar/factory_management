@@ -196,9 +196,11 @@ class DeliveryChallanScreen extends StatelessWidget {
     Rect? shareOrigin,
   }) async {
     final factoryName = await resolveExportFactoryName(context);
+    final factoryProfile = await resolveExportFactoryProfile(context);
     final doc = await getIt<DeliveryChallanPdfExporter>().buildDeliveryChallanPdf(
       delivery: delivery,
       factoryName: factoryName,
+      factoryProfile: factoryProfile,
     );
     await ExportActions.sharePdf(
       document: doc,
@@ -212,9 +214,11 @@ class DeliveryChallanScreen extends StatelessWidget {
     required Delivery delivery,
   }) async {
     final factoryName = await resolveExportFactoryName(context);
+    final factoryProfile = await resolveExportFactoryProfile(context);
     final doc = await getIt<DeliveryChallanPdfExporter>().buildDeliveryChallanPdf(
       delivery: delivery,
       factoryName: factoryName,
+      factoryProfile: factoryProfile,
     );
     await ExportActions.printPdf(
       document: doc,

@@ -55,173 +55,96 @@ class InvoicePdfExporter {
     String factoryName = AppStrings.appName,
   }) async {
     final fonts = await PdfFonts.load();
-    final doc = pw.Document();
     final dateFormat = DateFormat.yMMMd();
 
-    // Resolve FactoryProfile from repository if omitted
     final factoryRepo = _factoryRepository ?? getIt<FactoryRepository>();
     final profile = factoryProfile ??
         (invoice.factoryId.isNotEmpty
             ? await factoryRepo.getFactory(invoice.factoryId)
             : null);
 
-    final identity = profile?.identity;
-    final contact = profile?.contact;
-    final legal = profile?.legal;
-    final ownership = profile?.ownership;
-    final invSettings = profile?.invoiceSettings;
+    final branding = await PdfFactoryBranding.resolve(
+      profile: profile,
+      fallbackName: factoryName,
+      defaultTagline: 'PREMIUM MANUFACTURING & SALES',
+    );
 
-    final rawBizName = identity?.businessName.trim();
-    final rawProfileName = profile?.name.trim();
-    final resolvedFactoryName = (rawBizName != null && rawBizName.isNotEmpty
-            ? rawBizName
-            : rawProfileName != null && rawProfileName.isNotEmpty
-                ? rawProfileName
-                : factoryName)
-        .toUpperCase();
-
-    final rawTagline = identity?.tagline?.trim();
-    final tagline = rawTagline != null && rawTagline.isNotEmpty
-        ? rawTagline
-        : 'PREMIUM MANUFACTURING & SALES';
-
-    final rawOwner = ownership?.ownerName?.trim();
-    final rawProfileOwner = profile?.ownerName?.trim();
-    final ownerName = rawOwner != null && rawOwner.isNotEmpty
-        ? rawOwner
-        : rawProfileOwner != null && rawProfileOwner.isNotEmpty
-            ? rawProfileOwner
+    final termsText =
+        profile?.invoiceSettings.termsAndConditions?.trim().isNotEmpty == true
+            ? profile!.invoiceSettings.termsAndConditions!.trim()
             : null;
+    final footerNoteText = branding.footerNote ??
+        'Thank you for your business with ${branding.factoryName}!';
+    final isPaid = invoice.dueAmount <= 0;
 
-    final rawAddr = contact?.fullAddress.trim();
-    final rawProfileAddr = profile?.address?.trim();
-    final address = rawAddr != null && rawAddr.isNotEmpty
-        ? rawAddr
-        : rawProfileAddr != null && rawProfileAddr.isNotEmpty
-            ? rawProfileAddr
-            : null;
-
-    final rawPhone = contact?.phone.trim();
-    final rawProfilePhone = profile?.phone?.trim();
-    final phone = rawPhone != null && rawPhone.isNotEmpty
-        ? rawPhone
-        : rawProfilePhone != null && rawProfilePhone.isNotEmpty
-            ? rawProfilePhone
-            : null;
-    final email = contact?.email?.trim().isNotEmpty == true ? contact!.email!.trim() : null;
-    final website = contact?.website?.trim().isNotEmpty == true ? contact!.website!.trim() : null;
-    final ntn = legal?.ntn?.trim().isNotEmpty == true ? legal!.ntn!.trim() : null;
-    final strn = legal?.strn?.trim().isNotEmpty == true ? legal!.strn!.trim() : null;
-    final termsText = invSettings?.termsAndConditions?.trim().isNotEmpty == true
-        ? invSettings!.termsAndConditions!.trim()
-        : null;
-    final footerNoteText = invSettings?.footerNote?.trim().isNotEmpty == true
-        ? invSettings!.footerNote!.trim()
-        : 'Thank you for your business with $resolvedFactoryName!';
-
+    final doc = pw.Document(theme: fonts.theme);
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        margin: PdfDocumentTheme.pageMargin,
         theme: fonts.theme,
-        build: (context) => [
-          // Header Section
-          PdfDocumentTheme.header(
+        header: (context) {
+          if (context.pageNumber == 1) return pw.SizedBox.shrink();
+          return PdfDocumentTheme.pageHeaderStrip(
             fonts: fonts,
-            title: resolvedFactoryName,
-            subtitle: tagline,
-            rightLabel: invoice.invoiceNumber,
-          ),
-          if (ownerName != null || address != null || phone != null || email != null || strn != null || ntn != null) ...[
-            pw.SizedBox(height: 4),
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    if (ownerName != null)
-                      pw.Text('Proprietor: $ownerName',
-                          style: PdfDocumentTheme.subtitleStyle(fonts)),
-                    if (address != null)
-                      pw.Text('Address: $address',
-                          style: PdfDocumentTheme.subtitleStyle(fonts)),
-                    if (phone != null || email != null || website != null)
-                      pw.Text(
-                        [
-                          if (phone != null) 'Ph: $phone',
-                          if (email != null) 'Email: $email',
-                          if (website != null) 'Web: $website',
-                        ].join(' | '),
-                        style: PdfDocumentTheme.subtitleStyle(fonts),
-                      ),
-                  ],
+            left: '${branding.factoryName} · SALES INVOICE',
+            right: invoice.invoiceNumber,
+          );
+        },
+        footer: (context) => PdfDocumentTheme.pageFooterStrip(
+          fonts: fonts,
+          factoryName: branding.factoryName,
+          context: context,
+        ),
+        build: (context) => [
+          PdfDocumentTheme.factoryHeader(
+            fonts: fonts,
+            branding: branding,
+            documentTitle: 'SALES INVOICE',
+            metaRows: [
+              (label: 'Invoice No:', value: invoice.invoiceNumber),
+              (label: 'Date Issued:', value: dateFormat.format(invoice.createdAt)),
+              if (invoice.dueDate != null)
+                (
+                  label: 'Due Date:',
+                  value: dateFormat.format(invoice.dueDate!),
                 ),
-                if (strn != null || ntn != null)
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      if (strn != null)
-                        pw.Text('STRN: $strn',
-                            style: PdfDocumentTheme.subtitleStyle(fonts)),
-                      if (ntn != null)
-                        pw.Text('NTN: $ntn',
-                            style: PdfDocumentTheme.subtitleStyle(fonts)),
-                    ],
-                  ),
-              ],
-            ),
-          ],
-          PdfDocumentTheme.divider(),
-
-          // Bill To & Order Details
-          pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('BILL TO:',
-                      style: PdfDocumentTheme.bodyStyle(fonts, bold: true)),
-                  pw.SizedBox(height: 2),
-                  pw.Text(
-                    Formatters.textForExport(invoice.customerName),
-                    style: PdfDocumentTheme.titleStyle(fonts, size: 14),
-                  ),
-                ],
+              (
+                label: 'Order No:',
+                value: Formatters.textForExport(invoice.orderNumber),
               ),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Text(
-                    '${AppStrings.orderNumber}: ${Formatters.textForExport(invoice.orderNumber)}',
-                    style: PdfDocumentTheme.subtitleStyle(fonts),
-                  ),
-                  pw.Text(
-                    '${AppStrings.date}: ${dateFormat.format(invoice.createdAt)}',
-                    style: PdfDocumentTheme.subtitleStyle(fonts),
-                  ),
-                  if (invoice.dueDate != null)
-                    pw.Text(
-                      '${AppStrings.paymentDueDate}: ${dateFormat.format(invoice.dueDate!)}',
-                      style: PdfDocumentTheme.subtitleStyle(fonts),
-                    ),
-                ],
+            ],
+            statusLabel: isPaid ? 'FULLY PAID' : 'OUTSTANDING DUE',
+            statusPositive: isPaid,
+          ),
+          PdfDocumentTheme.divider(),
+          PdfDocumentTheme.infoBanner(
+            fonts: fonts,
+            title: 'Client / Bill To',
+            children: [
+              PdfDocumentTheme.cardRow(
+                fonts,
+                'Client Name',
+                Formatters.textForExport(invoice.customerName),
+              ),
+              PdfDocumentTheme.cardRow(
+                fonts,
+                'Account Type',
+                'Sales Order',
               ),
             ],
           ),
-          PdfDocumentTheme.divider(),
-
-          // Line Items Table
+          pw.SizedBox(height: 12),
           pw.Text(
-            AppStrings.lineItems,
-            style: PdfDocumentTheme.bodyStyle(fonts, bold: true),
+            AppStrings.lineItems.toUpperCase(),
+            style: PdfDocumentTheme.sectionTitleStyle(fonts),
           ),
-          pw.SizedBox(height: 8),
+          pw.SizedBox(height: 6),
           pw.Table(
-            border: pw.TableBorder.all(color: PdfDocumentTheme.border),
+            border: pw.TableBorder.all(
+              color: PdfDocumentTheme.borderLight,
+              width: 0.8,
+            ),
             columnWidths: {
               0: const pw.FlexColumnWidth(3),
               1: const pw.FlexColumnWidth(1),
@@ -231,89 +154,104 @@ class InvoicePdfExporter {
                 fonts,
                 [AppStrings.description, AppStrings.amount],
               ),
-              for (final item in invoice.lineItems)
-                PdfDocumentTheme.tableDataRow(fonts, [
-                  Formatters.textForExport(item.description),
-                  item.amount > 0
-                      ? Formatters.currencyForExport(item.amount)
-                      : Formatters.exportEmpty,
-                ]),
+              for (var i = 0; i < invoice.lineItems.length; i++)
+                PdfDocumentTheme.tableDataRow(
+                  fonts,
+                  [
+                    Formatters.textForExport(invoice.lineItems[i].description),
+                    invoice.lineItems[i].amount > 0
+                        ? Formatters.currencyForExport(
+                            invoice.lineItems[i].amount,
+                          )
+                        : Formatters.exportEmpty,
+                  ],
+                  index: i,
+                ),
             ],
           ),
-          pw.SizedBox(height: 16),
-
-          // Summary Section
-          PdfDocumentTheme.summaryRow(
-            fonts,
-            AppStrings.invoiceTotal,
-            Formatters.currencyForExport(invoice.totalAmount),
-          ),
-          PdfDocumentTheme.summaryRow(
-            fonts,
-            AppStrings.amountPaid,
-            Formatters.currencyForExport(invoice.paidAmount),
-          ),
-          PdfDocumentTheme.summaryRow(
-            fonts,
-            AppStrings.amountDue,
-            Formatters.currencyForExport(invoice.dueAmount),
-            bold: true,
-          ),
-
-          // Bank Accounts Section if present
-          if (profile != null && profile.bankAccounts.isNotEmpty) ...[
-            PdfDocumentTheme.divider(),
-            pw.Text(
-              'Bank Accounts & Remittance',
-              style: PdfDocumentTheme.bodyStyle(fonts, bold: true),
+          pw.SizedBox(height: 12),
+          pw.Container(
+            padding: const pw.EdgeInsets.all(10),
+            decoration: pw.BoxDecoration(
+              color: PdfDocumentTheme.goldBg,
+              border: pw.Border.all(
+                color: PdfDocumentTheme.borderLight,
+                width: 0.8,
+              ),
+              borderRadius: pw.BorderRadius.circular(4),
             ),
-            pw.SizedBox(height: 6),
-            for (final acc in profile.bankAccounts)
-              pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 4),
-                child: pw.Text(
-                  '• ${acc.bankName}: Title: ${acc.accountName} | Acc #: ${acc.accountNumber}'
-                  '${acc.iban != null && acc.iban!.isNotEmpty ? " | IBAN: ${acc.iban}" : ""}',
-                  style: PdfDocumentTheme.subtitleStyle(fonts),
+            child: pw.Column(
+              children: [
+                PdfDocumentTheme.summaryRow(
+                  fonts,
+                  AppStrings.invoiceTotal,
+                  Formatters.currencyForExport(invoice.totalAmount),
                 ),
-              ),
+                PdfDocumentTheme.summaryRow(
+                  fonts,
+                  AppStrings.amountPaid,
+                  Formatters.currencyForExport(invoice.paidAmount),
+                ),
+                PdfDocumentTheme.summaryRow(
+                  fonts,
+                  AppStrings.amountDue,
+                  Formatters.currencyForExport(invoice.dueAmount),
+                  bold: true,
+                ),
+              ],
+            ),
+          ),
+          if (profile != null && profile.bankAccounts.isNotEmpty) ...[
+            pw.SizedBox(height: 12),
+            PdfDocumentTheme.detailCard(
+              fonts: fonts,
+              title: 'Bank Accounts & Remittance',
+              rows: [
+                for (final acc in profile.bankAccounts)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 3),
+                    child: pw.Text(
+                      '• ${acc.bankName}: Title: ${acc.accountName} | Acc #: ${acc.accountNumber}'
+                      '${acc.iban != null && acc.iban!.isNotEmpty ? " | IBAN: ${acc.iban}" : ""}',
+                      style: PdfDocumentTheme.subtitleStyle(fonts, size: 7.5),
+                    ),
+                  ),
+              ],
+            ),
           ],
-
-          // Payment History
           if (payments.isNotEmpty) ...[
-            PdfDocumentTheme.divider(),
-            pw.Text(
-              AppStrings.paymentHistory,
-              style: PdfDocumentTheme.bodyStyle(fonts, bold: true),
+            pw.SizedBox(height: 12),
+            PdfDocumentTheme.detailCard(
+              fonts: fonts,
+              title: AppStrings.paymentHistory,
+              rows: [
+                for (final payment in payments)
+                  PdfDocumentTheme.summaryRow(
+                    fonts,
+                    '${dateFormat.format(payment.paymentDate)} - ${payment.method.label}',
+                    Formatters.currencyForExport(payment.amount),
+                  ),
+              ],
             ),
-            pw.SizedBox(height: 8),
-            for (final payment in payments)
-              PdfDocumentTheme.summaryRow(
-                fonts,
-                '${dateFormat.format(payment.paymentDate)} - ${payment.method.label}',
-                Formatters.currencyForExport(payment.amount),
-              ),
           ],
-
-          // Terms and Conditions
           if (termsText != null) ...[
-            PdfDocumentTheme.divider(),
-            pw.Text(
-              'Terms & Conditions',
-              style: PdfDocumentTheme.bodyStyle(fonts, bold: true),
-            ),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              termsText,
-              style: PdfDocumentTheme.subtitleStyle(fonts),
+            pw.SizedBox(height: 12),
+            PdfDocumentTheme.infoBanner(
+              fonts: fonts,
+              title: 'Terms & Conditions',
+              children: [
+                pw.Text(
+                  termsText,
+                  style: PdfDocumentTheme.subtitleStyle(fonts, size: 7.5),
+                ),
+              ],
             ),
           ],
-
-          PdfDocumentTheme.divider(),
+          pw.SizedBox(height: 10),
           pw.Center(
             child: pw.Text(
               footerNoteText,
-              style: PdfDocumentTheme.subtitleStyle(fonts),
+              style: PdfDocumentTheme.subtitleStyle(fonts, size: 7.5),
               textAlign: pw.TextAlign.center,
             ),
           ),

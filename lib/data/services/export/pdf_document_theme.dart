@@ -1,33 +1,639 @@
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../domain/entities/factory_profile.dart';
 import 'pdf_fonts.dart';
 
-abstract final class PdfDocumentTheme {
-  static const PdfColor primary = PdfColor.fromInt(0xFF1A237E);
-  static const PdfColor muted = PdfColor.fromInt(0xFF616161);
-  static const PdfColor border = PdfColor.fromInt(0xFFE0E0E0);
+/// Resolved factory branding for PDF chrome (Grand Invoice / Collection Slip).
+class PdfFactoryBranding {
+  const PdfFactoryBranding({
+    required this.factoryName,
+    required this.tagline,
+    this.owner,
+    this.address,
+    this.phone,
+    this.email,
+    this.website,
+    this.ntn,
+    this.strn,
+    this.footerNote,
+    this.logoBytes,
+  });
 
-  static pw.TextStyle titleStyle(PdfFonts fonts, {double size = 18}) =>
+  final String factoryName;
+  final String tagline;
+  final String? owner;
+  final String? address;
+  final String? phone;
+  final String? email;
+  final String? website;
+  final String? ntn;
+  final String? strn;
+  final String? footerNote;
+  final Uint8List? logoBytes;
+
+  static Future<PdfFactoryBranding> resolve({
+    FactoryProfile? profile,
+    String fallbackName = 'FACTORY',
+    Uint8List? logoBytes,
+    String defaultTagline =
+        'PREMIUM NATURAL STONE PROCESSING & EXPORT',
+  }) async {
+    final identity = profile?.identity;
+    final contact = profile?.contact;
+    final legal = profile?.legal;
+    final ownership = profile?.ownership;
+    final invSettings = profile?.invoiceSettings;
+
+    final rawBiz = identity?.businessName.trim();
+    final rawName = profile?.name.trim();
+    final factoryName = (rawBiz != null && rawBiz.isNotEmpty
+            ? rawBiz
+            : rawName != null && rawName.isNotEmpty
+                ? rawName
+                : fallbackName)
+        .toUpperCase();
+
+    final rawTagline = identity?.tagline?.trim();
+    final tagline = rawTagline != null && rawTagline.isNotEmpty
+        ? rawTagline.toUpperCase()
+        : defaultTagline;
+
+    final rawOwner = ownership?.ownerName?.trim();
+    final rawProfileOwner = profile?.ownerName?.trim();
+    final owner = rawOwner != null && rawOwner.isNotEmpty
+        ? rawOwner
+        : rawProfileOwner != null && rawProfileOwner.isNotEmpty
+            ? rawProfileOwner
+            : null;
+
+    final rawAddr = contact?.fullAddress.trim();
+    final rawProfileAddr = profile?.address?.trim();
+    final address = rawAddr != null && rawAddr.isNotEmpty
+        ? rawAddr
+        : rawProfileAddr != null && rawProfileAddr.isNotEmpty
+            ? rawProfileAddr
+            : null;
+
+    final rawPhone = contact?.phone.trim();
+    final rawProfilePhone = profile?.phone?.trim();
+    final phone = rawPhone != null && rawPhone.isNotEmpty
+        ? rawPhone
+        : rawProfilePhone != null && rawProfilePhone.isNotEmpty
+            ? rawProfilePhone
+            : null;
+
+    final email = contact?.email?.trim().isNotEmpty == true
+        ? contact!.email!.trim()
+        : null;
+    final website = contact?.website?.trim().isNotEmpty == true
+        ? contact!.website!.trim()
+        : null;
+    final ntn =
+        legal?.ntn?.trim().isNotEmpty == true ? legal!.ntn!.trim() : null;
+    final strn =
+        legal?.strn?.trim().isNotEmpty == true ? legal!.strn!.trim() : null;
+    final footerNote =
+        invSettings?.footerNote?.trim().isNotEmpty == true
+            ? invSettings!.footerNote!.trim()
+            : null;
+
+    var resolvedLogo = logoBytes;
+    if (resolvedLogo == null || resolvedLogo.isEmpty) {
+      try {
+        final byteData = await rootBundle.load('assets/images/app_logo.png');
+        resolvedLogo = byteData.buffer.asUint8List();
+      } catch (_) {
+        resolvedLogo = null;
+      }
+    }
+
+    return PdfFactoryBranding(
+      factoryName: factoryName,
+      tagline: tagline,
+      owner: owner,
+      address: address,
+      phone: phone,
+      email: email,
+      website: website,
+      ntn: ntn,
+      strn: strn,
+      footerNote: footerNote,
+      logoBytes: resolvedLogo,
+    );
+  }
+}
+
+/// Shared branded PDF chrome aligned with Grand Invoice & Collection Slip.
+abstract final class PdfDocumentTheme {
+  // Palette (Grand Invoice / Collection Slip)
+  static const PdfColor navy = PdfColor.fromInt(0xFF1B365D);
+  static const PdfColor accentBlue = PdfColor.fromInt(0xFF0F3F70);
+  static const PdfColor mutedGrey = PdfColor.fromInt(0xFF556987);
+  static const PdfColor borderLight = PdfColor.fromInt(0xFFD2E3FC);
+  static const PdfColor bgLight = PdfColor.fromInt(0xFFF4F8FA);
+  static const PdfColor goldBg = PdfColor.fromInt(0xFFFDF8E2);
+  static const PdfColor greenText = PdfColor.fromInt(0xFF137333);
+  static const PdfColor redText = PdfColor.fromInt(0xFFC5221F);
+  static const PdfColor cardHeaderBg = PdfColor.fromInt(0xFF2C5282);
+
+  /// Legacy aliases kept for any remaining callers.
+  static const PdfColor primary = navy;
+  static const PdfColor muted = mutedGrey;
+  static const PdfColor border = borderLight;
+
+  static const pw.EdgeInsets pageMargin =
+      pw.EdgeInsets.symmetric(vertical: 28, horizontal: 28);
+
+  static pw.TextStyle titleStyle(PdfFonts fonts, {double size = 16}) =>
       pw.TextStyle(
         font: fonts.bold,
         fontSize: size,
-        color: primary,
+        color: accentBlue,
+        letterSpacing: 0.3,
       );
 
-  static pw.TextStyle subtitleStyle(PdfFonts fonts, {double size = 11}) =>
+  static pw.TextStyle subtitleStyle(PdfFonts fonts, {double size = 8}) =>
       pw.TextStyle(
         font: fonts.regular,
         fontSize: size,
-        color: muted,
+        color: mutedGrey,
       );
 
   static pw.TextStyle bodyStyle(PdfFonts fonts, {bool bold = false}) =>
       pw.TextStyle(
         font: bold ? fonts.bold : fonts.regular,
-        fontSize: 10,
+        fontSize: 9,
+        color: navy,
       );
 
+  static pw.TextStyle sectionTitleStyle(PdfFonts fonts) => pw.TextStyle(
+        font: fonts.bold,
+        fontSize: 9.5,
+        color: accentBlue,
+        letterSpacing: 0.2,
+      );
+
+  /// Factory logo + name + contact block on the left, document badge on the right.
+  static pw.Widget factoryHeader({
+    required PdfFonts fonts,
+    required PdfFactoryBranding branding,
+    required String documentTitle,
+    required List<({String label, String value})> metaRows,
+    String? statusLabel,
+    bool statusPositive = true,
+    double logoSize = 48,
+  }) {
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Expanded(
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
+                children: [
+                  if (branding.logoBytes != null &&
+                      branding.logoBytes!.isNotEmpty) ...[
+                    pw.Container(
+                      width: logoSize,
+                      height: logoSize,
+                      child: pw.Image(
+                        pw.MemoryImage(branding.logoBytes!),
+                        fit: pw.BoxFit.contain,
+                      ),
+                    ),
+                    pw.SizedBox(width: 12),
+                  ],
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          branding.factoryName,
+                          style: titleStyle(fonts),
+                        ),
+                        pw.SizedBox(height: 1),
+                        pw.Text(
+                          branding.tagline,
+                          style: pw.TextStyle(
+                            font: fonts.bold,
+                            fontSize: 7.5,
+                            color: navy,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (branding.owner != null ||
+                  branding.address != null ||
+                  branding.phone != null ||
+                  branding.email != null ||
+                  branding.website != null ||
+                  branding.strn != null ||
+                  branding.ntn != null) ...[
+                pw.SizedBox(height: 6),
+                if (branding.owner != null)
+                  pw.Text(
+                    'Proprietor / Management: ${branding.owner}',
+                    style: pw.TextStyle(
+                      font: fonts.bold,
+                      fontSize: 7,
+                      color: navy,
+                    ),
+                  ),
+                if (branding.address != null)
+                  pw.Text(
+                    'Factory & Facility: ${branding.address}',
+                    style: subtitleStyle(fonts, size: 7),
+                  ),
+                if (branding.phone != null ||
+                    branding.email != null ||
+                    branding.website != null)
+                  pw.Text(
+                    [
+                      if (branding.phone != null) 'Phone: ${branding.phone}',
+                      if (branding.email != null) 'Email: ${branding.email}',
+                      if (branding.website != null) 'Web: ${branding.website}',
+                    ].join(' | '),
+                    style: subtitleStyle(fonts, size: 7),
+                  ),
+                if (branding.strn != null || branding.ntn != null)
+                  pw.Text(
+                    [
+                      if (branding.strn != null) 'STRN: ${branding.strn}',
+                      if (branding.ntn != null) 'NTN: ${branding.ntn}',
+                    ].join('  ·  '),
+                    style: subtitleStyle(fonts, size: 7),
+                  ),
+              ],
+            ],
+          ),
+        ),
+        pw.SizedBox(width: 16),
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
+          children: [
+            pw.Container(
+              width: 170,
+              padding: const pw.EdgeInsets.symmetric(
+                vertical: 6,
+                horizontal: 10,
+              ),
+              decoration: const pw.BoxDecoration(
+                color: navy,
+                borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+              ),
+              alignment: pw.Alignment.center,
+              child: pw.Text(
+                documentTitle.toUpperCase(),
+                style: pw.TextStyle(
+                  font: fonts.bold,
+                  fontSize: 11,
+                  color: PdfColors.white,
+                  letterSpacing: 0.4,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+            ),
+            pw.SizedBox(height: 6),
+            for (final row in metaRows) metaRow(fonts, row.label, row.value),
+            if (statusLabel != null) ...[
+              pw.SizedBox(height: 4),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                  vertical: 3,
+                  horizontal: 14,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: statusPositive
+                      ? const PdfColor.fromInt(0xFFE6F4EA)
+                      : const PdfColor.fromInt(0xFFFCE8E6),
+                  borderRadius: pw.BorderRadius.circular(3),
+                  border: pw.Border.all(
+                    color: statusPositive
+                        ? const PdfColor.fromInt(0xFF34A853)
+                        : const PdfColor.fromInt(0xFFEA4335),
+                    width: 0.8,
+                  ),
+                ),
+                child: pw.Text(
+                  statusLabel.toUpperCase(),
+                  style: pw.TextStyle(
+                    font: fonts.bold,
+                    fontSize: 8,
+                    color: statusPositive ? greenText : redText,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  static pw.Widget metaRow(PdfFonts fonts, String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 2),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.end,
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              font: fonts.bold,
+              fontSize: 7.5,
+              color: mutedGrey,
+            ),
+          ),
+          pw.SizedBox(width: 4),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              font: fonts.bold,
+              fontSize: 8,
+              color: navy,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget divider() => pw.Divider(
+        color: borderLight,
+        height: 16,
+        thickness: 0.8,
+      );
+
+  /// MultiPage header strip (page 2+).
+  static pw.Widget pageHeaderStrip({
+    required PdfFonts fonts,
+    required String left,
+    required String right,
+  }) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 10),
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(
+          bottom: pw.BorderSide(color: borderLight, width: 0.8),
+        ),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            left,
+            style: pw.TextStyle(
+              font: fonts.bold,
+              fontSize: 8,
+              color: mutedGrey,
+            ),
+          ),
+          pw.Text(
+            right,
+            style: pw.TextStyle(
+              font: fonts.regular,
+              fontSize: 8,
+              color: mutedGrey,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// MultiPage footer strip with page numbers.
+  static pw.Widget pageFooterStrip({
+    required PdfFonts fonts,
+    required String factoryName,
+    required pw.Context context,
+    String certification =
+        'ISO 9001:2015 Certified Marble & Natural Stone Processing',
+  }) {
+    return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 10),
+      padding: const pw.EdgeInsets.only(top: 8),
+      decoration: const pw.BoxDecoration(
+        border: pw.Border(
+          top: pw.BorderSide(color: borderLight, width: 0.8),
+        ),
+      ),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Expanded(
+            child: pw.Text(
+              '$factoryName · $certification',
+              style: pw.TextStyle(
+                font: fonts.regular,
+                fontSize: 7.5,
+                color: mutedGrey,
+              ),
+            ),
+          ),
+          pw.Text(
+            'Page ${context.pageNumber} of ${context.pagesCount}',
+            style: pw.TextStyle(
+              font: fonts.bold,
+              fontSize: 8,
+              color: accentBlue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget detailCard({
+    required PdfFonts fonts,
+    required String title,
+    required List<pw.Widget> rows,
+  }) {
+    return pw.Container(
+      width: double.infinity,
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: borderLight, width: 0.8),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
+            decoration: const pw.BoxDecoration(
+              color: cardHeaderBg,
+              borderRadius: pw.BorderRadius.vertical(
+                top: pw.Radius.circular(3),
+              ),
+            ),
+            child: pw.Text(
+              title.toUpperCase(),
+              style: pw.TextStyle(
+                font: fonts.bold,
+                fontSize: 8,
+                color: PdfColors.white,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.fromLTRB(8, 6, 8, 8),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: rows,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget cardRow(PdfFonts fonts, String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 3),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 90,
+            child: pw.Text(
+              label,
+              style: pw.TextStyle(
+                font: fonts.regular,
+                fontSize: 8,
+                color: mutedGrey,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                font: fonts.bold,
+                fontSize: 8.5,
+                color: navy,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget infoBanner({
+    required PdfFonts fonts,
+    required String title,
+    required List<pw.Widget> children,
+  }) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        color: bgLight,
+        borderRadius: pw.BorderRadius.circular(4),
+        border: pw.Border.all(color: borderLight, width: 0.8),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(title.toUpperCase(), style: sectionTitleStyle(fonts)),
+          pw.SizedBox(height: 6),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  static pw.TableRow tableHeaderRow(PdfFonts fonts, List<String> labels) {
+    return pw.TableRow(
+      decoration: const pw.BoxDecoration(color: navy),
+      children: [
+        for (final label in labels)
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 6),
+            child: pw.Text(
+              label,
+              style: pw.TextStyle(
+                font: fonts.bold,
+                fontSize: 7.5,
+                color: PdfColors.white,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Zebra data row — white / light blue like Collection Slip.
+  static pw.TableRow tableDataRow(
+    PdfFonts fonts,
+    List<String> values, {
+    int index = 0,
+    bool bold = false,
+  }) {
+    return pw.TableRow(
+      decoration: pw.BoxDecoration(
+        color: index % 2 == 1 ? bgLight : PdfColors.white,
+      ),
+      children: [
+        for (final value in values)
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                font: bold ? fonts.bold : fonts.regular,
+                fontSize: 8,
+                color: navy,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  static pw.Widget summaryRow(
+    PdfFonts fonts,
+    String label,
+    String value, {
+    bool bold = false,
+  }) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            child: pw.Text(
+              label,
+              style: pw.TextStyle(
+                font: bold ? fonts.bold : fonts.regular,
+                fontSize: 9,
+                color: bold ? navy : mutedGrey,
+              ),
+            ),
+          ),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              font: fonts.bold,
+              fontSize: 9,
+              color: navy,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Legacy simple header (kept for compatibility; prefer [factoryHeader]).
   static pw.Widget header({
     required PdfFonts fonts,
     required String title,
@@ -44,58 +650,14 @@ abstract final class PdfDocumentTheme {
               pw.Text(title, style: titleStyle(fonts)),
               if (subtitle != null) ...[
                 pw.SizedBox(height: 4),
-                pw.Text(subtitle, style: subtitleStyle(fonts)),
+                pw.Text(subtitle, style: subtitleStyle(fonts, size: 9)),
               ],
             ],
           ),
         ),
         if (rightLabel != null)
-          pw.Text(rightLabel, style: subtitleStyle(fonts)),
+          pw.Text(rightLabel, style: subtitleStyle(fonts, size: 9)),
       ],
-    );
-  }
-
-  static pw.Widget divider() => pw.Divider(color: border, height: 24);
-
-  static pw.TableRow tableHeaderRow(PdfFonts fonts, List<String> labels) {
-    return pw.TableRow(
-      decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFF5F5F5)),
-      children: [
-        for (final label in labels)
-          pw.Padding(
-            padding: const pw.EdgeInsets.all(8),
-            child: pw.Text(label, style: bodyStyle(fonts, bold: true)),
-          ),
-      ],
-    );
-  }
-
-  static pw.TableRow tableDataRow(PdfFonts fonts, List<String> values) {
-    return pw.TableRow(
-      children: [
-        for (final value in values)
-          pw.Padding(
-            padding: const pw.EdgeInsets.all(8),
-            child: pw.Text(value, style: bodyStyle(fonts)),
-          ),
-      ],
-    );
-  }
-
-  static pw.Widget summaryRow(
-    PdfFonts fonts,
-    String label,
-    String value, {
-    bool bold = false,
-  }) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 3),
-      child: pw.Row(
-        children: [
-          pw.Expanded(child: pw.Text(label, style: bodyStyle(fonts, bold: bold))),
-          pw.Text(value, style: bodyStyle(fonts, bold: bold)),
-        ],
-      ),
     );
   }
 }
