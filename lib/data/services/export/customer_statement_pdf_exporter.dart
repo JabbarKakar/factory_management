@@ -192,6 +192,13 @@ class CustomerStatementPdfExporter {
               ),
             ),
           ],
+          pw.SizedBox(height: 16),
+          PdfDocumentTheme.authorizationBlock(
+            fonts: fonts,
+            branding: branding,
+            preparedLabel: 'Prepared By',
+            showPreparedLine: true,
+          ),
         ],
       ),
     );

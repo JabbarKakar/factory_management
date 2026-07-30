@@ -145,6 +145,13 @@ class PlReportPdfExporter {
             AppStrings.plReportFootnote,
             style: PdfDocumentTheme.subtitleStyle(fonts, size: 7.5),
           ),
+          pw.SizedBox(height: 18),
+          PdfDocumentTheme.authorizationBlock(
+            fonts: fonts,
+            branding: branding,
+            preparedLabel: 'Prepared By',
+            authorizedLabel: 'Authorized Signature & Stamp',
+          ),
         ],
       ),
     );

@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -19,6 +22,8 @@ class PdfFactoryBranding {
     this.strn,
     this.footerNote,
     this.logoBytes,
+    this.signatureBytes,
+    this.stampBytes,
   });
 
   final String factoryName;
@@ -32,11 +37,17 @@ class PdfFactoryBranding {
   final String? strn;
   final String? footerNote;
   final Uint8List? logoBytes;
+  final Uint8List? signatureBytes;
+  final Uint8List? stampBytes;
 
+  /// Downloads logo / signature / stamp from FactoryProfile URLs.
+  /// Falls back to bundled app logo when no uploaded logo is available.
   static Future<PdfFactoryBranding> resolve({
     FactoryProfile? profile,
     String fallbackName = 'FACTORY',
     Uint8List? logoBytes,
+    Uint8List? signatureBytes,
+    Uint8List? stampBytes,
     String defaultTagline =
         'PREMIUM NATURAL STONE PROCESSING & EXPORT',
   }) async {
@@ -99,15 +110,21 @@ class PdfFactoryBranding {
             ? invSettings!.footerNote!.trim()
             : null;
 
-    var resolvedLogo = logoBytes;
-    if (resolvedLogo == null || resolvedLogo.isEmpty) {
-      try {
-        final byteData = await rootBundle.load('assets/images/app_logo.png');
-        resolvedLogo = byteData.buffer.asUint8List();
-      } catch (_) {
-        resolvedLogo = null;
-      }
-    }
+    final downloaded = await Future.wait([
+      _bytesFromUrlOrFallback(
+        explicit: logoBytes,
+        url: identity?.logoUrl,
+        assetFallback: 'assets/images/app_logo.png',
+      ),
+      _bytesFromUrlOrFallback(
+        explicit: signatureBytes,
+        url: invSettings?.signatureImageUrl,
+      ),
+      _bytesFromUrlOrFallback(
+        explicit: stampBytes,
+        url: invSettings?.stampImageUrl,
+      ),
+    ]);
 
     return PdfFactoryBranding(
       factoryName: factoryName,
@@ -120,8 +137,58 @@ class PdfFactoryBranding {
       ntn: ntn,
       strn: strn,
       footerNote: footerNote,
-      logoBytes: resolvedLogo,
+      logoBytes: downloaded[0],
+      signatureBytes: downloaded[1],
+      stampBytes: downloaded[2],
     );
+  }
+
+  static Future<Uint8List?> _bytesFromUrlOrFallback({
+    Uint8List? explicit,
+    String? url,
+    String? assetFallback,
+  }) async {
+    if (explicit != null && explicit.isNotEmpty) return explicit;
+
+    final remote = await downloadImageBytes(url);
+    if (remote != null && remote.isNotEmpty) return remote;
+
+    if (assetFallback == null || assetFallback.isEmpty) return null;
+    try {
+      final byteData = await rootBundle.load(assetFallback);
+      return byteData.buffer.asUint8List();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Downloads image bytes from a Firebase / HTTPS URL.
+  static Future<Uint8List?> downloadImageBytes(String? url) async {
+    final trimmed = url?.trim();
+    if (trimmed == null || trimmed.isEmpty) return null;
+    try {
+      final uri = Uri.parse(trimmed);
+      if (!uri.hasScheme || (uri.scheme != 'http' && uri.scheme != 'https')) {
+        return null;
+      }
+      final client = HttpClient();
+      try {
+        final request = await client.getUrl(uri).timeout(
+              const Duration(seconds: 20),
+            );
+        final response = await request.close().timeout(
+              const Duration(seconds: 20),
+            );
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return null;
+        }
+        return await consolidateHttpClientResponseBytes(response);
+      } finally {
+        client.close(force: true);
+      }
+    } catch (_) {
+      return null;
+    }
   }
 }
 
@@ -657,6 +724,180 @@ abstract final class PdfDocumentTheme {
         ),
         if (rightLabel != null)
           pw.Text(rightLabel, style: subtitleStyle(fonts, size: 9)),
+      ],
+    );
+  }
+
+  /// Signature / stamp authorization block for document footers.
+  static pw.Widget authorizationBlock({
+    required PdfFonts fonts,
+    required PdfFactoryBranding branding,
+    String preparedLabel = 'Prepared By / Dispatch Officer',
+    String authorizedLabel = 'Authorized Signature & Stamp',
+    bool showPreparedLine = true,
+  }) {
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.end,
+      children: [
+        if (showPreparedLine)
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.SizedBox(height: 42),
+                pw.Container(
+                  width: 140,
+                  decoration: const pw.BoxDecoration(
+                    border: pw.Border(
+                      bottom: pw.BorderSide(color: navy, width: 1),
+                    ),
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  preparedLabel,
+                  style: pw.TextStyle(
+                    font: fonts.bold,
+                    fontSize: 7.5,
+                    color: navy,
+                  ),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        if (showPreparedLine) pw.SizedBox(width: 16),
+        pw.Expanded(
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.SizedBox(
+                height: 48,
+                child: pw.Stack(
+                  alignment: pw.Alignment.center,
+                  children: [
+                    if (branding.stampBytes != null &&
+                        branding.stampBytes!.isNotEmpty)
+                      pw.Opacity(
+                        opacity: 0.85,
+                        child: pw.Image(
+                          pw.MemoryImage(branding.stampBytes!),
+                          width: 56,
+                          height: 56,
+                          fit: pw.BoxFit.contain,
+                        ),
+                      ),
+                    if (branding.signatureBytes != null &&
+                        branding.signatureBytes!.isNotEmpty)
+                      pw.Image(
+                        pw.MemoryImage(branding.signatureBytes!),
+                        width: 110,
+                        height: 42,
+                        fit: pw.BoxFit.contain,
+                      )
+                    else
+                      pw.Container(
+                        width: 140,
+                        margin: const pw.EdgeInsets.only(top: 36),
+                        decoration: const pw.BoxDecoration(
+                          border: pw.Border(
+                            bottom: pw.BorderSide(color: navy, width: 1),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                authorizedLabel,
+                style: pw.TextStyle(
+                  font: fonts.bold,
+                  fontSize: 7.5,
+                  color: navy,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+              pw.Text(
+                '${branding.factoryName} MANAGEMENT',
+                style: pw.TextStyle(
+                  font: fonts.bold,
+                  fontSize: 7,
+                  color: accentBlue,
+                ),
+                textAlign: pw.TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Compact authorized signature + stamp for invoice-style footers.
+  static pw.Widget authorizedSignatureColumn({
+    required PdfFonts fonts,
+    required PdfFactoryBranding branding,
+    String label = 'Authorized Signature & Stamp',
+    double width = 140,
+  }) {
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.center,
+      children: [
+        pw.SizedBox(
+          width: width,
+          height: 52,
+          child: pw.Stack(
+            alignment: pw.Alignment.center,
+            children: [
+              if (branding.stampBytes != null &&
+                  branding.stampBytes!.isNotEmpty)
+                pw.Opacity(
+                  opacity: 0.85,
+                  child: pw.Image(
+                    pw.MemoryImage(branding.stampBytes!),
+                    width: 54,
+                    height: 54,
+                    fit: pw.BoxFit.contain,
+                  ),
+                ),
+              if (branding.signatureBytes != null &&
+                  branding.signatureBytes!.isNotEmpty)
+                pw.Image(
+                  pw.MemoryImage(branding.signatureBytes!),
+                  width: width - 20,
+                  height: 40,
+                  fit: pw.BoxFit.contain,
+                )
+              else
+                pw.Container(
+                  width: width,
+                  margin: const pw.EdgeInsets.only(top: 38),
+                  height: 0.8,
+                  color: mutedGrey,
+                ),
+            ],
+          ),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          label,
+          style: pw.TextStyle(
+            font: fonts.bold,
+            fontSize: 7.5,
+            color: navy,
+          ),
+          textAlign: pw.TextAlign.center,
+        ),
+        pw.Text(
+          '${branding.factoryName} MANAGEMENT',
+          style: pw.TextStyle(
+            font: fonts.bold,
+            fontSize: 7.5,
+            color: accentBlue,
+          ),
+          textAlign: pw.TextAlign.center,
+        ),
       ],
     );
   }

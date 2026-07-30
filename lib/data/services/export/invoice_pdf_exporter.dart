@@ -1,4 +1,5 @@
-import 'package:flutter/services.dart';
+import 'dart:typed_data';
+
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -255,6 +256,13 @@ class InvoicePdfExporter {
               textAlign: pw.TextAlign.center,
             ),
           ),
+          pw.SizedBox(height: 16),
+          PdfDocumentTheme.authorizationBlock(
+            fonts: fonts,
+            branding: branding,
+            preparedLabel: 'Prepared By',
+            authorizedLabel: 'Authorized Signature & Stamp',
+          ),
         ],
       ),
     );
@@ -322,11 +330,8 @@ class InvoicePdfExporter {
         jobWorkOrderId: invoice.jobWorkId,
       );
 
-      Uint8List? logoBytes;
-      try {
-        final byteData = await rootBundle.load('assets/images/app_logo.png');
-        logoBytes = byteData.buffer.asUint8List();
-      } catch (_) {}
+      final branding = await PdfFactoryBranding.resolve(profile: profile);
+      final logoBytes = branding.logoBytes;
 
       final isGrandInvoice = invoice.loadId == null || invoice.loadId!.trim().isEmpty;
 

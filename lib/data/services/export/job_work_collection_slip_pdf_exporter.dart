@@ -1,4 +1,5 @@
-import 'package:flutter/services.dart';
+import 'dart:typed_data';
+
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -16,6 +17,7 @@ import '../../../domain/entities/job_work_order.dart';
 import '../../repositories/factory_repository.dart';
 import '../../repositories/job_work_load_repository.dart';
 import '../../repositories/job_work_repository.dart';
+import 'pdf_document_theme.dart';
 import 'pdf_fonts.dart';
 
 class JobWorkCollectionSlipPdfExporter {
@@ -255,73 +257,28 @@ class JobWorkCollectionSlipPdfExporter {
     final grandTotalSqFt = totalSmallSqFt + totalLargeSqFt;
     final grandTotalCharges = totalSmallCharges + totalLargeCharges;
 
-    // Resolve logo bytes if omitted
-    if (logoBytes == null) {
-      try {
-        final byteData = await rootBundle.load('assets/images/app_logo.png');
-        logoBytes = byteData.buffer.asUint8List();
-      } catch (_) {}
-    }
+    // Resolve uploaded logo / signature / stamp (falls back to app logo).
+    final branding = await PdfFactoryBranding.resolve(
+      profile: profile,
+      fallbackName: factoryName,
+      logoBytes: logoBytes,
+    );
+    logoBytes = branding.logoBytes;
 
-    final identity = profile?.identity;
-    final contact = profile?.contact;
-    final legal = profile?.legal;
-    final ownership = profile?.ownership;
+    final resolvedFactoryName = branding.factoryName;
+    final tagline = branding.tagline;
+    final factoryOwner = branding.owner;
+    final factoryAddress = branding.address;
+    final factoryPhone = branding.phone;
+    final email = branding.email;
+    final website = branding.website;
+    final ntn = branding.ntn;
+    final strn = branding.strn;
+    final footerNoteText = branding.footerNote ??
+        '$resolvedFactoryName · ISO 9001:2015 Certified Marble & Natural Stone Processing';
+
     final invSettings = profile?.invoiceSettings;
-
-    final rawBizName = identity?.businessName.trim();
-    final rawFacName = profile?.name.trim();
-    final resolvedFactoryName = (rawBizName != null && rawBizName.isNotEmpty
-            ? rawBizName
-            : rawFacName != null && rawFacName.isNotEmpty
-                ? rawFacName
-                : factoryName)
-        .toUpperCase();
-
-    final rawTagline = identity?.tagline?.trim();
-    final tagline =
-        rawTagline != null && rawTagline.isNotEmpty ? rawTagline : null;
-
-    final rawOwner = ownership?.ownerName?.trim();
-    final rawProfileOwner = profile?.ownerName?.trim();
-    final factoryOwner = rawOwner != null && rawOwner.isNotEmpty
-        ? rawOwner
-        : rawProfileOwner != null && rawProfileOwner.isNotEmpty
-            ? rawProfileOwner
-            : null;
-
-    final rawFullAddr = contact?.fullAddress.trim();
-    final rawProfileAddr = profile?.address?.trim();
-    final factoryAddress = rawFullAddr != null && rawFullAddr.isNotEmpty
-        ? rawFullAddr
-        : rawProfileAddr != null && rawProfileAddr.isNotEmpty
-            ? rawProfileAddr
-            : null;
-
-    final rawPhone = contact?.phone.trim();
-    final rawProfilePhone = profile?.phone?.trim();
-    final factoryPhone = rawPhone != null && rawPhone.isNotEmpty
-        ? rawPhone
-        : rawProfilePhone != null && rawProfilePhone.isNotEmpty
-            ? rawProfilePhone
-            : null;
-
-    final rawEmail = contact?.email?.trim();
-    final email = rawEmail != null && rawEmail.isNotEmpty ? rawEmail : null;
-
-    final rawWeb = contact?.website?.trim();
-    final website = rawWeb != null && rawWeb.isNotEmpty ? rawWeb : null;
-
-    final rawNtn = legal?.ntn?.trim();
-    final ntn = rawNtn != null && rawNtn.isNotEmpty ? rawNtn : null;
-
-    final rawStrn = legal?.strn?.trim();
-    final strn = rawStrn != null && rawStrn.isNotEmpty ? rawStrn : null;
-
-    final rawFooter = invSettings?.footerNote?.trim();
-    final footerNoteText = rawFooter != null && rawFooter.isNotEmpty
-        ? rawFooter
-        : '$resolvedFactoryName · ISO 9001:2015 Certified Marble & Natural Stone Processing';
+    final contact = profile?.contact;
 
     final bankAcc = profile != null && profile.bankAccounts.isNotEmpty
         ? profile.bankAccounts.first
@@ -648,7 +605,7 @@ class JobWorkCollectionSlipPdfExporter {
                                           letterSpacing: 0.3,
                                         ),
                                       ),
-                                      if (tagline != null) ...[
+                                      if (tagline.isNotEmpty) ...[
                                         pw.SizedBox(height: 1),
                                         pw.Text(
                                           tagline,
@@ -1179,28 +1136,39 @@ class JobWorkCollectionSlipPdfExporter {
                           ),
                         ],
                       ),
-                      // Prepared By / Dispatch Officer Signature Block
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.center,
-                        children: [
-                          pw.Container(
-                            width: 150,
-                            decoration: const pw.BoxDecoration(
-                              border: pw.Border(
-                                bottom: pw.BorderSide(color: _navy, width: 1),
+                      // Prepared By line
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.center,
+                          children: [
+                            pw.SizedBox(height: 36),
+                            pw.Container(
+                              width: 120,
+                              decoration: const pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: _navy, width: 1),
+                                ),
                               ),
                             ),
-                          ),
-                          pw.SizedBox(height: 3),
-                          pw.Text(
-                            'Prepared By / Dispatch Officer',
-                            style: pw.TextStyle(
-                              font: fonts.bold,
-                              fontSize: 7.5,
-                              color: _navy,
+                            pw.SizedBox(height: 3),
+                            pw.Text(
+                              'Prepared By / Dispatch Officer',
+                              style: pw.TextStyle(
+                                font: fonts.bold,
+                                fontSize: 7,
+                                color: _navy,
+                              ),
+                              textAlign: pw.TextAlign.center,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      ),
+                      pw.SizedBox(width: 8),
+                      // Uploaded signature + official stamp
+                      PdfDocumentTheme.authorizedSignatureColumn(
+                        fonts: fonts,
+                        branding: branding,
+                        width: 120,
                       ),
                     ],
                   ),

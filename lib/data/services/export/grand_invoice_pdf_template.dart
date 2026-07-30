@@ -18,6 +18,7 @@ import '../../../domain/enums/invoice_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
 import '../../../data/services/job_work_container_sync_helper.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
+import 'pdf_document_theme.dart';
 import 'pdf_fonts.dart';
 
 abstract final class GrandInvoicePdfTemplate {
@@ -49,69 +50,27 @@ abstract final class GrandInvoicePdfTemplate {
     Uint8List? logoBytes,
     List<JobWorkInvoice>? allInvoices,
   }) async {
+    final branding = await PdfFactoryBranding.resolve(
+      profile: factoryProfile,
+      logoBytes: logoBytes,
+      fallbackName: 'JK MARBLE',
+    );
+    final resolvedLogoBytes = branding.logoBytes;
+
     final doc = pw.Document(theme: fonts.theme);
     final dateFormat = DateFormat('MMM dd, yyyy');
 
-    // Factory information with full dynamic extraction from FactoryProfile
-    final identity = factoryProfile?.identity;
-    final contact = factoryProfile?.contact;
-    final legal = factoryProfile?.legal;
-    final ownership = factoryProfile?.ownership;
     final invSettings = factoryProfile?.invoiceSettings;
 
-    final rawBizName = identity?.businessName.trim();
-    final rawFacName = factoryProfile?.name.trim();
-    final factoryName = (rawBizName != null && rawBizName.isNotEmpty
-            ? rawBizName
-            : rawFacName != null && rawFacName.isNotEmpty
-                ? rawFacName
-                : 'JK MARBLE')
-        .toUpperCase();
-
-    final rawTagline = identity?.tagline?.trim();
-    final tagline = rawTagline != null && rawTagline.isNotEmpty
-        ? rawTagline.toUpperCase()
-        : 'PREMIUM NATURAL STONE PROCESSING & EXPORT';
-
-    final rawOwner = ownership?.ownerName?.trim();
-    final rawProfileOwner = factoryProfile?.ownerName?.trim();
-    final factoryOwner = rawOwner != null && rawOwner.isNotEmpty
-        ? rawOwner
-        : rawProfileOwner != null && rawProfileOwner.isNotEmpty
-            ? rawProfileOwner
-            : 'Jabbar Kakar';
-
-    final rawFullAddr = contact?.fullAddress.trim();
-    final rawProfileAddr = factoryProfile?.address?.trim();
-    final factoryAddress = rawFullAddr != null && rawFullAddr.isNotEmpty
-        ? rawFullAddr
-        : rawProfileAddr != null && rawProfileAddr.isNotEmpty
-            ? rawProfileAddr
-            : 'Factory Road, Industrial Estate, Quetta, Balochistan, Pakistan';
-
-    final rawPhone = contact?.phone.trim();
-    final rawProfilePhone = factoryProfile?.phone?.trim();
-    final factoryPhone = rawPhone != null && rawPhone.isNotEmpty
-        ? rawPhone
-        : rawProfilePhone != null && rawProfilePhone.isNotEmpty
-            ? rawProfilePhone
-            : '+92 346 4823221';
-
-    final rawEmail = contact?.email?.trim();
-    final email = rawEmail != null && rawEmail.isNotEmpty
-        ? rawEmail
-        : 'info@${factoryName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}.com';
-
-    final rawWeb = contact?.website?.trim();
-    final website = rawWeb != null && rawWeb.isNotEmpty
-        ? rawWeb
-        : 'www.${factoryName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}.com';
-
-    final rawNtn = legal?.ntn?.trim();
-    final ntn = rawNtn != null && rawNtn.isNotEmpty ? rawNtn : '9204856-1';
-
-    final rawStrn = legal?.strn?.trim();
-    final strn = rawStrn != null && rawStrn.isNotEmpty ? rawStrn : '3908671-5';
+    final factoryName = branding.factoryName;
+    final tagline = branding.tagline;
+    final factoryOwner = branding.owner ?? 'N/A';
+    final factoryAddress = branding.address ?? 'N/A';
+    final factoryPhone = branding.phone ?? 'N/A';
+    final email = branding.email ?? 'N/A';
+    final website = branding.website ?? 'N/A';
+    final ntn = branding.ntn ?? 'N/A';
+    final strn = branding.strn ?? 'N/A';
 
     final rawTerms = invSettings?.termsAndConditions?.trim();
     final termsText = rawTerms != null && rawTerms.isNotEmpty
@@ -120,10 +79,8 @@ abstract final class GrandInvoicePdfTemplate {
           '2. Payments are to be settled as per agreed commercial terms.\n'
           '3. All stone materials delivered remain under job work custody until final clearance.';
 
-    final rawFooter = invSettings?.footerNote?.trim();
-    final footerNoteText = rawFooter != null && rawFooter.isNotEmpty
-        ? rawFooter
-        : 'Thank you for your valuable business with $factoryName!';
+    final footerNoteText = branding.footerNote ??
+        'Thank you for your valuable business with $factoryName!';
 
     final currencyCode = factoryProfile?.invoiceSettings.currency ?? Formatters.activeCurrency;
     final currencySymbol = CurrencyFormatter.getSymbol(currencyCode, asciiSafe: true);
@@ -243,12 +200,12 @@ abstract final class GrandInvoicePdfTemplate {
                     pw.Row(
                       crossAxisAlignment: pw.CrossAxisAlignment.center,
                       children: [
-                        if (logoBytes != null) ...[
+                        if (resolvedLogoBytes != null) ...[
                           pw.Container(
                             width: 56,
                             height: 56,
                             child: pw.Image(
-                              pw.MemoryImage(logoBytes),
+                              pw.MemoryImage(resolvedLogoBytes),
                               fit: pw.BoxFit.contain,
                             ),
                           ),
@@ -667,19 +624,16 @@ abstract final class GrandInvoicePdfTemplate {
               // Prepared line
               pw.Column(
                 children: [
+                  pw.SizedBox(height: 42),
                   pw.Container(width: 140, height: 0.8, color: _mutedGrey),
                   pw.SizedBox(height: 4),
                   pw.Text('Prepared By / Dispatch Officer', style: pw.TextStyle(font: fonts.regular, fontSize: 7.5, color: _mutedGrey)),
                 ],
               ),
-              // Authorized line
-              pw.Column(
-                children: [
-                  pw.Container(width: 140, height: 0.8, color: _mutedGrey),
-                  pw.SizedBox(height: 4),
-                  pw.Text('Authorized Signature & Stamp', style: pw.TextStyle(font: fonts.bold, fontSize: 7.5, color: _navy)),
-                  pw.Text('${factoryName.toUpperCase()} MANAGEMENT', style: pw.TextStyle(font: fonts.bold, fontSize: 7.5, color: _accentBlue)),
-                ],
+              // Authorized signature + official stamp
+              PdfDocumentTheme.authorizedSignatureColumn(
+                fonts: fonts,
+                branding: branding,
               ),
             ],
           ),

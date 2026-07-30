@@ -240,34 +240,7 @@ class DeliveryChallanPdfExporter {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
-                    pw.Container(
-                      width: 160,
-                      decoration: const pw.BoxDecoration(
-                        border: pw.Border(
-                          bottom: pw.BorderSide(
-                            color: PdfDocumentTheme.navy,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(
-                      AppStrings.loadingSupervisor,
-                      style: pw.TextStyle(
-                        font: fonts.bold,
-                        fontSize: 8,
-                        color: PdfDocumentTheme.navy,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(width: 24),
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.center,
-                  children: [
+                    pw.SizedBox(height: 42),
                     pw.Container(
                       width: 160,
                       decoration: const pw.BoxDecoration(
@@ -294,6 +267,13 @@ class DeliveryChallanPdfExporter {
                     ),
                   ],
                 ),
+              ),
+              pw.SizedBox(width: 24),
+              PdfDocumentTheme.authorizedSignatureColumn(
+                fonts: fonts,
+                branding: branding,
+                label: AppStrings.loadingSupervisor,
+                width: 160,
               ),
             ],
           ),

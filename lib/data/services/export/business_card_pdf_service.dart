@@ -1,9 +1,11 @@
 import 'dart:typed_data';
+
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../domain/entities/factory_profile.dart';
+import 'pdf_document_theme.dart';
 
 /// PDF Service for generating printable high-resolution business cards.
 class BusinessCardPdfService {
@@ -68,6 +70,8 @@ class BusinessCardPdfService {
     FactoryProfile profile, {
     Uint8List? logoBytes,
   }) async {
+    final resolvedLogo = logoBytes ??
+        await PdfFactoryBranding.downloadImageBytes(profile.identity.logoUrl);
     final doc = pw.Document();
 
     final fontRegular = await PdfGoogleFonts.outfitRegular();
@@ -87,7 +91,7 @@ class BusinessCardPdfService {
           profile: profile,
           fontRegular: fontRegular,
           fontBold: fontBold,
-          logoBytes: logoBytes,
+          logoBytes: resolvedLogo,
         ),
       ),
     );
@@ -114,6 +118,8 @@ class BusinessCardPdfService {
     FactoryProfile profile, {
     Uint8List? logoBytes,
   }) async {
+    final resolvedLogo = logoBytes ??
+        await PdfFactoryBranding.downloadImageBytes(profile.identity.logoUrl);
     final doc = pw.Document();
 
     final fontRegular = await PdfGoogleFonts.outfitRegular();
@@ -138,7 +144,7 @@ class BusinessCardPdfService {
             profile: profile,
             fontRegular: fontRegular,
             fontBold: fontBold,
-            logoBytes: logoBytes,
+            logoBytes: resolvedLogo,
           ),
         ),
       ),

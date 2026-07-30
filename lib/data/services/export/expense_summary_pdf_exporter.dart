@@ -127,6 +127,13 @@ class ExpenseSummaryPdfExporter {
                 ),
             ],
           ),
+          pw.SizedBox(height: 18),
+          PdfDocumentTheme.authorizationBlock(
+            fonts: fonts,
+            branding: branding,
+            preparedLabel: 'Prepared By',
+            authorizedLabel: 'Authorized Signature & Stamp',
+          ),
         ],
       ),
     );
