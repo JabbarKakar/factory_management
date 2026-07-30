@@ -194,6 +194,9 @@ abstract final class AppStrings {
   static const String invoicedShort = 'Invoiced';
   static const String receivedShort = 'Received';
   static const String pendingShort = 'Pending';
+  static const String financeOverviewTitle = 'Financial Overview';
+  static const String financeOverviewSubtitle =
+      'Totals for the Job Works currently shown in the list.';
   static const String close = 'Close';
   static const String summary = 'Summary';
   // Job Work Loads (Sprint 2)
