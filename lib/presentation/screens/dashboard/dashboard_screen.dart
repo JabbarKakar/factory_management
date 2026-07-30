@@ -8,6 +8,7 @@ import '../../../domain/entities/dashboard_kpis.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
 import '../../widgets/account_menu_button.dart';
+import '../../widgets/dashboard/dashboard_daily_finance_card.dart';
 import '../../widgets/dashboard/dashboard_kpi_grid.dart';
 import '../../widgets/dashboard/dashboard_production_chart_card.dart';
 import '../../widgets/dashboard/dashboard_quick_actions_grid.dart';
@@ -74,6 +75,17 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                 ],
                 DashboardWelcomeBanner(user: user),
+                if (user != null &&
+                    (user.canView(AppModule.sales) ||
+                        user.canView(AppModule.jobWork) ||
+                        user.canView(AppModule.plReport) ||
+                        user.canView(AppModule.expenses))) ...[
+                  const SizedBox(height: 16),
+                  DashboardDailyFinanceCard(
+                    kpis: state.kpis,
+                    user: user,
+                  ),
+                ],
                 if (user != null &&
                     (user.canView(AppModule.sales) ||
                         user.canView(AppModule.jobWork))) ...[

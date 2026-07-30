@@ -369,8 +369,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
+    final yesterday = today.subtract(const Duration(days: 1));
+
     final revenueToday = _payments
         .where((payment) => _isSameDay(payment.paymentDate, today))
+        .fold<double>(0, (sum, payment) => sum + payment.amount);
+
+    final revenueYesterday = _payments
+        .where((payment) => _isSameDay(payment.paymentDate, yesterday))
         .fold<double>(0, (sum, payment) => sum + payment.amount);
 
     final salesRevenueToday = _payments
@@ -556,6 +562,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       salesInvoices: _salesInvoices,
     );
 
+    final expensesToday = _expenses
+        .where((expense) => _isSameDay(expense.expenseDate, today))
+        .fold<double>(0, (sum, expense) => sum + expense.amount);
+
+    final expensesYesterday = _expenses
+        .where((expense) => _isSameDay(expense.expenseDate, yesterday))
+        .fold<double>(0, (sum, expense) => sum + expense.amount);
+
     final expensesThisMonthList = _expenses.where((expense) {
       final date = expense.expenseDate;
       return date.year == now.year && date.month == now.month;
@@ -693,7 +707,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           jobWorkPendingQcCount: jobWorkPendingQcCount,
           salesRevenueToday: salesRevenueToday,
           jobWorkRevenueToday: jobWorkRevenueToday,
+          revenueYesterday: revenueYesterday,
           revenueThisMonth: revenueThisMonth,
+          expensesToday: expensesToday,
+          expensesYesterday: expensesYesterday,
           dueThisWeekCount: overdueSummary.dueThisWeekCount,
           dueThisWeekAmount: overdueSummary.dueThisWeekAmount,
           ownProductionTodaySqFt: ownProductionTodaySqFt,

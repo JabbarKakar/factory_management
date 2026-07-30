@@ -31,7 +31,10 @@ class DashboardKpis extends Equatable {
     required this.jobWorkPendingQcCount,
     required this.salesRevenueToday,
     required this.jobWorkRevenueToday,
+    required this.revenueYesterday,
     required this.revenueThisMonth,
+    required this.expensesToday,
+    required this.expensesYesterday,
     required this.dueThisWeekCount,
     required this.dueThisWeekAmount,
     required this.ownProductionTodaySqFt,
@@ -69,7 +72,10 @@ class DashboardKpis extends Equatable {
     jobWorkPendingQcCount: 0,
     salesRevenueToday: 0,
     jobWorkRevenueToday: 0,
+    revenueYesterday: 0,
     revenueThisMonth: 0,
+    expensesToday: 0,
+    expensesYesterday: 0,
     dueThisWeekCount: 0,
     dueThisWeekAmount: 0,
     ownProductionTodaySqFt: 0,
@@ -111,7 +117,10 @@ class DashboardKpis extends Equatable {
   final int jobWorkPendingQcCount;
   final double salesRevenueToday;
   final double jobWorkRevenueToday;
+  final double revenueYesterday;
   final double revenueThisMonth;
+  final double expensesToday;
+  final double expensesYesterday;
   final int dueThisWeekCount;
   final double dueThisWeekAmount;
   final double ownProductionTodaySqFt;
@@ -120,6 +129,31 @@ class DashboardKpis extends Equatable {
 
   double get productionTodaySqFt =>
       ownProductionTodaySqFt + jobWorkOutputTodaySqFt;
+
+  /// Day-over-day % for income; `null` when both days are zero.
+  double? get revenueDayOverDayPercent =>
+      dayOverDayPercent(revenueToday, revenueYesterday);
+
+  /// Day-over-day % for expenses; `null` when both days are zero.
+  double? get expensesDayOverDayPercent =>
+      dayOverDayPercent(expensesToday, expensesYesterday);
+
+  /// Today's expenses as a % of today's income; `null` when income is 0.
+  double? get expensesToIncomePercent =>
+      revenueToday > 0 ? (expensesToday / revenueToday) * 100 : null;
+
+  /// Income received today minus expenses recorded today.
+  double get netCashflowToday => revenueToday - expensesToday;
+
+  /// `((today - yesterday) / yesterday) * 100`.
+  /// Returns `null` when both are 0; `100` when yesterday is 0 and today > 0.
+  static double? dayOverDayPercent(double today, double yesterday) {
+    if (yesterday == 0) {
+      if (today == 0) return null;
+      return 100;
+    }
+    return ((today - yesterday) / yesterday) * 100;
+  }
 
   @override
   List<Object?> get props => [
@@ -152,7 +186,10 @@ class DashboardKpis extends Equatable {
         jobWorkPendingQcCount,
         salesRevenueToday,
         jobWorkRevenueToday,
+        revenueYesterday,
         revenueThisMonth,
+        expensesToday,
+        expensesYesterday,
         dueThisWeekCount,
         dueThisWeekAmount,
         ownProductionTodaySqFt,
