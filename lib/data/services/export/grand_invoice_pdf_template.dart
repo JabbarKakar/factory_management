@@ -885,7 +885,8 @@ abstract final class GrandInvoicePdfTemplate {
               ],
             ),
             if (isSingleLoad) ...[
-              // Detailed rendering for each individual size (small then large)
+              // Detailed rendering for each individual size (small then large),
+              // with Collection-slip-style category subtotals after each section.
               if (produced.where((s) => JobWorkSizes.isSmall(s.size)).isNotEmpty) ...[
                 pw.TableRow(
                   decoration: const pw.BoxDecoration(color: _bgLight),
@@ -927,6 +928,18 @@ abstract final class GrandInvoicePdfTemplate {
                     ],
                   );
                 }),
+                _categorySubtotalRow(
+                  fonts: fonts,
+                  label: 'Subtotal Small:',
+                  totalPieces: smallTotalPieces,
+                  collectedPieces: smallCollectedPieces,
+                  remainingPieces: smallRemainingPieces,
+                  totalSqFt: smallTotalSqFt,
+                  collectedSqFt: smallCollectedSqFt,
+                  remainingSqFt: smallRemainingSqFt,
+                  rateStr: smallRateStr,
+                  charges: smallTotalAmount,
+                ),
               ],
               if (produced.where((s) => !JobWorkSizes.isSmall(s.size)).isNotEmpty) ...[
                 pw.TableRow(
@@ -969,6 +982,18 @@ abstract final class GrandInvoicePdfTemplate {
                     ],
                   );
                 }),
+                _categorySubtotalRow(
+                  fonts: fonts,
+                  label: 'Subtotal Large:',
+                  totalPieces: largeTotalPieces,
+                  collectedPieces: largeCollectedPieces,
+                  remainingPieces: largeRemainingPieces,
+                  totalSqFt: largeTotalSqFt,
+                  collectedSqFt: largeCollectedSqFt,
+                  remainingSqFt: largeRemainingSqFt,
+                  rateStr: largeRateStr,
+                  charges: largeTotalAmount,
+                ),
               ],
             ] else ...[
               // Summarized rendering (Grand Invoice)
@@ -1152,6 +1177,34 @@ abstract final class GrandInvoicePdfTemplate {
   }
 
 
+
+  static pw.TableRow _categorySubtotalRow({
+    required PdfFonts fonts,
+    required String label,
+    required int totalPieces,
+    required int collectedPieces,
+    required int remainingPieces,
+    required double totalSqFt,
+    required double collectedSqFt,
+    required double remainingSqFt,
+    required String rateStr,
+    required double charges,
+  }) {
+    return pw.TableRow(
+      decoration: const pw.BoxDecoration(color: _goldBg),
+      children: [
+        _tableCell(fonts, label, isBold: true),
+        _tableCell(fonts, formatWhole(totalPieces), isBold: true),
+        _tableCell(fonts, formatWhole(collectedPieces), isBold: true),
+        _tableCell(fonts, formatWhole(remainingPieces), isBold: true),
+        _tableCell(fonts, formatAmount(totalSqFt), isBold: true),
+        _tableCell(fonts, formatAmount(collectedSqFt), isBold: true),
+        _tableCell(fonts, formatAmount(remainingSqFt), isBold: true),
+        _tableCell(fonts, rateStr, isBold: true),
+        _tableCell(fonts, formatAmount(charges), isBold: true),
+      ],
+    );
+  }
 
   static pw.Widget _tableHeader(PdfFonts fonts, String text, {pw.TextAlign align = pw.TextAlign.center}) {
     return pw.Padding(

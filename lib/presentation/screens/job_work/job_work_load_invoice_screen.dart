@@ -29,6 +29,7 @@ import '../../widgets/job_work/job_work_invoice_detail_hero.dart';
 import '../../widgets/job_work/job_work_invoice_payment_action_bar.dart';
 import '../../widgets/job_work/job_work_invoice_payment_history_section.dart';
 import '../../widgets/job_work/job_work_invoice_pricing_section.dart';
+import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/send_payment_reminder_button.dart';
 
 class JobWorkLoadInvoiceScreen extends StatefulWidget {
@@ -427,23 +428,44 @@ class _JobWorkLoadInvoiceScreenState extends State<JobWorkLoadInvoiceScreen> {
                 JobWorkDetailSection(
                   title: 'Production Summary',
                   icon: Icons.analytics_outlined,
-                  child: JobWorkDetailRows(
-                    rows: [
-                      JobWorkDetailRow(
-                        label: 'Pieces Produced',
-                        value: '${load.output?.totalPieces ?? 0} pcs',
-                      ),
-                      JobWorkDetailRow(
-                        label: 'Square Feet Produced',
-                        value:
-                            '${(load.output?.totalOutputSqFt ?? 0.0).toStringAsFixed(2)} sq. ft',
-                      ),
-                      JobWorkDetailRow(
-                        label: 'Cutting Charges',
-                        value: Formatters.currencyPkr(load.finalCuttingCharges),
-                        bold: true,
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (load.output?.hasStockOutputs == true)
+                          StockOutputReadOnlyPanel(
+                            smallOutputs: load.output!.smallStockOutputs,
+                            largeOutputs: load.output!.largeStockOutputs,
+                          )
+                        else
+                          JobWorkDetailRows(
+                            rows: [
+                              JobWorkDetailRow(
+                                label: 'Pieces Produced',
+                                value: '${load.output?.totalPieces ?? 0} pcs',
+                              ),
+                              JobWorkDetailRow(
+                                label: 'Square Feet Produced',
+                                value:
+                                    '${(load.output?.totalOutputSqFt ?? 0.0).toStringAsFixed(2)} sq. ft',
+                              ),
+                            ],
+                          ),
+                        const SizedBox(height: 8),
+                        JobWorkDetailRows(
+                          rows: [
+                            JobWorkDetailRow(
+                              label: 'Cutting Charges',
+                              value: Formatters.currencyPkr(
+                                load.finalCuttingCharges,
+                              ),
+                              bold: true,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 JobWorkInvoicePricingSection(invoice: invoice),
