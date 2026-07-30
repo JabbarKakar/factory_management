@@ -39,6 +39,42 @@ abstract final class CurrencyFormatter {
     return '$prefix$symbol $formattedNumber'.trim();
   }
 
+  /// Compact currency for dense UI (K / M suffixes).
+  static String formatCompact(
+    num amount, {
+    String? currencyCode,
+    bool asciiSafe = false,
+  }) {
+    final code = (currencyCode != null && currencyCode.trim().isNotEmpty)
+        ? currencyCode.trim().toUpperCase()
+        : activeCurrency.trim().toUpperCase();
+
+    final isNegative = amount < 0;
+    final absAmount = amount.abs().toDouble();
+    final symbol = getSymbol(code, asciiSafe: asciiSafe);
+    final prefix = isNegative ? '- ' : '';
+
+    final String number;
+    if (absAmount >= 10000000) {
+      number = '${_trimTrailingZeros((absAmount / 1000000).toStringAsFixed(2))}M';
+    } else if (absAmount >= 1000000) {
+      number = '${_trimTrailingZeros((absAmount / 1000000).toStringAsFixed(2))}M';
+    } else if (absAmount >= 10000) {
+      number = '${_trimTrailingZeros((absAmount / 1000).toStringAsFixed(1))}K';
+    } else {
+      return format(amount, currencyCode: code, decimalDigits: 0, asciiSafe: asciiSafe);
+    }
+
+    return '$prefix$symbol $number'.trim();
+  }
+
+  static String _trimTrailingZeros(String value) {
+    if (!value.contains('.')) return value;
+    return value
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+  }
+
   /// Returns the currency symbol or prefix string for a currency code.
   static String getSymbol(String currencyCode, {bool asciiSafe = false}) {
     final code = currencyCode.trim().toUpperCase();

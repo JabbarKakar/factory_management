@@ -49,6 +49,14 @@ abstract final class Formatters {
     );
   }
 
+  /// Short currency for tight UI strips (e.g. Rs 1.45M, Rs 650K).
+  static String currencyCompact(double amount, {String? currencyCode}) {
+    return CurrencyFormatter.formatCompact(
+      amount,
+      currencyCode: currencyCode,
+    );
+  }
+
   /// ASCII-safe currency for PDF/Excel exports (Helvetica fallback friendly).
   static String currencyForExport(double amount, {String? currencyCode}) {
     return CurrencyFormatter.format(

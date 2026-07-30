@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 
-/// Compact single-row financial rollup across visible Job Work orders.
+/// Slim financial strip — label over compact amount, stays readable for large totals.
 class JobWorkFinanceOverviewBar extends StatelessWidget {
   const JobWorkFinanceOverviewBar({
     required this.invoiced,
@@ -28,46 +28,46 @@ class JobWorkFinanceOverviewBar extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final cardBg = isDark ? _cardBgDark : _cardBgLight;
     final outline =
-        theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.45);
-    final labelColor = theme.colorScheme.onSurfaceVariant;
-    final divider = outline.withValues(alpha: isDark ? 0.55 : 0.7);
+        theme.colorScheme.outline.withValues(alpha: isDark ? 0.3 : 0.4);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final divider = outline.withValues(alpha: 0.65);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: cardBg,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: outline),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 5),
           child: Row(
             children: [
               Expanded(
                 child: _MetricCell(
-                  label: AppStrings.totalInvoiced,
+                  label: AppStrings.invoicedShort,
                   value: invoiced,
                   color: isDark ? _invoiced : const Color(0xFFB45309),
-                  labelColor: labelColor,
+                  muted: muted,
                 ),
               ),
-              Container(width: 1, height: 28, color: divider),
+              Container(width: 1, height: 22, color: divider),
               Expanded(
                 child: _MetricCell(
-                  label: AppStrings.totalReceived,
+                  label: AppStrings.receivedShort,
                   value: received,
                   color: _received,
-                  labelColor: labelColor,
+                  muted: muted,
                 ),
               ),
-              Container(width: 1, height: 28, color: divider),
+              Container(width: 1, height: 22, color: divider),
               Expanded(
                 child: _MetricCell(
-                  label: AppStrings.totalPending,
+                  label: AppStrings.pendingShort,
                   value: pending,
                   color: _pending,
-                  labelColor: labelColor,
+                  muted: muted,
                 ),
               ),
             ],
@@ -83,50 +83,55 @@ class _MetricCell extends StatelessWidget {
     required this.label,
     required this.value,
     required this.color,
-    required this.labelColor,
+    required this.muted,
   });
 
   final String label;
   final double value;
   final Color color;
-  final Color labelColor;
+  final Color muted;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: labelColor,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              height: 1.1,
-            ),
-          ),
-          const SizedBox(height: 3),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              Formatters.currencyPkrWhole(value),
+    return Tooltip(
+      message: Formatters.currencyPkr(value),
+      waitDuration: const Duration(milliseconds: 400),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w800,
-                fontSize: 12,
-                height: 1.1,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: muted,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                height: 1,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                Formatters.currencyCompact(value),
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  height: 1.05,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

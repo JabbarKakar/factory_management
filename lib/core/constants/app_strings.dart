@@ -191,6 +191,9 @@ abstract final class AppStrings {
   static const String totalInvoiced = 'Total Invoiced';
   static const String totalReceived = 'Total Received';
   static const String totalPending = 'Total Pending';
+  static const String invoicedShort = 'Invoiced';
+  static const String receivedShort = 'Received';
+  static const String pendingShort = 'Pending';
   static const String close = 'Close';
   static const String summary = 'Summary';
   // Job Work Loads (Sprint 2)

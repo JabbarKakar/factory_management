@@ -453,7 +453,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
               },
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           BlocBuilder<JobWorkListBloc, JobWorkListState>(
             builder: (context, state) {
               if (state.status == JobWorkListStatus.loading &&
@@ -468,6 +468,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
               );
             },
           ),
+          const SizedBox(height: 2),
           BlocBuilder<JobWorkListBloc, JobWorkListState>(
             buildWhen: (prev, curr) =>
                 prev.awaitingQcCount != curr.awaitingQcCount,
