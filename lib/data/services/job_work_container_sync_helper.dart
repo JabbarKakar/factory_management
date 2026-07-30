@@ -310,14 +310,48 @@ abstract final class JobWorkContainerSyncHelper {
 
   /// Prefer invoice documents when present (authoritative paid/due/charges).
   /// Only counts active (non-cancelled) Loads so Summary matches visible cards.
+  ///
+  /// When Loads exist (Option A), finance is always rolled up from those Loads /
+  /// Load-scoped invoices. A JW-level grand invoice (empty [loadId]) is used only
+  /// as a fallback when there are no Loads — never short-circuit Load totals.
   static ({double charges, double paid, double due}) rollupInvoiceFinance({
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
     required List<JobWorkInvoice> invoices,
     List<JobWorkLoad>? loadsToSum,
   }) {
-    // A Grand Invoice MUST have a null/empty loadId.
-    // Never treat a single load-scoped invoice as the grand invoice for the entire container.
+    final byLoadId = <String, JobWorkInvoice>{};
+    for (final invoice in invoices) {
+      final loadId = invoice.loadId?.trim();
+      if (loadId == null || loadId.isEmpty) continue;
+      byLoadId[loadId] = invoice;
+    }
+    for (final invoice in invoices) {
+      final loadId = invoice.loadId?.trim();
+      if (loadId == null || loadId.isEmpty) continue;
+      byLoadId.putIfAbsent(loadId, () => invoice);
+    }
+
+    final orderLoads = loadsToSum ?? activeLoadsForFinance(order, loads);
+    if (orderLoads.isNotEmpty) {
+      var charges = 0.0;
+      var paid = 0.0;
+      var due = 0.0;
+      for (final load in orderLoads) {
+        JobWorkInvoice? invoice = byLoadId[load.id];
+        final linkedId = load.invoiceId?.trim();
+        if (linkedId != null && linkedId.isNotEmpty) {
+          final linked = invoices.where((item) => item.id == linkedId).firstOrNull;
+          if (linked != null) invoice = linked;
+        }
+        final finance = financeForLoad(load: load, invoice: invoice);
+        charges += finance.charges;
+        paid += finance.paid;
+        due += finance.due;
+      }
+      return (charges: charges, paid: paid, due: due);
+    }
+
     final grandInvoice = invoices
         .where((i) => i.loadId == null || i.loadId!.trim().isEmpty)
         .firstOrNull;
@@ -327,49 +361,6 @@ abstract final class JobWorkContainerSyncHelper {
         paid: grandInvoice.paidAmount,
         due: grandInvoice.dueAmount,
       );
-    }
-
-    final byLoadId = <String, JobWorkInvoice>{};
-    for (final invoice in invoices) {
-      final loadId = invoice.loadId?.trim();
-      if (loadId == null || loadId.isEmpty) continue;
-      // Prefer the invoice the Load points at when set.
-      byLoadId[loadId] = invoice;
-    }
-    for (final invoice in invoices) {
-      final loadId = invoice.loadId?.trim();
-      if (loadId == null || loadId.isEmpty) continue;
-      byLoadId.putIfAbsent(loadId, () => invoice);
-    }
-
-    final orderLoads = loadsToSum ??
-        activeLoadsForFinance(order, loads);
-    if (orderLoads.isNotEmpty) {
-      var charges = 0.0;
-      var paid = 0.0;
-      var due = 0.0;
-      for (final load in orderLoads) {
-        final invoice = byLoadId[load.id];
-        if (load.invoiceId != null &&
-            load.invoiceId!.isNotEmpty &&
-            invoice != null &&
-            invoice.id != load.invoiceId) {
-          // load.invoiceId wins when it differs from an older duplicate doc.
-          final linked = invoices
-              .where((item) => item.id == load.invoiceId)
-              .firstOrNull;
-          final finance = financeForLoad(load: load, invoice: linked);
-          charges += finance.charges;
-          paid += finance.paid;
-          due += finance.due;
-          continue;
-        }
-        final finance = financeForLoad(load: load, invoice: invoice);
-        charges += finance.charges;
-        paid += finance.paid;
-        due += finance.due;
-      }
-      return (charges: charges, paid: paid, due: due);
     }
 
     if (invoices.isNotEmpty) {

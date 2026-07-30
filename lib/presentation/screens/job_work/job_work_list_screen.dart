@@ -24,6 +24,7 @@ import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/app_extended_fab.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/job_work/job_work_finance_overview_bar.dart';
 import '../../widgets/job_work/job_work_list_tile.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/job_work/job_work_stage_filter_bar.dart';
@@ -310,6 +311,25 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     return (paid: finance.paid, remaining: finance.due);
   }
 
+  ({double invoiced, double received, double pending}) _financeOverviewFor(
+    JobWorkListState state,
+  ) {
+    var invoiced = 0.0;
+    var received = 0.0;
+    var pending = 0.0;
+    for (final order in state.visibleOrders) {
+      final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+        order: order,
+        loads: state.loadsForOrder(order.id),
+        invoices: state.invoicesForOrder(order.id),
+      );
+      invoiced += finance.charges;
+      received += finance.paid;
+      pending += finance.due;
+    }
+    return (invoiced: invoiced, received: received, pending: pending);
+  }
+
   @override
   Widget build(BuildContext context) {
     final canEdit = context.userCanEdit(AppModule.jobWork);
@@ -434,6 +454,20 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
             ),
           ),
           const SizedBox(height: 8),
+          BlocBuilder<JobWorkListBloc, JobWorkListState>(
+            builder: (context, state) {
+              if (state.status == JobWorkListStatus.loading &&
+                  state.orders.isEmpty) {
+                return const SizedBox.shrink();
+              }
+              final overview = _financeOverviewFor(state);
+              return JobWorkFinanceOverviewBar(
+                invoiced: overview.invoiced,
+                received: overview.received,
+                pending: overview.pending,
+              );
+            },
+          ),
           BlocBuilder<JobWorkListBloc, JobWorkListState>(
             buildWhen: (prev, curr) =>
                 prev.awaitingQcCount != curr.awaitingQcCount,
