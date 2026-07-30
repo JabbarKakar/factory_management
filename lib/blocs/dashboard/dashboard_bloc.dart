@@ -701,7 +701,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           productionThisMonthSqFt: productionThisMonthSqFt,
         ),
         analytics: analytics,
-        pendingPickups: pendingPickups.take(5).toList(),
+        pendingPickups: pendingPickups.take(4).toList(),
         errorMessage: null,
       ),
     );
