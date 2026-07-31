@@ -16,6 +16,8 @@ class SalesOrderFormState extends Equatable {
     this.order,
     this.eligibleCustomers = const [],
     this.deliveries = const [],
+    this.invoice,
+    this.payments = const [],
     this.errorMessage,
     this.successMessage,
     this.isEditing = false,
@@ -26,6 +28,8 @@ class SalesOrderFormState extends Equatable {
   final SalesOrder? order;
   final List<Customer> eligibleCustomers;
   final List<Delivery> deliveries;
+  final SalesInvoice? invoice;
+  final List<Payment> payments;
   final String? errorMessage;
   final String? successMessage;
   final bool isEditing;
@@ -36,6 +40,9 @@ class SalesOrderFormState extends Equatable {
     SalesOrder? order,
     List<Customer>? eligibleCustomers,
     List<Delivery>? deliveries,
+    SalesInvoice? invoice,
+    bool clearInvoice = false,
+    List<Payment>? payments,
     String? errorMessage,
     String? successMessage,
     bool clearMessages = false,
@@ -47,6 +54,8 @@ class SalesOrderFormState extends Equatable {
       order: order ?? this.order,
       eligibleCustomers: eligibleCustomers ?? this.eligibleCustomers,
       deliveries: deliveries ?? this.deliveries,
+      invoice: clearInvoice ? null : (invoice ?? this.invoice),
+      payments: payments ?? this.payments,
       errorMessage: clearMessages ? null : errorMessage,
       successMessage: clearMessages ? null : successMessage,
       isEditing: isEditing ?? this.isEditing,
@@ -60,6 +69,8 @@ class SalesOrderFormState extends Equatable {
         order,
         eligibleCustomers,
         deliveries,
+        invoice,
+        payments,
         errorMessage,
         successMessage,
         isEditing,

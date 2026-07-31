@@ -61,6 +61,13 @@ class SalesOrderRepository {
     return SalesOrderModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
+  Stream<SalesOrder?> watchSalesOrder(String id) {
+    return _ordersCollection.doc(id).snapshots().map((doc) {
+      if (!doc.exists || doc.data() == null) return null;
+      return SalesOrderModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    });
+  }
+
   Future<List<SalesOrder>> getOrdersForAgreement({
     required String factoryId,
     required String agreementId,

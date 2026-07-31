@@ -45,11 +45,48 @@ class SalesInvoiceRepository {
     final snapshot = await _collection
         .where('factoryId', isEqualTo: factoryId)
         .where('salesOrderId', isEqualTo: salesOrderId)
-        .limit(1)
         .get();
     if (snapshot.docs.isEmpty) return null;
-    final doc = snapshot.docs.first;
-    return SalesInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
+
+    final invoices = snapshot.docs
+        .map((doc) => SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        // Grand invoices use empty salesOrderId — exclude for safety.
+        .where((invoice) => !invoice.isGrandInvoice)
+        .toList();
+    if (invoices.isEmpty) return null;
+
+    // Prefer one active (non-cancelled) single invoice per order.
+    for (final invoice in invoices) {
+      if (invoice.status != InvoiceStatus.cancelled) return invoice;
+    }
+    return invoices.first;
+  }
+
+  /// Live single-order invoice (skips cancelled when an active one exists).
+  Stream<SalesInvoice?> watchInvoiceBySalesOrderId({
+    required String factoryId,
+    required String salesOrderId,
+  }) {
+    if (salesOrderId.trim().isEmpty) {
+      return Stream<SalesInvoice?>.value(null);
+    }
+    return _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('salesOrderId', isEqualTo: salesOrderId)
+        .snapshots()
+        .map((snapshot) {
+      final invoices = snapshot.docs
+          .map((doc) => SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
+          .map((model) => model.toEntity())
+          .where((invoice) => !invoice.isGrandInvoice)
+          .toList();
+      if (invoices.isEmpty) return null;
+      for (final invoice in invoices) {
+        if (invoice.status != InvoiceStatus.cancelled) return invoice;
+      }
+      return invoices.first;
+    });
   }
 
   Future<List<SalesInvoice>> getInvoicesForAgreement({
@@ -187,14 +224,21 @@ class SalesInvoiceRepository {
     }
     if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
       final existing = await getInvoice(order.invoiceId!);
-      if (existing != null) return existing;
+      if (existing != null &&
+          !existing.isGrandInvoice &&
+          existing.status != InvoiceStatus.cancelled) {
+        return existing;
+      }
     }
 
     final existingByOrder = await getInvoiceBySalesOrderId(
       factoryId: order.factoryId,
       salesOrderId: salesOrderId,
     );
-    if (existingByOrder != null) return existingByOrder;
+    if (existingByOrder != null &&
+        existingByOrder.status != InvoiceStatus.cancelled) {
+      return existingByOrder;
+    }
 
     final id = _uuid.v4();
     final invoiceNumber = await _generateInvoiceNumber(order.factoryId);

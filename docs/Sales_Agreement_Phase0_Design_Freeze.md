@@ -241,7 +241,17 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 
 ---
 
-## 9. Out of scope for Sprint 1–2
+## 8c. Sprint 3 deliverables checklist
+
+- [x] Order detail Invoice section (Generate / View / Record Payment)
+- [x] Order detail Payment History (live watch + edit/delete)
+- [x] Watch single-order invoice + payments on order detail
+- [x] Payment sync updates `salesInvoices` → `salesOrders` finance → Agreement rollup
+- [x] One active single invoice per order (skip cancelled; Grand excluded)
+
+---
+
+## 9. Out of scope for Sprint 1–3
 
 - Grand Invoice generation / PDF (Sprint 4)
 - Changing Delivery schema

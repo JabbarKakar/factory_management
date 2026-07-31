@@ -208,6 +208,7 @@ void setupDependencies() {
       jobWorkRepository: getIt<JobWorkRepository>(),
       jobWorkLoadRepository: getIt<JobWorkLoadRepository>(),
       salesOrderRepository: getIt<SalesOrderRepository>(),
+      salesAgreementRepository: getIt<SalesAgreementRepository>(),
       ledgerService: getIt<CustomerLedgerService>(),
       notificationRepository: getIt<NotificationRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
@@ -469,6 +470,8 @@ void setupDependencies() {
       repository: getIt<SalesOrderRepository>(),
       deliveryRepository: getIt<DeliveryRepository>(),
       agreementRepository: getIt<SalesAgreementRepository>(),
+      invoiceRepository: getIt<SalesInvoiceRepository>(),
+      paymentRepository: getIt<PaymentRepository>(),
     ),
   );
   getIt.registerFactory<SalesInvoiceBloc>(

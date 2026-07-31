@@ -6,10 +6,13 @@ import 'package:intl/intl.dart';
 import '../../../blocs/sales/sales_order_form_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/repositories/payment_repository.dart';
 import '../../../data/services/delivery_quantity_helper.dart';
 import '../../../data/services/sales_order_dispatch_status_helper.dart';
 import '../../../domain/entities/delivery.dart';
+import '../../../domain/entities/payment.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/delivery_enums.dart';
@@ -19,6 +22,7 @@ import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/job_work/job_work_invoice_payment_history_section.dart';
 import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/sales/sales_order_detail_hero.dart';
 
@@ -64,13 +68,41 @@ class SalesOrderDetailScreen extends StatelessWidget {
     BuildContext context,
     String invoiceId,
   ) async {
-    final recorded = await context.push<bool>(
+    await context.push<bool>(
       RoutePaths.salesRecordPayment(invoiceId),
     );
-    if (recorded == true && context.mounted) {
-      context
-          .read<SalesOrderFormBloc>()
-          .add(SalesOrderFormLoadRequested(salesOrderId));
+  }
+
+  Future<void> _editPayment(BuildContext context, Payment payment) async {
+    await context.push<bool>(
+      RoutePaths.salesRecordPaymentEdit(payment.invoiceId, payment.id),
+    );
+  }
+
+  Future<void> _deletePayment(BuildContext context, Payment payment) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deletePaymentTitle,
+      message: AppStrings.deletePaymentMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    try {
+      await getIt<PaymentRepository>().deletePayment(payment.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.paymentDeleted)),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Could not delete payment. Please try again.'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
@@ -180,8 +212,20 @@ class SalesOrderDetailScreen extends StatelessWidget {
             order.status == SalesOrderStatus.delivered;
         final canDispatch =
             SalesOrderDispatchStatusHelper.canScheduleDispatch(order.status);
-        final hasInvoice =
-            order.invoiceId != null && order.invoiceId!.isNotEmpty;
+        final invoice = state.invoice;
+        final hasInvoice = invoice != null ||
+            (order.invoiceId != null && order.invoiceId!.isNotEmpty);
+        final invoiceId = invoice?.id ?? order.invoiceId;
+        final showInvoiceSection = context.userCanEdit(AppModule.sales) &&
+            (canInvoice ||
+                hasInvoice ||
+                order.status == SalesOrderStatus.ready ||
+                order.status == SalesOrderStatus.partiallyDispatched);
+        final dueForPayment = invoice?.dueAmount ?? order.balanceDue;
+        final canCorrectPayments =
+            context.userCanEdit(AppModule.sales) &&
+            state.payments.isNotEmpty &&
+            invoice != null;
         final showDeliveries = state.deliveries.isNotEmpty ||
             canDispatch ||
             order.status == SalesOrderStatus.delivered;
@@ -243,11 +287,12 @@ class SalesOrderDetailScreen extends StatelessWidget {
                         )
                     : null,
                 onOpenInvoice:
-                    canInvoice ? () => _openInvoice(context) : null,
+                    canInvoice || hasInvoice ? () => _openInvoice(context) : null,
                 onRecordPayment: hasInvoice &&
-                        order.status != SalesOrderStatus.paid &&
-                        order.balanceDue > 0
-                    ? () => _openRecordPayment(context, order.invoiceId!)
+                        dueForPayment > 0 &&
+                        invoiceId != null &&
+                        invoiceId.isNotEmpty
+                    ? () => _openRecordPayment(context, invoiceId)
                     : null,
               ),
               JobWorkDetailSection(
@@ -276,6 +321,167 @@ class SalesOrderDetailScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (showInvoiceSection) ...[
+                JobWorkDetailSection(
+                  title: AppStrings.salesInvoice,
+                  icon: Icons.receipt_long_outlined,
+                  action: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!hasInvoice)
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            minimumSize: const Size(0, 30),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            textStyle: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          onPressed: isSaving
+                              ? null
+                              : () => _openInvoice(context),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.receipt_long_outlined, size: 14),
+                              SizedBox(width: 4),
+                              Text(AppStrings.generateInvoice),
+                            ],
+                          ),
+                        )
+                      else ...[
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            minimumSize: const Size(0, 30),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            textStyle: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          onPressed: isSaving
+                              ? null
+                              : () => _openInvoice(context),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.receipt_long_outlined, size: 14),
+                              SizedBox(width: 4),
+                              Text(AppStrings.viewInvoice),
+                            ],
+                          ),
+                        ),
+                        if (dueForPayment > 0 &&
+                            invoiceId != null &&
+                            invoiceId.isNotEmpty) ...[
+                          const SizedBox(width: 5),
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: const Size(0, 30),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              textStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            onPressed: isSaving
+                                ? null
+                                : () => _openRecordPayment(context, invoiceId),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.payments_outlined, size: 14),
+                                SizedBox(width: 4),
+                                Text(AppStrings.recordPayment),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                  child: invoice != null
+                      ? JobWorkDetailRows(
+                          rows: [
+                            JobWorkDetailRow(
+                              label: AppStrings.invoiceNumber,
+                              value: invoice.invoiceNumber,
+                              bold: true,
+                            ),
+                            JobWorkDetailRow(
+                              label: AppStrings.totalAmountLabel,
+                              value: Formatters.currencyPkr(invoice.totalAmount),
+                            ),
+                            JobWorkDetailRow(
+                              label: AppStrings.amountPaid,
+                              value: Formatters.currencyPkr(invoice.paidAmount),
+                            ),
+                            JobWorkDetailRow(
+                              label: AppStrings.balanceDue,
+                              value: Formatters.currencyPkr(invoice.dueAmount),
+                              bold: invoice.dueAmount > 0,
+                              highlight: invoice.dueAmount > 0,
+                            ),
+                            if (invoice.dueDate != null)
+                              JobWorkDetailRow(
+                                label: AppStrings.paymentDueDate,
+                                value: DateFormat.yMMMd()
+                                    .format(invoice.dueDate!),
+                              ),
+                          ],
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          child: Text(
+                            AppStrings.salesInvoiceNotReady,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ),
+                ),
+                if (invoice != null)
+                  JobWorkInvoicePaymentHistorySection(
+                    payments: state.payments,
+                    canCorrect: canCorrectPayments,
+                    onEdit: canCorrectPayments
+                        ? (payment) => _editPayment(context, payment)
+                        : null,
+                    onDelete: canCorrectPayments
+                        ? (payment) => _deletePayment(context, payment)
+                        : null,
+                  ),
+              ],
               if (showDispatchSummary)
                 JobWorkDetailSection(
                   title: AppStrings.stockDispatchSummary,

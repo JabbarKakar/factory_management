@@ -14,6 +14,7 @@ import 'job_work_invoice_repository.dart';
 import 'job_work_load_repository.dart';
 import 'job_work_repository.dart';
 import 'notification_repository.dart';
+import 'sales_agreement_repository.dart';
 import 'sales_invoice_repository.dart';
 import 'sales_order_repository.dart';
 
@@ -34,6 +35,7 @@ class PaymentRepository {
     required JobWorkRepository jobWorkRepository,
     required JobWorkLoadRepository jobWorkLoadRepository,
     required SalesOrderRepository salesOrderRepository,
+    SalesAgreementRepository? salesAgreementRepository,
     CustomerLedgerService? ledgerService,
     NotificationRepository? notificationRepository,
     PaymentDueScannerService? scannerService,
@@ -43,6 +45,8 @@ class PaymentRepository {
         _jobWorkRepository = jobWorkRepository,
         _jobWorkLoadRepository = jobWorkLoadRepository,
         _salesOrderRepository = salesOrderRepository,
+        _salesAgreementRepository = salesAgreementRepository ??
+            SalesAgreementRepository(firestore: firestore),
         _ledgerService = ledgerService,
         _notificationRepository = notificationRepository,
         _scannerService = scannerService;
@@ -53,6 +57,7 @@ class PaymentRepository {
   final JobWorkRepository _jobWorkRepository;
   final JobWorkLoadRepository _jobWorkLoadRepository;
   final SalesOrderRepository _salesOrderRepository;
+  final SalesAgreementRepository _salesAgreementRepository;
   final CustomerLedgerService? _ledgerService;
   final NotificationRepository? _notificationRepository;
   final PaymentDueScannerService? _scannerService;
@@ -410,8 +415,9 @@ class PaymentRepository {
       invoiceId: invoiceId,
     );
     final paidAmount =
-        payments.fold<double>(0, (sum, payment) => sum + payment.amount);
-    final dueAmount = (invoice.totalAmount - paidAmount).clamp(0, invoice.totalAmount);
+        payments.fold<double>(0, (total, payment) => total + payment.amount);
+    final dueAmount =
+        (invoice.totalAmount - paidAmount).clamp(0, invoice.totalAmount);
     final status = InvoiceStatus.fromAmounts(
       dueAmount: dueAmount.toDouble(),
       paidAmount: paidAmount,
@@ -426,19 +432,32 @@ class PaymentRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    final order = await _salesOrderRepository.getSalesOrder(invoice.salesOrderId);
-    if (order != null) {
-      if (dueAmount <= 0 && order.status != SalesOrderStatus.paid) {
-        await _salesOrderRepository.salesOrderDoc(invoice.salesOrderId).update({
-          'status': SalesOrderStatus.paid.firestoreValue,
+    // Single-order invoice only — Grand Invoice has empty salesOrderId (Sprint 4).
+    final salesOrderId = invoice.salesOrderId.trim();
+    String? agreementId = invoice.agreementId?.trim();
+    if (salesOrderId.isNotEmpty) {
+      final order = await _salesOrderRepository.getSalesOrder(salesOrderId);
+      if (order != null) {
+        agreementId ??= order.agreementId?.trim();
+        final orderUpdates = <String, dynamic>{
+          'advanceReceived': paidAmount,
+          'balanceDue': dueAmount.toDouble(),
           'updatedAt': FieldValue.serverTimestamp(),
-        });
-      } else if (dueAmount > 0 && order.status == SalesOrderStatus.paid) {
-        await _salesOrderRepository.salesOrderDoc(invoice.salesOrderId).update({
-          'status': SalesOrderStatus.invoiced.firestoreValue,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        };
+        if (dueAmount <= 0 && order.status != SalesOrderStatus.paid) {
+          orderUpdates['status'] = SalesOrderStatus.paid.firestoreValue;
+        } else if (dueAmount > 0 && order.status == SalesOrderStatus.paid) {
+          orderUpdates['status'] = SalesOrderStatus.invoiced.firestoreValue;
+        }
+        await _salesOrderRepository.salesOrderDoc(salesOrderId).update(
+              orderUpdates,
+            );
       }
+    }
+
+    final linkedAgreementId = agreementId?.trim() ?? '';
+    if (linkedAgreementId.isNotEmpty) {
+      await _salesAgreementRepository.syncAgreementContainer(linkedAgreementId);
     }
 
     await _ledgerService?.syncCustomerBalance(invoice.customerId);
@@ -719,15 +738,13 @@ class PaymentRepository {
         'status': newStatus.firestoreValue,
         'updatedAt': FieldValue.serverTimestamp(),
       },
-      onFullyPaid: newDue <= 0
-          ? () => _salesOrderRepository.salesOrderDoc(invoice.salesOrderId).update({
-                'status': SalesOrderStatus.paid.firestoreValue,
-                'updatedAt': FieldValue.serverTimestamp(),
-              })
-          : null,
     );
 
-    await _ledgerService?.syncCustomerBalance(invoice.customerId);
+    // Recompute invoice + order finance + agreement rollup from payment docs.
+    await _syncInvoiceFromPayments(
+      invoiceId: invoice.id,
+      invoiceType: InvoiceType.sales,
+    );
 
     if (newDue > 0 &&
         _notificationRepository != null &&

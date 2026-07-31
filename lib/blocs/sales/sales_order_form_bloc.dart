@@ -5,10 +5,14 @@ import 'package:equatable/equatable.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../data/repositories/delivery_repository.dart';
+import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/sales_agreement_repository.dart';
+import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/delivery.dart';
+import '../../domain/entities/payment.dart';
+import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/sales_enums.dart';
@@ -21,9 +25,13 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
     required SalesOrderRepository repository,
     required DeliveryRepository deliveryRepository,
     required SalesAgreementRepository agreementRepository,
+    required SalesInvoiceRepository invoiceRepository,
+    required PaymentRepository paymentRepository,
   })  : _repository = repository,
         _deliveryRepository = deliveryRepository,
         _agreementRepository = agreementRepository,
+        _invoiceRepository = invoiceRepository,
+        _paymentRepository = paymentRepository,
         super(const SalesOrderFormState()) {
     on<SalesOrderFormInitialized>(_onInitialized);
     on<SalesOrderFormLoadRequested>(_onLoadRequested);
@@ -31,20 +39,35 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
     on<SalesOrderFormCancelRequested>(_onCancelRequested);
     on<SalesOrderFormStatusAdvanceRequested>(_onStatusAdvanceRequested);
     on<_SalesOrderDeliveriesUpdated>(_onDeliveriesUpdated);
+    on<_SalesOrderFormOrderUpdated>(_onOrderUpdated);
+    on<_SalesOrderFormInvoiceUpdated>(_onInvoiceUpdated);
+    on<_SalesOrderFormPaymentsUpdated>(_onPaymentsUpdated);
   }
 
   final SalesOrderRepository _repository;
   final DeliveryRepository _deliveryRepository;
   final SalesAgreementRepository _agreementRepository;
+  final SalesInvoiceRepository _invoiceRepository;
+  final PaymentRepository _paymentRepository;
   StreamSubscription<List<Delivery>>? _deliveriesSubscription;
+  StreamSubscription<SalesOrder?>? _orderSubscription;
+  StreamSubscription<SalesInvoice?>? _invoiceSubscription;
+  StreamSubscription<List<Payment>>? _paymentsSubscription;
+  String? _watchedInvoiceId;
 
   Future<void> _onInitialized(
     SalesOrderFormInitialized event,
     Emitter<SalesOrderFormState> emit,
   ) async {
-    await _deliveriesSubscription?.cancel();
-    _deliveriesSubscription = null;
-    emit(state.copyWith(status: SalesOrderFormStatus.loading, deliveries: const []));
+    await _cancelDetailWatches();
+    emit(
+      state.copyWith(
+        status: SalesOrderFormStatus.loading,
+        deliveries: const [],
+        clearInvoice: true,
+        payments: const [],
+      ),
+    );
     try {
       final customers =
           await _repository.fetchSalesEligibleCustomers(event.factoryId);
@@ -93,14 +116,15 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
     SalesOrderFormLoadRequested event,
     Emitter<SalesOrderFormState> emit,
   ) async {
-    await _deliveriesSubscription?.cancel();
-    _deliveriesSubscription = null;
+    await _cancelDetailWatches();
     emit(
       state.copyWith(
         status: SalesOrderFormStatus.loading,
         isEditing: true,
         clearMessages: true,
         deliveries: const [],
+        clearInvoice: true,
+        payments: const [],
       ),
     );
     try {
@@ -130,6 +154,10 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
         ),
       );
 
+      _orderSubscription = _repository.watchSalesOrder(event.salesOrderId).listen(
+            (updated) => add(_SalesOrderFormOrderUpdated(updated)),
+          );
+
       _deliveriesSubscription = _deliveryRepository
           .watchDeliveriesForSalesOrder(
             factoryId: order.factoryId,
@@ -137,6 +165,15 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
           )
           .listen(
             (deliveries) => add(_SalesOrderDeliveriesUpdated(deliveries)),
+          );
+
+      _invoiceSubscription = _invoiceRepository
+          .watchInvoiceBySalesOrderId(
+            factoryId: order.factoryId,
+            salesOrderId: event.salesOrderId,
+          )
+          .listen(
+            (invoice) => add(_SalesOrderFormInvoiceUpdated(invoice)),
           );
     } catch (_) {
       emit(
@@ -153,6 +190,49 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
     Emitter<SalesOrderFormState> emit,
   ) {
     emit(state.copyWith(deliveries: event.deliveries));
+  }
+
+  void _onOrderUpdated(
+    _SalesOrderFormOrderUpdated event,
+    Emitter<SalesOrderFormState> emit,
+  ) {
+    if (event.order == null) return;
+    emit(state.copyWith(order: event.order));
+  }
+
+  Future<void> _onInvoiceUpdated(
+    _SalesOrderFormInvoiceUpdated event,
+    Emitter<SalesOrderFormState> emit,
+  ) async {
+    final invoice = event.invoice;
+    if (invoice == null) {
+      await _paymentsSubscription?.cancel();
+      _paymentsSubscription = null;
+      _watchedInvoiceId = null;
+      emit(state.copyWith(clearInvoice: true, payments: const []));
+      return;
+    }
+
+    emit(state.copyWith(invoice: invoice));
+    if (_watchedInvoiceId == invoice.id) return;
+
+    await _paymentsSubscription?.cancel();
+    _watchedInvoiceId = invoice.id;
+    _paymentsSubscription = _paymentRepository
+        .watchPaymentsForInvoice(
+          factoryId: invoice.factoryId,
+          invoiceId: invoice.id,
+        )
+        .listen(
+          (payments) => add(_SalesOrderFormPaymentsUpdated(payments)),
+        );
+  }
+
+  void _onPaymentsUpdated(
+    _SalesOrderFormPaymentsUpdated event,
+    Emitter<SalesOrderFormState> emit,
+  ) {
+    emit(state.copyWith(payments: event.payments));
   }
 
   Future<void> _onSubmitted(
@@ -270,9 +350,21 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
     );
   }
 
+  Future<void> _cancelDetailWatches() async {
+    await _deliveriesSubscription?.cancel();
+    await _orderSubscription?.cancel();
+    await _invoiceSubscription?.cancel();
+    await _paymentsSubscription?.cancel();
+    _deliveriesSubscription = null;
+    _orderSubscription = null;
+    _invoiceSubscription = null;
+    _paymentsSubscription = null;
+    _watchedInvoiceId = null;
+  }
+
   @override
-  Future<void> close() {
-    _deliveriesSubscription?.cancel();
+  Future<void> close() async {
+    await _cancelDetailWatches();
     return super.close();
   }
 }
@@ -284,4 +376,31 @@ final class _SalesOrderDeliveriesUpdated extends SalesOrderFormEvent {
 
   @override
   List<Object?> get props => [deliveries];
+}
+
+final class _SalesOrderFormOrderUpdated extends SalesOrderFormEvent {
+  const _SalesOrderFormOrderUpdated(this.order);
+
+  final SalesOrder? order;
+
+  @override
+  List<Object?> get props => [order];
+}
+
+final class _SalesOrderFormInvoiceUpdated extends SalesOrderFormEvent {
+  const _SalesOrderFormInvoiceUpdated(this.invoice);
+
+  final SalesInvoice? invoice;
+
+  @override
+  List<Object?> get props => [invoice];
+}
+
+final class _SalesOrderFormPaymentsUpdated extends SalesOrderFormEvent {
+  const _SalesOrderFormPaymentsUpdated(this.payments);
+
+  final List<Payment> payments;
+
+  @override
+  List<Object?> get props => [payments];
 }
