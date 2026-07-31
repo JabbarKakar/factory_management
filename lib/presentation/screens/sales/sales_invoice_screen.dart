@@ -198,7 +198,6 @@ class SalesInvoiceScreen extends StatelessWidget {
                     final exporter = getIt<InvoicePdfExporter>();
                     final doc = await exporter.buildSalesInvoicePdf(
                       invoice: invoice,
-                      payments: state.payments,
                       factoryProfile: factoryProfile,
                     );
                     await ExportActions.sharePdf(
@@ -225,7 +224,6 @@ class SalesInvoiceScreen extends StatelessWidget {
                     final exporter = getIt<InvoicePdfExporter>();
                     final doc = await exporter.buildSalesInvoicePdf(
                       invoice: invoice,
-                      payments: state.payments,
                       factoryProfile: factoryProfile,
                     );
                     await ExportActions.printPdf(

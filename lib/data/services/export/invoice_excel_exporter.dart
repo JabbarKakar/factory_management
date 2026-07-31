@@ -13,13 +13,21 @@ class InvoiceExcelExporter {
     required List<Payment> payments,
     String factoryName = AppStrings.appName,
   }) {
+    final isGrand = invoice.isGrandInvoice;
     return _build(
       factoryName: factoryName,
-      documentTitle: AppStrings.salesInvoice,
+      documentTitle:
+          isGrand ? AppStrings.salesGrandInvoiceTitle : AppStrings.salesInvoice,
       documentNumber: invoice.invoiceNumber,
       customerName: invoice.customerName,
-      referenceLabel: AppStrings.orderNumber,
-      referenceValue: invoice.orderNumber,
+      referenceLabel: isGrand
+          ? AppStrings.salesAgreementNumber
+          : AppStrings.orderNumber,
+      referenceValue: isGrand
+          ? (invoice.agreementNumber?.trim().isNotEmpty == true
+              ? invoice.agreementNumber!
+              : '—')
+          : invoice.orderNumber,
       invoiceDate: invoice.createdAt,
       dueDate: invoice.dueDate,
       lineItems: invoice.lineItems

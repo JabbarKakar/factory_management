@@ -757,6 +757,9 @@ abstract final class AppStrings {
   static String get taxAmount => 'Tax (${CurrencyFormatter.getSymbol(Formatters.activeCurrency, asciiSafe: true)})';
   static const String grandTotal = 'Grand Total';
   static const String salesInvoice = 'Sales Invoice';
+  static const String salesAgreementNumber = 'Agreement #';
+  static const String salesOrderAgreementLinkFailed =
+      'Could not link this sales order to an agreement.';
   static const String salesInvoiceNotReady =
       'Generate an invoice when the sales order is ready for pickup.';
 

@@ -278,7 +278,20 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 
 ---
 
-## 9. Out of scope for Sprint 1–5
+## 8f. Sprint 6 deliverables checklist
+
+- [x] Shared PDF chrome: `bankRemittanceBlock` + `termsAndConditionsBlock` in `pdf_document_theme.dart`
+- [x] `GrandSalesInvoicePdfTemplate` (per-order sections, bank/terms/signature parity with JW)
+- [x] Single-order Sales PDF uses same bank/terms/signature chrome
+- [x] Excel grand labels (Agreement # + Grand title)
+- [x] Deep-link `/sales/order/:id` repairs missing `agreementId` via `ensureAgreementForOrder`
+- [x] Backfill retries leftover legacy orders (dual-path close)
+- [x] QA checklist: `docs/Sales_Agreement_Sprint6_QA_Checklist.md`
+
+---
+
+## 9. Out of scope for Sprint 1–6
 
 - Changing Delivery schema (deliveries remain Order-scoped)
 - Agreement-level unallocated pay (later epic)
+- Fully migrating JW grand PDF onto shared bank/terms helpers (optional follow-up)

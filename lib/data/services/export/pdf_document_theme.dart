@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../../../domain/entities/bank_account.dart';
 import '../../../domain/entities/factory_profile.dart';
 import 'pdf_fonts.dart';
 
@@ -727,6 +728,149 @@ abstract final class PdfDocumentTheme {
       ],
     );
   }
+
+  /// Structured bank / remittance card (shared by Sales + Job Work invoices).
+  static pw.Widget bankRemittanceBlock({
+    required PdfFonts fonts,
+    required List<BankAccount> accounts,
+    String title = 'BANK & REMITTANCE DETAILS',
+    String emptyHint =
+        'Bank details are not configured in Factory Settings.',
+  }) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(10),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: borderLight, width: 0.8),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(
+            title,
+            style: pw.TextStyle(
+              font: fonts.bold,
+              fontSize: 8.5,
+              color: accentBlue,
+            ),
+          ),
+          pw.SizedBox(height: 4),
+          if (accounts.isEmpty)
+            pw.Text(
+              emptyHint,
+              style: subtitleStyle(fonts, size: 7.5),
+            )
+          else
+            for (var i = 0; i < accounts.length; i++) ...[
+              _bankDetailRow(fonts, 'Account Title:', accounts[i].accountName),
+              _bankDetailRow(
+                fonts,
+                'Account Number:',
+                accounts[i].accountNumber,
+              ),
+              _bankDetailRow(
+                fonts,
+                'Bank Name:',
+                [
+                  accounts[i].bankName,
+                  if (accounts[i].branch != null &&
+                      accounts[i].branch!.trim().isNotEmpty)
+                    '(${accounts[i].branch!.trim()})',
+                ].join(' '),
+              ),
+              if (accounts[i].iban != null &&
+                  accounts[i].iban!.trim().isNotEmpty)
+                _bankDetailRow(fonts, 'IBAN:', accounts[i].iban!),
+              if (accounts[i].swiftCode != null &&
+                  accounts[i].swiftCode!.trim().isNotEmpty)
+                _bankDetailRow(fonts, 'SWIFT / BIC:', accounts[i].swiftCode!),
+              if (i < accounts.length - 1)
+                pw.Divider(color: borderLight, height: 8),
+            ],
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _bankDetailRow(
+    PdfFonts fonts,
+    String label,
+    String value,
+  ) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.SizedBox(
+            width: 90,
+            child: pw.Text(
+              label,
+              style: pw.TextStyle(
+                font: fonts.bold,
+                fontSize: 8,
+                color: mutedGrey,
+              ),
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              value,
+              style: pw.TextStyle(
+                font: fonts.regular,
+                fontSize: 8,
+                color: navy,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Terms block with optional factory defaults for Sales / Job Work.
+  static pw.Widget termsAndConditionsBlock({
+    required PdfFonts fonts,
+    String? configuredTerms,
+    required String defaultTerms,
+    String title = 'TERMS & CONDITIONS',
+  }) {
+    final raw = configuredTerms?.trim();
+    final text = (raw != null && raw.isNotEmpty) ? raw : defaultTerms;
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          title,
+          style: pw.TextStyle(
+            font: fonts.bold,
+            fontSize: 7.5,
+            color: navy,
+          ),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          text,
+          style: pw.TextStyle(
+            font: fonts.regular,
+            fontSize: 6.5,
+            color: mutedGrey,
+            height: 1.25,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static const String defaultSalesTerms =
+      '1. Please review quantities and pricing and report any discrepancies within 7 days.\n'
+      '2. Payments are to be settled as per agreed commercial terms.\n'
+      '3. Goods remain the property of the seller until full payment is received.';
+
+  static const String defaultJobWorkTerms =
+      '1. Please review cutting charge calculations and report any discrepancies within 7 days.\n'
+      '2. Payments are to be settled as per agreed commercial terms.\n'
+      '3. All stone materials delivered remain under job work custody until final clearance.';
 
   /// Signature / stamp authorization block for document footers.
   static pw.Widget authorizationBlock({

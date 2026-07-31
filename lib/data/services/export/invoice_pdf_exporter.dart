@@ -7,19 +7,27 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../../core/di/injection.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../domain/entities/delivery.dart';
 import '../../../domain/entities/factory_profile.dart';
 import '../../../domain/entities/job_work_invoice.dart';
 import '../../../domain/entities/payment.dart';
 import '../../../domain/entities/sales_invoice.dart';
+import '../../../domain/entities/sales_order.dart';
 import '../../repositories/factory_repository.dart';
 import '../../repositories/job_work_repository.dart';
 import '../../repositories/job_work_load_repository.dart';
 import '../../repositories/job_work_collection_repository.dart';
 import '../../repositories/job_work_invoice_repository.dart';
+import '../../repositories/delivery_repository.dart';
+import '../../repositories/sales_agreement_repository.dart';
+import '../../repositories/sales_invoice_repository.dart';
+import '../../repositories/sales_order_repository.dart';
 import 'pdf_document_theme.dart';
 import 'pdf_fonts.dart';
 import 'proforma_invoice_pdf_template.dart';
 import 'grand_invoice_pdf_template.dart';
+import 'grand_sales_invoice_pdf_template.dart';
+import 'single_sales_invoice_pdf_template.dart';
 
 class InvoicePdfExporter {
   InvoicePdfExporter({
@@ -38,21 +46,19 @@ class InvoicePdfExporter {
   Future<Uint8List> generateSalesInvoicePdf({
     required SalesInvoice invoice,
     FactoryProfile? factoryProfile,
-    List<Payment> payments = const [],
   }) async {
     final doc = await buildSalesInvoicePdf(
       invoice: invoice,
       factoryProfile: factoryProfile,
-      payments: payments,
     );
     return doc.save();
   }
 
   /// Builds a pw.Document for Sales Invoice with complete FactoryProfile branding.
+  /// Grand invoices use [GrandSalesInvoicePdfTemplate] (per-order sections).
   Future<pw.Document> buildSalesInvoicePdf({
     required SalesInvoice invoice,
     FactoryProfile? factoryProfile,
-    List<Payment> payments = const [],
     String factoryName = AppStrings.appName,
   }) async {
     final fonts = await PdfFonts.load();
@@ -70,10 +76,58 @@ class InvoicePdfExporter {
       defaultTagline: 'PREMIUM MANUFACTURING & SALES',
     );
 
-    final termsText =
-        profile?.invoiceSettings.termsAndConditions?.trim().isNotEmpty == true
-            ? profile!.invoiceSettings.termsAndConditions!.trim()
-            : null;
+    if (invoice.isGrandInvoice) {
+      return _buildGrandSalesInvoicePdf(
+        invoice: invoice,
+        profile: profile,
+        fonts: fonts,
+        branding: branding,
+      );
+    }
+
+    final orderId = invoice.salesOrderId.trim();
+    if (orderId.isNotEmpty) {
+      final orderRepo = getIt<SalesOrderRepository>();
+      final order = await orderRepo.getSalesOrder(orderId);
+      if (order != null && order.lineItems.any((item) => item.hasContent)) {
+        List<Delivery> deliveries = const [];
+        try {
+          deliveries = await getIt<DeliveryRepository>()
+              .fetchDeliveriesForSalesOrder(
+            factoryId: invoice.factoryId,
+            salesOrderId: orderId,
+          );
+        } catch (_) {
+          deliveries = const [];
+        }
+        return SingleSalesInvoicePdfTemplate.build(
+          invoice: invoice,
+          order: order,
+          deliveries: deliveries,
+          factoryProfile: profile,
+          fonts: fonts,
+          branding: branding,
+        );
+      }
+    }
+
+    return _buildLegacyFlatSalesInvoicePdf(
+      invoice: invoice,
+      profile: profile,
+      fonts: fonts,
+      branding: branding,
+      dateFormat: dateFormat,
+    );
+  }
+
+  /// Fallback when the linked sales order / stock rows are unavailable.
+  Future<pw.Document> _buildLegacyFlatSalesInvoicePdf({
+    required SalesInvoice invoice,
+    required FactoryProfile? profile,
+    required PdfFonts fonts,
+    required PdfFactoryBranding branding,
+    required DateFormat dateFormat,
+  }) async {
     final footerNoteText = branding.footerNote ??
         'Thank you for your business with ${branding.factoryName}!';
     final isPaid = invoice.dueAmount <= 0;
@@ -101,30 +155,27 @@ class InvoicePdfExporter {
           PdfDocumentTheme.factoryHeader(
             fonts: fonts,
             branding: branding,
-            documentTitle: invoice.isGrandInvoice
-                ? 'GRAND SALES INVOICE'
-                : 'SALES INVOICE',
+            documentTitle: 'SALES INVOICE',
             metaRows: [
               (label: 'Invoice No:', value: invoice.invoiceNumber),
-              (label: 'Date Issued:', value: dateFormat.format(invoice.createdAt)),
+              (
+                label: 'Date Issued:',
+                value: dateFormat.format(invoice.createdAt),
+              ),
               if (invoice.dueDate != null)
                 (
                   label: 'Due Date:',
                   value: dateFormat.format(invoice.dueDate!),
                 ),
-              if (invoice.isGrandInvoice)
+              (
+                label: 'Order No:',
+                value: Formatters.textForExport(invoice.orderNumber),
+              ),
+              if (invoice.agreementNumber != null &&
+                  invoice.agreementNumber!.trim().isNotEmpty)
                 (
                   label: 'Agreement No:',
-                  value: Formatters.textForExport(
-                    invoice.agreementNumber?.trim().isNotEmpty == true
-                        ? invoice.agreementNumber!
-                        : '—',
-                  ),
-                )
-              else
-                (
-                  label: 'Order No:',
-                  value: Formatters.textForExport(invoice.orderNumber),
+                  value: Formatters.textForExport(invoice.agreementNumber!),
                 ),
             ],
             statusLabel: isPaid ? 'FULLY PAID' : 'OUTSTANDING DUE',
@@ -143,9 +194,7 @@ class InvoicePdfExporter {
               PdfDocumentTheme.cardRow(
                 fonts,
                 'Account Type',
-                invoice.isGrandInvoice
-                    ? 'Sales Agreement'
-                    : 'Sales Order',
+                'Sales Order',
               ),
             ],
           ),
@@ -216,52 +265,24 @@ class InvoicePdfExporter {
               ],
             ),
           ),
-          if (profile != null && profile.bankAccounts.isNotEmpty) ...[
-            pw.SizedBox(height: 12),
-            PdfDocumentTheme.detailCard(
-              fonts: fonts,
-              title: 'Bank Accounts & Remittance',
-              rows: [
-                for (final acc in profile.bankAccounts)
-                  pw.Padding(
-                    padding: const pw.EdgeInsets.only(bottom: 3),
-                    child: pw.Text(
-                      '• ${acc.bankName}: Title: ${acc.accountName} | Acc #: ${acc.accountNumber}'
-                      '${acc.iban != null && acc.iban!.isNotEmpty ? " | IBAN: ${acc.iban}" : ""}',
-                      style: PdfDocumentTheme.subtitleStyle(fonts, size: 7.5),
-                    ),
-                  ),
-              ],
-            ),
-          ],
-          if (payments.isNotEmpty) ...[
-            pw.SizedBox(height: 12),
-            PdfDocumentTheme.detailCard(
-              fonts: fonts,
-              title: AppStrings.paymentHistory,
-              rows: [
-                for (final payment in payments)
-                  PdfDocumentTheme.summaryRow(
-                    fonts,
-                    '${dateFormat.format(payment.paymentDate)} - ${payment.method.label}',
-                    Formatters.currencyForExport(payment.amount),
-                  ),
-              ],
-            ),
-          ],
-          if (termsText != null) ...[
-            pw.SizedBox(height: 12),
-            PdfDocumentTheme.infoBanner(
-              fonts: fonts,
-              title: 'Terms & Conditions',
-              children: [
-                pw.Text(
-                  termsText,
-                  style: PdfDocumentTheme.subtitleStyle(fonts, size: 7.5),
+          pw.SizedBox(height: 12),
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: PdfDocumentTheme.bankRemittanceBlock(
+                  fonts: fonts,
+                  accounts: profile?.bankAccounts ?? const [],
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+          PdfDocumentTheme.termsAndConditionsBlock(
+            fonts: fonts,
+            configuredTerms: profile?.invoiceSettings.termsAndConditions,
+            defaultTerms: PdfDocumentTheme.defaultSalesTerms,
+          ),
           pw.SizedBox(height: 10),
           pw.Center(
             child: pw.Text(
@@ -282,6 +303,44 @@ class InvoicePdfExporter {
     );
 
     return doc;
+  }
+
+  Future<pw.Document> _buildGrandSalesInvoicePdf({
+    required SalesInvoice invoice,
+    required FactoryProfile? profile,
+    required PdfFonts fonts,
+    required PdfFactoryBranding branding,
+  }) async {
+    final agreementId = invoice.agreementId?.trim() ?? '';
+    final agreementRepo = getIt<SalesAgreementRepository>();
+    final orderRepo = getIt<SalesOrderRepository>();
+    final invoiceRepo = getIt<SalesInvoiceRepository>();
+
+    final agreement = agreementId.isEmpty
+        ? null
+        : await agreementRepo.getAgreement(agreementId);
+    final orders = agreementId.isEmpty
+        ? const <SalesOrder>[]
+        : await orderRepo.getOrdersForAgreement(
+            factoryId: invoice.factoryId,
+            agreementId: agreementId,
+          );
+    final allInvoices = agreementId.isEmpty
+        ? <SalesInvoice>[invoice]
+        : await invoiceRepo.getInvoicesForAgreement(
+            factoryId: invoice.factoryId,
+            agreementId: agreementId,
+          );
+
+    return GrandSalesInvoicePdfTemplate.build(
+      invoice: invoice,
+      agreement: agreement,
+      orders: orders,
+      invoices: allInvoices,
+      factoryProfile: profile,
+      fonts: fonts,
+      branding: branding,
+    );
   }
 
   /// Generates Job Work Invoice PDF bytes (Uint8List).

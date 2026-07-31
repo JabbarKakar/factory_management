@@ -32,7 +32,8 @@ class SalesAgreementBackfillService {
   ///
   /// Even after a previous "complete" flag, re-checks for leftovers (e.g. orders
   /// created before the create-path bridge, or failed mid-backfill) and clears
-  /// the flag so migration can resume.
+  /// the flag so migration can resume. Retries a few passes so transient
+  /// failures do not leave dual-path debt after Sprint 6.
   Future<SalesAgreementBackfillReport> runIfNeeded(String factoryId) async {
     final prefs = await _prefs;
     final key = '$_prefKeyPrefix$factoryId';
@@ -50,8 +51,13 @@ class SalesAgreementBackfillService {
       await prefs.setBool(key, false);
     }
 
-    final report = await run(factoryId);
-    debugPrint('SalesAgreementBackfill: $report');
+    var report = SalesAgreementBackfillReport.empty;
+    for (var pass = 0; pass < 3; pass++) {
+      report = await run(factoryId);
+      debugPrint('SalesAgreementBackfill pass ${pass + 1}: $report');
+      if (report.isComplete || report.remainingLegacyOrders == 0) break;
+      if (report.agreementsEnsured == 0 && report.failed > 0) break;
+    }
 
     if (report.isComplete) {
       await prefs.setBool(key, true);

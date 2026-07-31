@@ -253,7 +253,6 @@ class _SalesGrandInvoiceScreenState extends State<SalesGrandInvoiceScreen> {
                 );
                 final doc = await getIt<InvoicePdfExporter>().buildSalesInvoicePdf(
                   invoice: invoice,
-                  payments: _payments,
                   factoryProfile: factoryProfile,
                 );
                 await ExportActions.sharePdf(
@@ -282,7 +281,6 @@ class _SalesGrandInvoiceScreenState extends State<SalesGrandInvoiceScreen> {
                 );
                 final doc = await getIt<InvoicePdfExporter>().buildSalesInvoicePdf(
                   invoice: invoice,
-                  payments: _payments,
                   factoryProfile: factoryProfile,
                 );
                 await ExportActions.printPdf(
