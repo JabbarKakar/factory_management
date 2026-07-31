@@ -83,20 +83,22 @@ abstract final class GrandSalesInvoicePdfTemplate {
             fonts: fonts,
             title: 'Client / Bill To',
             children: [
-              PdfDocumentTheme.cardRow(
-                fonts,
-                'Client Name',
-                Formatters.textForExport(invoice.customerName),
-              ),
-              PdfDocumentTheme.cardRow(
-                fonts,
-                'Account Type',
-                'Sales Agreement',
-              ),
-              PdfDocumentTheme.cardRow(
-                fonts,
-                'Orders on Invoice',
-                '${displayOrders.length}',
+              PdfDocumentTheme.infoItemsRow(
+                fonts: fonts,
+                items: [
+                  (
+                    label: 'Client Name',
+                    value: Formatters.textForExport(invoice.customerName),
+                  ),
+                  (
+                    label: 'Account Type',
+                    value: 'Sales Agreement',
+                  ),
+                  (
+                    label: 'Orders on Invoice',
+                    value: '${displayOrders.length}',
+                  ),
+                ],
               ),
             ],
           ),

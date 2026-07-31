@@ -186,15 +186,18 @@ class InvoicePdfExporter {
             fonts: fonts,
             title: 'Client / Bill To',
             children: [
-              PdfDocumentTheme.cardRow(
-                fonts,
-                'Client Name',
-                Formatters.textForExport(invoice.customerName),
-              ),
-              PdfDocumentTheme.cardRow(
-                fonts,
-                'Account Type',
-                'Sales Order',
+              PdfDocumentTheme.infoItemsRow(
+                fonts: fonts,
+                items: [
+                  (
+                    label: 'Client Name',
+                    value: Formatters.textForExport(invoice.customerName),
+                  ),
+                  (
+                    label: 'Account Type',
+                    value: 'Sales Order',
+                  ),
+                ],
               ),
             ],
           ),

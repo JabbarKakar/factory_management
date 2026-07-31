@@ -620,6 +620,45 @@ abstract final class PdfDocumentTheme {
     );
   }
 
+  /// Label/value metrics laid out in a single horizontal row (e.g. Bill To).
+  static pw.Widget infoItemsRow({
+    required PdfFonts fonts,
+    required List<({String label, String value})> items,
+  }) {
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) pw.SizedBox(width: 12),
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  items[i].label,
+                  style: pw.TextStyle(
+                    font: fonts.regular,
+                    fontSize: 7.5,
+                    color: mutedGrey,
+                  ),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  items[i].value,
+                  style: pw.TextStyle(
+                    font: fonts.bold,
+                    fontSize: 8.5,
+                    color: navy,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   static pw.TableRow tableHeaderRow(PdfFonts fonts, List<String> labels) {
     return pw.TableRow(
       decoration: const pw.BoxDecoration(color: navy),
