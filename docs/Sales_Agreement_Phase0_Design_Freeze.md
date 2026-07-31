@@ -248,6 +248,9 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 - [x] Watch single-order invoice + payments on order detail
 - [x] Payment sync updates `salesInvoices` → `salesOrders` finance → Agreement rollup
 - [x] One active single invoice per order (skip cancelled; Grand excluded)
+- [x] View-only users see Invoice + Payment History (Generate/Record gated by edit)
+- [x] Single invoice generate requires `agreementId` on the Sales Order
+- [x] Unit tests for payment→order finance/status sync helpers
 
 ---
 

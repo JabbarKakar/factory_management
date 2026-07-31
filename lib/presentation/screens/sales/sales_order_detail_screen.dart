@@ -205,6 +205,7 @@ class SalesOrderDetailScreen extends StatelessWidget {
             context.userCanEdit(AppModule.sales);
         final nextStatus = order.status.nextStatus;
         final isSaving = state.status == SalesOrderFormStatus.saving;
+        final canMutateSales = context.userCanEdit(AppModule.sales);
         final canInvoice = order.status == SalesOrderStatus.ready ||
             order.status == SalesOrderStatus.partiallyDispatched ||
             order.status == SalesOrderStatus.invoiced ||
@@ -216,16 +217,14 @@ class SalesOrderDetailScreen extends StatelessWidget {
         final hasInvoice = invoice != null ||
             (order.invoiceId != null && order.invoiceId!.isNotEmpty);
         final invoiceId = invoice?.id ?? order.invoiceId;
-        final showInvoiceSection = context.userCanEdit(AppModule.sales) &&
+        final showInvoiceSection = context.userCanView(AppModule.sales) &&
             (canInvoice ||
                 hasInvoice ||
                 order.status == SalesOrderStatus.ready ||
                 order.status == SalesOrderStatus.partiallyDispatched);
         final dueForPayment = invoice?.dueAmount ?? order.balanceDue;
         final canCorrectPayments =
-            context.userCanEdit(AppModule.sales) &&
-            state.payments.isNotEmpty &&
-            invoice != null;
+            canMutateSales && state.payments.isNotEmpty && invoice != null;
         final showDeliveries = state.deliveries.isNotEmpty ||
             canDispatch ||
             order.status == SalesOrderStatus.delivered;
@@ -286,9 +285,12 @@ class SalesOrderDetailScreen extends StatelessWidget {
                           RoutePaths.deliveriesAddForOrder(order.id),
                         )
                     : null,
-                onOpenInvoice:
-                    canInvoice || hasInvoice ? () => _openInvoice(context) : null,
-                onRecordPayment: hasInvoice &&
+                onOpenInvoice: (hasInvoice || canMutateSales) &&
+                        (canInvoice || hasInvoice)
+                    ? () => _openInvoice(context)
+                    : null,
+                onRecordPayment: canMutateSales &&
+                        hasInvoice &&
                         dueForPayment > 0 &&
                         invoiceId != null &&
                         invoiceId.isNotEmpty
@@ -329,34 +331,37 @@ class SalesOrderDetailScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (!hasInvoice)
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
+                        if (canMutateSales)
+                          FilledButton(
+                            style: FilledButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              minimumSize: const Size(0, 30),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              textStyle: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
+                            onPressed: isSaving
+                                ? null
+                                : () => _openInvoice(context),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.receipt_long_outlined, size: 14),
+                                SizedBox(width: 4),
+                                Text(AppStrings.generateInvoice),
+                              ],
                             ),
-                            minimumSize: const Size(0, 30),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            textStyle: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          onPressed: isSaving
-                              ? null
-                              : () => _openInvoice(context),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.receipt_long_outlined, size: 14),
-                              SizedBox(width: 4),
-                              Text(AppStrings.generateInvoice),
-                            ],
-                          ),
-                        )
+                          )
+                        else
+                          const SizedBox.shrink()
                       else ...[
                         OutlinedButton(
                           style: OutlinedButton.styleFrom(
@@ -386,7 +391,8 @@ class SalesOrderDetailScreen extends StatelessWidget {
                             ],
                           ),
                         ),
-                        if (dueForPayment > 0 &&
+                        if (canMutateSales &&
+                            dueForPayment > 0 &&
                             invoiceId != null &&
                             invoiceId.isNotEmpty) ...[
                           const SizedBox(width: 5),

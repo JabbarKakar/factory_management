@@ -72,6 +72,7 @@ void main() {
     double totalAmount = 1000,
     double paidAmount = 0,
     double dueAmount = 1000,
+    InvoiceStatus status = InvoiceStatus.partial,
   }) {
     return SalesInvoice(
       id: id,
@@ -87,7 +88,7 @@ void main() {
       totalAmount: totalAmount,
       paidAmount: paidAmount,
       dueAmount: dueAmount,
-      status: InvoiceStatus.partial,
+      status: status,
       createdAt: DateTime(2026, 1, 3),
     );
   }
@@ -223,6 +224,134 @@ void main() {
       expect(finance.charges, 5000);
       expect(finance.paid, 2000);
       expect(finance.due, 3000);
+    });
+  });
+
+  group('preferActiveSingleInvoice', () {
+    test('skips grand and prefers non-cancelled single invoice', () {
+      final preferred = SalesContainerSyncHelper.preferActiveSingleInvoice([
+        buildInvoice(id: 'grand', salesOrderId: ''),
+        buildInvoice(
+          id: 'cancelled',
+          salesOrderId: 'o1',
+          status: InvoiceStatus.cancelled,
+        ),
+        buildInvoice(id: 'active', salesOrderId: 'o1'),
+      ]);
+
+      expect(preferred?.id, 'active');
+    });
+
+    test('falls back to cancelled single when no active invoice', () {
+      final preferred = SalesContainerSyncHelper.preferActiveSingleInvoice([
+        buildInvoice(
+          id: 'cancelled',
+          salesOrderId: 'o1',
+          status: InvoiceStatus.cancelled,
+        ),
+      ]);
+
+      expect(preferred?.id, 'cancelled');
+    });
+
+    test('returns null when only grand invoices exist', () {
+      expect(
+        SalesContainerSyncHelper.preferActiveSingleInvoice([
+          buildInvoice(id: 'grand', salesOrderId: ''),
+        ]),
+        isNull,
+      );
+    });
+  });
+
+  group('orderFinanceAfterPaymentSync', () {
+    test('marks order paid when due clears', () {
+      final finance = SalesContainerSyncHelper.orderFinanceAfterPaymentSync(
+        order: buildOrder(
+          id: 'o1',
+          status: SalesOrderStatus.invoiced,
+          advanceReceived: 400,
+          balanceDue: 600,
+        ),
+        paidAmount: 1000,
+        dueAmount: 0,
+      );
+
+      expect(finance.advanceReceived, 1000);
+      expect(finance.balanceDue, 0);
+      expect(finance.status, SalesOrderStatus.paid);
+    });
+
+    test('reopens paid order to invoiced when due returns', () {
+      final finance = SalesContainerSyncHelper.orderFinanceAfterPaymentSync(
+        order: buildOrder(
+          id: 'o1',
+          status: SalesOrderStatus.paid,
+          advanceReceived: 1000,
+          balanceDue: 0,
+        ),
+        paidAmount: 700,
+        dueAmount: 300,
+      );
+
+      expect(finance.advanceReceived, 700);
+      expect(finance.balanceDue, 300);
+      expect(finance.status, SalesOrderStatus.invoiced);
+    });
+
+    test('leaves status unchanged for partial payment on invoiced order', () {
+      final finance = SalesContainerSyncHelper.orderFinanceAfterPaymentSync(
+        order: buildOrder(
+          id: 'o1',
+          status: SalesOrderStatus.invoiced,
+          advanceReceived: 0,
+          balanceDue: 1000,
+        ),
+        paidAmount: 250,
+        dueAmount: 750,
+      );
+
+      expect(finance.advanceReceived, 250);
+      expect(finance.balanceDue, 750);
+      expect(finance.status, isNull);
+    });
+
+    test('applyOrderRollup reflects paid order after payment sync fields', () {
+      final unpaid = buildOrder(
+        id: 'o1',
+        status: SalesOrderStatus.invoiced,
+        advanceReceived: 0,
+        balanceDue: 1000,
+      );
+      final afterPay = SalesContainerSyncHelper.orderFinanceAfterPaymentSync(
+        order: unpaid,
+        paidAmount: 1000,
+        dueAmount: 0,
+      );
+      final syncedOrder = unpaid.copyWith(
+        advanceReceived: afterPay.advanceReceived,
+        balanceDue: afterPay.balanceDue,
+        status: afterPay.status ?? unpaid.status,
+      );
+
+      final rolled = SalesContainerSyncHelper.applyOrderRollup(
+        agreement: buildAgreement(),
+        orders: [syncedOrder],
+        invoices: [
+          buildInvoice(
+            id: 'inv-1',
+            salesOrderId: 'o1',
+            totalAmount: 1000,
+            paidAmount: 1000,
+            dueAmount: 0,
+            status: InvoiceStatus.paid,
+          ),
+        ],
+      );
+
+      expect(rolled.paidAmount, 1000);
+      expect(rolled.balanceDue, 0);
+      expect(rolled.summaryStatus, SalesAgreementSummaryStatus.idle);
     });
   });
 

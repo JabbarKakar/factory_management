@@ -7,6 +7,7 @@ import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/sales_invoice_model.dart';
+import '../services/sales_container_sync_helper.dart';
 import 'invoice_exception.dart';
 import 'sales_agreement_repository.dart';
 import 'sales_order_repository.dart';
@@ -51,16 +52,8 @@ class SalesInvoiceRepository {
     final invoices = snapshot.docs
         .map((doc) => SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
         .map((model) => model.toEntity())
-        // Grand invoices use empty salesOrderId — exclude for safety.
-        .where((invoice) => !invoice.isGrandInvoice)
         .toList();
-    if (invoices.isEmpty) return null;
-
-    // Prefer one active (non-cancelled) single invoice per order.
-    for (final invoice in invoices) {
-      if (invoice.status != InvoiceStatus.cancelled) return invoice;
-    }
-    return invoices.first;
+    return SalesContainerSyncHelper.preferActiveSingleInvoice(invoices);
   }
 
   /// Live single-order invoice (skips cancelled when an active one exists).
@@ -79,13 +72,8 @@ class SalesInvoiceRepository {
       final invoices = snapshot.docs
           .map((doc) => SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
           .map((model) => model.toEntity())
-          .where((invoice) => !invoice.isGrandInvoice)
           .toList();
-      if (invoices.isEmpty) return null;
-      for (final invoice in invoices) {
-        if (invoice.status != InvoiceStatus.cancelled) return invoice;
-      }
-      return invoices.first;
+      return SalesContainerSyncHelper.preferActiveSingleInvoice(invoices);
     });
   }
 
@@ -222,6 +210,12 @@ class SalesInvoiceRepository {
         'Invoice can only be generated for ready or partially dispatched orders.',
       );
     }
+    final agreementId = order.agreementId?.trim() ?? '';
+    if (agreementId.isEmpty) {
+      throw StateError(
+        'Sales order must be linked to a Sales Agreement before invoicing.',
+      );
+    }
     if (order.invoiceId != null && order.invoiceId!.isNotEmpty) {
       final existing = await getInvoice(order.invoiceId!);
       if (existing != null &&
@@ -254,7 +248,7 @@ class SalesInvoiceRepository {
       id: id,
       invoiceNumber: invoiceNumber,
       factoryId: order.factoryId,
-      agreementId: order.agreementId,
+      agreementId: agreementId,
       agreementNumber: order.agreementNumber,
       salesOrderId: order.id,
       orderNumber: order.orderNumber,
@@ -289,10 +283,7 @@ class SalesInvoiceRepository {
 
     await batch.commit();
 
-    final agreementId = order.agreementId?.trim() ?? '';
-    if (agreementId.isNotEmpty) {
-      await _salesAgreementRepository.syncAgreementContainer(agreementId);
-    }
+    await _salesAgreementRepository.syncAgreementContainer(agreementId);
 
     final created = await getInvoice(id);
     return created ?? invoice;

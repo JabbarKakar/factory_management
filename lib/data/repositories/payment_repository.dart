@@ -10,6 +10,7 @@ import '../models/payment_model.dart';
 import '../services/customer_ledger_service.dart';
 import '../services/job_work_container_sync_helper.dart';
 import '../services/payment_due_scanner_service.dart';
+import '../services/sales_container_sync_helper.dart';
 import 'job_work_invoice_repository.dart';
 import 'job_work_load_repository.dart';
 import 'job_work_repository.dart';
@@ -439,16 +440,18 @@ class PaymentRepository {
       final order = await _salesOrderRepository.getSalesOrder(salesOrderId);
       if (order != null) {
         agreementId ??= order.agreementId?.trim();
+        final finance = SalesContainerSyncHelper.orderFinanceAfterPaymentSync(
+          order: order,
+          paidAmount: paidAmount,
+          dueAmount: dueAmount.toDouble(),
+        );
         final orderUpdates = <String, dynamic>{
-          'advanceReceived': paidAmount,
-          'balanceDue': dueAmount.toDouble(),
+          'advanceReceived': finance.advanceReceived,
+          'balanceDue': finance.balanceDue,
           'updatedAt': FieldValue.serverTimestamp(),
+          if (finance.status != null)
+            'status': finance.status!.firestoreValue,
         };
-        if (dueAmount <= 0 && order.status != SalesOrderStatus.paid) {
-          orderUpdates['status'] = SalesOrderStatus.paid.firestoreValue;
-        } else if (dueAmount > 0 && order.status == SalesOrderStatus.paid) {
-          orderUpdates['status'] = SalesOrderStatus.invoiced.firestoreValue;
-        }
         await _salesOrderRepository.salesOrderDoc(salesOrderId).update(
               orderUpdates,
             );

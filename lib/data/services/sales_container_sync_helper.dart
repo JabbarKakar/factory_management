@@ -1,6 +1,7 @@
 import '../../domain/entities/sales_agreement.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
+import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/sales_agreement_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 
@@ -149,5 +150,53 @@ abstract final class SalesContainerSyncHelper {
 
   static bool canViewGrandInvoice(List<SalesInvoice> invoices) {
     return invoices.any((invoice) => invoice.isGrandInvoice);
+  }
+
+  /// One active single-order invoice (Grand excluded; cancelled only as last resort).
+  static SalesInvoice? preferActiveSingleInvoice(
+    Iterable<SalesInvoice> invoices,
+  ) {
+    final singles =
+        invoices.where((invoice) => !invoice.isGrandInvoice).toList();
+    if (singles.isEmpty) return null;
+    for (final invoice in singles) {
+      if (invoice.status != InvoiceStatus.cancelled) return invoice;
+    }
+    return singles.first;
+  }
+
+  /// Order status transition after invoice payment totals change.
+  /// Returns null when status should stay unchanged.
+  static SalesOrderStatus? orderStatusAfterPaymentSync({
+    required SalesOrderStatus current,
+    required double dueAmount,
+  }) {
+    if (dueAmount <= 0 && current != SalesOrderStatus.paid) {
+      return SalesOrderStatus.paid;
+    }
+    if (dueAmount > 0 && current == SalesOrderStatus.paid) {
+      return SalesOrderStatus.invoiced;
+    }
+    return null;
+  }
+
+  /// Denormalized order finance fields after payment sync.
+  static ({
+    double advanceReceived,
+    double balanceDue,
+    SalesOrderStatus? status,
+  }) orderFinanceAfterPaymentSync({
+    required SalesOrder order,
+    required double paidAmount,
+    required double dueAmount,
+  }) {
+    return (
+      advanceReceived: paidAmount,
+      balanceDue: dueAmount,
+      status: orderStatusAfterPaymentSync(
+        current: order.status,
+        dueAmount: dueAmount,
+      ),
+    );
   }
 }
