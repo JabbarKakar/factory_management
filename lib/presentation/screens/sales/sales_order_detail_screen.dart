@@ -317,7 +317,6 @@ class SalesOrderDetailScreen extends StatelessWidget {
                 order: order,
                 isSaving: isSaving,
                 canInvoice: canInvoice,
-                hasInvoice: hasInvoice,
                 onAdvanceStatus: nextStatus != null
                     ? () => _advanceStatus(context, nextStatus)
                     : null,
@@ -325,17 +324,6 @@ class SalesOrderDetailScreen extends StatelessWidget {
                     ? () => context.push(
                           RoutePaths.deliveriesAddForOrder(order.id),
                         )
-                    : null,
-                onOpenInvoice: (hasInvoice || canMutateSales) &&
-                        (canInvoice || hasInvoice)
-                    ? () => _openInvoice(context)
-                    : null,
-                onRecordPayment: canMutateSales &&
-                        hasInvoice &&
-                        dueForPayment > 0 &&
-                        invoiceId != null &&
-                        invoiceId.isNotEmpty
-                    ? () => _openRecordPayment(context, invoiceId)
                     : null,
               ),
               JobWorkDetailSection(

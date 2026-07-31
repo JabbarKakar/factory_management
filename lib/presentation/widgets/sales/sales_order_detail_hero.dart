@@ -12,22 +12,16 @@ class SalesOrderDetailHero extends StatelessWidget {
     required this.order,
     required this.isSaving,
     required this.canInvoice,
-    required this.hasInvoice,
     this.onAdvanceStatus,
     this.onScheduleDelivery,
-    this.onOpenInvoice,
-    this.onRecordPayment,
     super.key,
   });
 
   final SalesOrder order;
   final bool isSaving;
   final bool canInvoice;
-  final bool hasInvoice;
   final VoidCallback? onAdvanceStatus;
   final VoidCallback? onScheduleDelivery;
-  final VoidCallback? onOpenInvoice;
-  final VoidCallback? onRecordPayment;
 
   @override
   Widget build(BuildContext context) {
@@ -41,9 +35,9 @@ class SalesOrderDetailHero extends StatelessWidget {
       bottomRight: Radius.circular(14),
     );
     final nextStatus = order.status.nextStatus;
-    final showRecordPayment = hasInvoice &&
-        order.status != SalesOrderStatus.paid &&
-        order.balanceDue > 0;
+    final showActions =
+        (nextStatus != null && onAdvanceStatus != null) ||
+            (canInvoice && onScheduleDelivery != null);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
@@ -133,9 +127,7 @@ class SalesOrderDetailHero extends StatelessWidget {
                           ),
                         ],
                       ),
-                      if (nextStatus != null ||
-                          canInvoice ||
-                          showRecordPayment) ...[
+                      if (showActions) ...[
                         const SizedBox(height: 10),
                         Divider(
                           height: 1,
@@ -150,34 +142,14 @@ class SalesOrderDetailHero extends StatelessWidget {
                                 isSaving ? null : onAdvanceStatus,
                           ),
                         if (canInvoice && onScheduleDelivery != null) ...[
-                          if (nextStatus != null) const SizedBox(height: 6),
+                          if (nextStatus != null && onAdvanceStatus != null)
+                            const SizedBox(height: 6),
                           _ActionButton(
                             label: AppStrings.dispatchStock,
                             icon: Icons.local_shipping_outlined,
                             outlined: true,
                             onPressed:
                                 isSaving ? null : onScheduleDelivery,
-                          ),
-                        ],
-                        if (canInvoice && onOpenInvoice != null) ...[
-                          if (nextStatus != null || canInvoice)
-                            const SizedBox(height: 6),
-                          _ActionButton(
-                            label: hasInvoice
-                                ? AppStrings.viewInvoice
-                                : AppStrings.generateInvoice,
-                            icon: Icons.receipt_long_outlined,
-                            outlined: true,
-                            onPressed: isSaving ? null : onOpenInvoice,
-                          ),
-                        ],
-                        if (showRecordPayment && onRecordPayment != null) ...[
-                          const SizedBox(height: 6),
-                          _ActionButton(
-                            label: AppStrings.recordPayment,
-                            icon: Icons.payments_outlined,
-                            filled: true,
-                            onPressed: isSaving ? null : onRecordPayment,
                           ),
                         ],
                       ],
