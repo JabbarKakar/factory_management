@@ -8,6 +8,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/payment_repository.dart';
+import '../../../data/repositories/sales_order_repository.dart';
 import '../../../data/services/delivery_quantity_helper.dart';
 import '../../../data/services/sales_order_dispatch_status_helper.dart';
 import '../../../domain/entities/payment.dart';
@@ -158,6 +159,40 @@ class SalesOrderDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _deleteOrder(BuildContext context) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deleteSalesOrderTitle,
+      message: AppStrings.deleteSalesOrderMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    try {
+      await getIt<SalesOrderRepository>().deleteSalesOrder(salesOrderId);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text(AppStrings.salesOrderDeleted)),
+        );
+      if (context.canPop()) {
+        context.pop();
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text(AppStrings.salesOrderDeleteError),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<SalesOrderFormBloc, SalesOrderFormState>(
@@ -199,11 +234,13 @@ class SalesOrderDetailScreen extends StatelessWidget {
           );
         }
 
-        final canEdit = order.status == SalesOrderStatus.received &&
-            context.userCanEdit(AppModule.sales);
+        final canMutateSales = context.userCanEdit(AppModule.sales);
+        final canEdit = canMutateSales;
+        final canDelete = context.userCanDelete(AppModule.sales);
+        final canCancel =
+            canMutateSales && order.status != SalesOrderStatus.cancelled;
         final nextStatus = order.status.nextStatus;
         final isSaving = state.status == SalesOrderFormStatus.saving;
-        final canMutateSales = context.userCanEdit(AppModule.sales);
         final canInvoice = order.status == SalesOrderStatus.ready ||
             order.status == SalesOrderStatus.partiallyDispatched ||
             order.status == SalesOrderStatus.invoiced ||
@@ -259,11 +296,17 @@ class SalesOrderDetailScreen extends StatelessWidget {
                   icon: const Icon(Icons.edit_outlined),
                   tooltip: AppStrings.editSalesOrder,
                 ),
-              if (canEdit)
+              if (canCancel)
                 IconButton(
                   onPressed: isSaving ? null : () => _cancelOrder(context),
                   icon: const Icon(Icons.cancel_outlined),
                   tooltip: AppStrings.cancelOrder,
+                ),
+              if (canDelete)
+                IconButton(
+                  onPressed: isSaving ? null : () => _deleteOrder(context),
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  tooltip: AppStrings.delete,
                 ),
             ],
           ),

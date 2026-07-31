@@ -270,8 +270,7 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
         }
 
         final isSaving = state.status == SalesOrderFormStatus.saving;
-        final canEdit = order == null || order.status == SalesOrderStatus.received;
-        final fieldsEnabled = canEdit && !isSaving;
+        final fieldsEnabled = !isSaving;
 
         return Scaffold(
           appBar: AppBar(
@@ -404,7 +403,7 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
                           index: i,
                           enabled: fieldsEnabled,
                           onChanged: () => setState(() {}),
-                          onRemove: _lineItems.length > 1 && canEdit
+                          onRemove: _lineItems.length > 1 && fieldsEnabled
                               ? () => setState(() {
                                     _lineItems[i].dispose();
                                     _lineItems.removeAt(i);
@@ -420,7 +419,7 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
                                 .withValues(alpha: 0.18),
                           ),
                       ],
-                      if (canEdit) ...[
+                      if (fieldsEnabled) ...[
                         AppFormFields.gap,
                         Align(
                           alignment: Alignment.centerLeft,
@@ -538,15 +537,13 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
               ],
             ),
           ),
-          bottomNavigationBar: canEdit
-              ? AppFormBottomBar(
-                  label: isEditing
-                      ? AppStrings.saveChanges
-                      : AppStrings.saveSalesOrder,
-                  isLoading: isSaving,
-                  onPressed: _submit,
-                )
-              : null,
+          bottomNavigationBar: AppFormBottomBar(
+            label: isEditing
+                ? AppStrings.saveChanges
+                : AppStrings.saveSalesOrder,
+            isLoading: isSaving,
+            onPressed: _submit,
+          ),
         );
       },
     );

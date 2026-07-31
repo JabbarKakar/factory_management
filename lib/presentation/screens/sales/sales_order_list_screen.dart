@@ -120,7 +120,7 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
         SalesOrderDispatchStatusHelper.canScheduleDispatch(status);
     final actions = <TileMenuAction>[];
 
-    if (canEdit && status == SalesOrderStatus.received) {
+    if (canEdit) {
       actions.add(
         TileMenuAction(
           label: AppStrings.editSalesOrder,
@@ -213,7 +213,7 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
       );
     }
 
-    if (canEdit && status.isActive) {
+    if (canEdit && status != SalesOrderStatus.cancelled) {
       actions.add(
         TileMenuAction(
           label: AppStrings.cancelOrder,
