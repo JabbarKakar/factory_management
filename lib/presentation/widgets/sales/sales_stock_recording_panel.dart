@@ -117,6 +117,7 @@ class _SalesStockSection extends StatelessWidget {
                   size: size,
                   output: controller.outputForSize(size),
                   sqFtController: controller.sqFtControllerFor(size),
+                  priceController: controller.priceControllerFor(size),
                 ),
               )
               .toList(),
@@ -140,11 +141,13 @@ class _SalesStockRowData {
     required this.size,
     required this.output,
     required this.sqFtController,
+    required this.priceController,
   });
 
   final String size;
   final StockOutput output;
   final TextEditingController sqFtController;
+  final TextEditingController priceController;
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -227,10 +230,11 @@ class _TableHeaderRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
       child: Row(
         children: [
-          _HeaderCell(label: AppStrings.stockSize, flex: 14, style: style),
-          _HeaderCell(label: AppStrings.sqFtShort, flex: 16, style: style),
-          _HeaderCell(label: AppStrings.pieces, flex: 14, style: style),
-          _HeaderCell(label: AppStrings.amount, flex: 18, style: style),
+          _HeaderCell(label: AppStrings.stockSize, flex: 12, style: style),
+          _HeaderCell(label: AppStrings.sqFtShort, flex: 14, style: style),
+          _HeaderCell(label: AppStrings.pricePerSqFt, flex: 16, style: style),
+          _HeaderCell(label: AppStrings.pieces, flex: 12, style: style),
+          _HeaderCell(label: AppStrings.amount, flex: 16, style: style),
         ],
       ),
     );
@@ -288,7 +292,7 @@ class _SalesStockDataRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _CompactCell(
-          flex: 14,
+          flex: 12,
           child: Text(
             row.size,
             style: valueStyle.copyWith(fontWeight: FontWeight.w700),
@@ -296,7 +300,7 @@ class _SalesStockDataRow extends StatelessWidget {
           ),
         ),
         _CompactCell(
-          flex: 16,
+          flex: 14,
           child: TextFormField(
             controller: row.sqFtController,
             enabled: enabled,
@@ -319,14 +323,37 @@ class _SalesStockDataRow extends StatelessWidget {
           ),
         ),
         _CompactCell(
-          flex: 14,
+          flex: 16,
+          child: TextFormField(
+            controller: row.priceController,
+            enabled: enabled,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+            style: valueStyle,
+            textAlign: TextAlign.center,
+            decoration: _cellDecoration(),
+            onChanged: (_) => onChanged(),
+            validator: (value) {
+              if (!hasSqFt) return null;
+              final parsed = double.tryParse(value?.trim() ?? '');
+              if (parsed == null || parsed <= 0) {
+                return AppStrings.pricePerSqFtRequired;
+              }
+              return null;
+            },
+          ),
+        ),
+        _CompactCell(
+          flex: 12,
           child: _CellText(
             text: hasSqFt ? '${row.output.pieces}' : '—',
             style: valueStyle,
           ),
         ),
         _CompactCell(
-          flex: 18,
+          flex: 16,
           child: _CellText(
             text: row.output.amount > 0
                 ? _formatAmount(row.output.amount)

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -685,54 +684,6 @@ class _LineItemEditor extends StatelessWidget {
                     }
                   }
                 : null,
-          ),
-          AppFormFields.gap,
-          TextFormField(
-            controller: draft.stockController.smallPriceController,
-            enabled: enabled,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-            ],
-            style: AppFormFields.valueStyle(context),
-            decoration: AppFormFields.decoration(
-              context,
-              label: AppStrings.smallStockPrice,
-            ),
-            onChanged: (_) => onChanged(),
-            validator: (value) {
-              if (!draft.stockController.hasSmallSqFtEntry) return null;
-              final parsed = double.tryParse(value?.trim() ?? '');
-              if (parsed == null || parsed <= 0) {
-                return AppStrings.smallStockPriceRequired;
-              }
-              return null;
-            },
-          ),
-          AppFormFields.gap,
-          TextFormField(
-            controller: draft.stockController.largePriceController,
-            enabled: enabled,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-            ],
-            style: AppFormFields.valueStyle(context),
-            decoration: AppFormFields.decoration(
-              context,
-              label: AppStrings.largeStockPrice,
-            ),
-            onChanged: (_) => onChanged(),
-            validator: (value) {
-              if (!draft.stockController.hasLargeSqFtEntry) return null;
-              final parsed = double.tryParse(value?.trim() ?? '');
-              if (parsed == null || parsed <= 0) {
-                return AppStrings.largeStockPriceRequired;
-              }
-              return null;
-            },
           ),
           AppFormFields.gap,
           SalesStockRecordingPanel(
