@@ -453,16 +453,35 @@ class PaymentRepository {
     if (invoiceType == InvoiceType.sales) {
       final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
       if (invoice == null || invoice.paidAmount <= 0) return;
-      
-      final paymentId = 'advance_sales_${invoice.salesOrderId}';
-      bool exists = false;
-      try {
-        final existingDoc = await _collection.doc(paymentId).get();
-        exists = existingDoc.exists;
-      } catch (_) {
-        exists = false;
+
+      final orderKey = invoice.salesOrderId.trim().isEmpty
+          ? invoice.id
+          : invoice.salesOrderId.trim();
+      final advanceId = 'advance_sales_$orderKey';
+
+      final existingPayments = await getPaymentsForInvoice(
+        factoryId: invoice.factoryId,
+        invoiceId: invoice.id,
+      );
+      final nonAdvancePaid = existingPayments
+          .where((payment) => payment.id != advanceId)
+          .fold<double>(0, (sum, payment) => sum + payment.amount);
+
+      // Real payments already cover invoice.paid — remove a phantom advance
+      // row created by older logic that seeded the full paidAmount again.
+      if (nonAdvancePaid + 0.01 >= invoice.paidAmount) {
+        if (existingPayments.any((payment) => payment.id == advanceId)) {
+          await _collection.doc(advanceId).delete();
+        }
+        return;
       }
-      if (exists) return;
+
+      if (existingPayments.any((payment) => payment.id == advanceId)) {
+        return;
+      }
+
+      final gap = invoice.paidAmount - nonAdvancePaid;
+      if (gap <= 0.01) return;
 
       await _createStandalonePayment(
         factoryId: invoice.factoryId,
@@ -471,10 +490,10 @@ class PaymentRepository {
         invoiceId: invoice.id,
         invoiceType: InvoiceType.sales,
         invoiceNumber: invoice.invoiceNumber,
-        amount: invoice.paidAmount,
+        amount: gap,
         paymentDate: invoice.createdAt,
         notes: 'Amount received at invoicing (incl. advance)',
-        paymentId: paymentId,
+        paymentId: advanceId,
       );
       return;
     }
