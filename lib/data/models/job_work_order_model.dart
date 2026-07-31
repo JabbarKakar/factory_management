@@ -207,6 +207,9 @@ class JobWorkOrderModel {
       wasteAmount: wasteUnit == WasteUnit.sqFt
           ? (wasteSqFt ?? 0)
           : (wasteTons ?? (data['wasteAmount'] as num?)?.toDouble() ?? 0),
+      yieldAmount: (data['yieldAmount'] as num?)?.toDouble() ??
+          (data['yieldSqFt'] as num?)?.toDouble() ??
+          0,
       wasteUnit: wasteUnit,
       slurryDust: data['slurryDust'] as String?,
       wasteDisposition: WasteDisposition.fromString(
@@ -332,6 +335,8 @@ class JobWorkOrderModel {
             output.largeStockOutputs.map((item) => item.toMap()).toList(),
         'grandCuttingTotal': output.grandCuttingTotal,
         'totalPieces': output.totalPieces,
+        'grossLargeStockSqFt': output.grossLargeStockSqFt,
+        'netLargeStockSqFt': output.netLargeStockSqFt,
       },
       'gradeASqFt': output.gradeASqFt,
       'gradeBSqFt': output.gradeBSqFt,
@@ -342,6 +347,8 @@ class JobWorkOrderModel {
       if (output.wasteUnit == WasteUnit.sqFt) 'wasteSqFt': output.wasteAmount,
       'wasteUnit': output.wasteUnit.firestoreValue,
       'wasteAmount': output.wasteAmount,
+      'yieldAmount': output.yieldAmount,
+      if (output.wasteUnit == WasteUnit.sqFt) 'yieldSqFt': output.yieldAmount,
       'wastePercent': wastePercent,
       'yieldPercent': yieldPercent,
       if (output.slurryDust != null) 'slurryDust': output.slurryDust,

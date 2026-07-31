@@ -413,11 +413,19 @@ abstract final class AppStrings {
   static const String totalUsableOutput = 'Total Usable Output';
   static const String wasteAndYield = 'Waste & Yield';
   static const String wasteGenerated = 'Waste Generated';
-  static const String wasteUnit = 'Waste Unit';
+  static const String yieldGenerated = 'Yield / Loss';
+  static const String wasteUnit = 'Waste / Yield Unit';
   static const String wastePercent = 'Waste %';
   static const String yieldPercent = 'Yield %';
   static const String slurryDust = 'Slurry / Dust (optional)';
   static const String wasteDisposition = 'Waste Disposition';
+  static const String grossLargeStock = 'Gross Large Stock';
+  static const String netLargeStock = 'Net Large Stock';
+  static const String wasteAndYieldDeduction = 'Waste + Yield Deduction';
+  static const String wasteYieldExceedsLargeStock =
+      'Waste and Yield cannot exceed total Gross Large Stock';
+  static const String wasteYieldSqFtHint =
+      'When unit is Sq. Ft, Waste + Yield are deducted from Large Stock only';
   static const String cuttingExecution = 'Cutting Execution';
   static const String cuttingStartDate = 'Cutting Start Date';
   static const String cuttingCompletionDate = 'Cutting Completion Date';

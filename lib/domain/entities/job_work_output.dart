@@ -1,6 +1,8 @@
 import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/utils/job_work_large_stock_net.dart';
+import '../../core/utils/stock_output_calculator.dart';
 import '../enums/job_work_enums.dart';
 import 'stock_output.dart';
 
@@ -161,6 +163,7 @@ class JobWorkOutput extends Equatable {
     this.gradeCSqFt = 0,
     this.rejectSqFt = 0,
     this.wasteAmount = 0,
+    this.yieldAmount = 0,
     this.wasteUnit = WasteUnit.tons,
     this.slurryDust,
     this.wasteDisposition = WasteDisposition.customerTakes,
@@ -174,6 +177,9 @@ class JobWorkOutput extends Equatable {
   final double gradeCSqFt;
   final double rejectSqFt;
   final double wasteAmount;
+
+  /// Yield / process loss amount in the same unit as [wasteUnit].
+  final double yieldAmount;
   final WasteUnit wasteUnit;
   final String? slurryDust;
   final WasteDisposition wasteDisposition;
@@ -185,18 +191,61 @@ class JobWorkOutput extends Equatable {
   bool get hasStockOutputs =>
       allStockOutputs.any((output) => output.hasProduction);
 
+  List<StockOutput> get activeSmallStockOutputs =>
+      smallStockOutputs.where((output) => output.hasProduction).toList();
+
+  double get smallStockSquareFeet =>
+      StockOutputCalculator.totalSquareFeet(activeSmallStockOutputs);
+
+  double get smallStockAmount =>
+      StockOutputCalculator.grandTotal(activeSmallStockOutputs);
+
+  double get grossLargeStockSqFt =>
+      JobWorkLargeStockNet.grossSquareFeet(largeStockOutputs);
+
+  double get wasteAndYieldDeductionSqFt =>
+      JobWorkLargeStockNet.deductionSquareFeet(
+        wasteAmount: wasteAmount,
+        yieldAmount: yieldAmount,
+        wasteUnit: wasteUnit,
+      );
+
+  double get netLargeStockSqFt => JobWorkLargeStockNet.netSquareFeet(
+        largeOutputs: largeStockOutputs,
+        wasteAmount: wasteAmount,
+        yieldAmount: yieldAmount,
+        wasteUnit: wasteUnit,
+      );
+
+  double get grossLargeStockAmount =>
+      JobWorkLargeStockNet.grossAmount(largeStockOutputs);
+
+  double get netLargeStockAmount => JobWorkLargeStockNet.netAmount(
+        largeOutputs: largeStockOutputs,
+        wasteAmount: wasteAmount,
+        yieldAmount: yieldAmount,
+        wasteUnit: wasteUnit,
+      );
+
+  bool get wasteAndYieldExceedsGrossLarge =>
+      JobWorkLargeStockNet.deductionExceedsGross(
+        largeOutputs: largeStockOutputs,
+        wasteAmount: wasteAmount,
+        yieldAmount: yieldAmount,
+        wasteUnit: wasteUnit,
+      );
+
+  /// Usable output: small stock (unchanged) + net large stock after deductions.
   double get totalUsableSqFt {
     if (hasStockOutputs) {
-      return _roundSqFt(
-        allStockOutputs.fold<double>(0, (sum, output) => sum + output.squareFeet),
-      );
+      return _roundSqFt(smallStockSquareFeet + netLargeStockSqFt);
     }
     return gradeASqFt + gradeBSqFt + gradeCSqFt;
   }
 
-  double get grandCuttingTotal => _roundAmount(
-        allStockOutputs.fold<double>(0, (sum, output) => sum + output.amount),
-      );
+  /// Billable cutting total: small amounts + net large amounts.
+  double get grandCuttingTotal =>
+      _roundAmount(smallStockAmount + netLargeStockAmount);
 
   int get totalPieces =>
       allStockOutputs.fold<int>(0, (sum, output) => sum + output.pieces);
@@ -225,7 +274,11 @@ class JobWorkOutput extends Equatable {
   }
 
   bool get isRecorded =>
-      hasStockOutputs || totalOutputSqFt > 0 || wasteAmount > 0 || recordedAt != null;
+      hasStockOutputs ||
+      totalOutputSqFt > 0 ||
+      wasteAmount > 0 ||
+      yieldAmount > 0 ||
+      recordedAt != null;
 
   static JobWorkOutput aggregateFromShifts(
     List<JobWorkShiftLog> shifts, {
@@ -302,6 +355,7 @@ class JobWorkOutput extends Equatable {
     double? gradeCSqFt,
     double? rejectSqFt,
     double? wasteAmount,
+    double? yieldAmount,
     WasteUnit? wasteUnit,
     String? slurryDust,
     WasteDisposition? wasteDisposition,
@@ -315,6 +369,7 @@ class JobWorkOutput extends Equatable {
       gradeCSqFt: gradeCSqFt ?? this.gradeCSqFt,
       rejectSqFt: rejectSqFt ?? this.rejectSqFt,
       wasteAmount: wasteAmount ?? this.wasteAmount,
+      yieldAmount: yieldAmount ?? this.yieldAmount,
       wasteUnit: wasteUnit ?? this.wasteUnit,
       slurryDust: slurryDust ?? this.slurryDust,
       wasteDisposition: wasteDisposition ?? this.wasteDisposition,
@@ -373,6 +428,7 @@ class JobWorkOutput extends Equatable {
         gradeCSqFt,
         rejectSqFt,
         wasteAmount,
+        yieldAmount,
         wasteUnit,
         slurryDust,
         wasteDisposition,

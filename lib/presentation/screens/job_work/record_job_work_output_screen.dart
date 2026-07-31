@@ -39,12 +39,13 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _wasteController = TextEditingController();
+  final _yieldController = TextEditingController();
   final _slurryController = TextEditingController();
   final _supervisorController = TextEditingController();
   final _notesController = TextEditingController();
   final _finalChargesController = TextEditingController();
 
-  WasteUnit _wasteUnit = WasteUnit.tons;
+  WasteUnit _wasteUnit = WasteUnit.sqFt;
   WasteDisposition _wasteDisposition = WasteDisposition.customerTakes;
   DateTime? _startDate;
   DateTime? _completionDate;
@@ -61,6 +62,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   @override
   void dispose() {
     _wasteController.dispose();
+    _yieldController.dispose();
     _slurryController.dispose();
     _supervisorController.dispose();
     _notesController.dispose();
@@ -105,6 +107,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     final output = load.output;
     if (output != null) {
       _wasteController.text = _formatNum(output.wasteAmount);
+      _yieldController.text = _formatNum(output.yieldAmount);
       _wasteUnit = output.wasteUnit;
       _wasteDisposition = output.wasteDisposition;
       _slurryController.text = output.slurryDust ?? '';
@@ -150,6 +153,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       smallStockOutputs: controller.buildSmallOutputs(),
       largeStockOutputs: controller.buildLargeOutputs(),
       wasteAmount: _parse(_wasteController.text),
+      yieldAmount: _parse(_yieldController.text),
       wasteUnit: _wasteUnit,
       slurryDust: _slurryController.text.trim().isEmpty
           ? null
@@ -168,6 +172,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
             : _slurryController.text.trim(),
       ).copyWith(
         wasteAmount: _parse(_wasteController.text),
+        yieldAmount: _parse(_yieldController.text),
         wasteUnit: _wasteUnit,
       );
     }
@@ -288,8 +293,14 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final output = _effectiveOutput().copyWith(recordedAt: DateTime.now());
+    if (output.wasteAndYieldExceedsGrossLarge) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(AppStrings.wasteYieldExceedsLargeStock)),
+      );
+      return;
+    }
     final hasProduction = output.hasStockOutputs || output.totalOutputSqFt > 0;
-    if (!hasProduction && output.wasteAmount <= 0) {
+    if (!hasProduction && output.wasteAmount <= 0 && output.yieldAmount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text(AppStrings.outputProductionRequired)),
       );
@@ -530,6 +541,14 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                         _wasteController,
                         AppStrings.wasteGenerated,
                         enabled: !isSaving,
+                        validator: (_) => _wasteYieldValidator(previewOutput),
+                      ),
+                      AppFormFields.gap,
+                      _numberField(
+                        _yieldController,
+                        AppStrings.yieldGenerated,
+                        enabled: !isSaving,
+                        validator: (_) => _wasteYieldValidator(previewOutput),
                       ),
                       AppFormFields.gap,
                       DropdownButtonFormField<WasteUnit>(
@@ -555,9 +574,25 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                             ? null
                             : (value) {
                                 if (value == null) return;
-                                setState(() => _wasteUnit = value);
+                                setState(() {
+                                  _wasteUnit = value;
+                                  _chargesManuallyEdited = false;
+                                });
                               },
                       ),
+                      if (_wasteUnit == WasteUnit.sqFt) ...[
+                        AppFormFields.gap,
+                        Text(
+                          AppStrings.wasteYieldSqFtHint,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontSize: 11,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                        ),
+                      ],
                       AppFormFields.gap,
                       DropdownButtonFormField<WasteDisposition>(
                         key: ValueKey(_wasteDisposition),
@@ -724,6 +759,29 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                         label: AppStrings.totalPieces,
                         value: previewOutput.totalPieces.toString(),
                       ),
+                      if (previewOutput.grossLargeStockSqFt > 0) ...[
+                        AppFormFields.gap,
+                        AppFormSummaryRow(
+                          label: AppStrings.grossLargeStock,
+                          value:
+                              '${previewOutput.grossLargeStockSqFt.toStringAsFixed(2)} sq. ft',
+                        ),
+                      ],
+                      if (previewOutput.wasteAndYieldDeductionSqFt > 0) ...[
+                        AppFormFields.gap,
+                        AppFormSummaryRow(
+                          label: AppStrings.wasteAndYieldDeduction,
+                          value:
+                              '-${previewOutput.wasteAndYieldDeductionSqFt.toStringAsFixed(2)} sq. ft',
+                        ),
+                        AppFormFields.gap,
+                        AppFormSummaryRow(
+                          label: AppStrings.netLargeStock,
+                          value:
+                              '${previewOutput.netLargeStockSqFt.toStringAsFixed(2)} sq. ft',
+                          highlight: true,
+                        ),
+                      ],
                       AppFormFields.gap,
                       AppFormSummaryRow(
                         label: AppStrings.totalUsableOutput,
@@ -734,7 +792,9 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
                       AppFormFields.gap,
                       AppFormSummaryRow(
                         label: AppStrings.grandCuttingTotal,
-                        value: Formatters.currencyPkr(previewOutput.grandCuttingTotal),
+                        value: Formatters.currencyPkr(
+                          previewOutput.grandCuttingTotal,
+                        ),
                         highlight: true,
                       ),
                       if (wastePct > 0) ...[
@@ -760,10 +820,18 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
     );
   }
 
+  String? _wasteYieldValidator(JobWorkOutput output) {
+    if (output.wasteAndYieldExceedsGrossLarge) {
+      return AppStrings.wasteYieldExceedsLargeStock;
+    }
+    return null;
+  }
+
   Widget _numberField(
     TextEditingController controller,
     String label, {
     bool enabled = true,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
@@ -771,6 +839,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       style: AppFormFields.valueStyle(context),
       decoration: AppFormFields.decoration(context, label: label),
+      validator: validator,
       onChanged: (_) => setState(() {
         _chargesManuallyEdited = false;
       }),

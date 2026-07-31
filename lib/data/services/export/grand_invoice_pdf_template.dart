@@ -707,6 +707,19 @@ abstract final class GrandInvoicePdfTemplate {
       }
     }
 
+    // Billable large stock = gross − (waste + yield) when unit is sq.ft.
+    final output = load.output;
+    final largeDeductionSqFt = output?.wasteAndYieldDeductionSqFt ?? 0;
+    final largeGrossSqFt = largeTotalSqFt;
+    final largeGrossAmount = largeTotalAmount;
+    if (largeDeductionSqFt > 0 && largeGrossSqFt > 0) {
+      final netSq = math.max(0.0, largeGrossSqFt - largeDeductionSqFt);
+      final ratio = netSq / largeGrossSqFt;
+      largeTotalSqFt = double.parse(netSq.toStringAsFixed(2));
+      largeTotalAmount =
+          double.parse((largeGrossAmount * ratio).toStringAsFixed(2));
+    }
+
     final smallRemainingPieces = math.max(0, smallTotalPieces - smallCollectedPieces);
     final smallRemainingSqFt = JobWorkCollectionQuantityHelper.normalizeRemainingSquareFeet(
       remainingPieces: smallRemainingPieces,
@@ -959,9 +972,22 @@ abstract final class GrandInvoicePdfTemplate {
                 if (largeStocks.isNotEmpty) ...[
                   categoryHeaderRow('Large Sizes'),
                   ...sizeRows(largeStocks),
+                  if (largeDeductionSqFt > 0)
+                    stockDataRow(
+                      index: largeStocks.length,
+                      label: 'Waste + Yield deduction',
+                      pieces: 0,
+                      colPieces: 0,
+                      remPieces: 0,
+                      squareFeet: -largeDeductionSqFt,
+                      colSqFt: 0,
+                      remSqFt: 0,
+                      rate: '—',
+                      amount: -(largeGrossAmount - largeTotalAmount),
+                    ),
                   _categorySubtotalRow(
                     fonts: fonts,
-                    label: 'Subtotal Large:',
+                    label: 'Subtotal Large (Net):',
                     totalPieces: largeTotalPieces,
                     collectedPieces: largeCollectedPieces,
                     remainingPieces: largeRemainingPieces,

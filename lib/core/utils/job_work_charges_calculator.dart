@@ -176,7 +176,7 @@ abstract final class JobWorkChargesCalculator {
 
   static List<JobWorkChargeLine> _stockOutputBreakdown(JobWorkOutput output) {
     final sym = Formatters.activeCurrency;
-    return output.allStockOutputs
+    final lines = output.allStockOutputs
         .where((stock) => stock.hasProduction)
         .map(
           (stock) => JobWorkChargeLine(
@@ -187,6 +187,20 @@ abstract final class JobWorkChargesCalculator {
           ),
         )
         .toList();
+
+    final deductionAmt =
+        output.grossLargeStockAmount - output.netLargeStockAmount;
+    if (deductionAmt > 0.0001) {
+      lines.add(
+        JobWorkChargeLine(
+          label: 'Waste & Yield (Large Stock)',
+          detail:
+              '-${output.wasteAndYieldDeductionSqFt.toStringAsFixed(2)} sq. ft from large',
+          amount: -deductionAmt,
+        ),
+      );
+    }
+    return lines;
   }
 
   static List<JobWorkChargeLine> _legacyStockSizeBreakdown(
@@ -295,6 +309,7 @@ abstract final class JobWorkChargesCalculator {
     required List<StockOutput> largeStockOutputs,
     double rejectSqFt = 0,
     double wasteAmount = 0,
+    double yieldAmount = 0,
     WasteUnit wasteUnit = WasteUnit.tons,
     String? slurryDust,
     WasteDisposition wasteDisposition = WasteDisposition.customerTakes,
@@ -308,6 +323,7 @@ abstract final class JobWorkChargesCalculator {
           .toList(),
       rejectSqFt: rejectSqFt,
       wasteAmount: wasteAmount,
+      yieldAmount: yieldAmount,
       wasteUnit: wasteUnit,
       slurryDust: slurryDust,
       wasteDisposition: wasteDisposition,
