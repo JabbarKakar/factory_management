@@ -1,10 +1,11 @@
-/// Time window for dashboard income / expense cashflow metrics.
+/// Time window for dashboard cashflow / stock-cut metrics.
 enum DashboardFinancePeriod {
   daily,
   weekly,
   monthly,
   sixMonths,
-  yearly;
+  yearly,
+  allTime;
 
   String get label => switch (this) {
         DashboardFinancePeriod.daily => 'Daily',
@@ -12,6 +13,7 @@ enum DashboardFinancePeriod {
         DashboardFinancePeriod.monthly => 'Monthly',
         DashboardFinancePeriod.sixMonths => '6 Months',
         DashboardFinancePeriod.yearly => 'Yearly',
+        DashboardFinancePeriod.allTime => 'All Time',
       };
 
   /// Short comparison label for trend captions.
@@ -21,5 +23,6 @@ enum DashboardFinancePeriod {
         DashboardFinancePeriod.monthly => 'vs last month',
         DashboardFinancePeriod.sixMonths => 'vs prior 6 mo',
         DashboardFinancePeriod.yearly => 'vs last year',
+        DashboardFinancePeriod.allTime => 'all time',
       };
 }

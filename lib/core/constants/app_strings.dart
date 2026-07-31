@@ -589,6 +589,13 @@ abstract final class AppStrings {
   static const String dailyNet = 'Net';
   static const String dailyNetShort = 'Net';
   static const String dailyNetSubtitle = 'Income − Expenses';
+  static const String stockCutTitle = 'Stock Cut';
+  static const String stockCutSubtitle =
+      'Small and large stock produced for the selected period';
+  static const String stockCutTotal = 'Total Stock Cut';
+  static const String stockCutTotalShort = 'Total';
+  static const String stockCutTotalSubtitle = 'Small + Large';
+  static const String stockCutAllTimeCaption = 'All recorded production';
   static const String selectPeriod = 'Period';
   static const String vsYesterdayNa = 'N/A';
   static String vsPeriodPercent(String signedPercent, String vsLabel) =>

@@ -15,6 +15,8 @@ class DashboardState extends Equatable {
     this.pendingPickups = const [],
     this.cashflow = DashboardCashflowMetrics.empty,
     this.financePeriod = DashboardFinancePeriod.daily,
+    this.stockCut = DashboardStockCutMetrics.empty,
+    this.stockCutPeriod = DashboardFinancePeriod.daily,
     this.factoryId,
     this.errorMessage,
   });
@@ -25,6 +27,8 @@ class DashboardState extends Equatable {
   final List<DashboardPendingPickup> pendingPickups;
   final DashboardCashflowMetrics cashflow;
   final DashboardFinancePeriod financePeriod;
+  final DashboardStockCutMetrics stockCut;
+  final DashboardFinancePeriod stockCutPeriod;
   final String? factoryId;
   final String? errorMessage;
 
@@ -35,6 +39,8 @@ class DashboardState extends Equatable {
     List<DashboardPendingPickup>? pendingPickups,
     DashboardCashflowMetrics? cashflow,
     DashboardFinancePeriod? financePeriod,
+    DashboardStockCutMetrics? stockCut,
+    DashboardFinancePeriod? stockCutPeriod,
     String? factoryId,
     String? errorMessage,
   }) {
@@ -45,6 +51,8 @@ class DashboardState extends Equatable {
       pendingPickups: pendingPickups ?? this.pendingPickups,
       cashflow: cashflow ?? this.cashflow,
       financePeriod: financePeriod ?? this.financePeriod,
+      stockCut: stockCut ?? this.stockCut,
+      stockCutPeriod: stockCutPeriod ?? this.stockCutPeriod,
       factoryId: factoryId ?? this.factoryId,
       errorMessage: errorMessage,
     );
@@ -58,6 +66,8 @@ class DashboardState extends Equatable {
         pendingPickups,
         cashflow,
         financePeriod,
+        stockCut,
+        stockCutPeriod,
         factoryId,
         errorMessage,
       ];

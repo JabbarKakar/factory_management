@@ -33,6 +33,7 @@ import '../../domain/entities/dashboard_analytics.dart';
 import '../../domain/entities/dashboard_cashflow_metrics.dart';
 import '../../domain/entities/dashboard_kpis.dart';
 import '../../domain/entities/dashboard_pending_pickup.dart';
+import '../../domain/entities/dashboard_stock_cut_metrics.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/entities/equipment.dart';
@@ -54,7 +55,6 @@ import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/labour_enums.dart';
 import '../../domain/enums/quality_enums.dart';
 import '../../domain/enums/sales_agreement_enums.dart';
-import '../../domain/enums/sales_enums.dart';
 
 part 'dashboard_event.dart';
 part 'dashboard_state.dart';
@@ -101,6 +101,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<DashboardWatchStarted>(_onWatchStarted);
     on<DashboardWatchStopped>(_onWatchStopped);
     on<DashboardFinancePeriodChanged>(_onFinancePeriodChanged);
+    on<DashboardStockCutPeriodChanged>(_onStockCutPeriodChanged);
     on<_DashboardDataUpdated>(_onDataUpdated);
     on<_DashboardRecomputeRequested>(_onRecomputeRequested);
   }
@@ -361,6 +362,15 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     if (state.financePeriod == event.period) return;
     emit(state.copyWith(financePeriod: event.period));
+    add(const _DashboardRecomputeRequested());
+  }
+
+  Future<void> _onStockCutPeriodChanged(
+    DashboardStockCutPeriodChanged event,
+    Emitter<DashboardState> emit,
+  ) async {
+    if (state.stockCutPeriod == event.period) return;
+    emit(state.copyWith(stockCutPeriod: event.period));
     add(const _DashboardRecomputeRequested());
   }
 
@@ -699,12 +709,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       period: state.financePeriod,
       now: now,
     );
+    final stockCut = _buildStockCutMetrics(
+      period: state.stockCutPeriod,
+      now: now,
+    );
 
     emit(
       state.copyWith(
         status: DashboardStatus.loaded,
         cashflow: cashflow,
         financePeriod: state.financePeriod,
+        stockCut: stockCut,
+        stockCutPeriod: state.stockCutPeriod,
         kpis: DashboardKpis(
           revenueToday: revenueToday,
           activeJobWorkCount: activeJobWorkCount,
@@ -792,6 +808,32 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       expenses: sumExpenses(range.currentStart, range.currentEnd),
       previousIncome: sumPayments(range.previousStart, range.previousEnd),
       previousExpenses: sumExpenses(range.previousStart, range.previousEnd),
+    );
+  }
+
+  DashboardStockCutMetrics _buildStockCutMetrics({
+    required DashboardFinancePeriod period,
+    required DateTime now,
+  }) {
+    final range = DashboardFinancePeriodRange.forPeriod(period, now);
+    final current = DashboardJobWorkMetrics.factoryStockCutInRange(
+      orders: _orders,
+      loads: _jobWorkLoads,
+      start: range.currentStart,
+      end: range.currentEnd,
+    );
+    final previous = DashboardJobWorkMetrics.factoryStockCutInRange(
+      orders: _orders,
+      loads: _jobWorkLoads,
+      start: range.previousStart,
+      end: range.previousEnd,
+    );
+    return DashboardStockCutMetrics(
+      period: period,
+      smallSqFt: current.smallSqFt,
+      largeSqFt: current.largeSqFt,
+      previousSmallSqFt: previous.smallSqFt,
+      previousLargeSqFt: previous.largeSqFt,
     );
   }
 

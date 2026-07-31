@@ -145,6 +145,17 @@ class DashboardFinancePeriodRange {
           previousStart: prevYearStart,
           previousEnd: prevYearEnd,
         );
+
+      case DashboardFinancePeriod.allTime:
+        // Open-ended history; previous window is empty so trends stay N/A.
+        final epoch = DateTime(2000, 1, 1);
+        final emptyEnd = epoch.subtract(const Duration(days: 1));
+        return DashboardFinancePeriodRange(
+          currentStart: epoch,
+          currentEnd: today,
+          previousStart: epoch,
+          previousEnd: emptyEnd,
+        );
     }
   }
 }
