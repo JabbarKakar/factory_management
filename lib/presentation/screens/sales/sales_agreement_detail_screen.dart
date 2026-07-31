@@ -5,26 +5,40 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/sales/sales_agreement_detail_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
+import '../../../data/repositories/sales_order_repository.dart';
 import '../../../data/services/sales_container_sync_helper.dart';
+import '../../../data/services/sales_order_dispatch_status_helper.dart';
 import '../../../domain/entities/sales_agreement.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/sales_agreement_enums.dart';
+import '../../../domain/enums/sales_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
-import '../../widgets/compact_status_chip.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/sales/sales_order_list_tile.dart';
+import '../../widgets/tile_options_menu.dart';
 
-class SalesAgreementDetailScreen extends StatelessWidget {
+class SalesAgreementDetailScreen extends StatefulWidget {
   const SalesAgreementDetailScreen({
     required this.agreementId,
     super.key,
   });
 
   final String agreementId;
+
+  @override
+  State<SalesAgreementDetailScreen> createState() =>
+      _SalesAgreementDetailScreenState();
+}
+
+class _SalesAgreementDetailScreenState
+    extends State<SalesAgreementDetailScreen> {
+  String? _busyOrderId;
 
   Color _accentFor(SalesAgreementSummaryStatus status) {
     return switch (status) {
@@ -36,49 +50,226 @@ class SalesAgreementDetailScreen extends StatelessWidget {
     };
   }
 
-  Future<void> _openAddOrder(BuildContext context) async {
-    final saved = await context.push<bool>(
-      RoutePaths.salesAddOrder(agreementId),
-    );
-    if (saved == true && context.mounted) {
-      context.read<SalesAgreementDetailBloc>().add(
-            const SalesAgreementDetailRefreshRequested(),
-          );
-    }
+  void _refresh() {
+    context.read<SalesAgreementDetailBloc>().add(
+          const SalesAgreementDetailRefreshRequested(),
+        );
   }
 
-  Future<void> _openEditAgreement(BuildContext context) async {
-    final saved = await context.push<bool>(
-      RoutePaths.salesEdit(agreementId),
-    );
-    if (saved == true && context.mounted) {
-      context.read<SalesAgreementDetailBloc>().add(
-            const SalesAgreementDetailRefreshRequested(),
-          );
-    }
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              isError ? Theme.of(context).colorScheme.error : null,
+        ),
+      );
   }
 
-  Future<void> _openGrandInvoice(
-    BuildContext context, {
-    required bool generate,
-  }) async {
+  Future<void> _openAddOrder() async {
+    final saved = await context.push<bool>(
+      RoutePaths.salesAddOrder(widget.agreementId),
+    );
+    if (saved == true && mounted) _refresh();
+  }
+
+  Future<void> _openEditAgreement() async {
+    final saved = await context.push<bool>(
+      RoutePaths.salesEdit(widget.agreementId),
+    );
+    if (saved == true && mounted) _refresh();
+  }
+
+  Future<void> _openGrandInvoice({required bool generate}) async {
     await context.push(
       RoutePaths.salesGrandInvoice(
-        agreementId,
+        widget.agreementId,
         generateMissing: generate,
       ),
     );
-    if (context.mounted) {
-      context.read<SalesAgreementDetailBloc>().add(
-            const SalesAgreementDetailRefreshRequested(),
-          );
+    if (mounted) _refresh();
+  }
+
+  Future<void> _confirmDelete(SalesOrder order) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deleteSalesOrderTitle,
+      message: AppStrings.deleteSalesOrderMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyOrderId = order.id);
+    try {
+      await getIt<SalesOrderRepository>().deleteSalesOrder(order.id);
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderDeleted);
+      _refresh();
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderDeleteError, isError: true);
+    } finally {
+      if (mounted) setState(() => _busyOrderId = null);
     }
+  }
+
+  Future<void> _confirmCancel(SalesOrder order) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.cancelSalesOrderTitle,
+      message: AppStrings.cancelSalesOrderMessage,
+      confirmLabel: AppStrings.cancelOrder,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyOrderId = order.id);
+    try {
+      await getIt<SalesOrderRepository>().cancelSalesOrder(order.id);
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderCancelled);
+      _refresh();
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderCancelError, isError: true);
+    } finally {
+      if (mounted) setState(() => _busyOrderId = null);
+    }
+  }
+
+  List<TileMenuAction> _menuActionsFor(
+    SalesOrder order, {
+    required bool canEdit,
+    required bool canDelete,
+  }) {
+    final status = order.status;
+    final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
+    final canDispatch =
+        SalesOrderDispatchStatusHelper.canScheduleDispatch(status);
+    final actions = <TileMenuAction>[];
+    final agreementId = order.agreementId?.trim().isNotEmpty == true
+        ? order.agreementId!.trim()
+        : widget.agreementId;
+
+    if (canEdit) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.editSalesOrder,
+          icon: Icons.edit_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.salesOrderEdit(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+            if (mounted) _refresh();
+          },
+        ),
+      );
+    }
+
+    if ((status == SalesOrderStatus.ready ||
+            status == SalesOrderStatus.partiallyDispatched) &&
+        !hasInvoice) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.generateInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.salesInvoice(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+            if (mounted) _refresh();
+          },
+        ),
+      );
+    }
+
+    if (hasInvoice) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.viewInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.salesInvoice(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+            if (mounted) _refresh();
+          },
+        ),
+      );
+      if (order.balanceDue > 0 &&
+          status != SalesOrderStatus.closed &&
+          status != SalesOrderStatus.cancelled) {
+        actions.add(
+          TileMenuAction(
+            label: AppStrings.recordPayment,
+            icon: Icons.payments_outlined,
+            onSelected: () async {
+              await context.push(
+                RoutePaths.salesRecordPayment(order.invoiceId!),
+              );
+              if (mounted) _refresh();
+            },
+          ),
+        );
+      }
+    }
+
+    if (canDispatch) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.dispatchStock,
+          icon: Icons.local_shipping_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.deliveriesAddForOrder(order.id),
+            );
+            if (mounted) _refresh();
+          },
+        ),
+      );
+    }
+
+    if (canEdit && status != SalesOrderStatus.cancelled) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.cancelOrder,
+          icon: Icons.cancel_outlined,
+          onSelected: () => _confirmCancel(order),
+        ),
+      );
+    }
+
+    if (canDelete) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.delete,
+          icon: Icons.delete_outline_rounded,
+          destructive: true,
+          onSelected: () => _confirmDelete(order),
+        ),
+      );
+    }
+
+    return actions;
   }
 
   @override
   Widget build(BuildContext context) {
     final canCreate = context.userCanCreate(AppModule.sales);
     final canEdit = context.userCanEdit(AppModule.sales);
+    final canDelete = context.userCanDelete(AppModule.sales);
 
     return BlocBuilder<SalesAgreementDetailBloc, SalesAgreementDetailState>(
       builder: (context, state) {
@@ -141,13 +332,13 @@ class SalesAgreementDetailScreen extends StatelessWidget {
             actions: [
               if (canEdit)
                 IconButton(
-                  onPressed: () => _openEditAgreement(context),
+                  onPressed: _openEditAgreement,
                   icon: const Icon(Icons.edit_outlined),
                   tooltip: AppStrings.editSalesAgreement,
                 ),
               if (showAddOrder)
                 IconButton(
-                  onPressed: () => _openAddOrder(context),
+                  onPressed: _openAddOrder,
                   icon: const Icon(Icons.add_shopping_cart_outlined),
                   tooltip: AppStrings.addSalesOrder,
                 ),
@@ -161,10 +352,8 @@ class SalesAgreementDetailScreen extends StatelessWidget {
                 statusColor: statusColor,
                 canGenerateGrand: canGenerateGrand,
                 canViewGrand: canViewGrand,
-                onGenerateGrand: () =>
-                    _openGrandInvoice(context, generate: true),
-                onViewGrand: () =>
-                    _openGrandInvoice(context, generate: false),
+                onGenerateGrand: () => _openGrandInvoice(generate: true),
+                onViewGrand: () => _openGrandInvoice(generate: false),
               ),
               JobWorkDetailSection(
                 title: AppStrings.ordersSummary,
@@ -190,10 +379,27 @@ class SalesAgreementDetailScreen extends StatelessWidget {
                 title: AppStrings.allOrders,
                 icon: Icons.shopping_bag_outlined,
                 action: showAddOrder
-                    ? TextButton.icon(
-                        onPressed: () => _openAddOrder(context),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text(AppStrings.addSalesOrder),
+                    ? FilledButton.tonalIcon(
+                        onPressed: _openAddOrder,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          minimumSize: const Size(0, 28),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 14),
+                        label: const Text(
+                          AppStrings.addSalesOrder,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       )
                     : null,
                 child: orders.isEmpty
@@ -216,15 +422,22 @@ class SalesAgreementDetailScreen extends StatelessWidget {
                             for (var i = 0; i < orders.length; i++) ...[
                               SalesOrderListTile(
                                 order: orders[i],
-                                onTap: () => context.push(
-                                  RoutePaths.salesOrderDetail(
-                                    agreementId: agreementId,
-                                    salesOrderId: orders[i].id,
-                                  ),
+                                isBusy: _busyOrderId == orders[i].id,
+                                menuActions: _menuActionsFor(
+                                  orders[i],
+                                  canEdit: canEdit,
+                                  canDelete: canDelete,
                                 ),
+                                onTap: () async {
+                                  await context.push(
+                                    RoutePaths.salesOrderDetail(
+                                      agreementId: widget.agreementId,
+                                      salesOrderId: orders[i].id,
+                                    ),
+                                  );
+                                  if (mounted) _refresh();
+                                },
                               ),
-                              if (i < orders.length - 1)
-                                const SizedBox(height: 0),
                             ],
                           ],
                         ),
@@ -297,10 +510,15 @@ class _AgreementHero extends StatelessWidget {
                               ),
                             ),
                           ),
-                          CompactStatusChip(
-                            label: agreement.summaryStatus.label,
-                            color: statusColor,
-                          ),
+                          if (canGenerateGrand || canViewGrand) ...[
+                            const SizedBox(width: 8),
+                            _InvoiceButton(
+                              hasInvoice: !canGenerateGrand && canViewGrand,
+                              onPressed: canGenerateGrand
+                                  ? onGenerateGrand
+                                  : onViewGrand,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -312,32 +530,6 @@ class _AgreementHero extends StatelessWidget {
                           fontSize: 11,
                         ),
                       ),
-                      if (canGenerateGrand || canViewGrand) ...[
-                        const SizedBox(height: 10),
-                        Divider(
-                          height: 1,
-                          color: outline.withValues(alpha: 0.7),
-                        ),
-                        const SizedBox(height: 10),
-                        if (canGenerateGrand)
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton.tonalIcon(
-                              onPressed: onGenerateGrand,
-                              icon: const Icon(Icons.receipt_long_outlined),
-                              label: const Text(AppStrings.generateGrandInvoice),
-                            ),
-                          )
-                        else if (canViewGrand)
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: onViewGrand,
-                              icon: const Icon(Icons.receipt_long_outlined),
-                              label: const Text(AppStrings.viewGrandInvoice),
-                            ),
-                          ),
-                      ],
                     ],
                   ),
                 ),
@@ -345,6 +537,60 @@ class _AgreementHero extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Matches Job Work detail hero invoice CTA styling.
+class _InvoiceButton extends StatelessWidget {
+  const _InvoiceButton({
+    required this.hasInvoice,
+    required this.onPressed,
+  });
+
+  final bool hasInvoice;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
+
+    return FilledButton.tonal(
+      onPressed: onPressed,
+      style: FilledButton.styleFrom(
+        padding: EdgeInsets.symmetric(
+          horizontal: isCompact ? 7 : 12,
+          vertical: isCompact ? 3 : 4,
+        ),
+        minimumSize: Size(0, isCompact ? 25 : 28),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isCompact) ...[
+            Icon(
+              hasInvoice
+                  ? Icons.receipt_long_outlined
+                  : Icons.add_circle_outline,
+              size: 14,
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            hasInvoice
+                ? AppStrings.viewGrandInvoice
+                : AppStrings.generateGrandInvoice,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: isCompact ? 10.5 : 11,
+            ),
+          ),
+        ],
       ),
     );
   }
