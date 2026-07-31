@@ -190,6 +190,8 @@ abstract final class AppStrings {
   static const String salesGrandInvoiceIncomplete =
       'No orders with charges are ready for a grand invoice.';
   static const String openOrderInvoice = 'Open Order invoice';
+  static const String paymentBelongsToOrder = 'Belongs to Order =>';
+  // static const String paymentBelongsToAgreement = 'Belongs to Agreement =>';
   static const String loadPaid = 'Paid';
   static const String loadPending = 'Pending';
   static const String loadCollected = 'Collected';

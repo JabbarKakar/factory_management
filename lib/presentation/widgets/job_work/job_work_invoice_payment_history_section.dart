@@ -14,6 +14,7 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
     this.canCorrect = false,
     this.onEdit,
     this.onDelete,
+    this.subtitleForPayment,
     super.key,
   });
 
@@ -21,6 +22,9 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
   final bool canCorrect;
   final ValueChanged<Payment>? onEdit;
   final ValueChanged<Payment>? onDelete;
+
+  /// Optional secondary line (e.g. which Order / Load the payment belongs to).
+  final String? Function(Payment payment)? subtitleForPayment;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +94,7 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
                       canCorrect: canCorrect,
                       onEdit: onEdit,
                       onDelete: onDelete,
+                      subtitle: subtitleForPayment?.call(payments[i]),
                     ),
                     if (i < payments.length - 1) const SizedBox(height: 8),
                   ],
@@ -106,12 +111,14 @@ class _PaymentRow extends StatelessWidget {
     required this.canCorrect,
     this.onEdit,
     this.onDelete,
+    this.subtitle,
   });
 
   final Payment payment;
   final bool canCorrect;
   final ValueChanged<Payment>? onEdit;
   final ValueChanged<Payment>? onDelete;
+  final String? subtitle;
 
   List<TileMenuAction> _menuActions() {
     final actions = <TileMenuAction>[];
@@ -169,6 +176,18 @@ class _PaymentRow extends StatelessWidget {
                         height: 1.25,
                       ),
                 ),
+                if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: muted,
+                          fontSize: 10,
+                          height: 1.2,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ],
                 if (payment.reference != null &&
                     payment.reference!.trim().isNotEmpty) ...[
                   const SizedBox(height: 2),
