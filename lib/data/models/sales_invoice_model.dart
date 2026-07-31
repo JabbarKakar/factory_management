@@ -19,6 +19,8 @@ class SalesInvoiceModel {
     required this.dueAmount,
     required this.status,
     required this.createdAt,
+    this.agreementId,
+    this.agreementNumber,
     this.dueDate,
     this.updatedAt,
   });
@@ -26,6 +28,8 @@ class SalesInvoiceModel {
   final String id;
   final String invoiceNumber;
   final String factoryId;
+  final String? agreementId;
+  final String? agreementNumber;
   final String salesOrderId;
   final String orderNumber;
   final String customerId;
@@ -45,6 +49,8 @@ class SalesInvoiceModel {
       id: id,
       invoiceNumber: data['invoiceNumber'] as String? ?? '',
       factoryId: data['factoryId'] as String? ?? 'default',
+      agreementId: data['agreementId'] as String?,
+      agreementNumber: data['agreementNumber'] as String?,
       salesOrderId: data['salesOrderId'] as String? ?? '',
       orderNumber: data['orderNumber'] as String? ?? '',
       customerId: data['customerId'] as String? ?? '',
@@ -72,6 +78,10 @@ class SalesInvoiceModel {
     return {
       'invoiceNumber': invoiceNumber,
       'factoryId': factoryId,
+      if (agreementId != null && agreementId!.trim().isNotEmpty)
+        'agreementId': agreementId,
+      if (agreementNumber != null && agreementNumber!.trim().isNotEmpty)
+        'agreementNumber': agreementNumber,
       'salesOrderId': salesOrderId,
       'orderNumber': orderNumber,
       'customerId': customerId,
@@ -98,6 +108,8 @@ class SalesInvoiceModel {
         id: id,
         invoiceNumber: invoiceNumber,
         factoryId: factoryId,
+        agreementId: agreementId,
+        agreementNumber: agreementNumber,
         salesOrderId: salesOrderId,
         orderNumber: orderNumber,
         customerId: customerId,
@@ -112,10 +124,13 @@ class SalesInvoiceModel {
         updatedAt: updatedAt,
       );
 
-  factory SalesInvoiceModel.fromEntity(SalesInvoice invoice) => SalesInvoiceModel(
+  factory SalesInvoiceModel.fromEntity(SalesInvoice invoice) =>
+      SalesInvoiceModel(
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
         factoryId: invoice.factoryId,
+        agreementId: invoice.agreementId,
+        agreementNumber: invoice.agreementNumber,
         salesOrderId: invoice.salesOrderId,
         orderNumber: invoice.orderNumber,
         customerId: invoice.customerId,

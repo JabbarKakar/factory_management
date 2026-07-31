@@ -11,6 +11,7 @@ import 'core/theme/app_theme.dart';
 import 'data/services/notification_engine_service.dart';
 import 'data/services/job_work_cleanup_service.dart';
 import 'data/services/job_work_loads_backfill_service.dart';
+import 'data/services/sales_agreement_backfill_service.dart';
 import 'presentation/routes/app_router.dart';
 
 class FactoryManagementApp extends StatefulWidget {
@@ -42,6 +43,9 @@ class _FactoryManagementAppState extends State<FactoryManagementApp> {
           .runIfNeeded(state.user.factoryId)
           .ignore();
       getIt<JobWorkLoadsBackfillService>()
+          .runIfNeeded(state.user.factoryId)
+          .ignore();
+      getIt<SalesAgreementBackfillService>()
           .runIfNeeded(state.user.factoryId)
           .ignore();
       getIt<NotificationEngineService>()

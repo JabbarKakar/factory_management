@@ -119,6 +119,9 @@ class SalesOrder extends Equatable {
     this.paymentDueDate,
     this.specialInstructions,
     this.invoiceId,
+    this.agreementId,
+    this.agreementNumber,
+    this.orderSequence,
     this.closedAt,
     this.updatedAt,
   });
@@ -144,9 +147,20 @@ class SalesOrder extends Equatable {
   final DateTime? paymentDueDate;
   final String? specialInstructions;
   final String? invoiceId;
+
+  /// Parent Sales Agreement id (Phase 0). Empty/null = legacy unlinked order.
+  final String? agreementId;
+  final String? agreementNumber;
+
+  /// 1-based sequence within the Agreement (display “Order 1”).
+  final int? orderSequence;
+
   final DateTime? closedAt;
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  bool get hasAgreement =>
+      agreementId != null && agreementId!.trim().isNotEmpty;
 
   int get totalPieces =>
       lineItems.fold<int>(0, (sum, item) => sum + item.totalPieces);
@@ -188,6 +202,9 @@ class SalesOrder extends Equatable {
     DateTime? paymentDueDate,
     String? specialInstructions,
     String? invoiceId,
+    String? agreementId,
+    String? agreementNumber,
+    int? orderSequence,
     DateTime? closedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -214,6 +231,9 @@ class SalesOrder extends Equatable {
       paymentDueDate: paymentDueDate ?? this.paymentDueDate,
       specialInstructions: specialInstructions ?? this.specialInstructions,
       invoiceId: invoiceId ?? this.invoiceId,
+      agreementId: agreementId ?? this.agreementId,
+      agreementNumber: agreementNumber ?? this.agreementNumber,
+      orderSequence: orderSequence ?? this.orderSequence,
       closedAt: closedAt ?? this.closedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -243,6 +263,9 @@ class SalesOrder extends Equatable {
         paymentDueDate,
         specialInstructions,
         invoiceId,
+        agreementId,
+        agreementNumber,
+        orderSequence,
         closedAt,
         createdAt,
         updatedAt,

@@ -36,6 +36,7 @@ class SalesInvoiceRepository {
     required String factoryId,
     required String salesOrderId,
   }) async {
+    if (salesOrderId.trim().isEmpty) return null;
     final snapshot = await _collection
         .where('factoryId', isEqualTo: factoryId)
         .where('salesOrderId', isEqualTo: salesOrderId)
@@ -44,6 +45,54 @@ class SalesInvoiceRepository {
     if (snapshot.docs.isEmpty) return null;
     final doc = snapshot.docs.first;
     return SalesInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity();
+  }
+
+  Future<List<SalesInvoice>> getInvoicesForAgreement({
+    required String factoryId,
+    required String agreementId,
+  }) async {
+    final snapshot = await _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('agreementId', isEqualTo: agreementId)
+        .get();
+    final invoices = snapshot.docs
+        .map((doc) => SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    invoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return invoices;
+  }
+
+  Stream<List<SalesInvoice>> watchInvoicesForAgreement({
+    required String factoryId,
+    required String agreementId,
+  }) {
+    return _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('agreementId', isEqualTo: agreementId)
+        .snapshots()
+        .map((snapshot) {
+      final invoices = snapshot.docs
+          .map((doc) => SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
+          .map((model) => model.toEntity())
+          .toList();
+      invoices.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return invoices;
+    });
+  }
+
+  Future<SalesInvoice?> getGrandInvoiceForAgreement({
+    required String factoryId,
+    required String agreementId,
+  }) async {
+    final invoices = await getInvoicesForAgreement(
+      factoryId: factoryId,
+      agreementId: agreementId,
+    );
+    for (final invoice in invoices) {
+      if (invoice.isGrandInvoice) return invoice;
+    }
+    return null;
   }
 
   Future<List<SalesInvoice>> getInvoicesForCustomer({
@@ -156,6 +205,8 @@ class SalesInvoiceRepository {
       id: id,
       invoiceNumber: invoiceNumber,
       factoryId: order.factoryId,
+      agreementId: order.agreementId,
+      agreementNumber: order.agreementNumber,
       salesOrderId: order.id,
       orderNumber: order.orderNumber,
       customerId: order.customerId,

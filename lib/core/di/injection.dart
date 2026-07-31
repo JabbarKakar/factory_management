@@ -69,7 +69,9 @@ import '../../data/repositories/production_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
+import '../../data/repositories/sales_agreement_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
+import '../../data/services/sales_agreement_backfill_service.dart';
 import '../../data/repositories/supplier_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/invite_repository.dart';
@@ -120,6 +122,9 @@ void setupDependencies() {
     ),
   );
   getIt.registerLazySingleton<SalesOrderRepository>(SalesOrderRepository.new);
+  getIt.registerLazySingleton<SalesAgreementRepository>(
+    SalesAgreementRepository.new,
+  );
   getIt.registerLazySingleton<JobWorkInvoiceRepository>(
     () => JobWorkInvoiceRepository(
       jobWorkRepository: getIt<JobWorkRepository>(),
@@ -287,6 +292,12 @@ void setupDependencies() {
       loadRepository: getIt<JobWorkLoadRepository>(),
       invoiceRepository: getIt<JobWorkInvoiceRepository>(),
       notificationRepository: getIt<NotificationRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<SalesAgreementBackfillService>(
+    () => SalesAgreementBackfillService(
+      salesOrderRepository: getIt<SalesOrderRepository>(),
+      salesAgreementRepository: getIt<SalesAgreementRepository>(),
     ),
   );
 

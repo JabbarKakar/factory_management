@@ -18,6 +18,8 @@ class SalesInvoice extends Equatable {
     required this.dueAmount,
     required this.status,
     required this.createdAt,
+    this.agreementId,
+    this.agreementNumber,
     this.dueDate,
     this.updatedAt,
   });
@@ -25,6 +27,12 @@ class SalesInvoice extends Equatable {
   final String id;
   final String invoiceNumber;
   final String factoryId;
+
+  /// Parent Agreement id (Phase 0). Optional on legacy invoices until backfill.
+  final String? agreementId;
+  final String? agreementNumber;
+
+  /// Empty for Grand Sales Invoice; set for Single Order Invoice.
   final String salesOrderId;
   final String orderNumber;
   final String customerId;
@@ -38,10 +46,14 @@ class SalesInvoice extends Equatable {
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  bool get isGrandInvoice => salesOrderId.trim().isEmpty;
+
   SalesInvoice copyWith({
     String? id,
     String? invoiceNumber,
     String? factoryId,
+    String? agreementId,
+    String? agreementNumber,
     String? salesOrderId,
     String? orderNumber,
     String? customerId,
@@ -59,6 +71,8 @@ class SalesInvoice extends Equatable {
       id: id ?? this.id,
       invoiceNumber: invoiceNumber ?? this.invoiceNumber,
       factoryId: factoryId ?? this.factoryId,
+      agreementId: agreementId ?? this.agreementId,
+      agreementNumber: agreementNumber ?? this.agreementNumber,
       salesOrderId: salesOrderId ?? this.salesOrderId,
       orderNumber: orderNumber ?? this.orderNumber,
       customerId: customerId ?? this.customerId,
@@ -79,6 +93,8 @@ class SalesInvoice extends Equatable {
         id,
         invoiceNumber,
         factoryId,
+        agreementId,
+        agreementNumber,
         salesOrderId,
         orderNumber,
         customerId,

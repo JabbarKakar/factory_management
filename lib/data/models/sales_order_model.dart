@@ -31,6 +31,9 @@ class SalesOrderModel {
     this.paymentDueDate,
     this.specialInstructions,
     this.invoiceId,
+    this.agreementId,
+    this.agreementNumber,
+    this.orderSequence,
     this.closedAt,
     this.updatedAt,
   });
@@ -56,6 +59,9 @@ class SalesOrderModel {
   final DateTime? paymentDueDate;
   final String? specialInstructions;
   final String? invoiceId;
+  final String? agreementId;
+  final String? agreementNumber;
+  final int? orderSequence;
   final DateTime? closedAt;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -85,6 +91,9 @@ class SalesOrderModel {
       paymentDueDate: (data['paymentDueDate'] as Timestamp?)?.toDate(),
       specialInstructions: data['specialInstructions'] as String?,
       invoiceId: data['invoiceId'] as String?,
+      agreementId: data['agreementId'] as String?,
+      agreementNumber: data['agreementNumber'] as String?,
+      orderSequence: (data['orderSequence'] as num?)?.toInt(),
       closedAt: (data['closedAt'] as Timestamp?)?.toDate(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -215,6 +224,11 @@ class SalesOrderModel {
         'paymentDueDate': Timestamp.fromDate(paymentDueDate!),
       if (specialInstructions != null) 'specialInstructions': specialInstructions,
       if (invoiceId != null) 'invoiceId': invoiceId,
+      if (agreementId != null && agreementId!.trim().isNotEmpty)
+        'agreementId': agreementId,
+      if (agreementNumber != null && agreementNumber!.trim().isNotEmpty)
+        'agreementNumber': agreementNumber,
+      if (orderSequence != null) 'orderSequence': orderSequence,
       if (closedAt != null) 'closedAt': Timestamp.fromDate(closedAt!),
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -243,6 +257,9 @@ class SalesOrderModel {
         paymentDueDate: paymentDueDate,
         specialInstructions: specialInstructions,
         invoiceId: invoiceId,
+        agreementId: agreementId,
+        agreementNumber: agreementNumber,
+        orderSequence: orderSequence,
         closedAt: closedAt,
         createdAt: createdAt,
         updatedAt: updatedAt,
@@ -270,6 +287,9 @@ class SalesOrderModel {
         paymentDueDate: order.paymentDueDate,
         specialInstructions: order.specialInstructions,
         invoiceId: order.invoiceId,
+        agreementId: order.agreementId,
+        agreementNumber: order.agreementNumber,
+        orderSequence: order.orderSequence,
         closedAt: order.closedAt,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,

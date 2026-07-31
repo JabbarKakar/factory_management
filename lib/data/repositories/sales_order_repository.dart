@@ -38,10 +38,65 @@ class SalesOrderRepository {
         });
   }
 
+  Future<List<SalesOrder>> getSalesOrders(String factoryId) async {
+    final snapshot =
+        await _ordersCollection.where('factoryId', isEqualTo: factoryId).get();
+    final orders = snapshot.docs
+        .map((doc) => SalesOrderModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return orders;
+  }
+
   Future<SalesOrder?> getSalesOrder(String id) async {
     final doc = await _ordersCollection.doc(id).get();
     if (!doc.exists || doc.data() == null) return null;
     return SalesOrderModel.fromFirestore(doc.id, doc.data()!).toEntity();
+  }
+
+  Future<List<SalesOrder>> getOrdersForAgreement({
+    required String factoryId,
+    required String agreementId,
+  }) async {
+    final snapshot = await _ordersCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('agreementId', isEqualTo: agreementId)
+        .get();
+    final orders = snapshot.docs
+        .map((doc) => SalesOrderModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    orders.sort((a, b) {
+      final seqA = a.orderSequence ?? 0;
+      final seqB = b.orderSequence ?? 0;
+      if (seqA != seqB) return seqA.compareTo(seqB);
+      return a.createdAt.compareTo(b.createdAt);
+    });
+    return orders;
+  }
+
+  Stream<List<SalesOrder>> watchOrdersForAgreement({
+    required String factoryId,
+    required String agreementId,
+  }) {
+    return _ordersCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('agreementId', isEqualTo: agreementId)
+        .snapshots()
+        .map((snapshot) {
+      final orders = snapshot.docs
+          .map((doc) => SalesOrderModel.fromFirestore(doc.id, doc.data()))
+          .map((model) => model.toEntity())
+          .toList();
+      orders.sort((a, b) {
+        final seqA = a.orderSequence ?? 0;
+        final seqB = b.orderSequence ?? 0;
+        if (seqA != seqB) return seqA.compareTo(seqB);
+        return a.createdAt.compareTo(b.createdAt);
+      });
+      return orders;
+    });
   }
 
   Future<List<Customer>> fetchSalesEligibleCustomers(String factoryId) async {
