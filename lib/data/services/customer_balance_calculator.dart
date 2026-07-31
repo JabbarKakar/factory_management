@@ -12,6 +12,7 @@ import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import 'job_work_container_sync_helper.dart';
+import 'sales_container_sync_helper.dart';
 
 class CustomerFinancialSummary extends Equatable {
   const CustomerFinancialSummary({
@@ -51,13 +52,6 @@ class CustomerFinancialSummary extends Equatable {
 }
 
 abstract final class CustomerBalanceCalculator {
-  static T? _firstWhereOrNull<T>(Iterable<T> items, bool Function(T) test) {
-    for (final item in items) {
-      if (test(item)) return item;
-    }
-    return null;
-  }
-
   /// Calculates real-time financial summary for a customer combining both Sales and Job Work.
   static CustomerFinancialSummary calculateCustomerSummary({
     required Customer customer,
@@ -70,97 +64,121 @@ abstract final class CustomerBalanceCalculator {
   }) {
     final customerId = customer.id;
 
-    // Filter active records for this customer
     final customerSalesOrders = salesOrders
-        .where((o) => o.customerId == customerId && o.status != SalesOrderStatus.cancelled)
+        .where(
+          (order) =>
+              order.customerId == customerId &&
+              order.status != SalesOrderStatus.cancelled,
+        )
         .toList();
     final customerSalesInvoices = salesInvoices
-        .where((i) => i.customerId == customerId && i.status != InvoiceStatus.cancelled)
+        .where(
+          (invoice) =>
+              invoice.customerId == customerId &&
+              invoice.status != InvoiceStatus.cancelled,
+        )
         .toList();
 
     final customerJobWorkOrders = jobWorkOrders
-        .where((o) => o.customerId == customerId && o.status != JobWorkStatus.cancelled)
+        .where(
+          (order) =>
+              order.customerId == customerId &&
+              order.status != JobWorkStatus.cancelled,
+        )
         .toList();
     final customerJobWorkLoads = jobWorkLoads
-        .where((l) => l.customerId == customerId && l.status != JobWorkStatus.cancelled)
+        .where(
+          (load) =>
+              load.customerId == customerId &&
+              load.status != JobWorkStatus.cancelled,
+        )
         .toList();
     final customerJobWorkInvoices = jobWorkInvoices
-        .where((i) => i.customerId == customerId && i.status != InvoiceStatus.cancelled)
+        .where(
+          (invoice) =>
+              invoice.customerId == customerId &&
+              invoice.status != InvoiceStatus.cancelled,
+        )
         .toList();
 
     var salesRevenue = 0.0;
     var salesPaid = 0.0;
-    var salesDue = 0.0;
-
     DateTime? nextDueDate;
 
-    // 1. Calculate Sales
+    // 1. Sales — prefer active single-order invoices (exclude Grand from orphan path).
+    final coveredOrderIds = <String>{};
     for (final order in customerSalesOrders) {
-      final matchingInvoice = _firstWhereOrNull(
-        customerSalesInvoices,
-        (i) => i.salesOrderId == order.id,
+      coveredOrderIds.add(order.id);
+      final invoice = SalesContainerSyncHelper.preferActiveSingleInvoice(
+        customerSalesInvoices.where(
+          (item) => item.salesOrderId == order.id,
+        ),
       );
+      final finance = SalesContainerSyncHelper.financeForOrder(
+        order: order,
+        invoice: invoice,
+      );
+      salesRevenue += finance.charges;
+      salesPaid += finance.paid;
 
-      if (matchingInvoice != null) {
-        salesRevenue += matchingInvoice.totalAmount;
-        salesPaid += matchingInvoice.paidAmount;
-        salesDue += matchingInvoice.dueAmount;
-        if (matchingInvoice.dueAmount > 0 && matchingInvoice.dueDate != null) {
-          if (nextDueDate == null || matchingInvoice.dueDate!.isBefore(nextDueDate)) {
-            nextDueDate = matchingInvoice.dueDate;
-          }
-        }
-      } else {
-        salesRevenue += order.grandTotal;
-        salesPaid += order.advanceReceived;
-        salesDue += order.balanceDue;
-        final dueDate = order.paymentDueDate ?? order.expectedDeliveryDate;
-        if (order.balanceDue > 0 && dueDate != null) {
-          if (nextDueDate == null || dueDate.isBefore(nextDueDate)) {
-            nextDueDate = dueDate;
-          }
+      final dueDate = invoice?.dueDate ??
+          order.paymentDueDate ??
+          order.expectedDeliveryDate;
+      if (finance.due > 0 && dueDate != null) {
+        if (nextDueDate == null || dueDate.isBefore(nextDueDate)) {
+          nextDueDate = dueDate;
         }
       }
     }
 
-    // Include orphaned sales invoices not linked to an order
-    for (final inv in customerSalesInvoices) {
-      if (inv.salesOrderId.isEmpty || !customerSalesOrders.any((o) => o.id == inv.salesOrderId)) {
-        salesRevenue += inv.totalAmount;
-        salesPaid += inv.paidAmount;
-        salesDue += inv.dueAmount;
-        if (inv.dueAmount > 0 && inv.dueDate != null) {
-          if (nextDueDate == null || inv.dueDate!.isBefore(nextDueDate)) {
-            nextDueDate = inv.dueDate;
-          }
+    final agreementsWithOrders = customerSalesOrders
+        .map((order) => order.agreementId?.trim() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    for (final invoice in customerSalesInvoices) {
+      if (invoice.isGrandInvoice) {
+        // Grand paid/charges already reflected via order rollups when orders exist.
+        final agreementId = invoice.agreementId?.trim() ?? '';
+        if (agreementId.isNotEmpty &&
+            agreementsWithOrders.contains(agreementId)) {
+          continue;
+        }
+        // Legacy/orphan grand with no linked active orders — count once.
+      } else if (coveredOrderIds.contains(invoice.salesOrderId)) {
+        continue;
+      }
+
+      salesRevenue += invoice.totalAmount;
+      salesPaid += invoice.paidAmount;
+      if (invoice.dueAmount > 0 && invoice.dueDate != null) {
+        if (nextDueDate == null || invoice.dueDate!.isBefore(nextDueDate)) {
+          nextDueDate = invoice.dueDate;
         }
       }
     }
 
-    // 2. Calculate Job Work (using JobWorkContainerSyncHelper for exact rollup)
+    // 2. Job Work (container helper rollup)
     var jobWorkRevenue = 0.0;
     var jobWorkPaid = 0.0;
-    var jobWorkDue = 0.0;
 
     for (final order in customerJobWorkOrders) {
       final orderInvoices = customerJobWorkInvoices
-          .where((i) => i.jobWorkId == order.id)
+          .where((invoice) => invoice.jobWorkId == order.id)
           .toList();
-      final fin = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+      final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
         order: order,
         loads: customerJobWorkLoads,
         invoices: orderInvoices,
       );
 
-      jobWorkRevenue += fin.charges;
-      jobWorkPaid += fin.paid;
-      jobWorkDue += fin.due;
+      jobWorkRevenue += finance.charges;
+      jobWorkPaid += finance.paid;
 
-      // Track earliest due date among open invoices/loads
-      for (final inv in orderInvoices) {
-        if (inv.dueAmount > 0 && inv.dueDate != null) {
-          if (nextDueDate == null || inv.dueDate!.isBefore(nextDueDate)) {
-            nextDueDate = inv.dueDate;
+      for (final invoice in orderInvoices) {
+        if (invoice.dueAmount > 0 && invoice.dueDate != null) {
+          if (nextDueDate == null || invoice.dueDate!.isBefore(nextDueDate)) {
+            nextDueDate = invoice.dueDate;
           }
         }
       }
@@ -176,20 +194,21 @@ abstract final class CustomerBalanceCalculator {
           }
         }
       }
-      if (orderLoads.isEmpty && order.balanceDue > 0 && order.paymentDueDate != null) {
-        if (nextDueDate == null || order.paymentDueDate!.isBefore(nextDueDate)) {
+      if (orderLoads.isEmpty &&
+          order.balanceDue > 0 &&
+          order.paymentDueDate != null) {
+        if (nextDueDate == null ||
+            order.paymentDueDate!.isBefore(nextDueDate)) {
           nextDueDate = order.paymentDueDate;
         }
       }
     }
 
-    // 3. Totals
     final totalRevenue = salesRevenue + jobWorkRevenue;
     final totalPaid = salesPaid + jobWorkPaid;
     final netCalculatedDue = customer.openingBalance + totalRevenue - totalPaid;
     final totalDue = netCalculatedDue > 0 ? netCalculatedDue : 0.0;
 
-    // 4. Status Evaluation
     final CustomerBalanceStatus balanceStatus;
     if (totalDue <= 0) {
       balanceStatus = CustomerBalanceStatus.paidUp;
@@ -199,7 +218,11 @@ abstract final class CustomerBalanceCalculator {
     } else {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      final dueDay = DateTime(nextDueDate.year, nextDueDate.month, nextDueDate.day);
+      final dueDay = DateTime(
+        nextDueDate.year,
+        nextDueDate.month,
+        nextDueDate.day,
+      );
       final diff = dueDay.difference(today).inDays;
 
       if (diff < 0) {

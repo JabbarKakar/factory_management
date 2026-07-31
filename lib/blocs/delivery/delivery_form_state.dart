@@ -10,6 +10,7 @@ class DeliveryFormState extends Equatable {
     this.selectedOrder,
     this.editingDelivery,
     this.isEditing = false,
+    this.orderContextLocked = false,
     this.logisticsOnly = false,
     this.existingDeliveries = const [],
     this.remainingLines = const [],
@@ -22,6 +23,9 @@ class DeliveryFormState extends Equatable {
   final SalesOrder? selectedOrder;
   final Delivery? editingDelivery;
   final bool isEditing;
+
+  /// True when opened via `/deliveries/add?salesOrderId=` (order cannot change).
+  final bool orderContextLocked;
   final bool logisticsOnly;
   final List<Delivery> existingDeliveries;
   final List<DeliveryRemainingLine> remainingLines;
@@ -39,6 +43,7 @@ class DeliveryFormState extends Equatable {
     bool clearSelectedOrder = false,
     Delivery? editingDelivery,
     bool? isEditing,
+    bool? orderContextLocked,
     bool? logisticsOnly,
     List<Delivery>? existingDeliveries,
     List<DeliveryRemainingLine>? remainingLines,
@@ -52,6 +57,7 @@ class DeliveryFormState extends Equatable {
           clearSelectedOrder ? null : (selectedOrder ?? this.selectedOrder),
       editingDelivery: editingDelivery ?? this.editingDelivery,
       isEditing: isEditing ?? this.isEditing,
+      orderContextLocked: orderContextLocked ?? this.orderContextLocked,
       logisticsOnly: logisticsOnly ?? this.logisticsOnly,
       existingDeliveries: existingDeliveries ?? this.existingDeliveries,
       remainingLines: remainingLines ?? this.remainingLines,
@@ -67,6 +73,7 @@ class DeliveryFormState extends Equatable {
         selectedOrder,
         editingDelivery,
         isEditing,
+        orderContextLocked,
         logisticsOnly,
         existingDeliveries,
         remainingLines,

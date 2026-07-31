@@ -191,7 +191,7 @@ abstract final class AppStrings {
       'No orders with charges are ready for a grand invoice.';
   static const String openOrderInvoice = 'Open Order invoice';
   static const String paymentBelongsToOrder = 'Belongs to Order =>';
-  // static const String paymentBelongsToAgreement = 'Belongs to Agreement =>';
+  static const String paymentBelongsToAgreement = 'Belongs to Agreement =>';
   static const String loadPaid = 'Paid';
   static const String loadPending = 'Pending';
   static const String loadCollected = 'Collected';
@@ -590,9 +590,11 @@ abstract final class AppStrings {
   static String expensesOfDailyIncome(String percent) =>
       '$percent% of income';
   static const String activeJobWork = 'Active Job Work';
-  static const String activeSales = 'Active Sales';
+  static const String activeSales = 'Active Agreements';
   static const String activeSalesOrders =
-      'Received, ready, or partially dispatched';
+      'Sales Agreements currently in progress';
+  static const String deliveryOrderContextHint =
+      'Delivery is linked to this Sales Order and cannot be reassigned.';
   static const String overdueTotal = 'Overdue';
   static const String customerCount = 'Customers';
   static const String quickActions = 'Quick Actions';
@@ -1149,11 +1151,12 @@ abstract final class AppStrings {
       'All order quantities are already scheduled or delivered';
   static const String pendingDeliveries = 'Pending Deliveries';
   static const String scheduledDeliveriesToday = 'scheduled today';
-  static const String partiallyDispatchedOrders = 'Partially Dispatched';
+  static const String partiallyDispatchedOrders = 'Pending Delivery';
   static const String partiallyDispatchedOrdersSubtitle =
-      'Orders with stock still to deliver';
-  static const String readyForDispatch = 'Ready to Dispatch';
-  static const String readyForDispatchSubtitle = 'Orders awaiting first dispatch';
+      'Agreements awaiting dispatch';
+  static const String readyForDispatch = 'Idle Agreements';
+  static const String readyForDispatchSubtitle =
+      'No open dispatch work on these agreements';
   static const String dispatchedToday = 'Dispatched Today';
   static const String dispatchedTodaySubtitle = 'Confirmed deliveries today';
   static const String deliveryChallanTitle = 'DELIVERY CHALLAN';

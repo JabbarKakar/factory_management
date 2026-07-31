@@ -227,6 +227,27 @@ void main() {
     });
   });
 
+  group('summaryStatusByAgreementId', () {
+    test('groups orders and maps pendingDelivery vs active', () {
+      final statuses = SalesContainerSyncHelper.summaryStatusByAgreementId([
+        buildOrder(id: 'o1', status: SalesOrderStatus.ready),
+        buildOrder(id: 'o2', status: SalesOrderStatus.received),
+        buildOrder(
+          id: 'o3',
+          agreementId: 'sa-2',
+          status: SalesOrderStatus.paid,
+          balanceDue: 0,
+        ),
+      ]);
+
+      expect(
+        statuses['sa-1'],
+        SalesAgreementSummaryStatus.pendingDelivery,
+      );
+      expect(statuses['sa-2'], SalesAgreementSummaryStatus.idle);
+    });
+  });
+
   group('preferActiveSingleInvoice', () {
     test('skips grand and prefers non-cancelled single invoice', () {
       final preferred = SalesContainerSyncHelper.preferActiveSingleInvoice([

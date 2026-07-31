@@ -46,9 +46,13 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
           employees.where((employee) => employee.isActive).toList();
 
       SalesOrder? selected;
-      if (event.salesOrderId != null) {
+      final orderContextLocked = event.salesOrderId != null &&
+          event.salesOrderId!.trim().isNotEmpty;
+      if (orderContextLocked) {
         final matches = orders.where((order) => order.id == event.salesOrderId);
         selected = matches.isEmpty ? null : matches.first;
+        selected ??=
+            await _salesOrderRepository.getSalesOrder(event.salesOrderId!);
       }
 
       var nextState = state.copyWith(
@@ -56,6 +60,7 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
         eligibleOrders: orders,
         employees: activeEmployees,
         selectedOrder: selected,
+        orderContextLocked: orderContextLocked,
         errorMessage: null,
       );
       emit(nextState);

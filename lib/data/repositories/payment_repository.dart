@@ -459,6 +459,10 @@ class PaymentRepository {
 
     final linkedAgreementId = agreementId?.trim() ?? '';
     if (linkedAgreementId.isNotEmpty) {
+      await cleanupSalesGrandPhantomAdvances(
+        factoryId: invoice.factoryId,
+        agreementId: linkedAgreementId,
+      );
       await _salesInvoiceRepository.syncGrandInvoice(
         factoryId: invoice.factoryId,
         agreementId: linkedAgreementId,
@@ -467,6 +471,26 @@ class PaymentRepository {
     }
 
     await _ledgerService?.syncCustomerBalance(invoice.customerId);
+  }
+
+  /// Removes synthetic advance rows on grand invoices (paid is a rollup).
+  Future<void> cleanupSalesGrandPhantomAdvances({
+    required String factoryId,
+    required String agreementId,
+  }) async {
+    final grand = await _salesInvoiceRepository.getGrandInvoiceForAgreement(
+      factoryId: factoryId,
+      agreementId: agreementId,
+    );
+    if (grand == null) return;
+    await _deletePaymentDocIfExists('advance_sales_${grand.id}');
+  }
+
+  Future<void> _deletePaymentDocIfExists(String paymentId) async {
+    final doc = await _collection.doc(paymentId).get();
+    if (doc.exists) {
+      await _collection.doc(paymentId).delete();
+    }
   }
 
   /// Records invoice paid amount in the payments ledger when advance was taken
@@ -479,10 +503,14 @@ class PaymentRepository {
       final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
       if (invoice == null || invoice.paidAmount <= 0) return;
 
-      final orderKey = invoice.salesOrderId.trim().isEmpty
-          ? invoice.id
-          : invoice.salesOrderId.trim();
-      final advanceId = 'advance_sales_$orderKey';
+      // Grand paidAmount is a rollup of order (+ agreement) payments. Seeding an
+      // advance here duplicates every real order payment in Agreement history.
+      if (invoice.isGrandInvoice) {
+        await _deletePaymentDocIfExists('advance_sales_${invoice.id}');
+        return;
+      }
+
+      final advanceId = 'advance_sales_${invoice.salesOrderId.trim()}';
 
       final existingPayments = await getPaymentsForInvoice(
         factoryId: invoice.factoryId,
@@ -490,7 +518,7 @@ class PaymentRepository {
       );
       final nonAdvancePaid = existingPayments
           .where((payment) => payment.id != advanceId)
-          .fold<double>(0, (sum, payment) => sum + payment.amount);
+          .fold<double>(0, (total, payment) => total + payment.amount);
 
       // Real payments already cover invoice.paid — remove a phantom advance
       // row created by older logic that seeded the full paidAmount again.

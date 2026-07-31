@@ -196,7 +196,7 @@ class DashboardKpiGrid extends StatelessWidget {
           color: AppColors.success,
           onTap: _tap(
             () => context.go(
-              RoutePaths.salesList(filter: 'pendingDelivery'),
+              RoutePaths.salesList(filter: 'idle'),
             ),
             AppModule.sales,
           ),

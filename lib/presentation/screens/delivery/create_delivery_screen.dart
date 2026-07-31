@@ -383,7 +383,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                   icon: Icons.receipt_long_outlined,
                   child: AppFormSectionBody(
                     children: [
-                      if (state.isEditing)
+                      if (state.isEditing || state.orderContextLocked)
                         TextFormField(
                           initialValue: state.selectedOrder == null
                               ? state.editingDelivery?.salesOrderNumber
@@ -430,6 +430,19 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                           validator: (value) =>
                               value == null ? 'Select a sales order' : null,
                         ),
+                      if (state.orderContextLocked) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          AppStrings.deliveryOrderContextHint,
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                                fontSize: 11,
+                                height: 1.35,
+                              ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

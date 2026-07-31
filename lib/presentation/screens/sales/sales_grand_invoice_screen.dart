@@ -116,6 +116,10 @@ class _SalesGrandInvoiceScreenState extends State<SalesGrandInvoiceScreen> {
     );
     final grand = SalesContainerSyncHelper.findGrandInvoice(invoices);
     final paymentRepo = getIt<PaymentRepository>();
+    await paymentRepo.cleanupSalesGrandPhantomAdvances(
+      factoryId: agreement.factoryId,
+      agreementId: agreement.id,
+    );
     final paymentLists = await Future.wait(
       invoices.map(
         (invoice) => paymentRepo.getPaymentsForInvoice(

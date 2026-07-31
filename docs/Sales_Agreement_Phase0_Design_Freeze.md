@@ -266,7 +266,19 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 
 ---
 
-## 9. Out of scope for Sprint 1–4
+## 8e. Sprint 5 deliverables checklist
 
-- Changing Delivery schema
+- [x] Order-context delivery create (locked order when deep-linked from Order)
+- [x] First-class Order delivery history section (schedule CTA, CompactStatusChip, challan)
+- [x] Agreement + Order finance overview bars (compact + tap-for-full-digits)
+- [x] Agreement detail: finance bar is source of truth (no duplicate invoiced/due rows)
+- [x] `CustomerBalanceCalculator` uses Sales container helpers; skips Grand double-count
+- [x] Dashboard Sales KPIs count Agreement summary status (active / pendingDelivery / idle)
+- [x] Unit coverage for sales rollup / grand exclusion in customer balance
+
+---
+
+## 9. Out of scope for Sprint 1–5
+
+- Changing Delivery schema (deliveries remain Order-scoped)
 - Agreement-level unallocated pay (later epic)

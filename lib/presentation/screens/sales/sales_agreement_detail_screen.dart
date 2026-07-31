@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../blocs/sales/sales_agreement_detail_bloc.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/utils/formatters.dart';
 import '../../../data/services/sales_container_sync_helper.dart';
 import '../../../domain/entities/sales_agreement.dart';
 import '../../../domain/entities/sales_order.dart';
@@ -17,7 +16,6 @@ import '../../widgets/compact_status_chip.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
-import '../../widgets/job_work/job_work_finance_overview_bar.dart';
 import '../../widgets/sales/sales_order_list_tile.dart';
 
 class SalesAgreementDetailScreen extends StatelessWidget {
@@ -110,11 +108,6 @@ class SalesAgreementDetailScreen extends StatelessWidget {
 
         final orders = List<SalesOrder>.from(state.orders)
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        final finance = SalesContainerSyncHelper.rollupInvoiceFinance(
-          agreement: agreement,
-          orders: state.orders,
-          invoices: state.invoices,
-        );
         final statusColor = _accentFor(agreement.summaryStatus);
         final canGenerateGrand = canEdit &&
             SalesContainerSyncHelper.canGenerateGrandInvoice(
@@ -173,14 +166,6 @@ class SalesAgreementDetailScreen extends StatelessWidget {
                 onViewGrand: () =>
                     _openGrandInvoice(context, generate: false),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                child: JobWorkFinanceOverviewBar(
-                  invoiced: finance.charges,
-                  received: finance.paid,
-                  pending: finance.due,
-                ),
-              ),
               JobWorkDetailSection(
                 title: AppStrings.ordersSummary,
                 icon: Icons.summarize_outlined,
@@ -196,17 +181,6 @@ class SalesAgreementDetailScreen extends StatelessWidget {
                       JobWorkDetailRow(
                         label: 'Active orders',
                         value: '${agreement.activeOrderCount ?? 0}',
-                      ),
-                      const SizedBox(height: 6),
-                      JobWorkDetailRow(
-                        label: AppStrings.totalInvoiced,
-                        value: Formatters.currencyPkr(finance.charges),
-                      ),
-                      const SizedBox(height: 6),
-                      JobWorkDetailRow(
-                        label: AppStrings.balanceDue,
-                        value: Formatters.currencyPkr(finance.due),
-                        highlight: finance.due > 0,
                       ),
                     ],
                   ),

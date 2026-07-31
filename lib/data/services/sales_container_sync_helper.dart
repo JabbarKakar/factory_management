@@ -136,6 +136,24 @@ abstract final class SalesContainerSyncHelper {
     );
   }
 
+  /// Agreement summary status derived from child orders (legacy orders = one bucket each).
+  static Map<String, SalesAgreementSummaryStatus> summaryStatusByAgreementId(
+    Iterable<SalesOrder> orders,
+  ) {
+    final grouped = <String, List<SalesOrderStatus>>{};
+    for (final order in orders) {
+      final agreementId = order.agreementId?.trim();
+      final key = (agreementId == null || agreementId.isEmpty)
+          ? 'legacy:${order.id}'
+          : agreementId;
+      grouped.putIfAbsent(key, () => []).add(order.status);
+    }
+    return {
+      for (final entry in grouped.entries)
+        entry.key: SalesAgreementSummaryStatus.fromOrderStatuses(entry.value),
+    };
+  }
+
   /// Non-cancelled orders with charges that belong on the Agreement grand invoice.
   static List<SalesOrder> billableOrdersForGrandInvoice(
     List<SalesOrder> orders,

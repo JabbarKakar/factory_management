@@ -547,6 +547,10 @@ class SalesInvoiceRepository {
     required List<SalesOrder> billableOrders,
   }) async {
     final invoiceIds = invoices.map((invoice) => invoice.id).toSet();
+    final grandInvoiceIds = invoices
+        .where((invoice) => invoice.isGrandInvoice)
+        .map((invoice) => invoice.id)
+        .toSet();
     if (invoiceIds.isNotEmpty) {
       final paymentsSnap = await _firestore
           .collection('payments')
@@ -554,12 +558,21 @@ class SalesInvoiceRepository {
           .where('customerId', isEqualTo: customerId)
           .get();
       final recorded = paymentsSnap.docs
-          .map((doc) => doc.data())
-          .where((data) => invoiceIds.contains(data['invoiceId']))
+          .where((doc) {
+            final data = doc.data();
+            final linkedInvoiceId = data['invoiceId'] as String? ?? '';
+            if (!invoiceIds.contains(linkedInvoiceId)) return false;
+            // Ignore phantom advances seeded on grand (rollup of real payments).
+            if (grandInvoiceIds.contains(linkedInvoiceId) &&
+                doc.id.startsWith('advance_sales_')) {
+              return false;
+            }
+            return true;
+          })
           .fold<double>(
             0,
-            (total, data) =>
-                total + ((data['amount'] as num?)?.toDouble() ?? 0.0),
+            (total, doc) =>
+                total + ((doc.data()['amount'] as num?)?.toDouble() ?? 0.0),
           );
       if (recorded > 0) return recorded;
     }

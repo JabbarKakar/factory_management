@@ -26,6 +26,7 @@ import '../../data/services/dashboard_analytics_service.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../data/services/job_work_load_production_helper.dart';
 import '../../data/services/payment_due_scanner_service.dart';
+import '../../data/services/sales_container_sync_helper.dart';
 import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_analytics.dart';
@@ -52,6 +53,7 @@ import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/labour_enums.dart';
 import '../../domain/enums/quality_enums.dart';
+import '../../domain/enums/sales_agreement_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 
 part 'dashboard_event.dart';
@@ -461,8 +463,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         .length;
     final activeLoadsAndLegacy = activeLoadCount + legacyActiveWithoutLoads;
 
-    final activeSalesCount =
-        _salesOrders.where((order) => order.status.isActive).length;
+    final agreementStatuses =
+        SalesContainerSyncHelper.summaryStatusByAgreementId(_salesOrders)
+            .values
+            .toList();
+    final activeSalesCount = agreementStatuses
+        .where((status) => status == SalesAgreementSummaryStatus.active)
+        .length;
 
     final pendingPickupCount = persistedLoads
             .where(
@@ -622,11 +629,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
           scheduled.day == today.day;
     }).length;
 
-    final partiallyDispatchedOrdersCount = _salesOrders
-        .where((order) => order.status == SalesOrderStatus.partiallyDispatched)
+    final partiallyDispatchedOrdersCount = agreementStatuses
+        .where(
+          (status) => status == SalesAgreementSummaryStatus.pendingDelivery,
+        )
         .length;
-    final readyForDispatchCount = _salesOrders
-        .where((order) => order.status == SalesOrderStatus.ready)
+    final readyForDispatchCount = agreementStatuses
+        .where((status) => status == SalesAgreementSummaryStatus.idle)
         .length;
     final dispatchedTodayDeliveries = _deliveries.where((delivery) {
       if (!delivery.status.isTerminal) return false;
