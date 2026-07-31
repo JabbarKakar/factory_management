@@ -7,12 +7,18 @@ import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/customer_model.dart';
 import '../models/sales_order_model.dart';
+import 'sales_agreement_repository.dart';
 
 class SalesOrderRepository {
-  SalesOrderRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  SalesOrderRepository({
+    FirebaseFirestore? firestore,
+    SalesAgreementRepository? salesAgreementRepository,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _salesAgreementRepository = salesAgreementRepository ??
+            SalesAgreementRepository(firestore: firestore);
 
   final FirebaseFirestore _firestore;
+  final SalesAgreementRepository _salesAgreementRepository;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _ordersCollection =>
@@ -169,8 +175,14 @@ class SalesOrderRepository {
 
     final model = SalesOrderModel.fromEntity(withTotals);
     await _ordersCollection.doc(id).set(model.toFirestore(isCreate: true));
-    final created = await getSalesOrder(id);
-    return created ?? withTotals;
+    final created = await getSalesOrder(id) ?? withTotals;
+
+    // Every new order must attach to a parent Agreement (1:1 until multi-order UI).
+    if (!created.hasAgreement) {
+      await _salesAgreementRepository.ensureAgreementForOrder(created);
+      return await getSalesOrder(id) ?? created;
+    }
+    return created;
   }
 
   Future<void> updateSalesOrder(SalesOrder order) async {

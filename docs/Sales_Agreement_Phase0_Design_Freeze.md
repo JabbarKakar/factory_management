@@ -175,7 +175,8 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 
 **When to call**
 
-- `runIfNeeded(factoryId)` on auth (same pattern as Job Work Loads backfill)
+- `SalesOrderRepository.createSalesOrder` → `ensureAgreementForOrder` (always, after write)
+- `runIfNeeded(factoryId)` on auth — re-checks for leftover legacy orders even if a prior completion flag was set
 - Before Agreement-scoped writes in later sprints
 
 **Idempotency:** second call must not create Agreement 2 for the same Order.
@@ -222,6 +223,8 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 - [x] `SalesAgreementRepository` + agreement-scoped order/invoice queries
 - [x] Firestore rules + indexes
 - [x] `SalesAgreementBackfillService` (1:1 legacy Order → Agreement)
+- [x] `createSalesOrder` always links via `ensureAgreementForOrder`
+- [x] Backfill re-scans leftovers after a stale “complete” flag
 
 ---
 

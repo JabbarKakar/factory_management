@@ -28,13 +28,26 @@ class SalesAgreementBackfillService {
     return _preferences ??= await SharedPreferences.getInstance();
   }
 
-  /// Runs once per factory while migration is incomplete; retries until
-  /// [SalesAgreementBackfillReport.isComplete] is true.
+  /// Runs while any legacy (unlinked) orders remain.
+  ///
+  /// Even after a previous "complete" flag, re-checks for leftovers (e.g. orders
+  /// created before the create-path bridge, or failed mid-backfill) and clears
+  /// the flag so migration can resume.
   Future<SalesAgreementBackfillReport> runIfNeeded(String factoryId) async {
     final prefs = await _prefs;
     final key = '$_prefKeyPrefix$factoryId';
-    if (prefs.getBool(key) == true) {
+
+    final remaining = await _countLegacyOrders(factoryId);
+    if (remaining == 0) {
+      if (prefs.getBool(key) != true) {
+        await prefs.setBool(key, true);
+      }
       return SalesAgreementBackfillReport.empty;
+    }
+
+    // Stale completion flag — resume migration.
+    if (prefs.getBool(key) == true) {
+      await prefs.setBool(key, false);
     }
 
     final report = await run(factoryId);
