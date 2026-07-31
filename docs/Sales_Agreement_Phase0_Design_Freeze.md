@@ -268,10 +268,10 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 
 ## 8e. Sprint 5 deliverables checklist
 
-- [x] Order-context delivery create (locked order when deep-linked from Order)
+- [x] Order-context delivery create only (no flat Deliveries FAB; requires `salesOrderId`)
 - [x] First-class Order delivery history section (schedule CTA, CompactStatusChip, challan)
-- [x] Agreement + Order finance overview bars (compact + tap-for-full-digits)
-- [x] Agreement detail: finance bar is source of truth (no duplicate invoiced/due rows)
+- [x] Sales list finance overview bar (compact + tap-for-full-digits; not on Agreement/Order detail)
+- [x] Agreement detail: no duplicate invoiced/due rows (list bar is the overview)
 - [x] `CustomerBalanceCalculator` uses Sales container helpers; skips Grand double-count
 - [x] Dashboard Sales KPIs count Agreement summary status (active / pendingDelivery / idle)
 - [x] Unit coverage for sales rollup / grand exclusion in customer balance

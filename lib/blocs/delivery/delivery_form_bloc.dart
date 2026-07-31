@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/constants/app_strings.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/employee_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
@@ -37,6 +38,17 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
   ) async {
     emit(state.copyWith(status: DeliveryFormStatus.loading));
     try {
+      final salesOrderId = event.salesOrderId?.trim() ?? '';
+      if (salesOrderId.isEmpty) {
+        emit(
+          state.copyWith(
+            status: DeliveryFormStatus.failure,
+            errorMessage: AppStrings.deliveryRequiresSalesOrder,
+          ),
+        );
+        return;
+      }
+
       final orders =
           await _deliveryRepository.fetchDeliveryEligibleOrders(event.factoryId);
       final employees = await _employeeRepository
@@ -45,14 +57,17 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
       final activeEmployees =
           employees.where((employee) => employee.isActive).toList();
 
-      SalesOrder? selected;
-      final orderContextLocked = event.salesOrderId != null &&
-          event.salesOrderId!.trim().isNotEmpty;
-      if (orderContextLocked) {
-        final matches = orders.where((order) => order.id == event.salesOrderId);
-        selected = matches.isEmpty ? null : matches.first;
-        selected ??=
-            await _salesOrderRepository.getSalesOrder(event.salesOrderId!);
+      final matches = orders.where((order) => order.id == salesOrderId);
+      var selected = matches.isEmpty ? null : matches.first;
+      selected ??= await _salesOrderRepository.getSalesOrder(salesOrderId);
+      if (selected == null) {
+        emit(
+          state.copyWith(
+            status: DeliveryFormStatus.failure,
+            errorMessage: 'Sales order not found.',
+          ),
+        );
+        return;
       }
 
       var nextState = state.copyWith(
@@ -60,15 +75,13 @@ class DeliveryFormBloc extends Bloc<DeliveryFormEvent, DeliveryFormState> {
         eligibleOrders: orders,
         employees: activeEmployees,
         selectedOrder: selected,
-        orderContextLocked: orderContextLocked,
+        orderContextLocked: true,
         errorMessage: null,
       );
       emit(nextState);
 
-      if (selected != null) {
-        nextState = await _loadRemainingForOrder(selected, nextState);
-        emit(nextState);
-      }
+      nextState = await _loadRemainingForOrder(selected, nextState);
+      emit(nextState);
     } catch (_) {
       emit(
         state.copyWith(

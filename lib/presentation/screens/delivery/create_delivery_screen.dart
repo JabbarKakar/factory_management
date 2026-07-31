@@ -10,6 +10,7 @@ import '../../../domain/entities/delivery.dart';
 import '../../../domain/entities/employee.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../../domain/enums/delivery_enums.dart';
+import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../widgets/delivery/dispatch_stock_form_controller.dart';
 import '../../widgets/delivery/dispatch_stock_recording_panel.dart';
@@ -316,8 +317,10 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         }
 
         if (state.status == DeliveryFormStatus.failure &&
-            state.eligibleOrders.isEmpty &&
-            !state.isEditing) {
+            !state.isEditing &&
+            (state.eligibleOrders.isEmpty ||
+                (widget.salesOrderId == null ||
+                    widget.salesOrderId!.trim().isEmpty))) {
           return Scaffold(
             appBar: AppBar(
               title: AppFormAppBarTitle(
@@ -328,9 +331,23 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  state.errorMessage ?? AppStrings.noDeliveryEligibleOrders,
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      state.errorMessage ??
+                          AppStrings.deliveryRequiresSalesOrder,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () => context.go(
+                        RoutePaths.salesList(filter: 'pendingDelivery'),
+                      ),
+                      icon: const Icon(Icons.shopping_bag_outlined),
+                      label: const Text(AppStrings.scheduleDeliveryFromOrder),
+                    ),
+                  ],
                 ),
               ),
             ),

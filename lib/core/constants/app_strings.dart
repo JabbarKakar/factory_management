@@ -1115,7 +1115,10 @@ abstract final class AppStrings {
   static const String noDeliveriesYet = 'No deliveries scheduled yet';
   static const String noDeliveriesFound = 'No deliveries match your filters';
   static const String noDeliveriesHint =
-      'Schedule a delivery when a sales order is ready to dispatch';
+      'Open a Sales Order that is ready to dispatch, then schedule delivery from there.';
+  static const String scheduleDeliveryFromOrder = 'Go to Sales';
+  static const String deliveryRequiresSalesOrder =
+      'Deliveries must be scheduled from a Sales Order.';
   static const String deliveryNotFound = 'Delivery not found';
   static const String deliverySaved = 'Delivery scheduled';
   static const String deliveryChallan = 'Delivery Challan';

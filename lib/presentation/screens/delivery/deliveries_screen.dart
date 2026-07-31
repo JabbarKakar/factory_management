@@ -6,14 +6,12 @@ import '../../../blocs/delivery/delivery_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/delivery_enums.dart';
-import '../../../domain/extensions/app_user_permissions.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
 import '../../utils/user_permissions_context.dart';
 import '../../widgets/account_menu_button.dart';
 import '../../widgets/delivery/delivery_list_tile.dart';
 import '../../widgets/delivery/delivery_stage_filter_bar.dart';
-import '../../widgets/app_extended_fab.dart';
 import '../../widgets/empty_state_view.dart';
 import '../../widgets/job_work/job_work_search_bar.dart';
 import '../../widgets/notification_bell.dart';
@@ -61,9 +59,6 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = watchCurrentUser(context);
-    final canScheduleDelivery = user?.canCreate(AppModule.delivery) ?? false;
-
     return Scaffold(
       appBar: AppBar(
         title: BlocBuilder<DeliveryListBloc, DeliveryListState>(
@@ -96,14 +91,6 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
           AccountMenuButton(),
         ],
       ),
-      floatingActionButton: canScheduleDelivery
-          ? AppExtendedFab(
-              heroTag: 'fab-deliveries',
-              onPressed: () => context.push(RoutePaths.deliveriesAdd),
-              icon: Icons.local_shipping_outlined,
-              label: AppStrings.scheduleDelivery,
-            )
-          : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -163,6 +150,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
                 if (state.visibleDeliveries.isEmpty) {
                   final filteredOut = _isFilteredOut(state);
+                  final canOpenSales = context.userCanView(AppModule.sales);
                   return EmptyStateView(
                     icon: Icons.local_shipping_outlined,
                     title: filteredOut
@@ -171,12 +159,15 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                     subtitle: filteredOut
                         ? AppStrings.tryDifferentSearch
                         : AppStrings.noDeliveriesHint,
-                    action: !filteredOut && canScheduleDelivery
+                    action: !filteredOut && canOpenSales
                         ? FilledButton.icon(
-                            onPressed: () =>
-                                context.push(RoutePaths.deliveriesAdd),
-                            icon: const Icon(Icons.local_shipping_outlined),
-                            label: const Text(AppStrings.scheduleDelivery),
+                            onPressed: () => context.go(
+                              RoutePaths.salesList(filter: 'pendingDelivery'),
+                            ),
+                            icon: const Icon(Icons.shopping_bag_outlined),
+                            label: const Text(
+                              AppStrings.scheduleDeliveryFromOrder,
+                            ),
                           )
                         : null,
                   );
@@ -195,7 +186,7 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                     }
                   },
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 4, bottom: 88),
+                    padding: const EdgeInsets.only(top: 4, bottom: 24),
                     itemCount: state.visibleDeliveries.length,
                     itemBuilder: (context, index) {
                       final delivery = state.visibleDeliveries[index];
