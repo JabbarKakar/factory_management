@@ -6,6 +6,9 @@ import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/sales_agreement_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/sales_agreement_model.dart';
+import '../models/sales_invoice_model.dart';
+import '../models/sales_order_model.dart';
+import '../services/sales_container_sync_helper.dart';
 
 class SalesAgreementRepository {
   SalesAgreementRepository({FirebaseFirestore? firestore})
@@ -83,6 +86,65 @@ class SalesAgreementRepository {
   Future<void> updateAgreement(SalesAgreement agreement) async {
     final model = SalesAgreementModel.fromEntity(agreement);
     await _agreements.doc(agreement.id).update(model.toFirestore());
+  }
+
+  /// Recomputes denormalized Agreement fields from child Orders / invoices.
+  Future<SalesAgreement?> syncAgreementContainer(String agreementId) async {
+    final agreement = await getAgreement(agreementId);
+    if (agreement == null) return null;
+
+    final ordersSnapshot = await _orders
+        .where('factoryId', isEqualTo: agreement.factoryId)
+        .where('agreementId', isEqualTo: agreementId)
+        .get();
+    final orders = ordersSnapshot.docs
+        .map((doc) => SalesOrderModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+
+    final invoicesSnapshot = await _invoices
+        .where('factoryId', isEqualTo: agreement.factoryId)
+        .where('agreementId', isEqualTo: agreementId)
+        .get();
+    final invoices = invoicesSnapshot.docs
+        .map((doc) => SalesInvoiceModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+
+    final rolled = SalesContainerSyncHelper.applyOrderRollup(
+      agreement: agreement,
+      orders: orders,
+      invoices: invoices,
+    );
+
+    await _agreements.doc(agreementId).update({
+      'summaryStatus': rolled.summaryStatus.firestoreValue,
+      'schemaVersion': rolled.schemaVersion,
+      'orderCount': rolled.orderCount,
+      'activeOrderCount': rolled.activeOrderCount,
+      'totalAmount': rolled.totalAmount,
+      'paidAmount': rolled.paidAmount,
+      'balanceDue': rolled.balanceDue,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return await getAgreement(agreementId) ?? rolled;
+  }
+
+  Future<int> nextOrderSequence({
+    required String factoryId,
+    required String agreementId,
+  }) async {
+    final snapshot = await _orders
+        .where('factoryId', isEqualTo: factoryId)
+        .where('agreementId', isEqualTo: agreementId)
+        .get();
+    var maxSequence = 0;
+    for (final doc in snapshot.docs) {
+      final sequence = (doc.data()['orderSequence'] as num?)?.toInt() ?? 0;
+      if (sequence > maxSequence) maxSequence = sequence;
+    }
+    return maxSequence + 1;
   }
 
   Future<String> generateAgreementNumber(String factoryId) async {

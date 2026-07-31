@@ -204,7 +204,7 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 
 ---
 
-## 7. UX rules (for later sprints — not built in Sprint 1)
+## 7. UX rules
 
 1. Sales list → **Agreements** (like Job Work list).
 2. Agreement detail = dashboard: summary + Orders list + Add Order + Grand Invoice CTA.
@@ -228,10 +228,20 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 
 ---
 
-## 9. Out of scope for Sprint 1
+## 8b. Sprint 2 deliverables checklist
 
-- Agreement list/detail UI
-- Add Order under Agreement UI
-- Grand Invoice generation / PDF
-- Container finance rollup helper (Sprint 2+)
+- [x] Routes: `/sales` Agreement list, `/sales/:agreementId` detail, `/sales/:agreementId/orders/add`, `/sales/:agreementId/orders/:salesOrderId`
+- [x] Agreement list + detail screens (Job Work parallel)
+- [x] Add Agreement (`/sales/add`) + Add Order under Agreement (stock form)
+- [x] `SalesContainerSyncHelper` + `syncAgreementContainer` on order mutations
+- [x] Grand Invoice CTA placeholder (generation = Sprint 4)
+- [x] Edit Agreement entry on list + detail
+- [x] Secondary flat order list at `/sales/orders`
+- [x] `SalesContainerSyncHelper` unit tests
+
+---
+
+## 9. Out of scope for Sprint 1–2
+
+- Grand Invoice generation / PDF (Sprint 4)
 - Changing Delivery schema

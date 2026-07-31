@@ -103,16 +103,43 @@ abstract final class RoutePaths {
   static const String sales = '/sales';
   static const String salesAdd = '/sales/add';
 
+  /// Secondary flat order list (Agreement list remains primary).
+  static const String salesOrders = '/sales/orders';
+
   static String salesList({String? filter}) {
     if (filter == null || filter.isEmpty) return sales;
     return '$sales?filter=$filter';
   }
 
-  static String salesDetail(String id) => '/sales/$id';
+  /// Agreement detail (Job Work container equivalent).
+  static String salesDetail(String agreementId) => '/sales/$agreementId';
 
-  static String salesEdit(String id) => '/sales/$id/edit';
+  static String salesEdit(String agreementId) => '/sales/$agreementId/edit';
 
-  static String salesInvoice(String salesOrderId) => '/sales/$salesOrderId/invoice';
+  static String salesAddOrder(String agreementId) =>
+      '/sales/$agreementId/orders/add';
+
+  static String salesOrderDetail({
+    required String agreementId,
+    required String salesOrderId,
+  }) =>
+      '/sales/$agreementId/orders/$salesOrderId';
+
+  static String salesOrderEdit({
+    required String agreementId,
+    required String salesOrderId,
+  }) =>
+      '/sales/$agreementId/orders/$salesOrderId/edit';
+
+  static String salesInvoice({
+    required String agreementId,
+    required String salesOrderId,
+  }) =>
+      '/sales/$agreementId/orders/$salesOrderId/invoice';
+
+  /// Deep link by order id only (resolves Agreement parent).
+  static String salesOrderLink(String salesOrderId) =>
+      '/sales/order/$salesOrderId';
 
   static String salesRecordPayment(String invoiceId) =>
       '/sales/invoices/$invoiceId/payment';

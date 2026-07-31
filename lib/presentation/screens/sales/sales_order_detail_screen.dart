@@ -23,12 +23,36 @@ import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/sales/sales_order_detail_hero.dart';
 
 class SalesOrderDetailScreen extends StatelessWidget {
-  const SalesOrderDetailScreen({required this.salesOrderId, super.key});
+  const SalesOrderDetailScreen({
+    required this.salesOrderId,
+    this.agreementId,
+    super.key,
+  });
 
   final String salesOrderId;
+  final String? agreementId;
+
+  String? _resolveAgreementId(BuildContext context) {
+    final fromParam = agreementId?.trim() ?? '';
+    if (fromParam.isNotEmpty) return fromParam;
+    final fromOrder =
+        context.read<SalesOrderFormBloc>().state.order?.agreementId?.trim() ??
+            '';
+    return fromOrder.isEmpty ? null : fromOrder;
+  }
 
   Future<void> _openInvoice(BuildContext context) async {
-    await context.push(RoutePaths.salesInvoice(salesOrderId));
+    final resolvedAgreementId = _resolveAgreementId(context);
+    if (resolvedAgreementId == null) {
+      await context.push(RoutePaths.salesOrderLink(salesOrderId));
+      return;
+    }
+    await context.push(
+      RoutePaths.salesInvoice(
+        agreementId: resolvedAgreementId,
+        salesOrderId: salesOrderId,
+      ),
+    );
     if (context.mounted) {
       context
           .read<SalesOrderFormBloc>()
@@ -51,7 +75,15 @@ class SalesOrderDetailScreen extends StatelessWidget {
   }
 
   Future<void> _openEdit(BuildContext context) async {
-    final saved = await context.push<bool>(RoutePaths.salesEdit(salesOrderId));
+    final resolvedAgreementId = _resolveAgreementId(context);
+    final saved = await context.push<bool>(
+      resolvedAgreementId == null
+          ? RoutePaths.salesOrderLink(salesOrderId)
+          : RoutePaths.salesOrderEdit(
+              agreementId: resolvedAgreementId,
+              salesOrderId: salesOrderId,
+            ),
+    );
     if (saved == true && context.mounted) {
       context
           .read<SalesOrderFormBloc>()

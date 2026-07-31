@@ -45,6 +45,9 @@ import '../../blocs/supplier/supplier_list_bloc.dart';
 import '../../blocs/factory_profile/factory_profile_bloc.dart';
 import '../../blocs/business_profile/business_profile_bloc.dart';
 import '../../blocs/team/team_bloc.dart';
+import '../../blocs/sales/sales_agreement_detail_bloc.dart';
+import '../../blocs/sales/sales_agreement_form_bloc.dart';
+import '../../blocs/sales/sales_agreement_list_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
@@ -138,6 +141,7 @@ void setupDependencies() {
   getIt.registerLazySingleton<SalesInvoiceRepository>(
     () => SalesInvoiceRepository(
       salesOrderRepository: getIt<SalesOrderRepository>(),
+      salesAgreementRepository: getIt<SalesAgreementRepository>(),
     ),
   );
   getIt.registerLazySingleton<UserRepository>(UserRepository.new);
@@ -440,10 +444,31 @@ void setupDependencies() {
   getIt.registerFactory<SalesOrderListBloc>(
     () => SalesOrderListBloc(repository: getIt<SalesOrderRepository>()),
   );
+  getIt.registerFactory<SalesAgreementListBloc>(
+    () => SalesAgreementListBloc(
+      agreementRepository: getIt<SalesAgreementRepository>(),
+      orderRepository: getIt<SalesOrderRepository>(),
+      invoiceRepository: getIt<SalesInvoiceRepository>(),
+    ),
+  );
+  getIt.registerFactory<SalesAgreementDetailBloc>(
+    () => SalesAgreementDetailBloc(
+      agreementRepository: getIt<SalesAgreementRepository>(),
+      orderRepository: getIt<SalesOrderRepository>(),
+      invoiceRepository: getIt<SalesInvoiceRepository>(),
+    ),
+  );
+  getIt.registerFactory<SalesAgreementFormBloc>(
+    () => SalesAgreementFormBloc(
+      agreementRepository: getIt<SalesAgreementRepository>(),
+      orderRepository: getIt<SalesOrderRepository>(),
+    ),
+  );
   getIt.registerFactory<SalesOrderFormBloc>(
     () => SalesOrderFormBloc(
       repository: getIt<SalesOrderRepository>(),
       deliveryRepository: getIt<DeliveryRepository>(),
+      agreementRepository: getIt<SalesAgreementRepository>(),
     ),
   );
   getIt.registerFactory<SalesInvoiceBloc>(

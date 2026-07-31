@@ -13,7 +13,6 @@ import '../../../domain/enums/job_work_enums.dart';
 import '../../../domain/enums/notification_enums.dart';
 import '../../../domain/enums/quality_enums.dart';
 import '../../../domain/enums/raw_material_enums.dart';
-import '../../../domain/enums/sales_enums.dart';
 import '../../../domain/extensions/app_user_permissions.dart';
 import '../../routes/route_paths.dart';
 import 'dashboard_surface.dart';
@@ -170,7 +169,7 @@ class DashboardKpiGrid extends StatelessWidget {
           icon: Icons.shopping_bag_outlined,
           color: AppColors.primary,
           onTap: _tap(
-            () => context.go(RoutePaths.salesList(filter: 'inProgress')),
+            () => context.go(RoutePaths.salesList(filter: 'active')),
             AppModule.sales,
           ),
         ),
@@ -183,7 +182,7 @@ class DashboardKpiGrid extends StatelessWidget {
           color: const Color(0xFF0277BD),
           onTap: _tap(
             () => context.go(
-              RoutePaths.salesList(filter: SalesListFilter.partiallyDispatched.name),
+              RoutePaths.salesList(filter: 'pendingDelivery'),
             ),
             AppModule.sales,
           ),
@@ -197,7 +196,7 @@ class DashboardKpiGrid extends StatelessWidget {
           color: AppColors.success,
           onTap: _tap(
             () => context.go(
-              RoutePaths.salesList(filter: SalesListFilter.ready.name),
+              RoutePaths.salesList(filter: 'pendingDelivery'),
             ),
             AppModule.sales,
           ),

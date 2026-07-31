@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../core/constants/app_strings.dart';
 import '../../data/repositories/delivery_repository.dart';
+import '../../data/repositories/sales_agreement_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/delivery.dart';
@@ -19,8 +20,10 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
   SalesOrderFormBloc({
     required SalesOrderRepository repository,
     required DeliveryRepository deliveryRepository,
+    required SalesAgreementRepository agreementRepository,
   })  : _repository = repository,
         _deliveryRepository = deliveryRepository,
+        _agreementRepository = agreementRepository,
         super(const SalesOrderFormState()) {
     on<SalesOrderFormInitialized>(_onInitialized);
     on<SalesOrderFormLoadRequested>(_onLoadRequested);
@@ -32,6 +35,7 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
 
   final SalesOrderRepository _repository;
   final DeliveryRepository _deliveryRepository;
+  final SalesAgreementRepository _agreementRepository;
   StreamSubscription<List<Delivery>>? _deliveriesSubscription;
 
   Future<void> _onInitialized(
@@ -45,11 +49,34 @@ class SalesOrderFormBloc extends Bloc<SalesOrderFormEvent, SalesOrderFormState> 
       final customers =
           await _repository.fetchSalesEligibleCustomers(event.factoryId);
 
+      var order = _emptyOrder(event.factoryId);
+      final agreementId = event.agreementId?.trim() ?? '';
+      if (agreementId.isNotEmpty) {
+        final agreement = await _agreementRepository.getAgreement(agreementId);
+        if (agreement == null) {
+          emit(
+            state.copyWith(
+              status: SalesOrderFormStatus.failure,
+              errorMessage: 'Sales agreement not found.',
+            ),
+          );
+          return;
+        }
+        order = order.copyWith(
+          agreementId: agreement.id,
+          agreementNumber: agreement.agreementNumber,
+          customerId: agreement.customerId,
+          customerName: agreement.customerName,
+          factoryId: agreement.factoryId,
+        );
+      }
+
       emit(
         SalesOrderFormState(
           status: SalesOrderFormStatus.ready,
           eligibleCustomers: customers,
-          order: _emptyOrder(event.factoryId),
+          order: order,
+          lockedToAgreement: agreementId.isNotEmpty,
         ),
       );
     } catch (_) {

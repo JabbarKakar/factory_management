@@ -676,6 +676,20 @@ abstract final class AppStrings {
       'Your access to this factory has been disabled by the owner. '
       'Please contact them if you think this is a mistake.';
 
+  // Sales agreements (Sprint 2)
+  static const String salesAgreementsLabel = 'Sales Agreements';
+  static const String newSalesAgreement = 'New Sales Agreement';
+  static const String saveSalesAgreement = 'Save Agreement';
+  static const String editSalesAgreement = 'Edit Sales Agreement';
+  static const String salesAgreementDetails = 'Sales Agreement Details';
+  static const String salesAgreementCreated = 'Sales agreement created';
+  static const String addSalesOrder = 'Add Order';
+  static const String allOrders = 'All Orders';
+  static const String grandInvoiceComingSoon = 'Grand Invoice coming soon';
+  static const String salesAgreementLoadError = 'Could not load sales agreements';
+  static const String noSalesAgreements = 'No sales agreements yet';
+  static const String noOrdersUnderAgreement = 'No orders under this agreement yet';
+
   // Sales (Sprint 8)
   static const String newSalesOrder = 'New Sales Order';
   static const String saveSalesOrder = 'Save Sales Order';

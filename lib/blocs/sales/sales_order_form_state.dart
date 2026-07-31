@@ -19,6 +19,7 @@ class SalesOrderFormState extends Equatable {
     this.errorMessage,
     this.successMessage,
     this.isEditing = false,
+    this.lockedToAgreement = false,
   });
 
   final SalesOrderFormStatus status;
@@ -28,6 +29,7 @@ class SalesOrderFormState extends Equatable {
   final String? errorMessage;
   final String? successMessage;
   final bool isEditing;
+  final bool lockedToAgreement;
 
   SalesOrderFormState copyWith({
     SalesOrderFormStatus? status,
@@ -38,6 +40,7 @@ class SalesOrderFormState extends Equatable {
     String? successMessage,
     bool clearMessages = false,
     bool? isEditing,
+    bool? lockedToAgreement,
   }) {
     return SalesOrderFormState(
       status: status ?? this.status,
@@ -47,6 +50,7 @@ class SalesOrderFormState extends Equatable {
       errorMessage: clearMessages ? null : errorMessage,
       successMessage: clearMessages ? null : successMessage,
       isEditing: isEditing ?? this.isEditing,
+      lockedToAgreement: lockedToAgreement ?? this.lockedToAgreement,
     );
   }
 
@@ -59,5 +63,6 @@ class SalesOrderFormState extends Equatable {
         errorMessage,
         successMessage,
         isEditing,
+        lockedToAgreement,
       ];
 }

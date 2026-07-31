@@ -125,7 +125,19 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
         TileMenuAction(
           label: AppStrings.editSalesOrder,
           icon: Icons.edit_outlined,
-          onSelected: () => context.push(RoutePaths.salesEdit(order.id)),
+          onSelected: () {
+            final agreementId = order.agreementId?.trim() ?? '';
+            if (agreementId.isEmpty) {
+              context.push(RoutePaths.salesOrderLink(order.id));
+              return;
+            }
+            context.push(
+              RoutePaths.salesOrderEdit(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+          },
         ),
       );
     }
@@ -137,7 +149,19 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
         TileMenuAction(
           label: AppStrings.generateInvoice,
           icon: Icons.receipt_long_outlined,
-          onSelected: () => context.push(RoutePaths.salesInvoice(order.id)),
+          onSelected: () {
+            final agreementId = order.agreementId?.trim() ?? '';
+            if (agreementId.isEmpty) {
+              context.push(RoutePaths.salesOrderLink(order.id));
+              return;
+            }
+            context.push(
+              RoutePaths.salesInvoice(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+          },
         ),
       );
     }
@@ -147,7 +171,19 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
         TileMenuAction(
           label: AppStrings.viewInvoice,
           icon: Icons.receipt_long_outlined,
-          onSelected: () => context.push(RoutePaths.salesInvoice(order.id)),
+          onSelected: () {
+            final agreementId = order.agreementId?.trim() ?? '';
+            if (agreementId.isEmpty) {
+              context.push(RoutePaths.salesOrderLink(order.id));
+              return;
+            }
+            context.push(
+              RoutePaths.salesInvoice(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+          },
         ),
       );
       if (order.balanceDue > 0 &&
@@ -220,7 +256,7 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(AppStrings.sales),
+                const Text(AppStrings.salesOrdersLabel),
                 Text(
                   '${state.visibleOrders.length} orders'
                   '${state.stageFilter != SalesListFilter.all ? ' · ${state.stageFilter.label}' : ''}',
@@ -240,10 +276,10 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
       ),
       floatingActionButton: context.userCanCreate(AppModule.sales)
           ? AppExtendedFab(
-              heroTag: 'fab-sales',
+              heroTag: 'fab-sales-orders-secondary',
               onPressed: () => context.push(RoutePaths.salesAdd),
-              icon: Icons.shopping_cart_outlined,
-              label: AppStrings.newSalesOrder,
+              icon: Icons.handshake_outlined,
+              label: AppStrings.newSalesAgreement,
             )
           : null,
       body: Column(
@@ -313,14 +349,14 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
                     subtitle: state.searchQuery.isNotEmpty ||
                             state.stageFilter != SalesListFilter.all
                         ? AppStrings.tryDifferentSearch
-                        : AppStrings.addFirstSalesOrder,
+                        : 'Create a sales agreement, then add orders under it',
                     action: state.searchQuery.isEmpty &&
                             state.stageFilter == SalesListFilter.all &&
                             context.userCanCreate(AppModule.sales)
                         ? ElevatedButton.icon(
                             onPressed: () => context.push(RoutePaths.salesAdd),
                             icon: const Icon(Icons.add),
-                            label: const Text(AppStrings.newSalesOrder),
+                            label: const Text(AppStrings.newSalesAgreement),
                           )
                         : null,
                   );
@@ -348,7 +384,12 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
                           canDelete: canDelete,
                         ),
                         onTap: () => context.push(
-                          RoutePaths.salesDetail(order.id),
+                          order.hasAgreement
+                              ? RoutePaths.salesOrderDetail(
+                                  agreementId: order.agreementId!,
+                                  salesOrderId: order.id,
+                                )
+                              : RoutePaths.salesOrderLink(order.id),
                         ),
                       );
                     },

@@ -245,7 +245,7 @@ class _NotificationCenterView extends StatelessWidget {
       return;
     }
     if (notification.salesOrderId != null) {
-      context.push(RoutePaths.salesDetail(notification.salesOrderId!));
+      context.push(RoutePaths.salesOrderLink(notification.salesOrderId!));
       return;
     }
     if (notification.jobWorkId != null &&

@@ -8,17 +8,22 @@ import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/sales_invoice_model.dart';
 import 'invoice_exception.dart';
+import 'sales_agreement_repository.dart';
 import 'sales_order_repository.dart';
 
 class SalesInvoiceRepository {
   SalesInvoiceRepository({
     FirebaseFirestore? firestore,
     required SalesOrderRepository salesOrderRepository,
+    SalesAgreementRepository? salesAgreementRepository,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _salesOrderRepository = salesOrderRepository;
+        _salesOrderRepository = salesOrderRepository,
+        _salesAgreementRepository = salesAgreementRepository ??
+            SalesAgreementRepository(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final SalesOrderRepository _salesOrderRepository;
+  final SalesAgreementRepository _salesAgreementRepository;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection => _collection;
@@ -239,6 +244,11 @@ class SalesInvoiceRepository {
     });
 
     await batch.commit();
+
+    final agreementId = order.agreementId?.trim() ?? '';
+    if (agreementId.isNotEmpty) {
+      await _salesAgreementRepository.syncAgreementContainer(agreementId);
+    }
 
     final created = await getInvoice(id);
     return created ?? invoice;

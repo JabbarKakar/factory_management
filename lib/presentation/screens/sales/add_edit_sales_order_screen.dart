@@ -19,9 +19,14 @@ import '../../widgets/sales/sales_stock_form_controller.dart';
 import '../../widgets/sales/sales_stock_recording_panel.dart';
 
 class AddEditSalesOrderScreen extends StatefulWidget {
-  const AddEditSalesOrderScreen({this.salesOrderId, super.key});
+  const AddEditSalesOrderScreen({
+    this.salesOrderId,
+    this.agreementId,
+    super.key,
+  });
 
   final String? salesOrderId;
+  final String? agreementId;
 
   @override
   State<AddEditSalesOrderScreen> createState() =>
@@ -132,12 +137,16 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
     }
 
     final base = _baseOrder;
+    final blocOrder = context.read<SalesOrderFormBloc>().state.order;
     final order = SalesOrder(
       id: base?.id ?? '',
       orderNumber: base?.orderNumber ?? '',
       factoryId: base?.factoryId ?? customer.factoryId,
       customerId: customer.id,
       customerName: customer.name,
+      agreementId: base?.agreementId ?? blocOrder?.agreementId,
+      agreementNumber: base?.agreementNumber ?? blocOrder?.agreementNumber,
+      orderSequence: base?.orderSequence ?? blocOrder?.orderSequence,
       status: base?.status ?? SalesOrderStatus.received,
       orderDate: _orderDate,
       orderSource: _orderSource,
@@ -178,6 +187,16 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
     if (picked != null) onPicked(picked);
   }
 
+  bool _lockedToAgreement(SalesOrderFormState state) {
+    return state.lockedToAgreement ||
+        (widget.agreementId?.trim().isNotEmpty ?? false);
+  }
+
+  String _createTitle(SalesOrderFormState state) {
+    if (_lockedToAgreement(state)) return AppStrings.addSalesOrder;
+    return AppStrings.newSalesOrder;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.salesOrderId != null;
@@ -211,7 +230,7 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
               title: AppFormAppBarTitle(
                 title: isEditing
                     ? AppStrings.editSalesOrder
-                    : AppStrings.newSalesOrder,
+                    : _createTitle(state),
                 subtitle: _appBarSubtitle(isEditing: isEditing),
               ),
             ),
@@ -224,13 +243,15 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
           _populate(order, state.eligibleCustomers);
         }
 
-        if (_customers.isEmpty) {
+        final lockedToAgreement = _lockedToAgreement(state);
+
+        if (_customers.isEmpty && !lockedToAgreement) {
           return Scaffold(
             appBar: AppBar(
               title: AppFormAppBarTitle(
                 title: isEditing
                     ? AppStrings.editSalesOrder
-                    : AppStrings.newSalesOrder,
+                    : _createTitle(state),
                 subtitle: _appBarSubtitle(
                   isEditing: isEditing,
                   order: order,
@@ -258,7 +279,7 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
             title: AppFormAppBarTitle(
               title: isEditing
                   ? AppStrings.editSalesOrder
-                  : AppStrings.newSalesOrder,
+                  : _createTitle(state),
               subtitle: _appBarSubtitle(isEditing: isEditing, order: order),
             ),
           ),
@@ -272,31 +293,49 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
                   icon: Icons.person_outline,
                   child: AppFormSectionBody(
                     children: [
-                      DropdownButtonFormField<String>(
-                        key: ValueKey(_customerId),
-                        initialValue: _customerId,
-                        style: AppFormFields.valueStyle(context),
-                        decoration: AppFormFields.decoration(
-                          context,
-                          label: AppStrings.selectCustomer,
-                        ),
-                        items: _customers
-                            .map(
-                              (customer) => DropdownMenuItem(
-                                value: customer.id,
-                                child: Text(
-                                  customer.name,
-                                  style: const TextStyle(fontSize: 13),
+                      if (lockedToAgreement)
+                        InputDecorator(
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.selectCustomer,
+                          ),
+                          child: Text(
+                            order?.customerName ??
+                                _customers
+                                    .where((c) => c.id == _customerId)
+                                    .map((c) => c.name)
+                                    .firstOrNull ??
+                                '',
+                            style: AppFormFields.valueStyle(context),
+                          ),
+                        )
+                      else
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(_customerId),
+                          initialValue: _customerId,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: AppStrings.selectCustomer,
+                          ),
+                          items: _customers
+                              .map(
+                                (customer) => DropdownMenuItem(
+                                  value: customer.id,
+                                  child: Text(
+                                    customer.name,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
                                 ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: fieldsEnabled
-                            ? (value) => setState(() => _customerId = value)
-                            : null,
-                        validator: (value) =>
-                            value == null ? 'Select a customer' : null,
-                      ),
+                              )
+                              .toList(),
+                          onChanged: fieldsEnabled
+                              ? (value) =>
+                                  setState(() => _customerId = value)
+                              : null,
+                          validator: (value) =>
+                              value == null ? 'Select a customer' : null,
+                        ),
                       AppFormFields.gap,
                       AppFormDateField(
                         label: AppStrings.orderDate,

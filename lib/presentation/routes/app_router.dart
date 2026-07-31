@@ -46,10 +46,14 @@ import '../../blocs/business_profile/business_profile_bloc.dart';
 import '../../blocs/team/team_bloc.dart';
 import '../../blocs/supplier/supplier_form_bloc.dart';
 import '../../blocs/supplier/supplier_list_bloc.dart';
+import '../../blocs/sales/sales_agreement_detail_bloc.dart';
+import '../../blocs/sales/sales_agreement_form_bloc.dart';
+import '../../blocs/sales/sales_agreement_list_bloc.dart';
 import '../../blocs/sales/sales_invoice_bloc.dart';
 import '../../blocs/sales/sales_order_form_bloc.dart';
 import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../core/di/injection.dart';
+import '../../domain/enums/sales_enums.dart';
 import '../../domain/extensions/app_user_tenancy.dart';
 import '../../domain/enums/delivery_enums.dart';
 import '../../domain/enums/equipment_enums.dart';
@@ -59,7 +63,6 @@ import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/notification_enums.dart';
-import '../../domain/enums/sales_enums.dart';
 import '../screens/splash/splash_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/login_screen.dart';
@@ -88,9 +91,13 @@ import '../screens/sales/record_sales_payment_screen.dart';
 import '../screens/raw_materials/record_raw_material_adjustment_screen.dart';
 import '../screens/raw_materials/record_raw_material_correction_screen.dart';
 import '../screens/finished_goods/record_inventory_correction_screen.dart';
+import '../screens/sales/add_edit_sales_agreement_screen.dart';
 import '../screens/sales/add_edit_sales_order_screen.dart';
+import '../screens/sales/sales_agreement_detail_screen.dart';
+import '../screens/sales/sales_agreement_list_screen.dart';
 import '../screens/sales/sales_invoice_screen.dart';
 import '../screens/sales/sales_order_detail_screen.dart';
+import '../screens/sales/sales_order_link_redirect_screen.dart';
 import '../screens/sales/sales_order_list_screen.dart';
 import '../screens/expenses/add_edit_expense_screen.dart';
 import '../screens/expenses/expenses_screen.dart';
@@ -1711,14 +1718,15 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                 builder: (context, state) {
                   return BlocProvider(
                     create: (context) {
-                      final bloc = getIt<SalesOrderListBloc>();
+                      final bloc = getIt<SalesAgreementListBloc>();
                       final factoryId = readFactoryId(context);
                       if (factoryId != null) {
-                        final filter = SalesListFilter.fromQuery(
+                        final filter =
+                            SalesAgreementListStatusFilter.fromQuery(
                           state.uri.queryParameters['filter'],
                         );
                         bloc.add(
-                          SalesOrderListWatchStarted(
+                          SalesAgreementListWatchStarted(
                             factoryId,
                             initialFilter: filter,
                           ),
@@ -1726,7 +1734,7 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                       }
                       return bloc;
                     },
-                    child: const SalesOrderListScreen(),
+                    child: const SalesAgreementListScreen(),
                   );
                 },
                 routes: [
@@ -1736,16 +1744,54 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     builder: (context, state) {
                       return BlocProvider(
                         create: (context) {
-                          final bloc = getIt<SalesOrderFormBloc>();
+                          final bloc = getIt<SalesAgreementFormBloc>();
                           final factoryId = readFactoryId(context);
                           if (factoryId != null) {
                             bloc.add(
-                              SalesOrderFormInitialized(factoryId: factoryId),
+                              SalesAgreementFormInitialized(
+                                factoryId: factoryId,
+                              ),
                             );
                           }
                           return bloc;
                         },
-                        child: const AddEditSalesOrderScreen(),
+                        child: const AddEditSalesAgreementScreen(),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'order/:salesOrderId',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final salesOrderId =
+                          state.pathParameters['salesOrderId']!;
+                      return SalesOrderLinkRedirectScreen(
+                        salesOrderId: salesOrderId,
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    path: 'orders',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      return BlocProvider(
+                        create: (context) {
+                          final bloc = getIt<SalesOrderListBloc>();
+                          final factoryId = readFactoryId(context);
+                          if (factoryId != null) {
+                            final filter = SalesListFilter.fromQuery(
+                              state.uri.queryParameters['filter'],
+                            );
+                            bloc.add(
+                              SalesOrderListWatchStarted(
+                                factoryId,
+                                initialFilter: filter,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                        child: const SalesOrderListScreen(),
                       );
                     },
                   ),
@@ -1794,14 +1840,19 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     ],
                   ),
                   GoRoute(
-                    path: ':salesOrderId',
+                    path: ':agreementId',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) {
-                      final salesOrderId = state.pathParameters['salesOrderId']!;
+                      final agreementId =
+                          state.pathParameters['agreementId']!;
                       return BlocProvider(
-                        create: (_) => getIt<SalesOrderFormBloc>()
-                          ..add(SalesOrderFormLoadRequested(salesOrderId)),
-                        child: SalesOrderDetailScreen(salesOrderId: salesOrderId),
+                        create: (_) => getIt<SalesAgreementDetailBloc>()
+                          ..add(
+                            SalesAgreementDetailWatchStarted(agreementId),
+                          ),
+                        child: SalesAgreementDetailScreen(
+                          agreementId: agreementId,
+                        ),
                       );
                     },
                     routes: [
@@ -1809,34 +1860,106 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                         path: 'edit',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {
-                          final salesOrderId =
-                              state.pathParameters['salesOrderId']!;
+                          final agreementId =
+                              state.pathParameters['agreementId']!;
                           return BlocProvider(
-                            create: (_) => getIt<SalesOrderFormBloc>()
-                              ..add(SalesOrderFormLoadRequested(salesOrderId)),
-                            child: AddEditSalesOrderScreen(
-                              salesOrderId: salesOrderId,
+                            create: (_) => getIt<SalesAgreementFormBloc>()
+                              ..add(
+                                SalesAgreementFormLoadRequested(agreementId),
+                              ),
+                            child: AddEditSalesAgreementScreen(
+                              agreementId: agreementId,
                             ),
                           );
                         },
                       ),
                       GoRoute(
-                        path: 'invoice',
+                        path: 'orders/add',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {
+                          final agreementId =
+                              state.pathParameters['agreementId']!;
+                          return BlocProvider(
+                            create: (context) {
+                              final bloc = getIt<SalesOrderFormBloc>();
+                              final factoryId = readFactoryId(context);
+                              if (factoryId != null) {
+                                bloc.add(
+                                  SalesOrderFormInitialized(
+                                    factoryId: factoryId,
+                                    agreementId: agreementId,
+                                  ),
+                                );
+                              }
+                              return bloc;
+                            },
+                            child: AddEditSalesOrderScreen(
+                              agreementId: agreementId,
+                            ),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'orders/:salesOrderId',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final agreementId =
+                              state.pathParameters['agreementId']!;
                           final salesOrderId =
                               state.pathParameters['salesOrderId']!;
                           return BlocProvider(
-                            create: (_) => getIt<SalesInvoiceBloc>()
+                            create: (_) => getIt<SalesOrderFormBloc>()
                               ..add(
-                                SalesInvoiceLoadByOrder(
-                                  factoryId: readFactoryId(context)!,
-                                  salesOrderId: salesOrderId,
-                                ),
+                                SalesOrderFormLoadRequested(salesOrderId),
                               ),
-                            child: SalesInvoiceScreen(salesOrderId: salesOrderId),
+                            child: SalesOrderDetailScreen(
+                              salesOrderId: salesOrderId,
+                              agreementId: agreementId,
+                            ),
                           );
                         },
+                        routes: [
+                          GoRoute(
+                            path: 'edit',
+                            parentNavigatorKey: rootNavigatorKey,
+                            builder: (context, state) {
+                              final agreementId =
+                                  state.pathParameters['agreementId']!;
+                              final salesOrderId =
+                                  state.pathParameters['salesOrderId']!;
+                              return BlocProvider(
+                                create: (_) => getIt<SalesOrderFormBloc>()
+                                  ..add(
+                                    SalesOrderFormLoadRequested(salesOrderId),
+                                  ),
+                                child: AddEditSalesOrderScreen(
+                                  salesOrderId: salesOrderId,
+                                  agreementId: agreementId,
+                                ),
+                              );
+                            },
+                          ),
+                          GoRoute(
+                            path: 'invoice',
+                            parentNavigatorKey: rootNavigatorKey,
+                            builder: (context, state) {
+                              final salesOrderId =
+                                  state.pathParameters['salesOrderId']!;
+                              return BlocProvider(
+                                create: (_) => getIt<SalesInvoiceBloc>()
+                                  ..add(
+                                    SalesInvoiceLoadByOrder(
+                                      factoryId: readFactoryId(context)!,
+                                      salesOrderId: salesOrderId,
+                                    ),
+                                  ),
+                                child: SalesInvoiceScreen(
+                                  salesOrderId: salesOrderId,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),

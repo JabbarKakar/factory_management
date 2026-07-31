@@ -8,12 +8,16 @@ sealed class SalesOrderFormEvent extends Equatable {
 }
 
 final class SalesOrderFormInitialized extends SalesOrderFormEvent {
-  const SalesOrderFormInitialized({required this.factoryId});
+  const SalesOrderFormInitialized({
+    required this.factoryId,
+    this.agreementId,
+  });
 
   final String factoryId;
+  final String? agreementId;
 
   @override
-  List<Object?> get props => [factoryId];
+  List<Object?> get props => [factoryId, agreementId];
 }
 
 final class SalesOrderFormLoadRequested extends SalesOrderFormEvent {

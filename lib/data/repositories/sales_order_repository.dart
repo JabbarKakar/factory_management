@@ -164,25 +164,51 @@ class SalesOrderRepository {
     final paymentDueDate =
         order.paymentDueDate ?? _dueDateFromTerms(order.paymentTerms, order.orderDate);
 
-    final withTotals = _recomputeTotals(
-      order.copyWith(
-        id: id,
-        orderNumber: orderNumber,
-        status: SalesOrderStatus.received,
-        paymentDueDate: paymentDueDate,
-      ),
+    var draft = order.copyWith(
+      id: id,
+      orderNumber: orderNumber,
+      status: SalesOrderStatus.received,
+      paymentDueDate: paymentDueDate,
     );
 
+    final agreementId = draft.agreementId?.trim() ?? '';
+    if (agreementId.isNotEmpty) {
+      final agreement =
+          await _salesAgreementRepository.getAgreement(agreementId);
+      if (agreement == null) {
+        throw StateError('Sales agreement not found.');
+      }
+      final sequence = draft.orderSequence ??
+          await _salesAgreementRepository.nextOrderSequence(
+            factoryId: draft.factoryId,
+            agreementId: agreementId,
+          );
+      draft = draft.copyWith(
+        agreementId: agreement.id,
+        agreementNumber: agreement.agreementNumber,
+        orderSequence: sequence,
+        customerId: draft.customerId.isEmpty
+            ? agreement.customerId
+            : draft.customerId,
+        customerName: draft.customerName.isEmpty
+            ? agreement.customerName
+            : draft.customerName,
+      );
+    }
+
+    final withTotals = _recomputeTotals(draft);
     final model = SalesOrderModel.fromEntity(withTotals);
     await _ordersCollection.doc(id).set(model.toFirestore(isCreate: true));
     final created = await getSalesOrder(id) ?? withTotals;
 
-    // Every new order must attach to a parent Agreement (1:1 until multi-order UI).
     if (!created.hasAgreement) {
       await _salesAgreementRepository.ensureAgreementForOrder(created);
-      return await getSalesOrder(id) ?? created;
+    } else {
+      await _salesAgreementRepository.syncAgreementContainer(
+        created.agreementId!,
+      );
     }
-    return created;
+    return await getSalesOrder(id) ?? created;
   }
 
   Future<void> updateSalesOrder(SalesOrder order) async {
@@ -197,6 +223,7 @@ class SalesOrderRepository {
     }
     final model = SalesOrderModel.fromEntity(updated);
     await _ordersCollection.doc(order.id).update(model.toFirestore());
+    await _syncAgreementIfLinked(updated.agreementId);
   }
 
   Future<void> advanceSalesOrderStatus(String id, SalesOrderStatus status) async {
@@ -216,24 +243,37 @@ class SalesOrderRepository {
       if (status == SalesOrderStatus.closed)
         'closedAt': FieldValue.serverTimestamp(),
     });
+    await _syncAgreementIfLinked(order.agreementId);
   }
 
   Future<void> updateDispatchStatus(String id, SalesOrderStatus status) async {
+    final order = await getSalesOrder(id);
     await _ordersCollection.doc(id).update({
       'status': status.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _syncAgreementIfLinked(order?.agreementId);
   }
 
   Future<void> deleteSalesOrder(String id) async {
+    final order = await getSalesOrder(id);
     await _ordersCollection.doc(id).delete();
+    await _syncAgreementIfLinked(order?.agreementId);
   }
 
   Future<void> cancelSalesOrder(String id) async {
+    final order = await getSalesOrder(id);
     await _ordersCollection.doc(id).update({
       'status': SalesOrderStatus.cancelled.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _syncAgreementIfLinked(order?.agreementId);
+  }
+
+  Future<void> _syncAgreementIfLinked(String? agreementId) async {
+    final id = agreementId?.trim() ?? '';
+    if (id.isEmpty) return;
+    await _salesAgreementRepository.syncAgreementContainer(id);
   }
 
   /// Live count of non-cancelled sales orders for a customer.

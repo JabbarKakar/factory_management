@@ -216,7 +216,7 @@ class DeliveryDetailScreen extends StatelessWidget {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           onPressed: () => context.push(
-                            RoutePaths.salesDetail(delivery.salesOrderId),
+                            RoutePaths.salesOrderLink(delivery.salesOrderId),
                           ),
                           icon: const Icon(Icons.shopping_bag_outlined),
                           label: const Text(AppStrings.linkedSalesOrder),
