@@ -60,18 +60,21 @@ class SalesAgreementDetailScreen extends StatelessWidget {
     }
   }
 
-  void _showGrandInvoiceSnack(BuildContext context, {required bool viewing}) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            viewing
-                ? AppStrings.grandInvoiceComingSoon
-                : AppStrings.grandInvoiceComingSoon,
-          ),
-        ),
-      );
+  Future<void> _openGrandInvoice(
+    BuildContext context, {
+    required bool generate,
+  }) async {
+    await context.push(
+      RoutePaths.salesGrandInvoice(
+        agreementId,
+        generateMissing: generate,
+      ),
+    );
+    if (context.mounted) {
+      context.read<SalesAgreementDetailBloc>().add(
+            const SalesAgreementDetailRefreshRequested(),
+          );
+    }
   }
 
   @override
@@ -113,10 +116,12 @@ class SalesAgreementDetailScreen extends StatelessWidget {
           invoices: state.invoices,
         );
         final statusColor = _accentFor(agreement.summaryStatus);
-        final canGenerateGrand = SalesContainerSyncHelper.canGenerateGrandInvoice(
-          agreement: agreement,
-          orders: state.orders,
-        );
+        final canGenerateGrand = canEdit &&
+            SalesContainerSyncHelper.canGenerateGrandInvoice(
+              agreement: agreement,
+              orders: state.orders,
+              invoices: state.invoices,
+            );
         final canViewGrand =
             SalesContainerSyncHelper.canViewGrandInvoice(state.invoices);
         final showAddOrder = canCreate &&
@@ -164,9 +169,9 @@ class SalesAgreementDetailScreen extends StatelessWidget {
                 canGenerateGrand: canGenerateGrand,
                 canViewGrand: canViewGrand,
                 onGenerateGrand: () =>
-                    _showGrandInvoiceSnack(context, viewing: false),
+                    _openGrandInvoice(context, generate: true),
                 onViewGrand: () =>
-                    _showGrandInvoiceSnack(context, viewing: true),
+                    _openGrandInvoice(context, generate: false),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),

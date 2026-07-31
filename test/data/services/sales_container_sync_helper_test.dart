@@ -356,7 +356,21 @@ void main() {
   });
 
   group('grand invoice gates', () {
-    test('canGenerateGrandInvoice when active order has charges', () {
+    test('billableOrdersForGrandInvoice excludes cancelled and zero total', () {
+      final billable = SalesContainerSyncHelper.billableOrdersForGrandInvoice([
+        buildOrder(id: 'o1', grandTotal: 1200, balanceDue: 1200),
+        buildOrder(
+          id: 'o2',
+          status: SalesOrderStatus.cancelled,
+          grandTotal: 999,
+        ),
+        buildOrder(id: 'o3', grandTotal: 0, balanceDue: 0),
+      ]);
+
+      expect(billable.map((order) => order.id), ['o1']);
+    });
+
+    test('canGenerateGrandInvoice when billable order and no grand yet', () {
       final can = SalesContainerSyncHelper.canGenerateGrandInvoice(
         agreement: buildAgreement(),
         orders: [
@@ -364,6 +378,19 @@ void main() {
         ],
       );
       expect(can, isTrue);
+    });
+
+    test('cannot generate when grand invoice already exists', () {
+      final can = SalesContainerSyncHelper.canGenerateGrandInvoice(
+        agreement: buildAgreement(),
+        orders: [
+          buildOrder(id: 'o1', grandTotal: 1200, balanceDue: 1200),
+        ],
+        invoices: [
+          buildInvoice(id: 'g1', salesOrderId: ''),
+        ],
+      );
+      expect(can, isFalse);
     });
 
     test('cannot generate grand invoice for cancelled agreement', () {
@@ -391,6 +418,31 @@ void main() {
         ]),
         isFalse,
       );
+    });
+
+    test('financeForOrderOnGrand prefers active single invoice', () {
+      final order = buildOrder(
+        id: 'o1',
+        grandTotal: 1000,
+        advanceReceived: 100,
+        balanceDue: 900,
+      );
+      final fin = SalesContainerSyncHelper.financeForOrderOnGrand(
+        order: order,
+        invoices: [
+          buildInvoice(
+            id: 'inv-1',
+            salesOrderId: 'o1',
+            totalAmount: 1000,
+            paidAmount: 400,
+            dueAmount: 600,
+          ),
+        ],
+      );
+
+      expect(fin.charges, 1000);
+      expect(fin.paid, 400);
+      expect(fin.due, 600);
     });
   });
 }

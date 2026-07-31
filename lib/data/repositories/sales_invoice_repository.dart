@@ -5,6 +5,7 @@ import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/invoice_enums.dart';
+import '../../domain/enums/sales_agreement_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/sales_invoice_model.dart';
 import '../services/sales_container_sync_helper.dart';
@@ -284,9 +285,295 @@ class SalesInvoiceRepository {
     await batch.commit();
 
     await _salesAgreementRepository.syncAgreementContainer(agreementId);
+    await syncGrandInvoice(
+      factoryId: order.factoryId,
+      agreementId: agreementId,
+    );
 
     final created = await getInvoice(id);
     return created ?? invoice;
+  }
+
+  /// Creates or syncs the Agreement-level Grand Sales Invoice
+  /// (`agreementId` set, empty `salesOrderId`).
+  Future<SalesInvoice> generateGrandFromAgreement(String agreementId) async {
+    final agreement =
+        await _salesAgreementRepository.getAgreement(agreementId);
+    if (agreement == null) {
+      throw StateError('Sales agreement not found.');
+    }
+    if (agreement.summaryStatus ==
+        SalesAgreementSummaryStatus.cancelled) {
+      throw StateError('Cannot invoice a cancelled sales agreement.');
+    }
+
+    final existingGrand = await getGrandInvoiceForAgreement(
+      factoryId: agreement.factoryId,
+      agreementId: agreementId,
+    );
+    if (existingGrand != null) {
+      final synced = await syncGrandInvoice(
+        factoryId: agreement.factoryId,
+        agreementId: agreementId,
+      );
+      return synced ?? existingGrand;
+    }
+
+    final orders = await _salesOrderRepository.getOrdersForAgreement(
+      factoryId: agreement.factoryId,
+      agreementId: agreementId,
+    );
+    final billable =
+        SalesContainerSyncHelper.billableOrdersForGrandInvoice(orders);
+    if (billable.isEmpty) {
+      throw StateError(
+        'No orders with charges are ready for a grand invoice.',
+      );
+    }
+
+    final allInvoices = await getInvoicesForAgreement(
+      factoryId: agreement.factoryId,
+      agreementId: agreementId,
+    );
+    final paidAmount = await _recordedPaymentsTotalForInvoices(
+      factoryId: agreement.factoryId,
+      customerId: agreement.customerId,
+      invoices: allInvoices,
+      billableOrders: billable,
+    );
+    final totalAmount =
+        billable.fold<double>(0, (total, order) => total + order.grandTotal);
+    final dueAmount =
+        (totalAmount - paidAmount).clamp(0, totalAmount).toDouble();
+    final lineItems = buildLineItemsForGrandInvoice(
+      orders: billable,
+      invoices: allInvoices,
+      totalPaid: paidAmount,
+    );
+
+    final id = _uuid.v4();
+    final invoiceNumber = await _generateInvoiceNumber(agreement.factoryId);
+    final dueDate = DateTime.now().add(const Duration(days: 7));
+
+    final invoice = SalesInvoice(
+      id: id,
+      invoiceNumber: invoiceNumber,
+      factoryId: agreement.factoryId,
+      agreementId: agreement.id,
+      agreementNumber: agreement.agreementNumber,
+      salesOrderId: '',
+      orderNumber: '',
+      customerId: agreement.customerId,
+      customerName: agreement.customerName,
+      lineItems: lineItems,
+      totalAmount: totalAmount,
+      paidAmount: paidAmount,
+      dueAmount: dueAmount,
+      dueDate: dueDate,
+      status: InvoiceStatus.fromAmounts(
+        dueAmount: dueAmount,
+        paidAmount: paidAmount,
+        totalAmount: totalAmount,
+        dueDate: dueDate,
+      ),
+      createdAt: DateTime.now(),
+    );
+
+    await _collection
+        .doc(id)
+        .set(SalesInvoiceModel.fromEntity(invoice).toFirestore(isCreate: true));
+
+    await _salesAgreementRepository.syncAgreementContainer(agreementId);
+
+    final created = await getInvoice(id);
+    return created ?? invoice;
+  }
+
+  /// Recalculates Grand Invoice totals/line items from billable orders + payments.
+  Future<SalesInvoice?> syncGrandInvoice({
+    required String factoryId,
+    required String agreementId,
+  }) async {
+    final grandInvoice = await getGrandInvoiceForAgreement(
+      factoryId: factoryId,
+      agreementId: agreementId,
+    );
+    if (grandInvoice == null) return null;
+
+    final agreement =
+        await _salesAgreementRepository.getAgreement(agreementId);
+    if (agreement == null) return grandInvoice;
+
+    final orders = await _salesOrderRepository.getOrdersForAgreement(
+      factoryId: factoryId,
+      agreementId: agreementId,
+    );
+    final billable =
+        SalesContainerSyncHelper.billableOrdersForGrandInvoice(orders);
+    final allInvoices = await getInvoicesForAgreement(
+      factoryId: factoryId,
+      agreementId: agreementId,
+    );
+
+    final newTotalAmount = billable.isNotEmpty
+        ? billable.fold<double>(0, (total, order) {
+            final fin = SalesContainerSyncHelper.financeForOrderOnGrand(
+              order: order,
+              invoices: allInvoices,
+            );
+            return total + fin.charges;
+          })
+        : (agreement.totalAmount ?? grandInvoice.totalAmount);
+
+    final newPaidAmount = await _recordedPaymentsTotalForInvoices(
+      factoryId: factoryId,
+      customerId: agreement.customerId,
+      invoices: allInvoices,
+      billableOrders: billable,
+    );
+
+    final newDueAmount =
+        (newTotalAmount - newPaidAmount).clamp(0, newTotalAmount).toDouble();
+    final newStatus = InvoiceStatus.fromAmounts(
+      dueAmount: newDueAmount,
+      paidAmount: newPaidAmount,
+      totalAmount: newTotalAmount,
+      dueDate: grandInvoice.dueDate,
+    );
+    final newLineItems = buildLineItemsForGrandInvoice(
+      orders: billable,
+      invoices: allInvoices,
+      totalPaid: newPaidAmount,
+    );
+
+    final totalUnchanged =
+        (newTotalAmount - grandInvoice.totalAmount).abs() < 0.01;
+    final paidUnchanged =
+        (newPaidAmount - grandInvoice.paidAmount).abs() < 0.01;
+    final dueUnchanged = (newDueAmount - grandInvoice.dueAmount).abs() < 0.01;
+    final statusUnchanged = newStatus == grandInvoice.status;
+    var itemsUnchanged =
+        grandInvoice.lineItems.length == newLineItems.length;
+    if (itemsUnchanged) {
+      for (var i = 0; i < newLineItems.length; i++) {
+        if (grandInvoice.lineItems[i].description !=
+                newLineItems[i].description ||
+            (grandInvoice.lineItems[i].amount - newLineItems[i].amount)
+                    .abs() >
+                0.01) {
+          itemsUnchanged = false;
+          break;
+        }
+      }
+    }
+
+    if (totalUnchanged &&
+        paidUnchanged &&
+        dueUnchanged &&
+        statusUnchanged &&
+        itemsUnchanged) {
+      return grandInvoice;
+    }
+
+    await _collection.doc(grandInvoice.id).update({
+      'total': newTotalAmount,
+      'paid': newPaidAmount,
+      'due': newDueAmount,
+      'status': newStatus.firestoreValue,
+      'items': newLineItems
+          .map(
+            (item) => {
+              'description': item.description,
+              'amount': item.amount,
+            },
+          )
+          .toList(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return getInvoice(grandInvoice.id);
+  }
+
+  List<InvoiceLineItem> buildLineItemsForGrandInvoice({
+    required List<SalesOrder> orders,
+    List<SalesInvoice> invoices = const [],
+    double totalPaid = 0.0,
+  }) {
+    final items = <InvoiceLineItem>[];
+    for (final order in orders) {
+      final fin = SalesContainerSyncHelper.financeForOrderOnGrand(
+        order: order,
+        invoices: invoices,
+      );
+      final label = order.orderNumber.isNotEmpty
+          ? order.orderNumber
+          : 'Order ${order.orderSequence ?? ''}';
+      items.add(
+        InvoiceLineItem(
+          description:
+              '$label · Total: Rs ${fin.charges.toStringAsFixed(0)} · '
+              'Paid: Rs ${fin.paid.toStringAsFixed(0)} · '
+              'Remaining: Rs ${fin.due.toStringAsFixed(0)}',
+          amount: fin.charges,
+        ),
+      );
+      for (final line in order.lineItems) {
+        items.add(
+          InvoiceLineItem(
+            description:
+                '  └ ${line.productType.label} — ${line.marbleVariety} · '
+                '${line.totalPieces} pcs · '
+                '${line.totalSquareFeet.toStringAsFixed(1)} sq. ft',
+            amount: 0,
+          ),
+        );
+      }
+    }
+    if (items.isEmpty && totalPaid > 0) {
+      items.add(
+        InvoiceLineItem(
+          description: 'Sales Agreement charges',
+          amount: totalPaid,
+        ),
+      );
+    }
+    return items;
+  }
+
+  Future<double> _recordedPaymentsTotalForInvoices({
+    required String factoryId,
+    required String customerId,
+    required List<SalesInvoice> invoices,
+    required List<SalesOrder> billableOrders,
+  }) async {
+    final invoiceIds = invoices.map((invoice) => invoice.id).toSet();
+    if (invoiceIds.isNotEmpty) {
+      final paymentsSnap = await _firestore
+          .collection('payments')
+          .where('factoryId', isEqualTo: factoryId)
+          .where('customerId', isEqualTo: customerId)
+          .get();
+      final recorded = paymentsSnap.docs
+          .map((doc) => doc.data())
+          .where((data) => invoiceIds.contains(data['invoiceId']))
+          .fold<double>(
+            0,
+            (total, data) =>
+                total + ((data['amount'] as num?)?.toDouble() ?? 0.0),
+          );
+      if (recorded > 0) return recorded;
+    }
+
+    return billableOrders.fold<double>(
+      0,
+      (total, order) {
+        final fin = SalesContainerSyncHelper.financeForOrderOnGrand(
+          order: order,
+          invoices: invoices,
+        );
+        return total + fin.paid;
+      },
+    );
   }
 
   Future<SalesInvoice> updateInvoiceDetails({
@@ -299,7 +586,7 @@ class SalesInvoiceRepository {
     }
 
     final totalAmount =
-        lineItems.fold<double>(0, (sum, item) => sum + item.amount);
+        lineItems.fold<double>(0, (total, item) => total + item.amount);
     if (totalAmount + 0.01 < existing.paidAmount) {
       throw InvoiceException(
         'Invoice total cannot be less than amount already paid '
@@ -348,6 +635,15 @@ class SalesInvoiceRepository {
     }
 
     await batch.commit();
+
+    final agreementId = existing.agreementId?.trim() ?? '';
+    if (agreementId.isNotEmpty) {
+      await syncGrandInvoice(
+        factoryId: existing.factoryId,
+        agreementId: agreementId,
+      );
+      await _salesAgreementRepository.syncAgreementContainer(agreementId);
+    }
 
     return await getInvoice(existing.id) ?? updated;
   }

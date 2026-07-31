@@ -177,11 +177,19 @@ abstract final class AppStrings {
   static const String generateGrandInvoice = 'Generate Invoice';
   static const String viewGrandInvoice = 'View Invoice';
   static const String grandInvoiceTitle = 'Job Work Invoice';
+  static const String salesGrandInvoiceTitle = 'Sales Agreement Invoice';
   static const String grandInvoiceSubtitle =
       'Combined summary across all Loads';
+  static const String salesGrandInvoiceSubtitle =
+      'Combined summary across all Orders';
   static const String grandInvoiceGenerating = 'Generating Load invoices…';
+  static const String salesGrandInvoiceGenerating =
+      'Generating agreement invoice…';
   static const String grandInvoiceIncomplete =
       'Some Loads still need cutting charges before they can be invoiced.';
+  static const String salesGrandInvoiceIncomplete =
+      'No orders with charges are ready for a grand invoice.';
+  static const String openOrderInvoice = 'Open Order invoice';
   static const String loadPaid = 'Paid';
   static const String loadPending = 'Pending';
   static const String loadCollected = 'Collected';
@@ -685,7 +693,6 @@ abstract final class AppStrings {
   static const String salesAgreementCreated = 'Sales agreement created';
   static const String addSalesOrder = 'Add Order';
   static const String allOrders = 'All Orders';
-  static const String grandInvoiceComingSoon = 'Grand Invoice coming soon';
   static const String salesAgreementLoadError = 'Could not load sales agreements';
   static const String noSalesAgreements = 'No sales agreements yet';
   static const String noOrdersUnderAgreement = 'No orders under this agreement yet';

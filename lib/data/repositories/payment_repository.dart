@@ -5,7 +5,6 @@ import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
-import '../../domain/enums/sales_enums.dart';
 import '../models/payment_model.dart';
 import '../services/customer_ledger_service.dart';
 import '../services/job_work_container_sync_helper.dart';
@@ -433,7 +432,7 @@ class PaymentRepository {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    // Single-order invoice only — Grand Invoice has empty salesOrderId (Sprint 4).
+    // Order finance updates only for single-order invoices; grand has empty salesOrderId.
     final salesOrderId = invoice.salesOrderId.trim();
     String? agreementId = invoice.agreementId?.trim();
     if (salesOrderId.isNotEmpty) {
@@ -460,6 +459,10 @@ class PaymentRepository {
 
     final linkedAgreementId = agreementId?.trim() ?? '';
     if (linkedAgreementId.isNotEmpty) {
+      await _salesInvoiceRepository.syncGrandInvoice(
+        factoryId: invoice.factoryId,
+        agreementId: linkedAgreementId,
+      );
       await _salesAgreementRepository.syncAgreementContainer(linkedAgreementId);
     }
 

@@ -95,6 +95,7 @@ import '../screens/sales/add_edit_sales_agreement_screen.dart';
 import '../screens/sales/add_edit_sales_order_screen.dart';
 import '../screens/sales/sales_agreement_detail_screen.dart';
 import '../screens/sales/sales_agreement_list_screen.dart';
+import '../screens/sales/sales_grand_invoice_screen.dart';
 import '../screens/sales/sales_invoice_screen.dart';
 import '../screens/sales/sales_order_detail_screen.dart';
 import '../screens/sales/sales_order_link_redirect_screen.dart';
@@ -1870,6 +1871,20 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                             child: AddEditSalesAgreementScreen(
                               agreementId: agreementId,
                             ),
+                          );
+                        },
+                      ),
+                      GoRoute(
+                        path: 'grand-invoice',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final agreementId =
+                              state.pathParameters['agreementId']!;
+                          final generate =
+                              state.uri.queryParameters['generate'] == '1';
+                          return SalesGrandInvoiceScreen(
+                            agreementId: agreementId,
+                            generateMissing: generate,
                           );
                         },
                       ),

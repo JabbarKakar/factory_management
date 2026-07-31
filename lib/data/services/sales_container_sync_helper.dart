@@ -136,20 +136,63 @@ abstract final class SalesContainerSyncHelper {
     );
   }
 
-  /// Sprint 2 CTA gate — full Grand Invoice generation is Sprint 4+.
+  /// Non-cancelled orders with charges that belong on the Agreement grand invoice.
+  static List<SalesOrder> billableOrdersForGrandInvoice(
+    List<SalesOrder> orders,
+  ) {
+    final billable = orders
+        .where(
+          (order) =>
+              order.status != SalesOrderStatus.cancelled &&
+              order.grandTotal > 0,
+        )
+        .toList();
+    billable.sort((a, b) {
+      final aSeq = a.orderSequence ?? 0;
+      final bSeq = b.orderSequence ?? 0;
+      if (aSeq != bSeq) return aSeq.compareTo(bSeq);
+      return a.createdAt.compareTo(b.createdAt);
+    });
+    return billable;
+  }
+
+  static SalesInvoice? findGrandInvoice(Iterable<SalesInvoice> invoices) {
+    for (final invoice in invoices) {
+      if (invoice.isGrandInvoice) return invoice;
+    }
+    return null;
+  }
+
+  /// Show Generate when billable orders exist and no grand invoice yet.
   static bool canGenerateGrandInvoice({
     required SalesAgreement agreement,
     required List<SalesOrder> orders,
+    List<SalesInvoice> invoices = const [],
   }) {
     if (agreement.summaryStatus == SalesAgreementSummaryStatus.cancelled) {
       return false;
     }
-    return activeOrdersForFinance(agreement, orders)
-        .any((order) => order.grandTotal > 0 || order.balanceDue > 0);
+    if (findGrandInvoice(invoices) != null) return false;
+    return billableOrdersForGrandInvoice(orders).isNotEmpty;
   }
 
+  /// Show View when a grand (agreement-scoped) invoice exists.
   static bool canViewGrandInvoice(List<SalesInvoice> invoices) {
-    return invoices.any((invoice) => invoice.isGrandInvoice);
+    return findGrandInvoice(invoices) != null;
+  }
+
+  /// Per-order charges/paid/due for grand invoice line items and UI cards.
+  static ({double charges, double paid, double due}) financeForOrderOnGrand({
+    required SalesOrder order,
+    required List<SalesInvoice> invoices,
+  }) {
+    final orderInvoice = preferActiveSingleInvoice(
+      invoices.where(
+        (invoice) =>
+            !invoice.isGrandInvoice && invoice.salesOrderId == order.id,
+      ),
+    );
+    return financeForOrder(order: order, invoice: orderInvoice);
   }
 
   /// One active single-order invoice (Grand excluded; cancelled only as last resort).

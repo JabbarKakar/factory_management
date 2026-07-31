@@ -101,7 +101,9 @@ class InvoicePdfExporter {
           PdfDocumentTheme.factoryHeader(
             fonts: fonts,
             branding: branding,
-            documentTitle: 'SALES INVOICE',
+            documentTitle: invoice.isGrandInvoice
+                ? 'GRAND SALES INVOICE'
+                : 'SALES INVOICE',
             metaRows: [
               (label: 'Invoice No:', value: invoice.invoiceNumber),
               (label: 'Date Issued:', value: dateFormat.format(invoice.createdAt)),
@@ -110,10 +112,20 @@ class InvoicePdfExporter {
                   label: 'Due Date:',
                   value: dateFormat.format(invoice.dueDate!),
                 ),
-              (
-                label: 'Order No:',
-                value: Formatters.textForExport(invoice.orderNumber),
-              ),
+              if (invoice.isGrandInvoice)
+                (
+                  label: 'Agreement No:',
+                  value: Formatters.textForExport(
+                    invoice.agreementNumber?.trim().isNotEmpty == true
+                        ? invoice.agreementNumber!
+                        : '—',
+                  ),
+                )
+              else
+                (
+                  label: 'Order No:',
+                  value: Formatters.textForExport(invoice.orderNumber),
+                ),
             ],
             statusLabel: isPaid ? 'FULLY PAID' : 'OUTSTANDING DUE',
             statusPositive: isPaid,
@@ -131,7 +143,9 @@ class InvoicePdfExporter {
               PdfDocumentTheme.cardRow(
                 fonts,
                 'Account Type',
-                'Sales Order',
+                invoice.isGrandInvoice
+                    ? 'Sales Agreement'
+                    : 'Sales Order',
               ),
             ],
           ),

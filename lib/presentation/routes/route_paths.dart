@@ -116,6 +116,15 @@ abstract final class RoutePaths {
 
   static String salesEdit(String agreementId) => '/sales/$agreementId/edit';
 
+  static String salesGrandInvoice(
+    String agreementId, {
+    bool generateMissing = false,
+  }) {
+    final path = '/sales/$agreementId/grand-invoice';
+    if (!generateMissing) return path;
+    return '$path?generate=1';
+  }
+
   static String salesAddOrder(String agreementId) =>
       '/sales/$agreementId/orders/add';
 

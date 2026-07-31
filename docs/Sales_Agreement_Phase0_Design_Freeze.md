@@ -234,7 +234,7 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 - [x] Agreement list + detail screens (Job Work parallel)
 - [x] Add Agreement (`/sales/add`) + Add Order under Agreement (stock form)
 - [x] `SalesContainerSyncHelper` + `syncAgreementContainer` on order mutations
-- [x] Grand Invoice CTA placeholder (generation = Sprint 4)
+- [x] Grand Invoice CTA (wired in Sprint 4)
 - [x] Edit Agreement entry on list + detail
 - [x] Secondary flat order list at `/sales/orders`
 - [x] `SalesContainerSyncHelper` unit tests
@@ -254,7 +254,19 @@ ensureAgreementForOrder(order) → Agreement  // idempotent
 
 ---
 
-## 9. Out of scope for Sprint 1–3
+## 8d. Sprint 4 deliverables checklist
 
-- Grand Invoice generation / PDF (Sprint 4)
+- [x] `generateGrandFromAgreement` / `syncGrandInvoice` (+ line-item builder)
+- [x] Billable-order gates (`billableOrdersForGrandInvoice`, generate vs view)
+- [x] Agreement detail CTAs → `/sales/:agreementId/grand-invoice`
+- [x] `SalesGrandInvoiceScreen` (per-order sections, totals, payments, export)
+- [x] Sync grand on order invoice generate + payment changes
+- [x] Sales PDF export labels Grand vs single order
+- [x] Unit tests for grand gates / per-order finance helper
+
+---
+
+## 9. Out of scope for Sprint 1–4
+
 - Changing Delivery schema
+- Agreement-level unallocated pay (later epic)
