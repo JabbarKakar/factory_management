@@ -37,3 +37,12 @@ final class DashboardStockCutPeriodChanged extends DashboardEvent {
   @override
   List<Object?> get props => [period];
 }
+
+final class DashboardSalesSqFtPeriodChanged extends DashboardEvent {
+  const DashboardSalesSqFtPeriodChanged(this.period);
+
+  final DashboardFinancePeriod period;
+
+  @override
+  List<Object?> get props => [period];
+}

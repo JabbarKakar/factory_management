@@ -17,6 +17,8 @@ class DashboardState extends Equatable {
     this.financePeriod = DashboardFinancePeriod.daily,
     this.stockCut = DashboardStockCutMetrics.empty,
     this.stockCutPeriod = DashboardFinancePeriod.daily,
+    this.salesSqFt = DashboardSalesSqFtMetrics.empty,
+    this.salesSqFtPeriod = DashboardFinancePeriod.daily,
     this.factoryId,
     this.errorMessage,
   });
@@ -29,6 +31,8 @@ class DashboardState extends Equatable {
   final DashboardFinancePeriod financePeriod;
   final DashboardStockCutMetrics stockCut;
   final DashboardFinancePeriod stockCutPeriod;
+  final DashboardSalesSqFtMetrics salesSqFt;
+  final DashboardFinancePeriod salesSqFtPeriod;
   final String? factoryId;
   final String? errorMessage;
 
@@ -41,6 +45,8 @@ class DashboardState extends Equatable {
     DashboardFinancePeriod? financePeriod,
     DashboardStockCutMetrics? stockCut,
     DashboardFinancePeriod? stockCutPeriod,
+    DashboardSalesSqFtMetrics? salesSqFt,
+    DashboardFinancePeriod? salesSqFtPeriod,
     String? factoryId,
     String? errorMessage,
   }) {
@@ -53,6 +59,8 @@ class DashboardState extends Equatable {
       financePeriod: financePeriod ?? this.financePeriod,
       stockCut: stockCut ?? this.stockCut,
       stockCutPeriod: stockCutPeriod ?? this.stockCutPeriod,
+      salesSqFt: salesSqFt ?? this.salesSqFt,
+      salesSqFtPeriod: salesSqFtPeriod ?? this.salesSqFtPeriod,
       factoryId: factoryId ?? this.factoryId,
       errorMessage: errorMessage,
     );
@@ -68,6 +76,8 @@ class DashboardState extends Equatable {
         financePeriod,
         stockCut,
         stockCutPeriod,
+        salesSqFt,
+        salesSqFtPeriod,
         factoryId,
         errorMessage,
       ];

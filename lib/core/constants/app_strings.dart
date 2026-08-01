@@ -596,6 +596,11 @@ abstract final class AppStrings {
   static const String stockCutTotalShort = 'Total';
   static const String stockCutTotalSubtitle = 'Small + Large';
   static const String stockCutAllTimeCaption = 'All recorded production';
+  static const String salesSqFtTitle = 'Sales Sq. Ft';
+  static const String salesSqFtSubtitle =
+      'Small and large stock sold for the selected period';
+  static const String salesSqFtTotal = 'Total Sales Sq. Ft';
+  static const String salesSqFtAllTimeCaption = 'All recorded sales';
   static const String selectPeriod = 'Period';
   static const String vsYesterdayNa = 'N/A';
   static String vsPeriodPercent(String signedPercent, String vsLabel) =>

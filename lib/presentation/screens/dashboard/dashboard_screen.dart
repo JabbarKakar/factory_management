@@ -15,6 +15,7 @@ import '../../widgets/dashboard/dashboard_quick_actions_grid.dart';
 import '../../widgets/dashboard/dashboard_recent_activity_card.dart';
 import '../../widgets/dashboard/dashboard_revenue_breakdown_card.dart';
 import '../../widgets/dashboard/dashboard_revenue_chart_card.dart';
+import '../../widgets/dashboard/dashboard_sales_sqft_card.dart';
 import '../../widgets/dashboard/dashboard_stock_cut_card.dart';
 import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/dashboard/dashboard_welcome_banner.dart';
@@ -99,6 +100,16 @@ class DashboardScreen extends StatelessWidget {
                     onPeriodChanged: (period) => context
                         .read<DashboardBloc>()
                         .add(DashboardStockCutPeriodChanged(period)),
+                  ),
+                ],
+                if (user != null && user.canView(AppModule.sales)) ...[
+                  const SizedBox(height: 16),
+                  DashboardSalesSqFtCard(
+                    metrics: state.salesSqFt,
+                    period: state.salesSqFtPeriod,
+                    onPeriodChanged: (period) => context
+                        .read<DashboardBloc>()
+                        .add(DashboardSalesSqFtPeriodChanged(period)),
                   ),
                 ],
                 if (user != null &&
