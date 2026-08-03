@@ -1,0 +1,159 @@
+import 'package:equatable/equatable.dart';
+
+import '../enums/dashboard_finance_period.dart';
+import 'dashboard_kpis.dart';
+
+class DashboardCashflowPoint extends Equatable {
+  const DashboardCashflowPoint({
+    required this.date,
+    required this.income,
+    required this.expenses,
+    this.label,
+  });
+
+  final DateTime date;
+  final double income;
+  final double expenses;
+  final String? label;
+
+  double get net => income - expenses;
+
+  @override
+  List<Object?> get props => [date, income, expenses, label];
+}
+
+class DashboardRevenueComparePoint extends Equatable {
+  const DashboardRevenueComparePoint({
+    required this.date,
+    required this.salesAmount,
+    required this.jobWorkAmount,
+    this.label,
+  });
+
+  final DateTime date;
+  final double salesAmount;
+  final double jobWorkAmount;
+  final String? label;
+
+  double get total => salesAmount + jobWorkAmount;
+
+  @override
+  List<Object?> get props => [date, salesAmount, jobWorkAmount, label];
+}
+
+/// Period-driven executive dashboard payload (KPIs + chart series).
+class DashboardCommandCenter extends Equatable {
+  const DashboardCommandCenter({
+    required this.period,
+    required this.income,
+    required this.expenses,
+    required this.previousIncome,
+    required this.previousExpenses,
+    required this.outstanding,
+    required this.outstandingCount,
+    required this.collectedInPeriod,
+    required this.incomeSparkline,
+    required this.expenseSparkline,
+    required this.cashflowSeries,
+    required this.salesVsJobWorkSeries,
+    required this.smallStockSqFt,
+    required this.largeStockSqFt,
+    required this.wasteYieldSqFt,
+    required this.salesSmallSqFt,
+    required this.salesLargeSqFt,
+    required this.activeJobWorks,
+    required this.activeDispatches,
+    required this.throughputSqFt,
+  });
+
+  static const empty = DashboardCommandCenter(
+    period: DashboardFinancePeriod.daily,
+    income: 0,
+    expenses: 0,
+    previousIncome: 0,
+    previousExpenses: 0,
+    outstanding: 0,
+    outstandingCount: 0,
+    collectedInPeriod: 0,
+    incomeSparkline: [],
+    expenseSparkline: [],
+    cashflowSeries: [],
+    salesVsJobWorkSeries: [],
+    smallStockSqFt: 0,
+    largeStockSqFt: 0,
+    wasteYieldSqFt: 0,
+    salesSmallSqFt: 0,
+    salesLargeSqFt: 0,
+    activeJobWorks: 0,
+    activeDispatches: 0,
+    throughputSqFt: 0,
+  );
+
+  final DashboardFinancePeriod period;
+  final double income;
+  final double expenses;
+  final double previousIncome;
+  final double previousExpenses;
+  final double outstanding;
+  final int outstandingCount;
+  final double collectedInPeriod;
+  final List<double> incomeSparkline;
+  final List<double> expenseSparkline;
+  final List<DashboardCashflowPoint> cashflowSeries;
+  final List<DashboardRevenueComparePoint> salesVsJobWorkSeries;
+  final double smallStockSqFt;
+  final double largeStockSqFt;
+  final double wasteYieldSqFt;
+  final double salesSmallSqFt;
+  final double salesLargeSqFt;
+  final int activeJobWorks;
+  final int activeDispatches;
+  final double throughputSqFt;
+
+  double get net => income - expenses;
+
+  double get processedStockSqFt =>
+      smallStockSqFt + largeStockSqFt + wasteYieldSqFt;
+
+  double get salesTotalSqFt => salesSmallSqFt + salesLargeSqFt;
+
+  double? get incomeChangePercent =>
+      DashboardKpis.dayOverDayPercent(income, previousIncome);
+
+  double? get expensesChangePercent =>
+      DashboardKpis.dayOverDayPercent(expenses, previousExpenses);
+
+  double? get expenseRatioPercent =>
+      income > 0 ? (expenses / income) * 100 : null;
+
+  /// Paid vs pending collection efficiency (0–1).
+  double get collectionRatio {
+    final total = collectedInPeriod + outstanding;
+    if (total <= 0) return 0;
+    return (collectedInPeriod / total).clamp(0.0, 1.0);
+  }
+
+  @override
+  List<Object?> get props => [
+        period,
+        income,
+        expenses,
+        previousIncome,
+        previousExpenses,
+        outstanding,
+        outstandingCount,
+        collectedInPeriod,
+        incomeSparkline,
+        expenseSparkline,
+        cashflowSeries,
+        salesVsJobWorkSeries,
+        smallStockSqFt,
+        largeStockSqFt,
+        wasteYieldSqFt,
+        salesSmallSqFt,
+        salesLargeSqFt,
+        activeJobWorks,
+        activeDispatches,
+        throughputSqFt,
+      ];
+}

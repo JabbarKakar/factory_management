@@ -53,10 +53,10 @@ class UserModel {
       'name': name,
       'role': role,
       'factoryId': factoryId,
-      if (photoUrl != null) 'photoUrl': photoUrl,
-      if (employeeId != null && employeeId!.isNotEmpty) 'employeeId': employeeId,
       'status': status.firestoreValue,
       'onboardingComplete': onboardingComplete,
+      if (photoUrl != null) 'photoUrl': photoUrl,
+      if (employeeId != null && employeeId!.isNotEmpty) 'employeeId': employeeId,
       'createdAt': createdAt,
     };
   }

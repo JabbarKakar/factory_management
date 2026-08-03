@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../core/utils/date_keys.dart';
+import '../../core/utils/dashboard_command_center_builder.dart';
 import '../../core/utils/dashboard_job_work_metrics.dart';
 import '../../core/utils/dashboard_sales_sqft_metrics.dart';
 import '../../data/repositories/attendance_repository.dart';
@@ -32,6 +33,7 @@ import '../../domain/entities/attendance_record.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/dashboard_analytics.dart';
 import '../../domain/entities/dashboard_cashflow_metrics.dart';
+import '../../domain/entities/dashboard_command_center.dart';
 import '../../domain/entities/dashboard_kpis.dart';
 import '../../domain/entities/dashboard_pending_pickup.dart';
 import '../../domain/entities/dashboard_sales_sqft_metrics.dart';
@@ -103,6 +105,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     on<DashboardWatchStarted>(_onWatchStarted);
     on<DashboardWatchStopped>(_onWatchStopped);
     on<DashboardFinancePeriodChanged>(_onFinancePeriodChanged);
+    on<DashboardGlobalPeriodChanged>(_onGlobalPeriodChanged);
     on<DashboardStockCutPeriodChanged>(_onStockCutPeriodChanged);
     on<DashboardSalesSqFtPeriodChanged>(_onSalesSqFtPeriodChanged);
     on<_DashboardDataUpdated>(_onDataUpdated);
@@ -365,6 +368,25 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     if (state.financePeriod == event.period) return;
     emit(state.copyWith(financePeriod: event.period));
+    add(const _DashboardRecomputeRequested());
+  }
+
+  Future<void> _onGlobalPeriodChanged(
+    DashboardGlobalPeriodChanged event,
+    Emitter<DashboardState> emit,
+  ) async {
+    if (state.financePeriod == event.period &&
+        state.stockCutPeriod == event.period &&
+        state.salesSqFtPeriod == event.period) {
+      return;
+    }
+    emit(
+      state.copyWith(
+        financePeriod: event.period,
+        stockCutPeriod: event.period,
+        salesSqFtPeriod: event.period,
+      ),
+    );
     add(const _DashboardRecomputeRequested());
   }
 
@@ -729,6 +751,19 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       period: state.salesSqFtPeriod,
       now: now,
     );
+    final commandCenter = DashboardCommandCenterBuilder.build(
+      period: state.financePeriod,
+      now: now,
+      payments: _payments,
+      expenses: _expenses,
+      jobWorkOrders: _orders,
+      jobWorkLoads: _jobWorkLoads,
+      jobWorkInvoices: _jobWorkInvoices,
+      salesInvoices: _salesInvoices,
+      salesOrders: _salesOrders,
+      deliveries: _deliveries,
+      activeJobWorks: activeJobWorkCount,
+    );
 
     emit(
       state.copyWith(
@@ -739,6 +774,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         stockCutPeriod: state.stockCutPeriod,
         salesSqFt: salesSqFt,
         salesSqFtPeriod: state.salesSqFtPeriod,
+        commandCenter: commandCenter,
         kpis: DashboardKpis(
           revenueToday: revenueToday,
           activeJobWorkCount: activeJobWorkCount,

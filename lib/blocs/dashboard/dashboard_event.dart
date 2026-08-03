@@ -29,6 +29,16 @@ final class DashboardFinancePeriodChanged extends DashboardEvent {
   List<Object?> get props => [period];
 }
 
+/// Syncs cashflow / stock / sales period filters to one global window.
+final class DashboardGlobalPeriodChanged extends DashboardEvent {
+  const DashboardGlobalPeriodChanged(this.period);
+
+  final DashboardFinancePeriod period;
+
+  @override
+  List<Object?> get props => [period];
+}
+
 final class DashboardStockCutPeriodChanged extends DashboardEvent {
   const DashboardStockCutPeriodChanged(this.period);
 
