@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/dashboard_stock_cut_metrics.dart';
 import '../../../domain/enums/dashboard_finance_period.dart';
 import '../dialogs/app_dialog.dart';
@@ -222,6 +223,7 @@ class DashboardStockCutCard extends StatelessWidget {
       _MetricCell(
         label: AppStrings.smallStock,
         valueText: formatSqFtCompact(metrics.smallSqFt),
+        amountText: Formatters.currencyCompact(metrics.smallAmount),
         accent: _small,
         changePercent: period == DashboardFinancePeriod.allTime
             ? null
@@ -230,6 +232,7 @@ class DashboardStockCutCard extends StatelessWidget {
       _MetricCell(
         label: AppStrings.largeStock,
         valueText: formatSqFtCompact(metrics.largeSqFt),
+        amountText: Formatters.currencyCompact(metrics.largeAmount),
         accent: _large,
         changePercent: period == DashboardFinancePeriod.allTime
             ? null
@@ -238,6 +241,7 @@ class DashboardStockCutCard extends StatelessWidget {
       _MetricCell(
         label: AppStrings.stockCutTotalShort,
         valueText: formatSqFtCompact(metrics.totalSqFt),
+        amountText: Formatters.currencyCompact(metrics.totalAmount),
         accent: _total,
         changePercent: period == DashboardFinancePeriod.allTime
             ? null
@@ -453,6 +457,7 @@ class _MetricCell extends StatelessWidget {
     required this.label,
     required this.valueText,
     required this.accent,
+    this.amountText,
     this.changePercent,
     this.footnote,
   });
@@ -460,6 +465,7 @@ class _MetricCell extends StatelessWidget {
   final String label;
   final String valueText;
   final Color accent;
+  final String? amountText;
   final double? changePercent;
   final String? footnote;
 
@@ -483,7 +489,7 @@ class _MetricCell extends StatelessWidget {
                 : Icons.trending_down_rounded));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -502,7 +508,7 @@ class _MetricCell extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             label,
             maxLines: 1,
@@ -516,7 +522,7 @@ class _MetricCell extends StatelessWidget {
               height: 1,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
@@ -524,15 +530,33 @@ class _MetricCell extends StatelessWidget {
               maxLines: 1,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleSmall?.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w800,
-                fontSize: 13.5,
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
                 letterSpacing: -0.3,
                 height: 1.05,
               ),
             ),
           ),
-          const SizedBox(height: 5),
+          if (amountText != null) ...[
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                amountText!,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12.5,
+                  letterSpacing: -0.3,
+                  height: 1.05,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 4),
           if (trendIcon != null && change != null)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -585,6 +609,7 @@ class _DetailRow extends StatelessWidget {
     required this.value,
     required this.color,
     required this.caption,
+    this.amountText,
   });
 
   final IconData icon;
@@ -592,6 +617,7 @@ class _DetailRow extends StatelessWidget {
   final String value;
   final Color color;
   final String caption;
+  final String? amountText;
 
   @override
   Widget build(BuildContext context) {
@@ -634,13 +660,29 @@ class _DetailRow extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+              if (amountText != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  amountText!,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

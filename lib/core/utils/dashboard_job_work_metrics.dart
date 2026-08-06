@@ -3,19 +3,25 @@ import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
 import '../../domain/entities/stock_output.dart';
+import '../../domain/enums/job_work_enums.dart';
 import 'stock_output_calculator.dart';
 
-/// Small / large stock-cut square feet for a date window.
+/// Small / large stock-cut square feet and monetary values for a date window.
 class DashboardStockCutTotals {
   const DashboardStockCutTotals({
     required this.smallSqFt,
     required this.largeSqFt,
+    this.smallAmount = 0,
+    this.largeAmount = 0,
   });
 
   final double smallSqFt;
   final double largeSqFt;
+  final double smallAmount;
+  final double largeAmount;
 
   double get totalSqFt => smallSqFt + largeSqFt;
+  double get totalAmount => smallAmount + largeAmount;
 }
 
 abstract final class DashboardJobWorkMetrics {
@@ -86,7 +92,7 @@ abstract final class DashboardJobWorkMetrics {
     );
   }
 
-  /// Small / large sq.ft cut for [order] within an inclusive date range.
+  /// Small / large sq.ft cut & PKR amounts for [order] within an inclusive date range.
   static DashboardStockCutTotals stockCutInRange(
     JobWorkOrder order, {
     required DateTime start,
@@ -99,6 +105,8 @@ abstract final class DashboardJobWorkMetrics {
     if (orderLoads.isNotEmpty) {
       var small = 0.0;
       var large = 0.0;
+      var smallAmt = 0.0;
+      var largeAmt = 0.0;
       for (final load in orderLoads) {
         final cut = stockCutInRangeForLoad(
           load,
@@ -107,14 +115,29 @@ abstract final class DashboardJobWorkMetrics {
         );
         small += cut.smallSqFt;
         large += cut.largeSqFt;
+        smallAmt += cut.smallAmount;
+        largeAmt += cut.largeAmount;
       }
-      return DashboardStockCutTotals(smallSqFt: small, largeSqFt: large);
+      return DashboardStockCutTotals(
+        smallSqFt: small,
+        largeSqFt: large,
+        smallAmount: smallAmt,
+        largeAmount: largeAmt,
+      );
     }
+    final sRate = order.smallStockPrice > 0
+        ? order.smallStockPrice
+        : (order.pricingModel == PricingModel.perSqFt ? order.agreedRate : 0.0);
+    final lRate = order.largeStockPrice > 0
+        ? order.largeStockPrice
+        : (order.pricingModel == PricingModel.perSqFt ? order.agreedRate : 0.0);
     return _stockCutFromShiftsOrOutput(
       shiftLogs: order.shiftLogs,
       output: order.output,
       start: start,
       end: end,
+      smallRate: sRate,
+      largeRate: lRate,
     );
   }
 
@@ -123,11 +146,19 @@ abstract final class DashboardJobWorkMetrics {
     required DateTime start,
     required DateTime end,
   }) {
+    final sRate = load.smallStockPrice > 0
+        ? load.smallStockPrice
+        : (load.pricingModel == PricingModel.perSqFt ? load.agreedRate : 0.0);
+    final lRate = load.largeStockPrice > 0
+        ? load.largeStockPrice
+        : (load.pricingModel == PricingModel.perSqFt ? load.agreedRate : 0.0);
     return _stockCutFromShiftsOrOutput(
       shiftLogs: load.shiftLogs,
       output: load.output,
       start: start,
       end: end,
+      smallRate: sRate,
+      largeRate: lRate,
     );
   }
 
@@ -145,11 +176,15 @@ abstract final class DashboardJobWorkMetrics {
 
     var small = 0.0;
     var large = 0.0;
+    var smallAmt = 0.0;
+    var largeAmt = 0.0;
 
     for (final load in persistedLoads) {
       final cut = stockCutInRangeForLoad(load, start: start, end: end);
       small += cut.smallSqFt;
       large += cut.largeSqFt;
+      smallAmt += cut.smallAmount;
+      largeAmt += cut.largeAmount;
     }
 
     for (final order in orders) {
@@ -161,9 +196,16 @@ abstract final class DashboardJobWorkMetrics {
       );
       small += cut.smallSqFt;
       large += cut.largeSqFt;
+      smallAmt += cut.smallAmount;
+      largeAmt += cut.largeAmount;
     }
 
-    return DashboardStockCutTotals(smallSqFt: small, largeSqFt: large);
+    return DashboardStockCutTotals(
+      smallSqFt: small,
+      largeSqFt: large,
+      smallAmount: smallAmt,
+      largeAmount: largeAmt,
+    );
   }
 
   static DashboardStockCutTotals _stockCutFromShiftsOrOutput({
@@ -171,10 +213,14 @@ abstract final class DashboardJobWorkMetrics {
     required JobWorkOutput? output,
     required DateTime start,
     required DateTime end,
+    double smallRate = 0,
+    double largeRate = 0,
   }) {
     if (shiftLogs.isNotEmpty) {
       var small = 0.0;
       var large = 0.0;
+      var smallAmt = 0.0;
+      var largeAmt = 0.0;
       for (final shift in shiftLogs) {
         if (!DashboardFinancePeriodRange.contains(
           shift.shiftDate,
@@ -185,13 +231,21 @@ abstract final class DashboardJobWorkMetrics {
         }
         small += _squareFeet(shift.smallStockOutputs);
         large += _squareFeet(shift.largeStockOutputs);
+        smallAmt += _amount(shift.smallStockOutputs, smallRate);
+        largeAmt += _amount(shift.largeStockOutputs, largeRate);
         if (!shift.hasStockOutputs) {
           // Legacy grade totals count as large/usable when no size rows.
           final legacy = shift.gradeASqFt + shift.gradeBSqFt + shift.gradeCSqFt;
           large += legacy;
+          largeAmt += legacy * largeRate;
         }
       }
-      return DashboardStockCutTotals(smallSqFt: small, largeSqFt: large);
+      return DashboardStockCutTotals(
+        smallSqFt: small,
+        largeSqFt: large,
+        smallAmount: smallAmt,
+        largeAmount: largeAmt,
+      );
     }
 
     if (output?.isRecorded == true &&
@@ -202,22 +256,53 @@ abstract final class DashboardJobWorkMetrics {
           end,
         )) {
       if (output.hasStockOutputs) {
+        final smallSq = output.smallStockSquareFeet;
+        final largeSq = output.grossLargeStockSqFt;
+        final smallAmt = output.smallStockAmount > 0
+            ? output.smallStockAmount
+            : smallSq * smallRate;
+        final largeAmt = output.grossLargeStockAmount > 0
+            ? output.grossLargeStockAmount
+            : largeSq * largeRate;
         return DashboardStockCutTotals(
-          smallSqFt: output.smallStockSquareFeet,
-          // Gross large production (cut), not waste/yield net.
-          largeSqFt: output.grossLargeStockSqFt,
+          smallSqFt: smallSq,
+          largeSqFt: largeSq,
+          smallAmount: smallAmt,
+          largeAmount: largeAmt,
         );
       }
       final legacy =
           output.gradeASqFt + output.gradeBSqFt + output.gradeCSqFt;
-      return DashboardStockCutTotals(smallSqFt: 0, largeSqFt: legacy);
+      return DashboardStockCutTotals(
+        smallSqFt: 0,
+        largeSqFt: legacy,
+        smallAmount: 0,
+        largeAmount: legacy * largeRate,
+      );
     }
 
-    return const DashboardStockCutTotals(smallSqFt: 0, largeSqFt: 0);
+    return const DashboardStockCutTotals(
+      smallSqFt: 0,
+      largeSqFt: 0,
+      smallAmount: 0,
+      largeAmount: 0,
+    );
   }
 
   static double _squareFeet(Iterable<StockOutput> outputs) =>
       StockOutputCalculator.totalSquareFeet(
         outputs.where((output) => output.hasProduction),
       );
+
+  static double _amount(Iterable<StockOutput> outputs, double fallbackRate) {
+    var total = 0.0;
+    for (final o in outputs.where((output) => output.hasProduction)) {
+      if (o.amount > 0) {
+        total += o.amount;
+      } else {
+        total += o.squareFeet * (o.pricePerSqFt > 0 ? o.pricePerSqFt : fallbackRate);
+      }
+    }
+    return total;
+  }
 }

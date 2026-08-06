@@ -888,6 +888,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       largeSqFt: current.largeSqFt,
       previousSmallSqFt: previous.smallSqFt,
       previousLargeSqFt: previous.largeSqFt,
+      smallAmount: current.smallAmount,
+      largeAmount: current.largeAmount,
+      previousSmallAmount: previous.smallAmount,
+      previousLargeAmount: previous.largeAmount,
     );
   }
 
@@ -912,6 +916,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       largeSqFt: current.largeSqFt,
       previousSmallSqFt: previous.smallSqFt,
       previousLargeSqFt: previous.largeSqFt,
+      smallAmount: current.smallAmount,
+      largeAmount: current.largeAmount,
+      previousSmallAmount: previous.smallAmount,
+      previousLargeAmount: previous.largeAmount,
     );
   }
 

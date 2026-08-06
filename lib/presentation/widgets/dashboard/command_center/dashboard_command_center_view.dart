@@ -821,6 +821,9 @@ class _ChartsGridState extends State<_ChartsGrid> {
         small: stockIsCut ? cc.smallStockSqFt : cc.salesSmallSqFt,
         large: stockIsCut ? cc.largeStockSqFt : cc.salesLargeSqFt,
         waste: stockIsCut ? cc.wasteYieldSqFt : 0,
+        smallAmount: stockIsCut ? cc.smallStockAmount : cc.salesSmallAmount,
+        largeAmount: stockIsCut ? cc.largeStockAmount : cc.salesLargeAmount,
+        totalAmount: stockIsCut ? cc.stockCutTotalAmount : cc.salesTotalAmount,
         showWaste: stockIsCut,
         centerLabel: stockIsCut ? 'Cut' : 'Sold',
       ),
@@ -1221,6 +1224,9 @@ class _StockDonut extends StatelessWidget {
     required this.small,
     required this.large,
     required this.waste,
+    required this.smallAmount,
+    required this.largeAmount,
+    required this.totalAmount,
     this.showWaste = true,
     this.centerLabel = 'Processed',
   });
@@ -1228,13 +1234,16 @@ class _StockDonut extends StatelessWidget {
   final double small;
   final double large;
   final double waste;
+  final double smallAmount;
+  final double largeAmount;
+  final double totalAmount;
   final bool showWaste;
   final String centerLabel;
 
   @override
   Widget build(BuildContext context) {
-    final total = small + large + (showWaste ? waste : 0);
-    if (total <= 0) {
+    final totalSq = small + large + (showWaste ? waste : 0);
+    if (totalSq <= 0) {
       return _EmptyHint(
         showWaste
             ? 'No stock processed in this period'
@@ -1242,87 +1251,208 @@ class _StockDonut extends StatelessWidget {
       );
     }
 
-    return Row(
+    final wasteLossPct = totalSq > 0 ? (waste / totalSq) * 100 : 0.0;
+
+    return Column(
       children: [
         Expanded(
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
             children: [
-              PieChart(
-                PieChartData(
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 42,
-                  sections: [
-                    PieChartSectionData(
-                      value: large <= 0 ? 0.001 : large,
-                      color: DashboardFx.primary,
-                      radius: 16,
-                      showTitle: false,
-                    ),
-                    PieChartSectionData(
-                      value: small <= 0 ? 0.001 : small,
-                      color: DashboardFx.electric,
-                      radius: 16,
-                      showTitle: false,
-                    ),
-                    if (showWaste)
-                      PieChartSectionData(
-                        value: waste <= 0 ? 0.001 : waste,
-                        color: DashboardFx.danger,
-                        radius: 16,
-                        showTitle: false,
+              Expanded(
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PieChart(
+                      PieChartData(
+                        sectionsSpace: 2,
+                        centerSpaceRadius: 36,
+                        sections: [
+                          PieChartSectionData(
+                            value: large <= 0 ? 0.001 : large,
+                            color: DashboardFx.primary,
+                            radius: 14,
+                            showTitle: false,
+                          ),
+                          PieChartSectionData(
+                            value: small <= 0 ? 0.001 : small,
+                            color: DashboardFx.electric,
+                            radius: 14,
+                            showTitle: false,
+                          ),
+                          if (showWaste)
+                            PieChartSectionData(
+                              value: waste <= 0 ? 0.001 : waste,
+                              color: DashboardFx.danger,
+                              radius: 14,
+                              showTitle: false,
+                            ),
+                        ],
                       ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _compactSqFt(totalSq),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          centerLabel,
+                          style: const TextStyle(
+                            color: DashboardFx.muted,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _compactSqFt(total),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _DetailedLegend(
+                        color: DashboardFx.primary,
+                        label: 'Large',
+                        sqft: _compactSqFt(large),
+                        amount: Formatters.currencyCompact(largeAmount),
+                      ),
+                      const SizedBox(height: 5),
+                      _DetailedLegend(
+                        color: DashboardFx.electric,
+                        label: 'Small',
+                        sqft: _compactSqFt(small),
+                        amount: Formatters.currencyCompact(smallAmount),
+                      ),
+                      if (showWaste) ...[
+                        const SizedBox(height: 5),
+                        _DetailedLegend(
+                          color: DashboardFx.danger,
+                          label: 'Waste/Yield',
+                          sqft: _compactSqFt(waste),
+                          badge: waste > 0
+                              ? '${wasteLossPct.toStringAsFixed(1)}% loss'
+                              : '0% loss',
+                        ),
+                      ],
+                    ],
                   ),
-                  Text(
-                    centerLabel,
-                    style: const TextStyle(
-                      color: DashboardFx.muted,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 8),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Legend(
-              color: DashboardFx.primary,
-              label: 'Large',
-              value: _compactSqFt(large),
-            ),
-            const SizedBox(height: 8),
-            _Legend(
-              color: DashboardFx.electric,
-              label: 'Small',
-              value: _compactSqFt(small),
-            ),
-            if (showWaste) ...[
-              const SizedBox(height: 8),
-              _Legend(
-                color: DashboardFx.danger,
-                label: 'Waste/Yield',
-                value: _compactSqFt(waste),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: DashboardFx.elevated,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: DashboardFx.cardBorder),
+          ),
+          child: Row(
+            children: [
+              Text(
+                'Total ${showWaste ? "Cut" : "Sold"}: ',
+                style: const TextStyle(
+                  color: DashboardFx.muted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                _compactSqFt(showWaste ? (small + large) : totalSq),
+                style: const TextStyle(
+                  color: DashboardFx.text,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                Formatters.currencyCompact(totalAmount),
+                style: const TextStyle(
+                  color: DashboardFx.primary,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ],
-          ],
+          ),
         ),
+      ],
+    );
+  }
+}
+
+class _DetailedLegend extends StatelessWidget {
+  const _DetailedLegend({
+    required this.color,
+    required this.label,
+    required this.sqft,
+    this.amount,
+    this.badge,
+  });
+
+  final Color color;
+  final String label;
+  final String sqft;
+  final String? amount;
+  final String? badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '$label: ',
+          style: const TextStyle(
+            color: DashboardFx.muted,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        Text(
+          sqft,
+          style: const TextStyle(
+            color: DashboardFx.text,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (amount != null || badge != null) ...[
+          Text(
+            ' · ',
+            style: TextStyle(
+              color: DashboardFx.muted.withValues(alpha: 0.5),
+              fontSize: 10,
+            ),
+          ),
+          Text(
+            amount ?? badge!,
+            style: TextStyle(
+              color: amount != null ? color : DashboardFx.danger,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ],
     );
   }

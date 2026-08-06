@@ -59,8 +59,12 @@ class DashboardCommandCenter extends Equatable {
     required this.smallStockSqFt,
     required this.largeStockSqFt,
     required this.wasteYieldSqFt,
+    this.smallStockAmount = 0,
+    this.largeStockAmount = 0,
     required this.salesSmallSqFt,
     required this.salesLargeSqFt,
+    this.salesSmallAmount = 0,
+    this.salesLargeAmount = 0,
     required this.activeJobWorks,
     required this.activeDispatches,
     required this.throughputSqFt,
@@ -82,8 +86,12 @@ class DashboardCommandCenter extends Equatable {
     smallStockSqFt: 0,
     largeStockSqFt: 0,
     wasteYieldSqFt: 0,
+    smallStockAmount: 0,
+    largeStockAmount: 0,
     salesSmallSqFt: 0,
     salesLargeSqFt: 0,
+    salesSmallAmount: 0,
+    salesLargeAmount: 0,
     activeJobWorks: 0,
     activeDispatches: 0,
     throughputSqFt: 0,
@@ -104,8 +112,12 @@ class DashboardCommandCenter extends Equatable {
   final double smallStockSqFt;
   final double largeStockSqFt;
   final double wasteYieldSqFt;
+  final double smallStockAmount;
+  final double largeStockAmount;
   final double salesSmallSqFt;
   final double salesLargeSqFt;
+  final double salesSmallAmount;
+  final double salesLargeAmount;
   final int activeJobWorks;
   final int activeDispatches;
   final double throughputSqFt;
@@ -115,7 +127,13 @@ class DashboardCommandCenter extends Equatable {
   double get processedStockSqFt =>
       smallStockSqFt + largeStockSqFt + wasteYieldSqFt;
 
+  double get stockCutTotalSqFt => smallStockSqFt + largeStockSqFt;
+
+  double get stockCutTotalAmount => smallStockAmount + largeStockAmount;
+
   double get salesTotalSqFt => salesSmallSqFt + salesLargeSqFt;
+
+  double get salesTotalAmount => salesSmallAmount + salesLargeAmount;
 
   double? get incomeChangePercent =>
       DashboardKpis.dayOverDayPercent(income, previousIncome);
@@ -150,8 +168,12 @@ class DashboardCommandCenter extends Equatable {
         smallStockSqFt,
         largeStockSqFt,
         wasteYieldSqFt,
+        smallStockAmount,
+        largeStockAmount,
         salesSmallSqFt,
         salesLargeSqFt,
+        salesSmallAmount,
+        salesLargeAmount,
         activeJobWorks,
         activeDispatches,
         throughputSqFt,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/dashboard_sales_sqft_metrics.dart';
 import '../../../domain/enums/dashboard_finance_period.dart';
 import '../dialogs/app_dialog.dart';
@@ -21,9 +22,9 @@ class DashboardSalesSqFtCard extends StatelessWidget {
 
   static const Color _panelDark = Color(0xFF121826);
   static const Color _panelLight = Color(0xFFF3F5F8);
-  static const Color _small = Color(0xFFA78BFA);
-  static const Color _large = Color(0xFF34D399);
-  static const Color _total = Color(0xFF60A5FA);
+  static const Color _small = Color(0xFF38BDF8);
+  static const Color _large = Color(0xFFF59E0B);
+  static const Color _total = Color(0xFF22C55E);
 
   Future<void> _showDetails(BuildContext context) {
     final theme = Theme.of(context);
@@ -77,7 +78,7 @@ class DashboardSalesSqFtCard extends StatelessWidget {
                           child: Icon(
                             Icons.shopping_bag_outlined,
                             size: 20,
-                            color: isDark ? _small : const Color(0xFF7C3AED),
+                            color: isDark ? _small : const Color(0xFF0284C7),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -86,12 +87,9 @@ class DashboardSalesSqFtCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${AppStrings.salesSqFtTitle} · ${period.label}',
+                                AppStrings.salesSqFtTitle,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                  height: 1.2,
-                                  letterSpacing: -0.2,
                                 ),
                               ),
                               const SizedBox(height: 3),
@@ -124,6 +122,7 @@ class DashboardSalesSqFtCard extends StatelessWidget {
                             value: DashboardStockCutCard.formatSqFt(
                               metrics.smallSqFt,
                             ),
+                            amountText: Formatters.currencyPkr(metrics.smallAmount),
                             color: _small,
                             caption: _changeCaption(
                               metrics.smallChangePercent,
@@ -142,6 +141,7 @@ class DashboardSalesSqFtCard extends StatelessWidget {
                             value: DashboardStockCutCard.formatSqFt(
                               metrics.largeSqFt,
                             ),
+                            amountText: Formatters.currencyPkr(metrics.largeAmount),
                             color: _large,
                             caption: _changeCaption(
                               metrics.largeChangePercent,
@@ -160,6 +160,7 @@ class DashboardSalesSqFtCard extends StatelessWidget {
                             value: DashboardStockCutCard.formatSqFt(
                               metrics.totalSqFt,
                             ),
+                            amountText: Formatters.currencyPkr(metrics.totalAmount),
                             color: _total,
                             caption: AppStrings.stockCutTotalSubtitle,
                           ),
@@ -214,6 +215,7 @@ class DashboardSalesSqFtCard extends StatelessWidget {
       _MetricCell(
         label: AppStrings.smallStock,
         valueText: DashboardStockCutCard.formatSqFtCompact(metrics.smallSqFt),
+        amountText: Formatters.currencyCompact(metrics.smallAmount),
         accent: _small,
         changePercent: period == DashboardFinancePeriod.allTime
             ? null
@@ -222,6 +224,7 @@ class DashboardSalesSqFtCard extends StatelessWidget {
       _MetricCell(
         label: AppStrings.largeStock,
         valueText: DashboardStockCutCard.formatSqFtCompact(metrics.largeSqFt),
+        amountText: Formatters.currencyCompact(metrics.largeAmount),
         accent: _large,
         changePercent: period == DashboardFinancePeriod.allTime
             ? null
@@ -230,6 +233,7 @@ class DashboardSalesSqFtCard extends StatelessWidget {
       _MetricCell(
         label: AppStrings.stockCutTotalShort,
         valueText: DashboardStockCutCard.formatSqFtCompact(metrics.totalSqFt),
+        amountText: Formatters.currencyCompact(metrics.totalAmount),
         accent: _total,
         changePercent: period == DashboardFinancePeriod.allTime
             ? null
@@ -445,6 +449,7 @@ class _MetricCell extends StatelessWidget {
     required this.label,
     required this.valueText,
     required this.accent,
+    this.amountText,
     this.changePercent,
     this.footnote,
   });
@@ -452,6 +457,7 @@ class _MetricCell extends StatelessWidget {
   final String label;
   final String valueText;
   final Color accent;
+  final String? amountText;
   final double? changePercent;
   final String? footnote;
 
@@ -475,7 +481,7 @@ class _MetricCell extends StatelessWidget {
                 : Icons.trending_down_rounded));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -494,7 +500,7 @@ class _MetricCell extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             label,
             maxLines: 1,
@@ -508,7 +514,7 @@ class _MetricCell extends StatelessWidget {
               height: 1,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
@@ -516,15 +522,33 @@ class _MetricCell extends StatelessWidget {
               maxLines: 1,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleSmall?.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w800,
-                fontSize: 13.5,
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
                 letterSpacing: -0.3,
                 height: 1.05,
               ),
             ),
           ),
-          const SizedBox(height: 5),
+          if (amountText != null) ...[
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                amountText!,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12.5,
+                  letterSpacing: -0.3,
+                  height: 1.05,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 4),
           if (trendIcon != null && change != null)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -577,6 +601,7 @@ class _DetailRow extends StatelessWidget {
     required this.value,
     required this.color,
     required this.caption,
+    this.amountText,
   });
 
   final IconData icon;
@@ -584,6 +609,7 @@ class _DetailRow extends StatelessWidget {
   final String value;
   final Color color;
   final String caption;
+  final String? amountText;
 
   @override
   Widget build(BuildContext context) {
@@ -626,13 +652,29 @@ class _DetailRow extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                ),
+              ),
+              if (amountText != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  amountText!,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 import '../enums/dashboard_finance_period.dart';
 import 'dashboard_kpis.dart';
 
-/// Small / large / total stock cut (sq. ft) for a dashboard period.
+/// Small / large / total stock cut (sq. ft and monetary amounts) for a dashboard period.
 class DashboardStockCutMetrics extends Equatable {
   const DashboardStockCutMetrics({
     required this.period,
@@ -11,6 +11,10 @@ class DashboardStockCutMetrics extends Equatable {
     required this.largeSqFt,
     required this.previousSmallSqFt,
     required this.previousLargeSqFt,
+    this.smallAmount = 0,
+    this.largeAmount = 0,
+    this.previousSmallAmount = 0,
+    this.previousLargeAmount = 0,
   });
 
   static const empty = DashboardStockCutMetrics(
@@ -19,6 +23,10 @@ class DashboardStockCutMetrics extends Equatable {
     largeSqFt: 0,
     previousSmallSqFt: 0,
     previousLargeSqFt: 0,
+    smallAmount: 0,
+    largeAmount: 0,
+    previousSmallAmount: 0,
+    previousLargeAmount: 0,
   );
 
   final DashboardFinancePeriod period;
@@ -26,10 +34,16 @@ class DashboardStockCutMetrics extends Equatable {
   final double largeSqFt;
   final double previousSmallSqFt;
   final double previousLargeSqFt;
+  final double smallAmount;
+  final double largeAmount;
+  final double previousSmallAmount;
+  final double previousLargeAmount;
 
   double get totalSqFt => smallSqFt + largeSqFt;
+  double get totalAmount => smallAmount + largeAmount;
 
   double get previousTotalSqFt => previousSmallSqFt + previousLargeSqFt;
+  double get previousTotalAmount => previousSmallAmount + previousLargeAmount;
 
   double? get smallChangePercent =>
       DashboardKpis.dayOverDayPercent(smallSqFt, previousSmallSqFt);
@@ -47,5 +61,9 @@ class DashboardStockCutMetrics extends Equatable {
         largeSqFt,
         previousSmallSqFt,
         previousLargeSqFt,
+        smallAmount,
+        largeAmount,
+        previousSmallAmount,
+        previousLargeAmount,
       ];
 }
