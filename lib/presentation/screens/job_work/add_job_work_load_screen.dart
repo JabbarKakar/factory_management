@@ -277,7 +277,13 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                                 context,
                                 label: AppStrings.mineLocation,
                               ),
-                              items: MineLocations.all
+                              items: [
+                                if (_mineLocation != null &&
+                                    _mineLocation!.isNotEmpty &&
+                                    !MineLocations.all.contains(_mineLocation))
+                                  _mineLocation!,
+                                ...MineLocations.all,
+                              ]
                                   .map(
                                     (item) => DropdownMenuItem(
                                       value: item,
@@ -316,7 +322,14 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                                 context,
                                 label: AppStrings.mineOwner,
                               ),
-                              items: MineOwners.forLocation(_mineLocation)
+                              items: [
+                                if (_mineOwner != null &&
+                                    _mineOwner!.isNotEmpty &&
+                                    !MineOwners.forLocation(_mineLocation)
+                                        .contains(_mineOwner))
+                                  _mineOwner!,
+                                ...MineOwners.forLocation(_mineLocation),
+                              ]
                                   .map(
                                     (item) => DropdownMenuItem(
                                       value: item,
@@ -344,7 +357,13 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                                 context,
                                 label: AppStrings.marbleVariety,
                               ),
-                              items: MarbleData.varieties
+                              items: [
+                                if (_marbleVariety.isNotEmpty &&
+                                    !MarbleData.varieties
+                                        .contains(_marbleVariety))
+                                  _marbleVariety,
+                                ...MarbleData.varieties,
+                              ]
                                   .map(
                                     (item) => DropdownMenuItem(
                                       value: item,
@@ -519,7 +538,13 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                                 context,
                                 label: AppStrings.thickness,
                               ),
-                              items: MarbleData.jobWorkThicknesses
+                              items: [
+                                if (_thickness.isNotEmpty &&
+                                    !MarbleData.jobWorkThicknesses
+                                        .contains(_thickness))
+                                  _thickness,
+                                ...MarbleData.jobWorkThicknesses,
+                              ]
                                   .map(
                                     (item) => DropdownMenuItem(
                                       value: item,

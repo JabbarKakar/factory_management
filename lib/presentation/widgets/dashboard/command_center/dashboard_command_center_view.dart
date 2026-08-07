@@ -283,15 +283,24 @@ class _HeaderBar extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(greeting, style: DashboardFxStyle.title.copyWith(fontSize: 16)),
+                    Text(
+                      greeting,
+                      style: DashboardFxStyle.title.copyWith(fontSize: 16),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 2),
                     Row(
                       children: [
                         const _LivePulseDot(),
                         const SizedBox(width: 5),
-                        Text(
-                          '$dateLabel · Live operational & financial analytics',
-                          style: DashboardFxStyle.subtitle,
+                        Expanded(
+                          child: Text(
+                            '$dateLabel · Live operational & financial analytics',
+                            style: DashboardFxStyle.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),

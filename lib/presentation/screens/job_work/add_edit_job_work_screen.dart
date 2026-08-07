@@ -100,17 +100,14 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     _receivedDate = order.receivedDate;
     _expectedCompletion = order.expectedCompletionDate;
     _paymentDueDate = order.paymentDueDate;
-    if (MineLocations.contains(order.mineLocation)) {
+    if (order.mineLocation != null && order.mineLocation!.isNotEmpty) {
       _mineLocation = order.mineLocation;
-      _mineOwner = MineOwners.normalizeOwnerForLocation(
-        _mineLocation,
-        order.mineOwner,
-      );
+      _mineOwner = order.mineOwner;
     } else {
       _mineLocation = null;
       _mineOwner = null;
     }
-    _marbleVariety = MarbleData.varieties.contains(order.marbleVariety)
+    _marbleVariety = order.marbleVariety.isNotEmpty
         ? order.marbleVariety
         : MarbleData.varieties.first;
     _cuttingStrategy = order.cuttingStrategy;
@@ -562,7 +559,12 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                           context,
                           label: AppStrings.marbleVariety,
                         ),
-                        items: MarbleData.varieties
+                        items: [
+                          if (_marbleVariety.isNotEmpty &&
+                              !MarbleData.varieties.contains(_marbleVariety))
+                            _marbleVariety,
+                          ...MarbleData.varieties,
+                        ]
                             .map(
                               (v) => DropdownMenuItem(
                                 value: v,
