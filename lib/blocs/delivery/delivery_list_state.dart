@@ -10,6 +10,11 @@ class DeliveryListState extends Equatable {
     this.searchQuery = '',
     this.filter = DeliveryListFilter.active,
     this.errorMessage,
+    this.isLoadingInitial = false,
+    this.isLoadingMore = false,
+    this.hasMoreData = true,
+    this.lastDocument,
+    this.factoryId = '',
   });
 
   final DeliveryListStatus status;
@@ -18,6 +23,11 @@ class DeliveryListState extends Equatable {
   final String searchQuery;
   final DeliveryListFilter filter;
   final String? errorMessage;
+  final bool isLoadingInitial;
+  final bool isLoadingMore;
+  final bool hasMoreData;
+  final DocumentSnapshot? lastDocument;
+  final String factoryId;
 
   int get activeCount => deliveries.where((d) => d.status.isActive).length;
 
@@ -28,6 +38,12 @@ class DeliveryListState extends Equatable {
     String? searchQuery,
     DeliveryListFilter? filter,
     String? errorMessage,
+    bool? isLoadingInitial,
+    bool? isLoadingMore,
+    bool? hasMoreData,
+    DocumentSnapshot? lastDocument,
+    bool clearLastDocument = false,
+    String? factoryId,
   }) {
     return DeliveryListState(
       status: status ?? this.status,
@@ -36,6 +52,12 @@ class DeliveryListState extends Equatable {
       searchQuery: searchQuery ?? this.searchQuery,
       filter: filter ?? this.filter,
       errorMessage: errorMessage,
+      isLoadingInitial: isLoadingInitial ?? this.isLoadingInitial,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMoreData: hasMoreData ?? this.hasMoreData,
+      lastDocument:
+          clearLastDocument ? null : (lastDocument ?? this.lastDocument),
+      factoryId: factoryId ?? this.factoryId,
     );
   }
 
@@ -47,5 +69,10 @@ class DeliveryListState extends Equatable {
         searchQuery,
         filter,
         errorMessage,
+        isLoadingInitial,
+        isLoadingMore,
+        hasMoreData,
+        lastDocument,
+        factoryId,
       ];
 }

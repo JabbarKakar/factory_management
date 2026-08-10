@@ -17,6 +17,10 @@ final class JobWorkListWatchStarted extends JobWorkListEvent {
   List<Object?> get props => [factoryId, initialFilter];
 }
 
+final class JobWorkListFetchNext extends JobWorkListEvent {
+  const JobWorkListFetchNext();
+}
+
 final class JobWorkListSearchChanged extends JobWorkListEvent {
   const JobWorkListSearchChanged(this.query);
 

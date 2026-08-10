@@ -9,6 +9,9 @@ import '../models/customer_model.dart';
 import '../models/sales_order_model.dart';
 import 'sales_agreement_repository.dart';
 
+import '../../core/utils/firestore_paginator.dart';
+import '../models/paginated_result.dart';
+
 class SalesOrderRepository {
   SalesOrderRepository({
     FirebaseFirestore? firestore,
@@ -29,6 +32,29 @@ class SalesOrderRepository {
 
   CollectionReference<Map<String, dynamic>> get _customerCollection =>
       _firestore.collection('customers');
+
+  Future<PaginatedResult<SalesOrder>> fetchSalesOrdersPage({
+    required String factoryId,
+    DocumentSnapshot? startAfter,
+    int limit = 20,
+    SalesOrderStatus? statusFilter,
+  }) async {
+    Query<Map<String, dynamic>> query =
+        _ordersCollection.where('factoryId', isEqualTo: factoryId);
+
+    if (statusFilter != null) {
+      query = query.where('status', isEqualTo: statusFilter.firestoreValue);
+    }
+
+    return FirestorePaginator.fetchPage<SalesOrder>(
+      query: query,
+      orderByField: 'createdAt',
+      descending: true,
+      startAfter: startAfter,
+      limit: limit,
+      mapDoc: (id, data) => SalesOrderModel.fromFirestore(id, data).toEntity(),
+    );
+  }
 
   Stream<List<SalesOrder>> watchSalesOrders(String factoryId) {
     return _ordersCollection

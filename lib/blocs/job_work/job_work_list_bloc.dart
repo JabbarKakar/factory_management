@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/job_work_collection_repository.dart';
@@ -35,6 +36,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
         _qualityCheckRepository = qualityCheckRepository,
         super(const JobWorkListState()) {
     on<JobWorkListWatchStarted>(_onWatchStarted);
+    on<JobWorkListFetchNext>(_onFetchNext);
     on<JobWorkListSearchChanged>(_onSearchChanged);
     on<JobWorkListStageFilterChanged>(_onStageFilterChanged);
     on<JobWorkListDateRangeChanged>(_onDateRangeChanged);
@@ -51,58 +53,157 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
   final JobWorkCollectionRepository _collectionRepository;
   final JobWorkLoadRepository _loadRepository;
   final QualityCheckRepository _qualityCheckRepository;
-  StreamSubscription<List<JobWorkOrder>>? _subscription;
   StreamSubscription<List<JobWorkInvoice>>? _invoicesSubscription;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
   StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
   StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
 
+  JobWorkStatus? _statusFilterForJobWork(JobWorkListStageFilter filter) {
+    return switch (filter) {
+      JobWorkListStageFilter.inProgress => JobWorkStatus.inCutting,
+      JobWorkListStageFilter.atQc => JobWorkStatus.qc,
+      JobWorkListStageFilter.ready => JobWorkStatus.ready,
+      JobWorkListStageFilter.completed => JobWorkStatus.closed,
+      JobWorkListStageFilter.cancelled => JobWorkStatus.cancelled,
+      _ => null,
+    };
+  }
+
   Future<void> _onWatchStarted(
     JobWorkListWatchStarted event,
     Emitter<JobWorkListState> emit,
   ) async {
+    final stageFilter = event.initialFilter ?? state.stageFilter;
     emit(
       state.copyWith(
         status: JobWorkListStatus.loading,
-        stageFilter: event.initialFilter ?? state.stageFilter,
+        isLoadingInitial: true,
+        factoryId: event.factoryId,
+        stageFilter: stageFilter,
+        clearLastDocument: true,
+        hasMoreData: true,
+        orders: const [],
+        visibleOrders: const [],
       ),
     );
-    await _subscription?.cancel();
-    await _invoicesSubscription?.cancel();
-    await _qualityChecksSubscription?.cancel();
-    await _collectionsSubscription?.cancel();
-    await _loadsSubscription?.cancel();
 
-    _subscription = _repository.watchJobWorkOrders(event.factoryId).listen(
-          (orders) => add(_JobWorkListUpdated(orders)),
-          onError: (_) => add(
-            const _JobWorkListStreamFailed(
-              'Could not load job work orders. Please try again.',
-            ),
-          ),
-        );
+    try {
+      final paginated = await _repository.fetchJobWorkOrdersPage(
+        factoryId: event.factoryId,
+        statusFilter: _statusFilterForJobWork(stageFilter),
+        fromDate: state.fromDate,
+        toDate: state.toDate,
+        limit: 20,
+      );
+
+      final visible = _filteredOrders(
+        orders: paginated.items,
+        query: state.searchQuery,
+        stageFilter: stageFilter,
+        fromDate: state.fromDate,
+        toDate: state.toDate,
+        collections: state.collections,
+        loads: state.loads,
+      );
+
+      emit(
+        state.copyWith(
+          status: JobWorkListStatus.loaded,
+          isLoadingInitial: false,
+          orders: paginated.items,
+          visibleOrders: visible,
+          lastDocument: paginated.lastDocument,
+          hasMoreData: paginated.hasMore,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: JobWorkListStatus.failure,
+          isLoadingInitial: false,
+          errorMessage: 'Could not load job work orders. Please try again.',
+        ),
+      );
+    }
+
+    _subscribeRelatedStreams(event.factoryId);
+  }
+
+  Future<void> _onFetchNext(
+    JobWorkListFetchNext event,
+    Emitter<JobWorkListState> emit,
+  ) async {
+    if (state.isLoadingMore ||
+        state.isLoadingInitial ||
+        !state.hasMoreData ||
+        state.factoryId.isEmpty) {
+      return;
+    }
+
+    emit(state.copyWith(isLoadingMore: true));
+
+    try {
+      final paginated = await _repository.fetchJobWorkOrdersPage(
+        factoryId: state.factoryId,
+        startAfter: state.lastDocument,
+        statusFilter: _statusFilterForJobWork(state.stageFilter),
+        fromDate: state.fromDate,
+        toDate: state.toDate,
+        limit: 20,
+      );
+
+      final combined = [...state.orders, ...paginated.items];
+      final visible = _filteredOrders(
+        orders: combined,
+        query: state.searchQuery,
+        stageFilter: state.stageFilter,
+        fromDate: state.fromDate,
+        toDate: state.toDate,
+        collections: state.collections,
+        loads: state.loads,
+      );
+
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          orders: combined,
+          visibleOrders: visible,
+          lastDocument: paginated.lastDocument,
+          hasMoreData: paginated.hasMore,
+        ),
+      );
+    } catch (_) {
+      emit(state.copyWith(isLoadingMore: false));
+    }
+  }
+
+  void _subscribeRelatedStreams(String factoryId) {
+    _invoicesSubscription?.cancel();
+    _qualityChecksSubscription?.cancel();
+    _collectionsSubscription?.cancel();
+    _loadsSubscription?.cancel();
 
     _invoicesSubscription =
-        _invoiceRepository.watchInvoicesForFactory(event.factoryId).listen(
+        _invoiceRepository.watchInvoicesForFactory(factoryId).listen(
       (invoices) => add(_JobWorkInvoicesUpdated(invoices)),
       onError: (_) {},
     );
 
     _qualityChecksSubscription = _qualityCheckRepository
-        .watchQualityChecks(event.factoryId)
+        .watchQualityChecks(factoryId)
         .listen(
           (checks) => add(_JobWorkQualityChecksUpdated(checks)),
           onError: (_) {},
         );
 
     _collectionsSubscription = _collectionRepository
-        .watchCollections(event.factoryId)
+        .watchCollections(factoryId)
         .listen(
           (collections) => add(_JobWorkCollectionsUpdated(collections)),
           onError: (_) {},
         );
 
-    _loadsSubscription = _loadRepository.watchLoads(event.factoryId).listen(
+    _loadsSubscription = _loadRepository.watchLoads(factoryId).listen(
           (loads) => add(_JobWorkLoadsUpdated(loads)),
           onError: (_) {},
         );
@@ -483,7 +584,6 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
 
   @override
   Future<void> close() {
-    _subscription?.cancel();
     _invoicesSubscription?.cancel();
     _qualityChecksSubscription?.cancel();
     _collectionsSubscription?.cancel();

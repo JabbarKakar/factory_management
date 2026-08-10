@@ -34,12 +34,30 @@ class CustomersScreen extends StatefulWidget {
 
 class _CustomersScreenState extends State<CustomersScreen> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   String? _busyCustomerId;
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    if (currentScroll >= maxScroll * 0.85) {
+      context.read<CustomerListBloc>().add(const CustomerListFetchNext());
+    }
   }
 
   void _onSearchClear() {
@@ -289,9 +307,25 @@ class _CustomersScreenState extends State<CustomersScreen> {
                         );
                   },
                   child: ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.only(top: 4, bottom: 88),
-                    itemCount: state.visibleCustomers.length,
+                    itemCount: state.visibleCustomers.length +
+                        (state.isLoadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == state.visibleCustomers.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2.5),
+                            ),
+                          ),
+                        );
+                      }
+
                       final customer = state.visibleCustomers[index];
                       return CustomerListTile(
                         customer: customer,

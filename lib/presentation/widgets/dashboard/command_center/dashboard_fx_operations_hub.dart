@@ -537,9 +537,10 @@ class _ProductionMiniCard extends StatelessWidget {
                 style: DashboardFxStyle.subtitle,
               ),
             )
-          : BarChart(
-              BarChartData(
-                maxY: chartMax,
+          : ClipRect(
+              child: BarChart(
+                BarChartData(
+                  maxY: chartMax,
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
@@ -607,6 +608,7 @@ class _ProductionMiniCard extends StatelessWidget {
                 ],
               ),
             ),
+          ),
     );
   }
 }

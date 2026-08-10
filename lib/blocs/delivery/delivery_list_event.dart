@@ -22,6 +22,10 @@ final class DeliveryListWatchStarted extends DeliveryListEvent {
   List<Object?> get props => [factoryId, initialFilter, driverEmployeeId];
 }
 
+final class DeliveryListFetchNext extends DeliveryListEvent {
+  const DeliveryListFetchNext();
+}
+
 final class DeliveryListWatchStopped extends DeliveryListEvent {
   const DeliveryListWatchStopped();
 }

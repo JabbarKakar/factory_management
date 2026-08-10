@@ -44,7 +44,7 @@ class DashboardProductionChartCard extends StatelessWidget {
             else
               SizedBox(
                 height: 220,
-                child: BarChart(_buildChartData(context)),
+                child: ClipRect(child: BarChart(_buildChartData(context))),
               ),
             const SizedBox(height: 12),
             Text(

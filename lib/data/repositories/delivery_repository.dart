@@ -10,6 +10,9 @@ import '../services/delivery_quantity_helper.dart';
 import '../services/sales_order_dispatch_status_helper.dart';
 import 'sales_order_repository.dart';
 
+import '../../core/utils/firestore_paginator.dart';
+import '../models/paginated_result.dart';
+
 class DeliveryException implements Exception {
   const DeliveryException(this.message);
 
@@ -33,6 +36,29 @@ class DeliveryRepository {
 
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('deliveries');
+
+  Future<PaginatedResult<Delivery>> fetchDeliveriesPage({
+    required String factoryId,
+    DocumentSnapshot? startAfter,
+    int limit = 20,
+    DeliveryStatus? statusFilter,
+  }) async {
+    Query<Map<String, dynamic>> query =
+        _collection.where('factoryId', isEqualTo: factoryId);
+
+    if (statusFilter != null) {
+      query = query.where('status', isEqualTo: statusFilter.firestoreValue);
+    }
+
+    return FirestorePaginator.fetchPage<Delivery>(
+      query: query,
+      orderByField: 'createdAt',
+      descending: true,
+      startAfter: startAfter,
+      limit: limit,
+      mapDoc: (id, data) => DeliveryModel.fromFirestore(id, data).toEntity(),
+    );
+  }
 
   Stream<List<Delivery>> watchDeliveries(String factoryId) {
     return _collection.where('factoryId', isEqualTo: factoryId).snapshots().map(

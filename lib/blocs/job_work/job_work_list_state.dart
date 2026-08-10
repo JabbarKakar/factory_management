@@ -19,6 +19,11 @@ class JobWorkListState extends Equatable {
     this.toDate,
     this.errorMessage,
     this.invoicesByJobWorkId = const {},
+    this.isLoadingInitial = false,
+    this.isLoadingMore = false,
+    this.hasMoreData = true,
+    this.lastDocument,
+    this.factoryId = '',
   });
 
   final JobWorkListStatus status;
@@ -37,6 +42,11 @@ class JobWorkListState extends Equatable {
   final String? errorMessage;
   /// All invoices for each Job Work (multi-Load factories have many entries).
   final Map<String, List<JobWorkInvoice>> invoicesByJobWorkId;
+  final bool isLoadingInitial;
+  final bool isLoadingMore;
+  final bool hasMoreData;
+  final DocumentSnapshot? lastDocument;
+  final String factoryId;
 
   bool get hasDateFilter => fromDate != null || toDate != null;
 
@@ -74,6 +84,12 @@ class JobWorkListState extends Equatable {
     bool clearDateFilter = false,
     String? errorMessage,
     Map<String, List<JobWorkInvoice>>? invoicesByJobWorkId,
+    bool? isLoadingInitial,
+    bool? isLoadingMore,
+    bool? hasMoreData,
+    DocumentSnapshot? lastDocument,
+    bool clearLastDocument = false,
+    String? factoryId,
   }) {
     return JobWorkListState(
       status: status ?? this.status,
@@ -91,6 +107,12 @@ class JobWorkListState extends Equatable {
       toDate: clearDateFilter ? null : (toDate ?? this.toDate),
       errorMessage: errorMessage,
       invoicesByJobWorkId: invoicesByJobWorkId ?? this.invoicesByJobWorkId,
+      isLoadingInitial: isLoadingInitial ?? this.isLoadingInitial,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMoreData: hasMoreData ?? this.hasMoreData,
+      lastDocument:
+          clearLastDocument ? null : (lastDocument ?? this.lastDocument),
+      factoryId: factoryId ?? this.factoryId,
     );
   }
 
@@ -111,5 +133,10 @@ class JobWorkListState extends Equatable {
         toDate,
         errorMessage,
         invoicesByJobWorkId,
+        isLoadingInitial,
+        isLoadingMore,
+        hasMoreData,
+        lastDocument,
+        factoryId,
       ];
 }

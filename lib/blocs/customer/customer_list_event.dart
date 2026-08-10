@@ -16,6 +16,10 @@ final class CustomerListWatchStarted extends CustomerListEvent {
   List<Object?> get props => [factoryId];
 }
 
+final class CustomerListFetchNext extends CustomerListEvent {
+  const CustomerListFetchNext();
+}
+
 final class CustomerListWatchStopped extends CustomerListEvent {
   const CustomerListWatchStopped();
 }

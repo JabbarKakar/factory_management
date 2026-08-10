@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/delivery_repository.dart';
@@ -15,6 +16,7 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
       : _repository = repository,
         super(const DeliveryListState()) {
     on<DeliveryListWatchStarted>(_onWatchStarted);
+    on<DeliveryListFetchNext>(_onFetchNext);
     on<DeliveryListWatchStopped>(_onWatchStopped);
     on<DeliveryListSearchChanged>(_onSearchChanged);
     on<DeliveryListFilterChanged>(_onFilterChanged);
@@ -23,7 +25,6 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
   }
 
   final DeliveryRepository _repository;
-  StreamSubscription<List<Delivery>>? _subscription;
   String? _driverEmployeeId;
 
   Future<void> _onWatchStarted(
@@ -35,27 +36,96 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
     emit(
       state.copyWith(
         status: DeliveryListStatus.loading,
+        isLoadingInitial: true,
+        factoryId: event.factoryId,
         filter: filter,
+        clearLastDocument: true,
+        hasMoreData: true,
+        deliveries: const [],
+        visibleDeliveries: const [],
       ),
     );
-    await _subscription?.cancel();
-    _subscription = _repository.watchDeliveries(event.factoryId).listen(
-          (deliveries) => add(_DeliveryListUpdated(deliveries)),
-          onError: (_) => add(
-            const _DeliveryListStreamFailed(
-              'Could not load deliveries. Please try again.',
-            ),
-          ),
-        );
+
+    try {
+      final paginated = await _repository.fetchDeliveriesPage(
+        factoryId: event.factoryId,
+        limit: 20,
+      );
+
+      final visible = _applyFilters(
+        paginated.items,
+        query: state.searchQuery,
+        filter: filter,
+        driverEmployeeId: _driverEmployeeId,
+      );
+
+      emit(
+        state.copyWith(
+          status: DeliveryListStatus.loaded,
+          isLoadingInitial: false,
+          deliveries: paginated.items,
+          visibleDeliveries: visible,
+          lastDocument: paginated.lastDocument,
+          hasMoreData: paginated.hasMore,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: DeliveryListStatus.failure,
+          isLoadingInitial: false,
+          errorMessage: 'Could not load deliveries. Please try again.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onFetchNext(
+    DeliveryListFetchNext event,
+    Emitter<DeliveryListState> emit,
+  ) async {
+    if (state.isLoadingMore ||
+        state.isLoadingInitial ||
+        !state.hasMoreData ||
+        state.factoryId.isEmpty) {
+      return;
+    }
+
+    emit(state.copyWith(isLoadingMore: true));
+
+    try {
+      final paginated = await _repository.fetchDeliveriesPage(
+        factoryId: state.factoryId,
+        startAfter: state.lastDocument,
+        limit: 20,
+      );
+
+      final combined = [...state.deliveries, ...paginated.items];
+      final visible = _applyFilters(
+        combined,
+        query: state.searchQuery,
+        filter: state.filter,
+        driverEmployeeId: _driverEmployeeId,
+      );
+
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          deliveries: combined,
+          visibleDeliveries: visible,
+          lastDocument: paginated.lastDocument,
+          hasMoreData: paginated.hasMore,
+        ),
+      );
+    } catch (_) {
+      emit(state.copyWith(isLoadingMore: false));
+    }
   }
 
   Future<void> _onWatchStopped(
     DeliveryListWatchStopped event,
     Emitter<DeliveryListState> emit,
-  ) async {
-    await _subscription?.cancel();
-    _subscription = null;
-  }
+  ) async {}
 
   void _onSearchChanged(
     DeliveryListSearchChanged event,
@@ -157,12 +227,6 @@ class DeliveryListBloc extends Bloc<DeliveryListEvent, DeliveryListState> {
 
       return haystack.contains(normalizedQuery);
     }).toList();
-  }
-
-  @override
-  Future<void> close() {
-    _subscription?.cancel();
-    return super.close();
   }
 }
 

@@ -718,59 +718,90 @@ class _MiniSparkline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (values.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    double minY = values.fold<double>(values.first, (m, v) => v < m ? v : m);
+    double maxY = values.fold<double>(values.first, (m, v) => v > m ? v : m);
+
+    if (minY == maxY) {
+      if (minY == 0) {
+        minY = -1;
+        maxY = 1;
+      } else if (minY > 0) {
+        minY = 0;
+        maxY = maxY * 1.2;
+      } else {
+        minY = minY * 1.2;
+        maxY = 0;
+      }
+    } else {
+      final rangePadding = (maxY - minY) * 0.15;
+      minY -= rangePadding;
+      maxY += rangePadding;
+    }
+
     if (area) {
       final spots = [
         for (var i = 0; i < values.length; i++)
           FlSpot(i.toDouble(), values[i]),
       ];
-      final maxY = values.fold<double>(0, (m, v) => v > m ? v : m);
-      return LineChart(
-        LineChartData(
-          minY: 0,
-          maxY: maxY <= 0 ? 1 : maxY * 1.1,
-          gridData: const FlGridData(show: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          lineTouchData: const LineTouchData(enabled: false),
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: color,
-              barWidth: 1.6,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: color.withValues(alpha: 0.22),
+      return ClipRect(
+        child: LineChart(
+          LineChartData(
+            clipData: const FlClipData.all(),
+            minX: 0,
+            maxX: (values.length - 1).toDouble(),
+            minY: minY,
+            maxY: maxY,
+            gridData: const FlGridData(show: false),
+            titlesData: const FlTitlesData(show: false),
+            borderData: FlBorderData(show: false),
+            lineTouchData: const LineTouchData(enabled: false),
+            lineBarsData: [
+              LineChartBarData(
+                spots: spots,
+                isCurved: true,
+                preventCurveOverShooting: true,
+                color: color,
+                barWidth: 1.6,
+                dotData: const FlDotData(show: false),
+                belowBarData: BarAreaData(
+                  show: true,
+                  color: color.withValues(alpha: 0.22),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
 
-    final maxY = values.fold<double>(0, (m, v) => v > m ? v : m);
-    return BarChart(
-      BarChartData(
-        maxY: maxY <= 0 ? 1 : maxY * 1.1,
-        gridData: const FlGridData(show: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        barTouchData: BarTouchData(enabled: false),
-        barGroups: [
-          for (var i = 0; i < values.length; i++)
-            BarChartGroupData(
-              x: i,
-              barRods: [
-                BarChartRodData(
-                  toY: values[i],
-                  width: 3,
-                  color: color,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ],
-            ),
-        ],
+    return ClipRect(
+      child: BarChart(
+        BarChartData(
+          minY: minY < 0 ? minY : 0,
+          maxY: maxY <= 0 ? 1 : maxY,
+          gridData: const FlGridData(show: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          barTouchData: BarTouchData(enabled: false),
+          barGroups: [
+            for (var i = 0; i < values.length; i++)
+              BarChartGroupData(
+                x: i,
+                barRods: [
+                  BarChartRodData(
+                    toY: values[i],
+                    width: 3,
+                    color: color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -979,11 +1010,13 @@ class _CashflowAreaChart extends StatelessWidget {
         .map((p) => p.income > p.expenses ? p.income : p.expenses)
         .fold<double>(0, (m, v) => v > m ? v : m);
     final chartMax = maxY <= 0 ? 1.0 : maxY * 1.2;
+    final maxX = series.length <= 1 ? 1.0 : (series.length - 1).toDouble();
 
     return LineChart(
       LineChartData(
+        clipData: const FlClipData.all(),
         minX: 0,
-        maxX: (series.length - 1).toDouble(),
+        maxX: maxX,
         minY: 0,
         maxY: chartMax,
         gridData: FlGridData(
@@ -1077,6 +1110,7 @@ class _CashflowAreaChart extends StatelessWidget {
                 FlSpot(i.toDouble(), series[i].income),
             ],
             isCurved: true,
+            preventCurveOverShooting: true,
             color: DashboardFx.success,
             barWidth: 2.5,
             dotData: const FlDotData(show: false),
@@ -1091,6 +1125,7 @@ class _CashflowAreaChart extends StatelessWidget {
                 FlSpot(i.toDouble(), series[i].expenses),
             ],
             isCurved: true,
+            preventCurveOverShooting: true,
             color: DashboardFx.danger,
             barWidth: 2.5,
             dotData: const FlDotData(show: false),
@@ -1122,9 +1157,10 @@ class _SalesJwBarChart extends StatelessWidget {
     final chartMax = maxY <= 0 ? 1.0 : maxY * 1.2;
     final dense = series.length > 14;
 
-    return BarChart(
-      BarChartData(
-        maxY: chartMax,
+    return ClipRect(
+      child: BarChart(
+        BarChartData(
+          maxY: chartMax,
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
@@ -1224,8 +1260,9 @@ class _SalesJwBarChart extends StatelessWidget {
             ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _StockDonut extends StatelessWidget {

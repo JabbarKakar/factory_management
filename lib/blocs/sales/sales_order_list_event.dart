@@ -17,6 +17,10 @@ final class SalesOrderListWatchStarted extends SalesOrderListEvent {
   List<Object?> get props => [factoryId, initialFilter];
 }
 
+final class SalesOrderListFetchNext extends SalesOrderListEvent {
+  const SalesOrderListFetchNext();
+}
+
 final class SalesOrderListSearchChanged extends SalesOrderListEvent {
   const SalesOrderListSearchChanged(this.query);
 

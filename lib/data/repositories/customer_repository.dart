@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/utils/firestore_paginator.dart';
+import '../models/paginated_result.dart';
 import '../../domain/entities/customer.dart';
 import '../models/customer_model.dart';
 
@@ -13,6 +15,31 @@ class CustomerRepository {
 
   CollectionReference<Map<String, dynamic>> get _collection =>
       _firestore.collection('customers');
+
+  Future<PaginatedResult<Customer>> fetchCustomersPage({
+    required String factoryId,
+    DocumentSnapshot? startAfter,
+    int limit = 20,
+    String? categoryFilter,
+  }) async {
+    Query<Map<String, dynamic>> query =
+        _collection.where('factoryId', isEqualTo: factoryId);
+
+    if (categoryFilter != null &&
+        categoryFilter.isNotEmpty &&
+        categoryFilter != 'all') {
+      query = query.where('category', isEqualTo: categoryFilter);
+    }
+
+    return FirestorePaginator.fetchPage<Customer>(
+      query: query,
+      orderByField: 'createdAt',
+      descending: true,
+      startAfter: startAfter,
+      limit: limit,
+      mapDoc: (id, data) => CustomerModel.fromFirestore(id, data).toEntity(),
+    );
+  }
 
   Stream<List<Customer>> watchCustomers(String factoryId) {
     return _collection

@@ -12,6 +12,9 @@ import '../models/job_work_collection_model.dart';
 import '../models/job_work_order_model.dart';
 import '../services/job_work_collection_status_helper.dart';
 
+import '../../core/utils/firestore_paginator.dart';
+import '../models/paginated_result.dart';
+
 class JobWorkRepository {
   JobWorkRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -27,6 +30,44 @@ class JobWorkRepository {
 
   CollectionReference<Map<String, dynamic>> get _customerCollection =>
       _firestore.collection('customers');
+
+  Future<PaginatedResult<JobWorkOrder>> fetchJobWorkOrdersPage({
+    required String factoryId,
+    DocumentSnapshot? startAfter,
+    int limit = 20,
+    JobWorkStatus? statusFilter,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    Query<Map<String, dynamic>> query =
+        _jobWorkCollection.where('factoryId', isEqualTo: factoryId);
+
+    if (statusFilter != null) {
+      query = query.where('status', isEqualTo: statusFilter.firestoreValue);
+    }
+    if (fromDate != null) {
+      query = query.where(
+        'receivedDate',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(fromDate),
+      );
+    }
+    if (toDate != null) {
+      query = query.where(
+        'receivedDate',
+        isLessThanOrEqualTo: Timestamp.fromDate(toDate),
+      );
+    }
+
+    return FirestorePaginator.fetchPage<JobWorkOrder>(
+      query: query,
+      orderByField: 'createdAt',
+      descending: true,
+      startAfter: startAfter,
+      limit: limit,
+      mapDoc: (id, data) =>
+          JobWorkOrderModel.fromFirestore(id, data).toEntity(),
+    );
+  }
 
   Stream<List<JobWorkOrder>> watchJobWorkOrders(String factoryId) {
     return _jobWorkCollection

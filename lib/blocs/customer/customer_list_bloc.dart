@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/customer_repository.dart';
@@ -41,6 +42,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
         _paymentRepository = paymentRepository,
         super(const CustomerListState()) {
     on<CustomerListWatchStarted>(_onWatchStarted);
+    on<CustomerListFetchNext>(_onFetchNext);
     on<CustomerListWatchStopped>(_onWatchStopped);
     on<CustomerListSearchChanged>(_onSearchChanged);
     on<CustomerListFilterChanged>(_onFilterChanged);
@@ -56,7 +58,6 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
   final SalesInvoiceRepository _salesInvoiceRepository;
   final PaymentRepository _paymentRepository;
 
-  StreamSubscription<List<Customer>>? _subscription;
   StreamSubscription<List<JobWorkOrder>>? _jobWorkSubscription;
   StreamSubscription<List<JobWorkLoad>>? _jobWorkLoadSubscription;
   StreamSubscription<List<JobWorkInvoice>>? _jobWorkInvoiceSubscription;
@@ -76,23 +77,83 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     CustomerListWatchStarted event,
     Emitter<CustomerListState> emit,
   ) async {
-    emit(state.copyWith(status: CustomerListStatus.loading));
-    await _cancelSubscriptions();
-
-    _subscription = _repository.watchCustomers(event.factoryId).listen(
-      (customers) {
-        _rawCustomers = customers;
-        add(const _CustomerDataChanged());
-      },
-      onError: (_) => add(
-        const _CustomerListStreamFailed(
-          'Could not load customers. Please try again.',
-        ),
+    emit(
+      state.copyWith(
+        status: CustomerListStatus.loading,
+        isLoadingInitial: true,
+        factoryId: event.factoryId,
+        clearLastDocument: true,
+        hasMoreData: true,
+        customers: const [],
+        visibleCustomers: const [],
       ),
     );
 
+    try {
+      final paginated = await _repository.fetchCustomersPage(
+        factoryId: event.factoryId,
+        limit: 20,
+      );
+
+      _rawCustomers = paginated.items;
+
+      _emitProcessedCustomers(
+        emit,
+        isLoadingInitial: false,
+        lastDocument: paginated.lastDocument,
+        hasMoreData: paginated.hasMore,
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: CustomerListStatus.failure,
+          isLoadingInitial: false,
+          errorMessage: 'Could not load customers. Please try again.',
+        ),
+      );
+    }
+
+    _subscribeRelatedStreams(event.factoryId);
+  }
+
+  Future<void> _onFetchNext(
+    CustomerListFetchNext event,
+    Emitter<CustomerListState> emit,
+  ) async {
+    if (state.isLoadingMore ||
+        state.isLoadingInitial ||
+        !state.hasMoreData ||
+        state.factoryId.isEmpty) {
+      return;
+    }
+
+    emit(state.copyWith(isLoadingMore: true));
+
+    try {
+      final paginated = await _repository.fetchCustomersPage(
+        factoryId: state.factoryId,
+        startAfter: state.lastDocument,
+        limit: 20,
+      );
+
+      _rawCustomers = [..._rawCustomers, ...paginated.items];
+
+      _emitProcessedCustomers(
+        emit,
+        isLoadingMore: false,
+        lastDocument: paginated.lastDocument,
+        hasMoreData: paginated.hasMore,
+      );
+    } catch (_) {
+      emit(state.copyWith(isLoadingMore: false));
+    }
+  }
+
+  void _subscribeRelatedStreams(String factoryId) {
+    _cancelSubscriptions();
+
     _jobWorkSubscription =
-        _jobWorkRepository.watchJobWorkOrders(event.factoryId).listen(
+        _jobWorkRepository.watchJobWorkOrders(factoryId).listen(
       (orders) {
         _jobWorkOrders = orders;
         add(const _CustomerDataChanged());
@@ -101,7 +162,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     );
 
     _jobWorkLoadSubscription =
-        _jobWorkLoadRepository.watchLoads(event.factoryId).listen(
+        _jobWorkLoadRepository.watchLoads(factoryId).listen(
       (loads) {
         _jobWorkLoads = loads;
         add(const _CustomerDataChanged());
@@ -110,7 +171,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     );
 
     _jobWorkInvoiceSubscription = _jobWorkInvoiceRepository
-        .watchInvoicesForFactory(event.factoryId)
+        .watchInvoicesForFactory(factoryId)
         .listen(
       (invoices) {
         _jobWorkInvoices = invoices;
@@ -120,7 +181,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     );
 
     _salesSubscription =
-        _salesOrderRepository.watchSalesOrders(event.factoryId).listen(
+        _salesOrderRepository.watchSalesOrders(factoryId).listen(
       (orders) {
         _salesOrders = orders;
         add(const _CustomerDataChanged());
@@ -129,7 +190,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     );
 
     _salesInvoiceSubscription = _salesInvoiceRepository
-        .watchInvoicesForFactory(event.factoryId)
+        .watchInvoicesForFactory(factoryId)
         .listen(
       (invoices) {
         _salesInvoices = invoices;
@@ -139,7 +200,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     );
 
     _paymentSubscription =
-        _paymentRepository.watchPaymentsForFactory(event.factoryId).listen(
+        _paymentRepository.watchPaymentsForFactory(factoryId).listen(
       (payments) {
         _payments = payments;
         add(const _CustomerDataChanged());
@@ -156,8 +217,6 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
   }
 
   Future<void> _cancelSubscriptions() async {
-    await _subscription?.cancel();
-    _subscription = null;
     await _jobWorkSubscription?.cancel();
     _jobWorkSubscription = null;
     await _jobWorkLoadSubscription?.cancel();
@@ -207,10 +266,13 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     );
   }
 
-  void _onDataChanged(
-    _CustomerDataChanged event,
-    Emitter<CustomerListState> emit,
-  ) {
+  void _emitProcessedCustomers(
+    Emitter<CustomerListState> emit, {
+    bool? isLoadingInitial,
+    bool? isLoadingMore,
+    DocumentSnapshot? lastDocument,
+    bool? hasMoreData,
+  }) {
     final updatedCustomers = <Customer>[];
     final jobWorkCounts = <String, int>{};
     final salesCounts = <String, int>{};
@@ -249,9 +311,20 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
         visibleCustomers: visible,
         jobWorkCounts: jobWorkCounts,
         salesCounts: salesCounts,
+        isLoadingInitial: isLoadingInitial,
+        isLoadingMore: isLoadingMore,
+        lastDocument: lastDocument,
+        hasMoreData: hasMoreData,
         errorMessage: null,
       ),
     );
+  }
+
+  void _onDataChanged(
+    _CustomerDataChanged event,
+    Emitter<CustomerListState> emit,
+  ) {
+    _emitProcessedCustomers(emit);
   }
 
   void _onStreamFailed(

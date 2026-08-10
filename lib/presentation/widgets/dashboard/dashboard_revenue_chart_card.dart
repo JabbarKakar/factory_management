@@ -79,10 +79,12 @@ class DashboardRevenueChartCard extends StatelessWidget {
         .map((point) => point.totalAmount)
         .fold<double>(0, (max, value) => value > max ? value : max);
     final chartMaxY = maxY <= 0 ? 10000.0 : maxY * 1.15;
+    final maxX = points.length <= 1 ? 1.0 : (points.length - 1).toDouble();
 
     return LineChartData(
+      clipData: const FlClipData.all(),
       minX: 0,
-      maxX: (points.length - 1).toDouble(),
+      maxX: maxX,
       minY: 0,
       maxY: chartMaxY,
       gridData: FlGridData(
@@ -161,6 +163,7 @@ class DashboardRevenueChartCard extends StatelessWidget {
         LineChartBarData(
           spots: salesSpots,
           isCurved: true,
+          preventCurveOverShooting: true,
           color: AppColors.primary,
           barWidth: 2.5,
           dotData: const FlDotData(show: false),
@@ -168,6 +171,7 @@ class DashboardRevenueChartCard extends StatelessWidget {
         LineChartBarData(
           spots: jobWorkSpots,
           isCurved: true,
+          preventCurveOverShooting: true,
           color: AppColors.accent,
           barWidth: 2.5,
           dotData: const FlDotData(show: false),

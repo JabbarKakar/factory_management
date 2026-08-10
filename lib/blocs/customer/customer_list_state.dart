@@ -12,6 +12,11 @@ class CustomerListState extends Equatable {
     this.errorMessage,
     this.jobWorkCounts = const {},
     this.salesCounts = const {},
+    this.isLoadingInitial = false,
+    this.isLoadingMore = false,
+    this.hasMoreData = true,
+    this.lastDocument,
+    this.factoryId = '',
   });
 
   final CustomerListStatus status;
@@ -22,6 +27,11 @@ class CustomerListState extends Equatable {
   final String? errorMessage;
   final Map<String, int> jobWorkCounts;
   final Map<String, int> salesCounts;
+  final bool isLoadingInitial;
+  final bool isLoadingMore;
+  final bool hasMoreData;
+  final DocumentSnapshot? lastDocument;
+  final String factoryId;
 
   CustomerListState copyWith({
     CustomerListStatus? status,
@@ -33,6 +43,12 @@ class CustomerListState extends Equatable {
     String? errorMessage,
     Map<String, int>? jobWorkCounts,
     Map<String, int>? salesCounts,
+    bool? isLoadingInitial,
+    bool? isLoadingMore,
+    bool? hasMoreData,
+    DocumentSnapshot? lastDocument,
+    bool clearLastDocument = false,
+    String? factoryId,
   }) {
     return CustomerListState(
       status: status ?? this.status,
@@ -45,6 +61,12 @@ class CustomerListState extends Equatable {
       errorMessage: errorMessage,
       jobWorkCounts: jobWorkCounts ?? this.jobWorkCounts,
       salesCounts: salesCounts ?? this.salesCounts,
+      isLoadingInitial: isLoadingInitial ?? this.isLoadingInitial,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMoreData: hasMoreData ?? this.hasMoreData,
+      lastDocument:
+          clearLastDocument ? null : (lastDocument ?? this.lastDocument),
+      factoryId: factoryId ?? this.factoryId,
     );
   }
 
@@ -58,5 +80,10 @@ class CustomerListState extends Equatable {
         errorMessage,
         jobWorkCounts,
         salesCounts,
+        isLoadingInitial,
+        isLoadingMore,
+        hasMoreData,
+        lastDocument,
+        factoryId,
       ];
 }

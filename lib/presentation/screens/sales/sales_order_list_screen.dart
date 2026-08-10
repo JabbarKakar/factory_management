@@ -32,12 +32,30 @@ class SalesOrderListScreen extends StatefulWidget {
 
 class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   String? _busyOrderId;
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    if (currentScroll >= maxScroll * 0.85) {
+      context.read<SalesOrderListBloc>().add(const SalesOrderListFetchNext());
+    }
   }
 
   void _onSearchClear() {
@@ -371,9 +389,25 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
                         );
                   },
                   child: ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.only(top: 4, bottom: 88),
-                    itemCount: state.visibleOrders.length,
+                    itemCount: state.visibleOrders.length +
+                        (state.isLoadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == state.visibleOrders.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2.5),
+                            ),
+                          ),
+                        );
+                      }
+
                       final order = state.visibleOrders[index];
                       return SalesOrderListTile(
                         order: order,

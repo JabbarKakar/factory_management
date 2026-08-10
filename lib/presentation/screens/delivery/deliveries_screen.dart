@@ -27,10 +27,12 @@ class DeliveriesScreen extends StatefulWidget {
 
 class _DeliveriesScreenState extends State<DeliveriesScreen> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     final filter = widget.initialFilter;
     if (filter != null && filter != DeliveryListFilter.all) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -42,8 +44,19 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    if (currentScroll >= maxScroll * 0.85) {
+      context.read<DeliveryListBloc>().add(const DeliveryListFetchNext());
+    }
   }
 
   void _onSearchClear() {
@@ -186,9 +199,25 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
                     }
                   },
                   child: ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.only(top: 4, bottom: 24),
-                    itemCount: state.visibleDeliveries.length,
+                    itemCount: state.visibleDeliveries.length +
+                        (state.isLoadingMore ? 1 : 0),
                     itemBuilder: (context, index) {
+                      if (index == state.visibleDeliveries.length) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2.5),
+                            ),
+                          ),
+                        );
+                      }
+
                       final delivery = state.visibleDeliveries[index];
                       return DeliveryListTile(
                         delivery: delivery,

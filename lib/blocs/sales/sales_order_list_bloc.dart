@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../data/repositories/sales_order_repository.dart';
@@ -15,6 +16,7 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
       : _repository = repository,
         super(const SalesOrderListState()) {
     on<SalesOrderListWatchStarted>(_onWatchStarted);
+    on<SalesOrderListFetchNext>(_onFetchNext);
     on<SalesOrderListSearchChanged>(_onSearchChanged);
     on<SalesOrderListStageFilterChanged>(_onStageFilterChanged);
     on<_SalesOrderListUpdated>(_onListUpdated);
@@ -22,27 +24,113 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
   }
 
   final SalesOrderRepository _repository;
-  StreamSubscription<List<SalesOrder>>? _subscription;
+
+  SalesOrderStatus? _statusFilterForSales(SalesListFilter filter) {
+    return switch (filter) {
+      SalesListFilter.received => SalesOrderStatus.received,
+      SalesListFilter.ready => SalesOrderStatus.ready,
+      SalesListFilter.partiallyDispatched =>
+        SalesOrderStatus.partiallyDispatched,
+      SalesListFilter.delivered => SalesOrderStatus.delivered,
+      SalesListFilter.invoiced => SalesOrderStatus.invoiced,
+      SalesListFilter.closed => SalesOrderStatus.closed,
+      SalesListFilter.cancelled => SalesOrderStatus.cancelled,
+      _ => null,
+    };
+  }
 
   Future<void> _onWatchStarted(
     SalesOrderListWatchStarted event,
     Emitter<SalesOrderListState> emit,
   ) async {
+    final stageFilter = event.initialFilter ?? state.stageFilter;
     emit(
       state.copyWith(
         status: SalesOrderListStatus.loading,
-        stageFilter: event.initialFilter ?? state.stageFilter,
+        isLoadingInitial: true,
+        factoryId: event.factoryId,
+        stageFilter: stageFilter,
+        clearLastDocument: true,
+        hasMoreData: true,
+        orders: const [],
+        visibleOrders: const [],
       ),
     );
-    await _subscription?.cancel();
-    _subscription = _repository.watchSalesOrders(event.factoryId).listen(
-          (orders) => add(_SalesOrderListUpdated(orders)),
-          onError: (_) => add(
-            const _SalesOrderListStreamFailed(
-              'Could not load sales orders. Please try again.',
-            ),
-          ),
-        );
+
+    try {
+      final paginated = await _repository.fetchSalesOrdersPage(
+        factoryId: event.factoryId,
+        statusFilter: _statusFilterForSales(stageFilter),
+        limit: 20,
+      );
+
+      final visible = _applyFilters(
+        paginated.items,
+        query: state.searchQuery,
+        stageFilter: stageFilter,
+      );
+
+      emit(
+        state.copyWith(
+          status: SalesOrderListStatus.loaded,
+          isLoadingInitial: false,
+          orders: paginated.items,
+          visibleOrders: visible,
+          lastDocument: paginated.lastDocument,
+          hasMoreData: paginated.hasMore,
+        ),
+      );
+    } catch (_) {
+      emit(
+        state.copyWith(
+          status: SalesOrderListStatus.failure,
+          isLoadingInitial: false,
+          errorMessage: 'Could not load sales orders. Please try again.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _onFetchNext(
+    SalesOrderListFetchNext event,
+    Emitter<SalesOrderListState> emit,
+  ) async {
+    if (state.isLoadingMore ||
+        state.isLoadingInitial ||
+        !state.hasMoreData ||
+        state.factoryId.isEmpty) {
+      return;
+    }
+
+    emit(state.copyWith(isLoadingMore: true));
+
+    try {
+      final paginated = await _repository.fetchSalesOrdersPage(
+        factoryId: state.factoryId,
+        startAfter: state.lastDocument,
+        statusFilter: _statusFilterForSales(state.stageFilter),
+        limit: 20,
+      );
+
+      final combined = [...state.orders, ...paginated.items];
+      final visible = _applyFilters(
+        combined,
+        query: state.searchQuery,
+        stageFilter: state.stageFilter,
+      );
+
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          orders: combined,
+          visibleOrders: visible,
+          lastDocument: paginated.lastDocument,
+          hasMoreData: paginated.hasMore,
+        ),
+      );
+    } catch (_) {
+      emit(state.copyWith(isLoadingMore: false));
+    }
   }
 
   void _onSearchChanged(
@@ -135,11 +223,5 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
     });
 
     return filtered;
-  }
-
-  @override
-  Future<void> close() {
-    _subscription?.cancel();
-    return super.close();
   }
 }
