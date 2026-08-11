@@ -441,19 +441,23 @@ class _SalesAgreementDetailScreenState
                               ),
                             ],
                             if (orders.length > 5)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                                child: SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => context.push(
-                                      RoutePaths.salesAllOrders(
-                                        widget.agreementId,
-                                      ),
+                              Center(
+                                child: TextButton(
+                                  onPressed: () => context.push(
+                                    RoutePaths.salesAllOrders(
+                                      widget.agreementId,
                                     ),
-                                    icon: const Icon(Icons.list_alt_outlined),
-                                    label: Text(
-                                      '${AppStrings.showAllSales} (${orders.length})',
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: Text(
+                                    '${AppStrings.showAllSales} (${orders.length})',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
                                 ),

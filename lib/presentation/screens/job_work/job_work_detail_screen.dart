@@ -688,18 +688,26 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                           canDeleteJobWork: canDeleteJobWork,
                           collections: state.collections,
                         ),
-                      if (state.loads.length > 5) ...[
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
+                      if (state.loads.length > 5)
+                        Center(
+                        child: TextButton(
                           onPressed: () => context.push(
                             RoutePaths.jobWorkAllLoads(jobWorkId),
                           ),
-                          icon: const Icon(Icons.list_alt_outlined),
-                          label: Text(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
                             '${AppStrings.showAllLoads} (${state.loads.length})',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
