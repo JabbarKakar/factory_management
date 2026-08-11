@@ -291,69 +291,75 @@ class _SalesAllOrdersScreenState extends State<SalesAllOrdersScreen> {
     final canEdit = context.userCanEdit(AppModule.sales);
     final canDelete = context.userCanDelete(AppModule.sales);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.allOrders)),
-      body: BlocBuilder<SalesAgreementDetailBloc, SalesAgreementDetailState>(
-        builder: (context, state) {
-          if (state.status == SalesAgreementDetailStatus.initial ||
-              state.status == SalesAgreementDetailStatus.loading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return BlocBuilder<SalesAgreementDetailBloc, SalesAgreementDetailState>(
+      builder: (context, state) {
+        final titleText = '${AppStrings.allOrders} (${state.orders.length})';
 
-          final orders = List<SalesOrder>.from(state.orders)
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-          if (orders.isEmpty) {
-            return const Center(child: Text(AppStrings.noOrdersUnderAgreement));
-          }
-
-          final visibleOrders = orders.take(_visibleCount).toList();
-          final hasMore = _visibleCount < orders.length;
-
-          return ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.only(top: 12, bottom: 24),
-            itemCount: visibleOrders.length + (hasMore ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == visibleOrders.length) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    ),
-                  ),
-                );
+        return Scaffold(
+          appBar: AppBar(title: Text(titleText)),
+          body: Builder(
+            builder: (context) {
+              if (state.status == SalesAgreementDetailStatus.initial ||
+                  state.status == SalesAgreementDetailStatus.loading) {
+                return const Center(child: CircularProgressIndicator());
               }
 
-              final order = visibleOrders[index];
-              return SalesOrderListTile(
-                order: order,
-                isBusy: _busyOrderId == order.id,
-                menuActions: _menuActionsFor(
-                  order,
-                  canEdit: canEdit,
-                  canDelete: canDelete,
-                ),
-                onTap: () async {
-                  await context.push(
-                    RoutePaths.salesOrderDetail(
-                      agreementId: widget.agreementId,
-                      salesOrderId: order.id,
-                    ),
-                  );
-                  if (context.mounted) {
-                    context.read<SalesAgreementDetailBloc>().add(
-                          const SalesAgreementDetailRefreshRequested(),
-                        );
+              final orders = List<SalesOrder>.from(state.orders)
+                ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+              if (orders.isEmpty) {
+                return const Center(child: Text(AppStrings.noOrdersUnderAgreement));
+              }
+
+              final visibleOrders = orders.take(_visibleCount).toList();
+              final hasMore = _visibleCount < orders.length;
+
+              return ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(top: 12, bottom: 24),
+                itemCount: visibleOrders.length + (hasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == visibleOrders.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        ),
+                      ),
+                    );
                   }
+
+                  final order = visibleOrders[index];
+                  return SalesOrderListTile(
+                    order: order,
+                    isBusy: _busyOrderId == order.id,
+                    menuActions: _menuActionsFor(
+                      order,
+                      canEdit: canEdit,
+                      canDelete: canDelete,
+                    ),
+                    onTap: () async {
+                      await context.push(
+                        RoutePaths.salesOrderDetail(
+                          agreementId: widget.agreementId,
+                          salesOrderId: order.id,
+                        ),
+                      );
+                      if (context.mounted) {
+                        context.read<SalesAgreementDetailBloc>().add(
+                              const SalesAgreementDetailRefreshRequested(),
+                            );
+                      }
+                    },
+                  );
                 },
               );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

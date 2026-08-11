@@ -637,7 +637,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                 ),
               ),
               JobWorkDetailSection(
-                title: AppStrings.allLoads,
+                title: '${AppStrings.allLoads} (${state.loads.length})',
                 icon: Icons.local_shipping_outlined,
                 action: canAddLoad
                     ? FilledButton.tonalIcon(
@@ -695,7 +695,9 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                             RoutePaths.jobWorkAllLoads(jobWorkId),
                           ),
                           icon: const Icon(Icons.list_alt_outlined),
-                          label: const Text(AppStrings.showAllLoads),
+                          label: Text(
+                            '${AppStrings.showAllLoads} (${state.loads.length})',
+                          ),
                         ),
                       ],
                     ],

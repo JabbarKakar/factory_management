@@ -262,88 +262,94 @@ class _JobWorkAllLoadsScreenState extends State<JobWorkAllLoadsScreen> {
     final canEdit = context.userCanEdit(AppModule.jobWork);
     final canDelete = context.userCanDelete(AppModule.jobWork);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text(AppStrings.allLoads)),
-      body: BlocBuilder<JobWorkFormBloc, JobWorkFormState>(
-        builder: (context, state) {
-          if (state.status == JobWorkFormStatus.initial ||
-              state.status == JobWorkFormStatus.loading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return BlocBuilder<JobWorkFormBloc, JobWorkFormState>(
+      builder: (context, state) {
+        final titleText = '${AppStrings.allLoads} (${state.loads.length})';
 
-          final loads = List<JobWorkLoad>.from(state.loads)
-            ..sort((a, b) => b.receivedDate.compareTo(a.receivedDate));
-          if (loads.isEmpty) {
-            return const Center(child: Text(AppStrings.noLoadsYet));
-          }
-
-          final visibleLoads = loads.take(_visibleCount).toList();
-          final hasMore = _visibleCount < loads.length;
-
-          final financeMap = state.order == null
-              ? null
-              : JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
-                  order: state.order!,
-                  loads: state.loads,
-                  invoices: state.invoices.isNotEmpty
-                      ? state.invoices
-                      : (state.invoice == null
-                          ? const []
-                          : [state.invoice!]),
-                );
-
-          return ListView.builder(
-            controller: _scrollController,
-            padding: const EdgeInsets.only(top: 12, bottom: 24),
-            itemCount: visibleLoads.length + (hasMore ? 1 : 0),
-            itemBuilder: (context, index) {
-              if (index == visibleLoads.length) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    ),
-                  ),
-                );
+        return Scaffold(
+          appBar: AppBar(title: Text(titleText)),
+          body: Builder(
+            builder: (context) {
+              if (state.status == JobWorkFormStatus.initial ||
+                  state.status == JobWorkFormStatus.loading) {
+                return const Center(child: CircularProgressIndicator());
               }
 
-              final load = visibleLoads[index];
-              return JobWorkLoadListTile(
-                load: load,
-                paidAmount: financeMap?[load.id]?.paid,
-                dueAmount: financeMap?[load.id]?.due,
-                isBusy: _busyLoadId == load.id,
-                menuActions: _loadMenuActions(
-                  context,
-                  load,
-                  canEdit: canEdit,
-                  canDelete: canDelete,
-                  isLastLoad: loads.length <= 1,
-                  collections: state.collections,
-                ),
-                onTap: load.isVirtual
-                    ? null
-                    : () async {
-                        await context.push(
-                          RoutePaths.jobWorkLoadDetail(
-                            jobWorkId: widget.jobWorkId,
-                            loadId: load.id,
-                          ),
-                        );
-                        if (context.mounted) {
-                          context.read<JobWorkFormBloc>().add(
-                                JobWorkFormLoadRequested(widget.jobWorkId),
-                              );
-                        }
-                      },
+              final loads = List<JobWorkLoad>.from(state.loads)
+                ..sort((a, b) => b.receivedDate.compareTo(a.receivedDate));
+              if (loads.isEmpty) {
+                return const Center(child: Text(AppStrings.noLoadsYet));
+              }
+
+              final visibleLoads = loads.take(_visibleCount).toList();
+              final hasMore = _visibleCount < loads.length;
+
+              final financeMap = state.order == null
+                  ? null
+                  : JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+                      order: state.order!,
+                      loads: state.loads,
+                      invoices: state.invoices.isNotEmpty
+                          ? state.invoices
+                          : (state.invoice == null
+                              ? const []
+                              : [state.invoice!]),
+                    );
+
+              return ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.only(top: 12, bottom: 24),
+                itemCount: visibleLoads.length + (hasMore ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == visibleLoads.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final load = visibleLoads[index];
+                  return JobWorkLoadListTile(
+                    load: load,
+                    paidAmount: financeMap?[load.id]?.paid,
+                    dueAmount: financeMap?[load.id]?.due,
+                    isBusy: _busyLoadId == load.id,
+                    menuActions: _loadMenuActions(
+                      context,
+                      load,
+                      canEdit: canEdit,
+                      canDelete: canDelete,
+                      isLastLoad: loads.length <= 1,
+                      collections: state.collections,
+                    ),
+                    onTap: load.isVirtual
+                        ? null
+                        : () async {
+                            await context.push(
+                              RoutePaths.jobWorkLoadDetail(
+                                jobWorkId: widget.jobWorkId,
+                                loadId: load.id,
+                              ),
+                            );
+                            if (context.mounted) {
+                              context.read<JobWorkFormBloc>().add(
+                                    JobWorkFormLoadRequested(widget.jobWorkId),
+                                  );
+                            }
+                          },
+                  );
+                },
               );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

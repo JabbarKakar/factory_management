@@ -377,7 +377,7 @@ class _SalesAgreementDetailScreenState
                 ),
               ),
               JobWorkDetailSection(
-                title: AppStrings.allOrders,
+                title: '${AppStrings.allOrders} (${orders.length})',
                 icon: Icons.shopping_bag_outlined,
                 action: showAddOrder
                     ? FilledButton.tonalIcon(
@@ -452,7 +452,9 @@ class _SalesAgreementDetailScreenState
                                       ),
                                     ),
                                     icon: const Icon(Icons.list_alt_outlined),
-                                    label: const Text(AppStrings.showAllSales),
+                                    label: Text(
+                                      '${AppStrings.showAllSales} (${orders.length})',
+                                    ),
                                   ),
                                 ),
                               ),
