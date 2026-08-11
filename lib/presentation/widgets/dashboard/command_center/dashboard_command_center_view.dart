@@ -22,7 +22,7 @@ import 'dashboard_fx_operations_hub.dart';
 import 'dashboard_fx_style.dart';
 import 'dashboard_fx_theme.dart';
 
-/// Compact futuristic executive control center body supporting Light & Dark themes.
+/// Compact futuristic executive control center body supporting Light & Dark themes and responsive multi-column layouts.
 class DashboardCommandCenterView extends StatefulWidget {
   const DashboardCommandCenterView({
     required this.state,
@@ -129,6 +129,7 @@ class _DashboardCommandCenterViewState
       builder: (context, constraints) {
         final wide = constraints.maxWidth >= 1000;
         final medium = constraints.maxWidth >= 650;
+        final isTwoColumn = wide || medium;
 
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
@@ -188,10 +189,10 @@ class _DashboardCommandCenterViewState
                 child: FadeTransition(
                   opacity: _chartsFade,
                   child: SizedBox(
-                    height: wide ? 380 : (medium ? 760 : 1480),
+                    height: wide ? 640 : (medium ? 680 : 1280),
                     child: _ChartsGrid(
                       commandCenter: cc,
-                      medium: medium && !wide,
+                      isTwoColumn: isTwoColumn,
                     ),
                   ),
                 ),
@@ -222,7 +223,7 @@ class _DashboardCommandCenterViewState
                 child: FadeTransition(
                   opacity: _dockFade,
                   child: SizedBox(
-                    height: medium ? 190 : 360,
+                    height: medium ? 220 : 360,
                     child: _BottomDock(
                       activity: widget.state.analytics.recentActivity,
                       user: widget.user,
@@ -824,11 +825,11 @@ class _MiniSparkline extends StatelessWidget {
 class _ChartsGrid extends StatefulWidget {
   const _ChartsGrid({
     required this.commandCenter,
-    required this.medium,
+    required this.isTwoColumn,
   });
 
   final DashboardCommandCenter commandCenter;
-  final bool medium;
+  final bool isTwoColumn;
 
   @override
   State<_ChartsGrid> createState() => _ChartsGridState();
@@ -919,7 +920,7 @@ class _ChartsGridState extends State<_ChartsGrid> {
       ),
     );
 
-    if (widget.medium) {
+    if (widget.isTwoColumn) {
       return Column(
         children: [
           Expanded(
@@ -1345,25 +1346,25 @@ class _StockDonut extends StatelessWidget {
                     PieChart(
                       PieChartData(
                         sectionsSpace: 2,
-                        centerSpaceRadius: 36,
+                        centerSpaceRadius: 32,
                         sections: [
                           PieChartSectionData(
                             value: large <= 0 ? 0.001 : large,
                             color: primaryColor,
-                            radius: 14,
+                            radius: 12,
                             showTitle: false,
                           ),
                           PieChartSectionData(
                             value: small <= 0 ? 0.001 : small,
                             color: electricColor,
-                            radius: 14,
+                            radius: 12,
                             showTitle: false,
                           ),
                           if (showWaste)
                             PieChartSectionData(
                               value: waste <= 0 ? 0.001 : waste,
                               color: dangerColor,
-                              radius: 14,
+                              radius: 12,
                               showTitle: false,
                             ),
                         ],
@@ -1377,14 +1378,14 @@ class _StockDonut extends StatelessWidget {
                           style: TextStyle(
                             color: textColor,
                             fontWeight: FontWeight.w800,
-                            fontSize: 13,
+                            fontSize: 12,
                           ),
                         ),
                         Text(
                           centerLabel,
                           style: TextStyle(
                             color: mutedColor,
-                            fontSize: 10,
+                            fontSize: 9.5,
                           ),
                         ),
                       ],
@@ -1595,41 +1596,46 @@ class _CollectionGaugeState extends State<_CollectionGauge>
           child: AnimatedBuilder(
             animation: _sweep,
             builder: (context, _) {
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  CustomPaint(
-                    size: const Size.square(160),
-                    painter: _ArcGaugePainter(
-                      ratio: widget.ratio * _sweep.value,
-                      cardBorder: cardBorderColor,
-                      danger: dangerColor,
-                      primary: primaryColor,
-                      success: successColor,
-                      text: textColor,
-                    ),
-                  ),
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final gaugeSize = math.min(constraints.maxWidth, constraints.maxHeight);
+                  return Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Text(
-                        '${(pct * _sweep.value).toStringAsFixed(0)}%',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 22,
-                          color: primaryColor,
+                      CustomPaint(
+                        size: Size.square(gaugeSize > 0 ? gaugeSize : 140),
+                        painter: _ArcGaugePainter(
+                          ratio: widget.ratio * _sweep.value,
+                          cardBorder: cardBorderColor,
+                          danger: dangerColor,
+                          primary: primaryColor,
+                          success: successColor,
+                          text: textColor,
                         ),
                       ),
-                      Text(
-                        'Collected',
-                        style: TextStyle(
-                          color: DashboardFx.muted(context),
-                          fontSize: 10,
-                        ),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${(pct * _sweep.value).toStringAsFixed(0)}%',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: gaugeSize * 0.15 > 14 ? gaugeSize * 0.15 : 18,
+                              color: primaryColor,
+                            ),
+                          ),
+                          Text(
+                            'Collected',
+                            style: TextStyle(
+                              color: DashboardFx.muted(context),
+                              fontSize: 10,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
-                ],
+                  );
+                },
               );
             },
           ),
@@ -2183,9 +2189,9 @@ class _ArcGaugePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.6);
-    final radius = size.width * 0.42;
-    const strokeWidth = 12.0;
+    final center = Offset(size.width / 2, size.height * 0.55);
+    final radius = size.width * 0.36;
+    const strokeWidth = 10.0;
     const startAngle = math.pi * 0.8;
     const sweepTotal = math.pi * 1.4;
 
