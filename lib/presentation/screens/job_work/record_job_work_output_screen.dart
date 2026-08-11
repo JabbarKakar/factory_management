@@ -182,6 +182,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   Future<void> _addShiftLog(JobWorkLoad load) async {
     final shift = await showDialog<JobWorkShiftLog>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => AddShiftLogDialog(
         smallSizes: _smallSizesFor(load),
         largeSizes: load.largeSizes,
@@ -203,6 +204,7 @@ class _RecordJobWorkOutputScreenState extends State<RecordJobWorkOutputScreen> {
   Future<void> _editShiftLog(JobWorkLoad load, JobWorkShiftLog shift) async {
     final updated = await showDialog<JobWorkShiftLog>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => AddShiftLogDialog(
         smallSizes: _smallSizesFor(load),
         largeSizes: load.largeSizes,

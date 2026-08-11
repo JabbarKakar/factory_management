@@ -179,84 +179,87 @@ class _AddShiftLogDialogState extends State<AddShiftLogDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AppDialog(
-      title: _isEditing ? AppStrings.editShiftLog : AppStrings.addShiftLog,
-      icon: Icons.fact_check_outlined,
-      scrollable: true,
-      maxWidth: 720,
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppFormDateField(
-              label: AppStrings.shiftDate,
-              value: DateFormat.yMMMd().format(_shiftDate),
-              onTap: _pickDate,
-            ),
-            const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_shiftName),
-              initialValue: _shiftName,
-              style: AppFormFields.valueStyle(context),
-              decoration: _fieldDecoration(context, AppStrings.shiftName),
-              items: JobWorkShifts.all
-                  .map(
-                    (shift) => DropdownMenuItem(
-                      value: shift,
-                      child: Text(shift),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => _shiftName = value),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return AppStrings.selectShift;
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _blocksCutController,
-              style: AppFormFields.valueStyle(context),
-              decoration: _fieldDecoration(context, AppStrings.blocksCut),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              validator: _validateBlocksCut,
-            ),
-            const SizedBox(height: 10),
-            InputDecorator(
-              decoration: _fieldDecoration(context, AppStrings.remainingBlocks),
-              child: Text(
-                '$_remainingAfterThisShift',
-                style: AppFormFields.valueStyle(context),
+    return PopScope(
+      canPop: false,
+      child: AppDialog(
+        title: _isEditing ? AppStrings.editShiftLog : AppStrings.addShiftLog,
+        icon: Icons.fact_check_outlined,
+        scrollable: true,
+        maxWidth: 720,
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AppFormDateField(
+                label: AppStrings.shiftDate,
+                value: DateFormat.yMMMd().format(_shiftDate),
+                onTap: _pickDate,
               ),
-            ),
-            const SizedBox(height: 14),
-            StockOutputRecordingPanel(
-              controller: _stockController,
-              onChanged: _onFormChanged,
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _notesController,
-              style: AppFormFields.valueStyle(context),
-              decoration: _fieldDecoration(context, AppStrings.shiftNotes),
-              maxLines: 2,
-            ),
-          ],
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                key: ValueKey(_shiftName),
+                initialValue: _shiftName,
+                style: AppFormFields.valueStyle(context),
+                decoration: _fieldDecoration(context, AppStrings.shiftName),
+                items: JobWorkShifts.all
+                    .map(
+                      (shift) => DropdownMenuItem(
+                        value: shift,
+                        child: Text(shift),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) => setState(() => _shiftName = value),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return AppStrings.selectShift;
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _blocksCutController,
+                style: AppFormFields.valueStyle(context),
+                decoration: _fieldDecoration(context, AppStrings.blocksCut),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                validator: _validateBlocksCut,
+              ),
+              const SizedBox(height: 10),
+              InputDecorator(
+                decoration: _fieldDecoration(context, AppStrings.remainingBlocks),
+                child: Text(
+                  '$_remainingAfterThisShift',
+                  style: AppFormFields.valueStyle(context),
+                ),
+              ),
+              const SizedBox(height: 14),
+              StockOutputRecordingPanel(
+                controller: _stockController,
+                onChanged: _onFormChanged,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _notesController,
+                style: AppFormFields.valueStyle(context),
+                decoration: _fieldDecoration(context, AppStrings.shiftNotes),
+                maxLines: 2,
+              ),
+            ],
+          ),
         ),
+        actions: [
+          AppDialogActions.cancel(context),
+          AppDialogActions.confirm(
+            context,
+            label: _isEditing ? AppStrings.saveChanges : AppStrings.addShiftLog,
+            onPressed: _submit,
+          ),
+        ],
       ),
-      actions: [
-        AppDialogActions.cancel(context),
-        AppDialogActions.confirm(
-          context,
-          label: _isEditing ? AppStrings.saveChanges : AppStrings.addShiftLog,
-          onPressed: _submit,
-        ),
-      ],
     );
   }
 }
