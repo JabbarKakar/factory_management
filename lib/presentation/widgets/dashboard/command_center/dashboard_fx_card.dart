@@ -47,7 +47,7 @@ class _DashboardFxCardState extends State<DashboardFxCard>
 
   @override
   Widget build(BuildContext context) {
-    final glow = widget.glowColor ?? DashboardFx.primary;
+    final glow = widget.glowColor ?? DashboardFx.primary(context);
 
     return AnimatedBuilder(
       animation: _shimmer,
@@ -61,21 +61,24 @@ class _DashboardFxCardState extends State<DashboardFxCard>
           child: child,
         );
       },
-      child: _buildCard(glow),
+      child: _buildCard(context, glow),
     );
   }
 
-  Widget _buildCard(Color glow) {
+  Widget _buildCard(BuildContext context, Color glow) {
+    final isDark = DashboardFx.isDark(context);
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: DashboardFx.cardBg,
+        color: DashboardFx.cardBg(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: DashboardFx.cardBorder),
+        border: Border.all(color: DashboardFx.cardBorder(context)),
         boxShadow: [
           BoxShadow(
-            color: glow.withValues(alpha: 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            color: isDark
+                ? glow.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: isDark ? 18 : 10,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -95,8 +98,8 @@ class _DashboardFxCardState extends State<DashboardFxCard>
                       children: [
                         Text(
                           widget.title!,
-                          style: const TextStyle(
-                            color: DashboardFx.text,
+                          style: TextStyle(
+                            color: DashboardFx.text(context),
                             fontWeight: FontWeight.w800,
                             fontSize: 13.5,
                             letterSpacing: -0.2,
@@ -106,8 +109,8 @@ class _DashboardFxCardState extends State<DashboardFxCard>
                           const SizedBox(height: 2),
                           Text(
                             widget.subtitle!,
-                            style: const TextStyle(
-                              color: DashboardFx.muted,
+                            style: TextStyle(
+                              color: DashboardFx.muted(context),
                               fontSize: 10.5,
                               fontWeight: FontWeight.w500,
                             ),

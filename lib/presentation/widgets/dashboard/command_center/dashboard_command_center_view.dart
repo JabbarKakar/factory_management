@@ -22,9 +22,7 @@ import 'dashboard_fx_operations_hub.dart';
 import 'dashboard_fx_style.dart';
 import 'dashboard_fx_theme.dart';
 
-
-
-/// Compact futuristic executive control center body.
+/// Compact futuristic executive control center body supporting Light & Dark themes.
 class DashboardCommandCenterView extends StatefulWidget {
   const DashboardCommandCenterView({
     required this.state,
@@ -54,7 +52,6 @@ class _DashboardCommandCenterViewState
 
   late final AnimationController _entrance;
 
-  // Staggered intervals for each section.
   late final Animation<double> _headerFade;
   late final Animation<Offset> _headerSlide;
   late final Animation<double> _todayFade;
@@ -121,114 +118,125 @@ class _DashboardCommandCenterViewState
   Widget build(BuildContext context) {
     final cc = widget.state.commandCenter;
     final kpis = widget.state.kpis;
-    final firstName = widget.user?.name.split(' ').first;
-    final greeting = firstName == null || firstName.isEmpty
-        ? _greeting()
-        : '${_greeting()}, $firstName';
+    final analytics = widget.state.analytics;
+    final pendingPickups = widget.state.pendingPickups;
+
+    final greetingText = widget.user != null
+        ? '${_greeting()}, ${widget.user!.name.split(" ").first}'
+        : _greeting();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final medium = constraints.maxWidth >= 760;
-        final chartHeight = medium ? 440.0 : 900.0;
+        final wide = constraints.maxWidth >= 1000;
+        final medium = constraints.maxWidth >= 650;
 
-        return ListView(
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 28),
-          children: [
-            // — Header —
-            SlideTransition(
-              position: _headerSlide,
-              child: FadeTransition(
-                opacity: _headerFade,
-                child: _HeaderBar(
-                  greeting: greeting,
-                  period: widget.state.financePeriod,
-                  periods: _chartPeriods,
-                  commandCenter: cc,
-                  onPeriodChanged: (p) => context
-                      .read<DashboardBloc>()
-                      .add(DashboardGlobalPeriodChanged(p)),
-                ),
-              ),
-            ),
-            const SizedBox(height: DashboardFxStyle.spaceMd),
-
-            // — Today at a Glance —
-            SlideTransition(
-              position: _todaySlide,
-              child: FadeTransition(
-                opacity: _todayFade,
-                child: _TodayAtAGlance(kpis: kpis),
-              ),
-            ),
-            const SizedBox(height: DashboardFxStyle.spaceMd),
-
-            // — KPI Row —
-            SlideTransition(
-              position: _kpiSlide,
-              child: FadeTransition(
-                opacity: _kpiFade,
-                child: _KpiRow(
-                  commandCenter: cc,
-                  wrap: !medium,
-                ),
-              ),
-            ),
-            const SizedBox(height: DashboardFxStyle.spaceMd),
-
-            // — Charts —
-            SlideTransition(
-              position: _chartsSlide,
-              child: FadeTransition(
-                opacity: _chartsFade,
-                child: SizedBox(
-                  height: chartHeight,
-                  child: _ChartsGrid(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header Control Bar
+              SlideTransition(
+                position: _headerSlide,
+                child: FadeTransition(
+                  opacity: _headerFade,
+                  child: _HeaderBar(
+                    greeting: greetingText,
+                    period: cc.period,
+                    periods: _chartPeriods,
                     commandCenter: cc,
-                    medium: medium,
+                    onPeriodChanged: (p) {
+                      context
+                          .read<DashboardBloc>()
+                          .add(DashboardGlobalPeriodChanged(p));
+                    },
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: DashboardFxStyle.spaceMd),
 
-            // — Bottom Dock —
-            SlideTransition(
-              position: _dockSlide,
-              child: FadeTransition(
-                opacity: _dockFade,
-                child: SizedBox(
-                  height: 156,
-                  child: _BottomDock(
-                    activity: widget.state.analytics.recentActivity,
+              const SizedBox(height: DashboardFxStyle.spaceMd),
+
+              // Today at a Glance summary strip
+              SlideTransition(
+                position: _todaySlide,
+                child: FadeTransition(
+                  opacity: _todayFade,
+                  child: _TodayAtAGlance(kpis: kpis),
+                ),
+              ),
+
+              const SizedBox(height: DashboardFxStyle.spaceMd),
+
+              // 4 Financial Key Metric Cards
+              SlideTransition(
+                position: _kpiSlide,
+                child: FadeTransition(
+                  opacity: _kpiFade,
+                  child: _KpiRow(
+                    commandCenter: cc,
+                    wrap: !medium,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: DashboardFxStyle.spaceMd),
+
+              // Interactive Charts Grid
+              SlideTransition(
+                position: _chartsSlide,
+                child: FadeTransition(
+                  opacity: _chartsFade,
+                  child: SizedBox(
+                    height: wide ? 380 : (medium ? 760 : 1480),
+                    child: _ChartsGrid(
+                      commandCenter: cc,
+                      medium: medium && !wide,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: DashboardFxStyle.spaceLg),
+
+              // Restored Operations Hub
+              SlideTransition(
+                position: _opsSlide,
+                child: FadeTransition(
+                  opacity: _opsFade,
+                  child: DashboardFxOperationsHub(
+                    commandCenter: cc,
+                    kpis: kpis,
+                    analytics: analytics,
+                    pendingPickups: pendingPickups,
                     user: widget.user,
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: DashboardFxStyle.spaceLg),
 
-            // — Operations Hub —
-            SlideTransition(
-              position: _opsSlide,
-              child: FadeTransition(
-                opacity: _opsFade,
-                child: DashboardFxOperationsHub(
-                  commandCenter: cc,
-                  kpis: kpis,
-                  analytics: widget.state.analytics,
-                  pendingPickups: widget.state.pendingPickups,
-                  user: widget.user,
+              const SizedBox(height: DashboardFxStyle.spaceLg),
+
+              // Live Activity & Quick Actions Bottom Dock
+              SlideTransition(
+                position: _dockSlide,
+                child: FadeTransition(
+                  opacity: _dockFade,
+                  child: SizedBox(
+                    height: medium ? 190 : 360,
+                    child: _BottomDock(
+                      activity: widget.state.analytics.recentActivity,
+                      user: widget.user,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
   }
 }
-
 
 class _HeaderBar extends StatelessWidget {
   const _HeaderBar({
@@ -248,11 +256,13 @@ class _HeaderBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateLabel = DateFormat('EEE, d MMM').format(DateTime.now());
+    final primaryColor = DashboardFx.primary(context);
+    final electricColor = DashboardFx.electric(context);
 
     return DashboardFxCard(
       expandChild: false,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      glowColor: DashboardFx.primary,
+      glowColor: primaryColor,
       child: Column(
         children: [
           Row(
@@ -263,19 +273,19 @@ class _HeaderBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      DashboardFx.primary.withValues(alpha: 0.28),
-                      DashboardFx.electric.withValues(alpha: 0.12),
+                      primaryColor.withValues(alpha: 0.28),
+                      electricColor.withValues(alpha: 0.12),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: DashboardFx.primary.withValues(alpha: 0.4),
+                    color: primaryColor.withValues(alpha: 0.4),
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.hub_outlined,
                   size: 19,
-                  color: DashboardFx.primary,
+                  color: primaryColor,
                 ),
               ),
               const SizedBox(width: 10),
@@ -285,7 +295,7 @@ class _HeaderBar extends StatelessWidget {
                   children: [
                     Text(
                       greeting,
-                      style: DashboardFxStyle.title.copyWith(fontSize: 16),
+                      style: DashboardFxStyle.title(context).copyWith(fontSize: 16),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -297,7 +307,7 @@ class _HeaderBar extends StatelessWidget {
                         Expanded(
                           child: Text(
                             '$dateLabel · Live operational & financial analytics',
-                            style: DashboardFxStyle.subtitle,
+                            style: DashboardFxStyle.subtitle(context),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -321,24 +331,24 @@ class _HeaderBar extends StatelessWidget {
               children: [
                 _StatusPill(
                   label: '${commandCenter.activeJobWorks} Active JW',
-                  color: DashboardFx.electric,
+                  color: DashboardFx.electric(context),
                 ),
                 const SizedBox(width: 6),
                 _StatusPill(
                   label: '${commandCenter.activeDispatches} Dispatches',
-                  color: DashboardFx.primary,
+                  color: DashboardFx.primary(context),
                 ),
                 const SizedBox(width: 6),
                 _StatusPill(
                   label:
                       '${_compactSqFt(commandCenter.throughputSqFt)} throughput today',
-                  color: DashboardFx.success,
+                  color: DashboardFx.success(context),
                 ),
                 const SizedBox(width: 6),
                 _StatusPill(
                   label:
                       '${_compactSqFt(commandCenter.salesTotalSqFt)} sold · ${period.label}',
-                  color: DashboardFx.violet,
+                  color: DashboardFx.violet(context),
                 ),
               ],
             ),
@@ -362,14 +372,16 @@ class _PeriodMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = DashboardFx.primary(context);
+
     return PopupMenuButton<DashboardFinancePeriod>(
       initialValue: period,
       onSelected: onChanged,
       offset: const Offset(0, 36),
-      color: DashboardFx.elevated,
+      color: DashboardFx.elevated(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: DashboardFx.primary.withValues(alpha: 0.25)),
+        side: BorderSide(color: primaryColor.withValues(alpha: 0.25)),
       ),
       itemBuilder: (context) => [
         for (final option in periods)
@@ -380,7 +392,7 @@ class _PeriodMenu extends StatelessWidget {
               style: TextStyle(
                 fontWeight:
                     option == period ? FontWeight.w800 : FontWeight.w600,
-                color: option == period ? DashboardFx.primary : DashboardFx.text,
+                color: option == period ? primaryColor : DashboardFx.text(context),
               ),
             ),
           ),
@@ -388,10 +400,10 @@ class _PeriodMenu extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: DashboardFx.primary.withValues(alpha: 0.12),
+          color: primaryColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: DashboardFx.primary.withValues(alpha: 0.45),
+            color: primaryColor.withValues(alpha: 0.45),
           ),
         ),
         child: Row(
@@ -399,16 +411,16 @@ class _PeriodMenu extends StatelessWidget {
           children: [
             Text(
               period.label,
-              style: const TextStyle(
-                color: DashboardFx.primary,
+              style: TextStyle(
+                color: primaryColor,
                 fontWeight: FontWeight.w800,
                 fontSize: 11.5,
               ),
             ),
-            const Icon(
+            Icon(
               Icons.keyboard_arrow_down_rounded,
               size: 16,
-              color: DashboardFx.primary,
+              color: primaryColor,
             ),
           ],
         ),
@@ -491,12 +503,16 @@ class _KpiRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final successColor = DashboardFx.success(context);
+    final dangerColor = DashboardFx.danger(context);
+    final primaryColor = DashboardFx.primary(context);
+
     final cards = [
       _KpiCard(
         label: 'Income Collected',
         value: Formatters.currencyCompact(commandCenter.income),
         change: commandCenter.incomeChangePercent,
-        accent: DashboardFx.success,
+        accent: successColor,
         sparkline: commandCenter.incomeSparkline,
         area: true,
       ),
@@ -504,7 +520,7 @@ class _KpiRow extends StatelessWidget {
         label: 'Op. Expenses',
         value: Formatters.currencyCompact(commandCenter.expenses),
         change: commandCenter.expensesChangePercent,
-        accent: DashboardFx.danger,
+        accent: dangerColor,
         sparkline: commandCenter.expenseSparkline,
         area: false,
         caption: commandCenter.expenseRatioPercent == null
@@ -515,9 +531,7 @@ class _KpiRow extends StatelessWidget {
         label: 'Net Margin',
         value: Formatters.currencyCompact(commandCenter.net),
         change: null,
-        accent: commandCenter.net >= 0
-            ? DashboardFx.success
-            : DashboardFx.danger,
+        accent: commandCenter.net >= 0 ? successColor : dangerColor,
         sparkline: commandCenter.cashflowSeries.map((e) => e.net).toList(),
         area: true,
         caption: commandCenter.net >= 0 ? 'Profit' : 'Loss',
@@ -526,7 +540,7 @@ class _KpiRow extends StatelessWidget {
         label: 'Receivables',
         value: Formatters.currencyCompact(commandCenter.outstanding),
         change: null,
-        accent: DashboardFx.primary,
+        accent: primaryColor,
         sparkline: const [],
         area: true,
         caption: commandCenter.outstandingCount > 0
@@ -611,6 +625,8 @@ class _KpiCardState extends State<_KpiCard>
     final changeText = widget.change == null
         ? null
         : '${widget.change! >= 0 ? '+' : ''}${widget.change!.toStringAsFixed(1)}%';
+    final dangerColor = DashboardFx.danger(context);
+    final successColor = DashboardFx.success(context);
 
     return DashboardFxCard(
       expandChild: false,
@@ -626,8 +642,8 @@ class _KpiCardState extends State<_KpiCard>
                   widget.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: DashboardFx.muted,
+                  style: TextStyle(
+                    color: DashboardFx.muted(context),
                     fontWeight: FontWeight.w700,
                     fontSize: 10.5,
                   ),
@@ -638,13 +654,13 @@ class _KpiCardState extends State<_KpiCard>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: DashboardFx.danger.withValues(alpha: 0.18),
+                    color: dangerColor.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     widget.badge!,
-                    style: const TextStyle(
-                      color: DashboardFx.danger,
+                    style: TextStyle(
+                      color: dangerColor,
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                     ),
@@ -670,9 +686,7 @@ class _KpiCardState extends State<_KpiCard>
                 Text(
                   changeText,
                   style: TextStyle(
-                    color: (widget.change ?? 0) >= 0
-                        ? DashboardFx.success
-                        : DashboardFx.danger,
+                    color: (widget.change ?? 0) >= 0 ? successColor : dangerColor,
                     fontWeight: FontWeight.w700,
                     fontSize: 10,
                   ),
@@ -680,8 +694,8 @@ class _KpiCardState extends State<_KpiCard>
               else if (widget.caption != null)
                 Text(
                   widget.caption!,
-                  style: const TextStyle(
-                    color: DashboardFx.muted,
+                  style: TextStyle(
+                    color: DashboardFx.muted(context),
                     fontWeight: FontWeight.w600,
                     fontSize: 10,
                   ),
@@ -827,6 +841,11 @@ class _ChartsGridState extends State<_ChartsGrid> {
   @override
   Widget build(BuildContext context) {
     final cc = widget.commandCenter;
+    final electricColor = DashboardFx.electric(context);
+    final primaryColor = DashboardFx.primary(context);
+    final violetColor = DashboardFx.violet(context);
+    final successColor = DashboardFx.success(context);
+
     final a = DashboardFxCard(
       title: _panelATab == 0
           ? 'Revenue & Cashflow'
@@ -834,7 +853,7 @@ class _ChartsGridState extends State<_ChartsGrid> {
       subtitle: _panelATab == 0
           ? 'Income received vs expenses · ${cc.period.label}'
           : 'Comparative revenue · ${cc.period.label}',
-      glowColor: DashboardFx.electric,
+      glowColor: electricColor,
       trailing: _MiniTabs(
         labels: const ['Cashflow', 'Sales/JW'],
         index: _panelATab,
@@ -851,7 +870,7 @@ class _ChartsGridState extends State<_ChartsGrid> {
       subtitle: stockIsCut
           ? 'Large · Small · Waste & yield'
           : 'Large · Small sold stock',
-      glowColor: stockIsCut ? DashboardFx.primary : DashboardFx.violet,
+      glowColor: stockIsCut ? primaryColor : violetColor,
       trailing: _MiniTabs(
         labels: const ['Cut', 'Sold'],
         index: _panelBTab,
@@ -872,17 +891,17 @@ class _ChartsGridState extends State<_ChartsGrid> {
     final c = DashboardFxCard(
       title: 'Sales vs Job Work',
       subtitle: 'Grouped revenue by period bucket',
-      glowColor: DashboardFx.success,
+      glowColor: successColor,
       child: Column(
         children: [
           Expanded(child: _SalesJwBarChart(series: cc.salesVsJobWorkSeries)),
           const SizedBox(height: 6),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _LegendDot(color: DashboardFx.electric, label: 'Sales'),
-              SizedBox(width: 14),
-              _LegendDot(color: DashboardFx.primary, label: 'Job Work'),
+              _LegendDot(color: electricColor, label: 'Sales'),
+              const SizedBox(width: 14),
+              _LegendDot(color: primaryColor, label: 'Job Work'),
             ],
           ),
         ],
@@ -892,7 +911,7 @@ class _ChartsGridState extends State<_ChartsGrid> {
     final d = DashboardFxCard(
       title: 'Collection Efficiency',
       subtitle: 'Paid vs pending receivables',
-      glowColor: DashboardFx.primary,
+      glowColor: primaryColor,
       child: _CollectionGauge(
         ratio: cc.collectionRatio,
         collected: cc.collectedInPeriod,
@@ -953,12 +972,14 @@ class _MiniTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = DashboardFx.primary(context);
+
     return Container(
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
-        color: DashboardFx.elevated,
+        color: DashboardFx.elevated(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: DashboardFx.cardBorder),
+        border: Border.all(color: DashboardFx.cardBorder(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -972,7 +993,7 @@ class _MiniTabs extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: i == index
-                      ? DashboardFx.primary.withValues(alpha: 0.18)
+                      ? primaryColor.withValues(alpha: 0.18)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(6),
                 ),
@@ -982,8 +1003,8 @@ class _MiniTabs extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: i == index
-                        ? DashboardFx.primary
-                        : DashboardFx.muted,
+                        ? primaryColor
+                        : DashboardFx.muted(context),
                   ),
                 ),
               ),
@@ -1011,6 +1032,10 @@ class _CashflowAreaChart extends StatelessWidget {
         .fold<double>(0, (m, v) => v > m ? v : m);
     final chartMax = maxY <= 0 ? 1.0 : maxY * 1.2;
     final maxX = series.length <= 1 ? 1.0 : (series.length - 1).toDouble();
+    final mutedColor = DashboardFx.muted(context);
+    final cardBorderColor = DashboardFx.cardBorder(context);
+    final successColor = DashboardFx.success(context);
+    final dangerColor = DashboardFx.danger(context);
 
     return LineChart(
       LineChartData(
@@ -1024,7 +1049,7 @@ class _CashflowAreaChart extends StatelessWidget {
           drawVerticalLine: false,
           horizontalInterval: chartMax / 4,
           getDrawingHorizontalLine: (v) => FlLine(
-            color: DashboardFx.cardBorder,
+            color: cardBorderColor,
             strokeWidth: 1,
             dashArray: const [4, 4],
           ),
@@ -1045,8 +1070,8 @@ class _CashflowAreaChart extends StatelessWidget {
                 }
                 return Text(
                   _compact(value),
-                  style: const TextStyle(
-                    color: DashboardFx.muted,
+                  style: TextStyle(
+                    color: mutedColor,
                     fontSize: 9,
                   ),
                 );
@@ -1066,8 +1091,8 @@ class _CashflowAreaChart extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
                     series[i].label ?? DateFormat.Md().format(series[i].date),
-                    style: const TextStyle(
-                      color: DashboardFx.muted,
+                    style: TextStyle(
+                      color: mutedColor,
                       fontSize: 9,
                     ),
                   ),
@@ -1095,7 +1120,7 @@ class _CashflowAreaChart extends StatelessWidget {
               return LineTooltipItem(
                 '$label\n${Formatters.currencyPkr(amount)}$growth',
                 TextStyle(
-                  color: isIncome ? DashboardFx.success : DashboardFx.danger,
+                  color: isIncome ? successColor : dangerColor,
                   fontWeight: FontWeight.w700,
                   fontSize: 11,
                 ),
@@ -1111,12 +1136,12 @@ class _CashflowAreaChart extends StatelessWidget {
             ],
             isCurved: true,
             preventCurveOverShooting: true,
-            color: DashboardFx.success,
+            color: successColor,
             barWidth: 2.5,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: DashboardFx.success.withValues(alpha: 0.14),
+              color: successColor.withValues(alpha: 0.14),
             ),
           ),
           LineChartBarData(
@@ -1126,12 +1151,12 @@ class _CashflowAreaChart extends StatelessWidget {
             ],
             isCurved: true,
             preventCurveOverShooting: true,
-            color: DashboardFx.danger,
+            color: dangerColor,
             barWidth: 2.5,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: DashboardFx.danger.withValues(alpha: 0.1),
+              color: dangerColor.withValues(alpha: 0.1),
             ),
           ),
         ],
@@ -1156,113 +1181,117 @@ class _SalesJwBarChart extends StatelessWidget {
         .fold<double>(0, (m, v) => v > m ? v : m);
     final chartMax = maxY <= 0 ? 1.0 : maxY * 1.2;
     final dense = series.length > 14;
+    final mutedColor = DashboardFx.muted(context);
+    final cardBorderColor = DashboardFx.cardBorder(context);
+    final electricColor = DashboardFx.electric(context);
+    final primaryColor = DashboardFx.primary(context);
 
     return ClipRect(
       child: BarChart(
         BarChartData(
           maxY: chartMax,
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: chartMax / 4,
-          getDrawingHorizontalLine: (v) => FlLine(
-            color: DashboardFx.cardBorder,
-            strokeWidth: 1,
-            dashArray: const [4, 4],
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        titlesData: FlTitlesData(
-          topTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles:
-              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 36,
-              getTitlesWidget: (value, meta) {
-                if (value == 0 || value == meta.max) {
-                  return const SizedBox.shrink();
-                }
-                return Text(
-                  _compact(value),
-                  style: const TextStyle(
-                    color: DashboardFx.muted,
-                    fontSize: 9,
-                  ),
-                );
-              },
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: chartMax / 4,
+            getDrawingHorizontalLine: (v) => FlLine(
+              color: cardBorderColor,
+              strokeWidth: 1,
+              dashArray: const [4, 4],
             ),
           ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: dense ? (series.length / 5).ceilToDouble() : 1,
-              getTitlesWidget: (value, meta) {
-                final i = value.toInt();
-                if (i < 0 || i >= series.length) {
-                  return const SizedBox.shrink();
-                }
-                if (dense && i % ((series.length / 5).ceil()) != 0) {
-                  return const SizedBox.shrink();
-                }
-                return Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    series[i].label ?? DateFormat.Md().format(series[i].date),
-                    style: const TextStyle(
-                      color: DashboardFx.muted,
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 36,
+                getTitlesWidget: (value, meta) {
+                  if (value == 0 || value == meta.max) {
+                    return const SizedBox.shrink();
+                  }
+                  return Text(
+                    _compact(value),
+                    style: TextStyle(
+                      color: mutedColor,
                       fontSize: 9,
                     ),
+                  );
+                },
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: dense ? (series.length / 5).ceilToDouble() : 1,
+                getTitlesWidget: (value, meta) {
+                  final i = value.toInt();
+                  if (i < 0 || i >= series.length) {
+                    return const SizedBox.shrink();
+                  }
+                  if (dense && i % ((series.length / 5).ceil()) != 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      series[i].label ?? DateFormat.Md().format(series[i].date),
+                      style: TextStyle(
+                        color: mutedColor,
+                        fontSize: 9,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (group, gI, rod, rI) {
+                final label = rI == 0 ? 'Sales' : 'Job Work';
+                return BarTooltipItem(
+                  '$label\n${Formatters.currencyPkr(rod.toY)}',
+                  TextStyle(
+                    color: rI == 0 ? electricColor : primaryColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
                   ),
                 );
               },
             ),
           ),
+          barGroups: [
+            for (var i = 0; i < series.length; i++)
+              BarChartGroupData(
+                x: i,
+                barsSpace: 2,
+                barRods: [
+                  BarChartRodData(
+                    toY: series[i].salesAmount,
+                    width: dense ? 4 : 8,
+                    color: electricColor,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(3)),
+                  ),
+                  BarChartRodData(
+                    toY: series[i].jobWorkAmount,
+                    width: dense ? 4 : 8,
+                    color: primaryColor,
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(3)),
+                  ),
+                ],
+              ),
+          ],
         ),
-        barTouchData: BarTouchData(
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipItem: (group, gI, rod, rI) {
-              final label = rI == 0 ? 'Sales' : 'Job Work';
-              return BarTooltipItem(
-                '$label\n${Formatters.currencyPkr(rod.toY)}',
-                TextStyle(
-                  color: rI == 0 ? DashboardFx.electric : DashboardFx.primary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
-                ),
-              );
-            },
-          ),
-        ),
-        barGroups: [
-          for (var i = 0; i < series.length; i++)
-            BarChartGroupData(
-              x: i,
-              barsSpace: 2,
-              barRods: [
-                BarChartRodData(
-                  toY: series[i].salesAmount,
-                  width: dense ? 4 : 8,
-                  color: DashboardFx.electric,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(3)),
-                ),
-                BarChartRodData(
-                  toY: series[i].jobWorkAmount,
-                  width: dense ? 4 : 8,
-                  color: DashboardFx.primary,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(3)),
-                ),
-              ],
-            ),
-        ],
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _StockDonut extends StatelessWidget {
@@ -1298,6 +1327,11 @@ class _StockDonut extends StatelessWidget {
     }
 
     final wasteLossPct = totalSq > 0 ? (waste / totalSq) * 100 : 0.0;
+    final primaryColor = DashboardFx.primary(context);
+    final electricColor = DashboardFx.electric(context);
+    final dangerColor = DashboardFx.danger(context);
+    final mutedColor = DashboardFx.muted(context);
+    final textColor = DashboardFx.text(context);
 
     return Column(
       children: [
@@ -1315,20 +1349,20 @@ class _StockDonut extends StatelessWidget {
                         sections: [
                           PieChartSectionData(
                             value: large <= 0 ? 0.001 : large,
-                            color: DashboardFx.primary,
+                            color: primaryColor,
                             radius: 14,
                             showTitle: false,
                           ),
                           PieChartSectionData(
                             value: small <= 0 ? 0.001 : small,
-                            color: DashboardFx.electric,
+                            color: electricColor,
                             radius: 14,
                             showTitle: false,
                           ),
                           if (showWaste)
                             PieChartSectionData(
                               value: waste <= 0 ? 0.001 : waste,
-                              color: DashboardFx.danger,
+                              color: dangerColor,
                               radius: 14,
                               showTitle: false,
                             ),
@@ -1340,15 +1374,16 @@ class _StockDonut extends StatelessWidget {
                       children: [
                         Text(
                           _compactSqFt(totalSq),
-                          style: const TextStyle(
+                          style: TextStyle(
+                            color: textColor,
                             fontWeight: FontWeight.w800,
                             fontSize: 13,
                           ),
                         ),
                         Text(
                           centerLabel,
-                          style: const TextStyle(
-                            color: DashboardFx.muted,
+                          style: TextStyle(
+                            color: mutedColor,
                             fontSize: 10,
                           ),
                         ),
@@ -1367,14 +1402,14 @@ class _StockDonut extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _DetailedLegend(
-                        color: DashboardFx.primary,
+                        color: primaryColor,
                         label: 'Large',
                         sqft: _compactSqFt(large),
                         amount: Formatters.currencyCompact(largeAmount),
                       ),
                       const SizedBox(height: 5),
                       _DetailedLegend(
-                        color: DashboardFx.electric,
+                        color: electricColor,
                         label: 'Small',
                         sqft: _compactSqFt(small),
                         amount: Formatters.currencyCompact(smallAmount),
@@ -1382,7 +1417,7 @@ class _StockDonut extends StatelessWidget {
                       if (showWaste) ...[
                         const SizedBox(height: 5),
                         _DetailedLegend(
-                          color: DashboardFx.danger,
+                          color: dangerColor,
                           label: 'Waste/Yield',
                           sqft: _compactSqFt(waste),
                           badge: waste > 0
@@ -1401,24 +1436,24 @@ class _StockDonut extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: DashboardFx.elevated,
+            color: DashboardFx.elevated(context),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: DashboardFx.cardBorder),
+            border: Border.all(color: DashboardFx.cardBorder(context)),
           ),
           child: Row(
             children: [
               Text(
                 'Total ${showWaste ? "Cut" : "Sold"}: ',
-                style: const TextStyle(
-                  color: DashboardFx.muted,
+                style: TextStyle(
+                  color: mutedColor,
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               Text(
                 _compactSqFt(showWaste ? (small + large) : totalSq),
-                style: const TextStyle(
-                  color: DashboardFx.text,
+                style: TextStyle(
+                  color: textColor,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1426,8 +1461,8 @@ class _StockDonut extends StatelessWidget {
               const Spacer(),
               Text(
                 Formatters.currencyCompact(totalAmount),
-                style: const TextStyle(
-                  color: DashboardFx.primary,
+                style: TextStyle(
+                  color: primaryColor,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1457,6 +1492,10 @@ class _DetailedLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final mutedColor = DashboardFx.muted(context);
+    final textColor = DashboardFx.text(context);
+    final dangerColor = DashboardFx.danger(context);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1468,16 +1507,16 @@ class _DetailedLegend extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           '$label: ',
-          style: const TextStyle(
-            color: DashboardFx.muted,
+          style: TextStyle(
+            color: mutedColor,
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
         ),
         Text(
           sqft,
-          style: const TextStyle(
-            color: DashboardFx.text,
+          style: TextStyle(
+            color: textColor,
             fontSize: 10.5,
             fontWeight: FontWeight.w700,
           ),
@@ -1486,14 +1525,14 @@ class _DetailedLegend extends StatelessWidget {
           Text(
             ' · ',
             style: TextStyle(
-              color: DashboardFx.muted.withValues(alpha: 0.5),
+              color: mutedColor.withValues(alpha: 0.5),
               fontSize: 10,
             ),
           ),
           Text(
             amount ?? badge!,
             style: TextStyle(
-              color: amount != null ? color : DashboardFx.danger,
+              color: amount != null ? color : dangerColor,
               fontSize: 10.5,
               fontWeight: FontWeight.w800,
             ),
@@ -1544,6 +1583,11 @@ class _CollectionGaugeState extends State<_CollectionGauge>
   @override
   Widget build(BuildContext context) {
     final pct = (widget.ratio * 100).clamp(0.0, 100.0);
+    final primaryColor = DashboardFx.primary(context);
+    final successColor = DashboardFx.success(context);
+    final dangerColor = DashboardFx.danger(context);
+    final cardBorderColor = DashboardFx.cardBorder(context);
+    final textColor = DashboardFx.text(context);
 
     return Column(
       children: [
@@ -1558,6 +1602,11 @@ class _CollectionGaugeState extends State<_CollectionGauge>
                     size: const Size.square(160),
                     painter: _ArcGaugePainter(
                       ratio: widget.ratio * _sweep.value,
+                      cardBorder: cardBorderColor,
+                      danger: dangerColor,
+                      primary: primaryColor,
+                      success: successColor,
+                      text: textColor,
                     ),
                   ),
                   Column(
@@ -1565,16 +1614,16 @@ class _CollectionGaugeState extends State<_CollectionGauge>
                     children: [
                       Text(
                         '${(pct * _sweep.value).toStringAsFixed(0)}%',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 22,
-                          color: DashboardFx.primary,
+                          color: primaryColor,
                         ),
                       ),
-                      const Text(
+                      Text(
                         'Collected',
                         style: TextStyle(
-                          color: DashboardFx.muted,
+                          color: DashboardFx.muted(context),
                           fontSize: 10,
                         ),
                       ),
@@ -1589,14 +1638,14 @@ class _CollectionGaugeState extends State<_CollectionGauge>
           children: [
             Expanded(
               child: _Legend(
-                color: DashboardFx.success,
+                color: successColor,
                 label: 'Paid',
                 value: Formatters.currencyCompact(widget.collected),
               ),
             ),
             Expanded(
               child: _Legend(
-                color: DashboardFx.danger,
+                color: dangerColor,
                 label: 'Pending',
                 value: Formatters.currencyCompact(widget.pending),
               ),
@@ -1641,6 +1690,11 @@ class _BottomDock extends StatelessWidget {
         ),
     ];
 
+    final electricColor = DashboardFx.electric(context);
+    final primaryColor = DashboardFx.primary(context);
+    final cardBorderColor = DashboardFx.cardBorder(context);
+    final successColor = DashboardFx.success(context);
+
     return Row(
       children: [
         Expanded(
@@ -1648,14 +1702,14 @@ class _BottomDock extends StatelessWidget {
           child: DashboardFxCard(
             title: 'Live Activity',
             subtitle: 'Recent payments',
-            glowColor: DashboardFx.electric,
+            glowColor: electricColor,
             child: activity.isEmpty
                 ? const _EmptyHint(AppStrings.recentActivityEmpty)
                 : ListView.separated(
                     itemCount: activity.take(5).length,
-                    separatorBuilder: (_, _) => const Divider(
+                    separatorBuilder: (_, _) => Divider(
                       height: 10,
-                      color: DashboardFx.cardBorder,
+                      color: cardBorderColor,
                     ),
                     itemBuilder: (context, index) {
                       final item = activity[index];
@@ -1665,7 +1719,7 @@ class _BottomDock extends StatelessWidget {
                             Container(
                               width: 3,
                               decoration: BoxDecoration(
-                                color: DashboardFx.success,
+                                color: successColor,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -1678,15 +1732,16 @@ class _BottomDock extends StatelessWidget {
                                     item.title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
+                                      color: DashboardFx.text(context),
                                       fontSize: 11.5,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   Text(
                                     _relativeTime(item.timestamp),
-                                    style: const TextStyle(
-                                      color: DashboardFx.muted,
+                                    style: TextStyle(
+                                      color: DashboardFx.muted(context),
                                       fontSize: 9,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -1697,8 +1752,8 @@ class _BottomDock extends StatelessWidget {
                             if (item.amount != null)
                               Text(
                                 Formatters.currencyCompact(item.amount!),
-                                style: const TextStyle(
-                                  color: DashboardFx.success,
+                                style: TextStyle(
+                                  color: successColor,
                                   fontWeight: FontWeight.w800,
                                   fontSize: 11,
                                 ),
@@ -1716,7 +1771,7 @@ class _BottomDock extends StatelessWidget {
           child: DashboardFxCard(
             title: 'Quick Actions',
             subtitle: 'Fast shortcuts',
-            glowColor: DashboardFx.primary,
+            glowColor: primaryColor,
             child: Column(
               children: [
                 for (final action in actions)
@@ -1724,7 +1779,7 @@ class _BottomDock extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Material(
-                        color: DashboardFx.elevated,
+                        color: DashboardFx.elevated(context),
                         borderRadius: BorderRadius.circular(10),
                         child: InkWell(
                           onTap: action.onTap,
@@ -1736,22 +1791,23 @@ class _BottomDock extends StatelessWidget {
                                 Icon(
                                   action.icon,
                                   size: 16,
-                                  color: DashboardFx.primary,
+                                  color: primaryColor,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     action.label,
-                                    style: const TextStyle(
+                                    style: TextStyle(
+                                      color: DashboardFx.text(context),
                                       fontWeight: FontWeight.w700,
                                       fontSize: 12,
                                     ),
                                   ),
                                 ),
-                                const Icon(
+                                Icon(
                                   Icons.arrow_forward_ios_rounded,
                                   size: 12,
-                                  color: DashboardFx.muted,
+                                  color: DashboardFx.muted(context),
                                 ),
                               ],
                             ),
@@ -1790,7 +1846,7 @@ class _LegendDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 5),
-        Text(label, style: DashboardFxStyle.caption),
+        Text(label, style: DashboardFxStyle.caption(context)),
       ],
     );
   }
@@ -1820,8 +1876,8 @@ class _Legend extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
-            color: DashboardFx.muted,
+          style: TextStyle(
+            color: DashboardFx.muted(context),
             fontSize: 10.5,
             fontWeight: FontWeight.w600,
           ),
@@ -1851,8 +1907,8 @@ class _EmptyHint extends StatelessWidget {
       child: Text(
         message,
         textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: DashboardFx.muted,
+        style: TextStyle(
+          color: DashboardFx.muted(context),
           fontSize: 12,
         ),
       ),
@@ -1886,8 +1942,6 @@ String _relativeTime(DateTime timestamp) {
   return DateFormat.MMMd().format(timestamp);
 }
 
-// ─── Task 4: "Today at a Glance" summary row ───────────────────────────
-
 class _TodayAtAGlance extends StatelessWidget {
   const _TodayAtAGlance({required this.kpis});
 
@@ -1896,18 +1950,23 @@ class _TodayAtAGlance extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final net = kpis.netCashflowToday;
+    final successColor = DashboardFx.success(context);
+    final dangerColor = DashboardFx.danger(context);
+    final primaryColor = DashboardFx.primary(context);
+    final electricColor = DashboardFx.electric(context);
+
     final items = [
       _GlanceItem(
         icon: Icons.trending_up_rounded,
         label: 'Revenue',
         value: Formatters.currencyCompact(kpis.revenueToday),
-        color: DashboardFx.success,
+        color: successColor,
       ),
       _GlanceItem(
         icon: Icons.trending_down_rounded,
         label: 'Expenses',
         value: Formatters.currencyCompact(kpis.expensesToday),
-        color: DashboardFx.danger,
+        color: dangerColor,
       ),
       _GlanceItem(
         icon: net >= 0
@@ -1915,19 +1974,19 @@ class _TodayAtAGlance extends StatelessWidget {
             : Icons.warning_amber_rounded,
         label: 'Net',
         value: Formatters.currencyCompact(net),
-        color: net >= 0 ? DashboardFx.primary : DashboardFx.danger,
+        color: net >= 0 ? primaryColor : dangerColor,
       ),
       _GlanceItem(
         icon: Icons.local_shipping_outlined,
         label: 'Dispatched',
         value: '${kpis.dispatchedTodayPieces} pcs',
-        color: DashboardFx.electric,
+        color: electricColor,
       ),
     ];
 
     return DashboardFxCard(
       expandChild: false,
-      glowColor: DashboardFx.primary,
+      glowColor: primaryColor,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       child: Row(
         children: [
@@ -1936,7 +1995,7 @@ class _TodayAtAGlance extends StatelessWidget {
               Container(
                 width: 1,
                 height: 28,
-                color: DashboardFx.cardBorder,
+                color: DashboardFx.cardBorder(context),
               ),
             ],
             Expanded(child: items[i]),
@@ -1980,8 +2039,8 @@ class _GlanceItem extends StatelessWidget {
         ),
         Text(
           label,
-          style: const TextStyle(
-            color: DashboardFx.muted,
+          style: TextStyle(
+            color: DashboardFx.muted(context),
             fontWeight: FontWeight.w600,
             fontSize: 9,
           ),
@@ -1990,8 +2049,6 @@ class _GlanceItem extends StatelessWidget {
     );
   }
 }
-
-// ─── Task 3: Live pulse dot ─────────────────────────────────────────────
 
 class _LivePulseDot extends StatefulWidget {
   const _LivePulseDot();
@@ -2021,6 +2078,8 @@ class _LivePulseDotState extends State<_LivePulseDot>
 
   @override
   Widget build(BuildContext context) {
+    final successColor = DashboardFx.success(context);
+
     return AnimatedBuilder(
       animation: _pulse,
       builder: (context, child) {
@@ -2039,17 +2098,16 @@ class _LivePulseDotState extends State<_LivePulseDot>
                   height: 8,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color:
-                        DashboardFx.success.withValues(alpha: 0.3 * opacity),
+                    color: successColor.withValues(alpha: 0.3 * opacity),
                   ),
                 ),
               ),
               Container(
                 width: 6,
                 height: 6,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: DashboardFx.success,
+                  color: successColor,
                 ),
               ),
             ],
@@ -2059,8 +2117,6 @@ class _LivePulseDotState extends State<_LivePulseDot>
     );
   }
 }
-
-// ─── Task 5: Animated value text for KPI count-up ───────────────────────
 
 class _AnimatedValueText extends StatelessWidget {
   const _AnimatedValueText({
@@ -2075,8 +2131,6 @@ class _AnimatedValueText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Extract numeric portion and display partially animated.
-    // For compact values like "₨1.2M", we animate the numeric part.
     final numeric = RegExp(r'[\d.]+').firstMatch(fullValue);
     if (numeric == null || progress >= 1.0) {
       return _buildText(progress >= 1.0 ? fullValue : '');
@@ -2086,7 +2140,6 @@ class _AnimatedValueText extends StatelessWidget {
     final numVal = double.tryParse(numStr) ?? 0;
     final animated = numVal * progress;
 
-    // Preserve decimal places from original string.
     final decimals = numStr.contains('.')
         ? numStr.length - numStr.indexOf('.') - 1
         : 0;
@@ -2111,22 +2164,31 @@ class _AnimatedValueText extends StatelessWidget {
   }
 }
 
-// ─── Task 7: Semi-circular arc gauge painter ────────────────────────────
-
 class _ArcGaugePainter extends CustomPainter {
-  _ArcGaugePainter({required this.ratio});
+  _ArcGaugePainter({
+    required this.ratio,
+    required this.cardBorder,
+    required this.danger,
+    required this.primary,
+    required this.success,
+    required this.text,
+  });
 
   final double ratio;
+  final Color cardBorder;
+  final Color danger;
+  final Color primary;
+  final Color success;
+  final Color text;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height * 0.6);
     final radius = size.width * 0.42;
     const strokeWidth = 12.0;
-    const startAngle = math.pi * 0.8; // ~144° from 3 o'clock
-    const sweepTotal = math.pi * 1.4; // 252° arc
+    const startAngle = math.pi * 0.8;
+    const sweepTotal = math.pi * 1.4;
 
-    // Background track.
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
       startAngle,
@@ -2136,10 +2198,9 @@ class _ArcGaugePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round
-        ..color = DashboardFx.cardBorder,
+        ..color = cardBorder,
     );
 
-    // Gradient foreground arc.
     final sweepAngle = sweepTotal * ratio.clamp(0.0, 1.0);
     if (sweepAngle > 0) {
       final rect = Rect.fromCircle(center: center, radius: radius);
@@ -2155,16 +2216,11 @@ class _ArcGaugePainter extends CustomPainter {
           ..shader = SweepGradient(
             startAngle: startAngle,
             endAngle: startAngle + sweepTotal,
-            colors: const [
-              DashboardFx.danger,
-              DashboardFx.primary,
-              DashboardFx.success,
-            ],
+            colors: [danger, primary, success],
             stops: const [0.0, 0.5, 1.0],
           ).createShader(rect),
       );
 
-      // Needle dot at the tip.
       final needleAngle = startAngle + sweepAngle;
       final needlePos = Offset(
         center.dx + radius * math.cos(needleAngle),
@@ -2173,17 +2229,22 @@ class _ArcGaugePainter extends CustomPainter {
       canvas.drawCircle(
         needlePos,
         5,
-        Paint()..color = DashboardFx.text,
+        Paint()..color = text,
       );
       canvas.drawCircle(
         needlePos,
         3,
-        Paint()..color = DashboardFx.primary,
+        Paint()..color = primary,
       );
     }
   }
 
   @override
   bool shouldRepaint(_ArcGaugePainter oldDelegate) =>
-      oldDelegate.ratio != ratio;
+      oldDelegate.ratio != ratio ||
+      oldDelegate.cardBorder != cardBorder ||
+      oldDelegate.danger != danger ||
+      oldDelegate.primary != primary ||
+      oldDelegate.success != success ||
+      oldDelegate.text != text;
 }
