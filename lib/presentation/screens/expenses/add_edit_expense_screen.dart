@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../blocs/expense/expense_form_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/utils/formatters.dart';
 import '../../utils/auth_context.dart';
 import '../../../core/utils/validators.dart';
 import '../../../data/repositories/supplier_repository.dart';
@@ -86,7 +87,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     _paymentMethod = expense.paymentMethod;
     _supplierId = expense.supplierId;
     _descriptionController.text = expense.description;
-    _amountController.text = expense.amount.toStringAsFixed(0);
+    _amountController.text = ThousandsTextInputFormatter.format(expense.amount);
     _payeeController.text = expense.payeeName ?? '';
     _billNumberController.text = expense.billNumber ?? '';
     _notesController.text = expense.notes ?? '';
@@ -99,9 +100,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (picked != null) {
-      setState(() => _expenseDate = picked);
-    }
+    if (picked != null) setState(() => _expenseDate = picked);
   }
 
   void _submit(BuildContext context, Expense? existing) {
@@ -110,7 +109,8 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     final factoryId = readFactoryId(context);
     if (factoryId == null) return;
 
-    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+    final amount =
+        ThousandsTextInputFormatter.tryParseDouble(_amountController.text) ?? 0;
     final expense = Expense(
       id: existing?.id ?? '',
       expenseNumber: existing?.expenseNumber ?? '',
@@ -156,7 +156,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     final description = _descriptionController.text.trim();
     if (description.isNotEmpty) return description;
 
-    final amount = double.tryParse(_amountController.text.trim());
+    final amount = ThousandsTextInputFormatter.tryParseDouble(_amountController.text);
     if (amount != null && amount > 0) {
       return '₨ ${amount.toStringAsFixed(0)}';
     }
@@ -307,11 +307,18 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        inputFormatters: [
+                          ThousandsTextInputFormatter(
+                            allowDecimal: true,
+                            decimalDigits: 2,
+                          ),
+                        ],
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Amount is required';
                           }
-                          final amount = double.tryParse(value.trim());
+                          final amount =
+                              ThousandsTextInputFormatter.tryParseDouble(value);
                           if (amount == null || amount <= 0) {
                             return 'Enter a valid amount';
                           }

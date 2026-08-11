@@ -13,6 +13,7 @@ import '../../../domain/entities/customer.dart';
 import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/customer_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
+import '../../../core/utils/formatters.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
@@ -122,32 +123,32 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
     _pricingModel = order.pricingModel;
     _paymentTerms = order.paymentTerms;
 
-    _blockCountController.text = order.blockCount.toString();
-    _totalTonsController.text = order.totalTons.toString();
-    _totalVolumeController.text = order.totalVolumeM3?.toString() ?? '';
+    _blockCountController.text = ThousandsTextInputFormatter.format(order.blockCount);
+    _totalTonsController.text = ThousandsTextInputFormatter.format(order.totalTons);
+    _totalVolumeController.text = order.totalVolumeM3 != null ? ThousandsTextInputFormatter.format(order.totalVolumeM3) : '';
     _blockDimensionsController.text = order.blockDimensions ?? '';
     _conditionNotesController.text = order.conditionNotes ?? '';
     _vehicleController.text = order.vehicleNumber ?? '';
     _specialInstructionsController.text = order.specialInstructions ?? '';
     if (order.agreedRate > 0) {
-      _agreedRateController.text = order.agreedRate.toStringAsFixed(0);
+      _agreedRateController.text = ThousandsTextInputFormatter.format(order.agreedRate);
     }
     if (order.smallStockPrice > 0) {
-      _smallStockPriceController.text = order.smallStockPrice.toStringAsFixed(0);
+      _smallStockPriceController.text = ThousandsTextInputFormatter.format(order.smallStockPrice);
     } else if (order.agreedRate > 0 && order.smallSizes.isNotEmpty) {
-      _smallStockPriceController.text = order.agreedRate.toStringAsFixed(0);
+      _smallStockPriceController.text = ThousandsTextInputFormatter.format(order.agreedRate);
     }
     if (order.largeStockPrice > 0) {
-      _largeStockPriceController.text = order.largeStockPrice.toStringAsFixed(0);
+      _largeStockPriceController.text = ThousandsTextInputFormatter.format(order.largeStockPrice);
     } else if (order.agreedRate > 0 && order.largeSizes.isNotEmpty) {
-      _largeStockPriceController.text = order.agreedRate.toStringAsFixed(0);
+      _largeStockPriceController.text = ThousandsTextInputFormatter.format(order.agreedRate);
     }
-    _advanceController.text = order.advanceReceived.toStringAsFixed(0);
+    _advanceController.text = ThousandsTextInputFormatter.format(order.advanceReceived);
   }
 
-  double _parse(String value) => double.tryParse(value.trim()) ?? 0;
+  double _parse(String value) => ThousandsTextInputFormatter.tryParseDouble(value) ?? 0;
 
-  int _parseInt(String value) => int.tryParse(value.trim()) ?? 0;
+  int _parseInt(String value) => ThousandsTextInputFormatter.tryParseInt(value) ?? 0;
 
   bool get _hasSizeSelection =>
       _selectedSmallSizes.isNotEmpty ||
@@ -580,6 +581,9 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                       TextFormField(
                         controller: _blockCountController,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          ThousandsTextInputFormatter(allowDecimal: false),
+                        ],
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
@@ -600,6 +604,12 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        inputFormatters: [
+                          ThousandsTextInputFormatter(
+                            allowDecimal: true,
+                            decimalDigits: 2,
+                          ),
+                        ],
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
@@ -620,6 +630,12 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        inputFormatters: [
+                          ThousandsTextInputFormatter(
+                            allowDecimal: true,
+                            decimalDigits: 2,
+                          ),
+                        ],
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
@@ -851,7 +867,15 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                         AppFormFields.gap,
                         TextFormField(
                           controller: _agreedRateController,
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            ThousandsTextInputFormatter(
+                              allowDecimal: true,
+                              decimalDigits: 2,
+                            ),
+                          ],
                           style: AppFormFields.valueStyle(context),
                           decoration: AppFormFields.decoration(
                             context,
@@ -878,7 +902,15 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                         AppFormFields.gap,
                         TextFormField(
                           controller: _agreedRateController,
-                          keyboardType: TextInputType.number,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            ThousandsTextInputFormatter(
+                              allowDecimal: true,
+                              decimalDigits: 2,
+                            ),
+                          ],
                           style: AppFormFields.valueStyle(context),
                           decoration: AppFormFields.decoration(
                             context,
@@ -899,49 +931,65 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                       if (_hasSizeSelection) ...[
                         AppFormFields.gap,
                         TextFormField(
-                        controller: _smallStockPriceController,
-                        keyboardType: TextInputType.number,
-                        style: AppFormFields.valueStyle(context),
-                        decoration: AppFormFields.decoration(
-                          context,
-                          label: _pricingModel == PricingModel.perSqFt
-                              ? AppStrings.smallStockPricePerSqFt
-                              : AppStrings.smallStockPrice,
-                        ),
-                        validator: (v) {
-                          if (_selectedSmallSizes.isNotEmpty ||
-                              _selectedLegacySizes.isNotEmpty) {
-                            if (_parse(v ?? '') <= 0) {
-                              return AppStrings.smallStockPriceRequired;
+                          controller: _smallStockPriceController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            ThousandsTextInputFormatter(
+                              allowDecimal: true,
+                              decimalDigits: 2,
+                            ),
+                          ],
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: _pricingModel == PricingModel.perSqFt
+                                ? AppStrings.smallStockPricePerSqFt
+                                : AppStrings.smallStockPrice,
+                          ),
+                          validator: (v) {
+                            if (_selectedSmallSizes.isNotEmpty ||
+                                _selectedLegacySizes.isNotEmpty) {
+                              if (_parse(v ?? '') <= 0) {
+                                return AppStrings.smallStockPriceRequired;
+                              }
                             }
-                          }
-                          return null;
-                        },
-                        enabled: !isSaving,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      AppFormFields.gap,
-                      TextFormField(
-                        controller: _largeStockPriceController,
-                        keyboardType: TextInputType.number,
-                        style: AppFormFields.valueStyle(context),
-                        decoration: AppFormFields.decoration(
-                          context,
-                          label: _pricingModel == PricingModel.perSqFt
-                              ? AppStrings.largeStockPricePerSqFt
-                              : AppStrings.largeStockPrice,
+                            return null;
+                          },
+                          enabled: !isSaving,
+                          onChanged: (_) => setState(() {}),
                         ),
-                        validator: (v) {
-                          if (_selectedLargeSizes.isNotEmpty) {
-                            if (_parse(v ?? '') <= 0) {
-                              return AppStrings.largeStockPriceRequired;
+                        AppFormFields.gap,
+                        TextFormField(
+                          controller: _largeStockPriceController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            ThousandsTextInputFormatter(
+                              allowDecimal: true,
+                              decimalDigits: 2,
+                            ),
+                          ],
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: _pricingModel == PricingModel.perSqFt
+                                ? AppStrings.largeStockPricePerSqFt
+                                : AppStrings.largeStockPrice,
+                          ),
+                          validator: (v) {
+                            if (_selectedLargeSizes.isNotEmpty) {
+                              if (_parse(v ?? '') <= 0) {
+                                return AppStrings.largeStockPriceRequired;
+                              }
                             }
-                          }
-                          return null;
-                        },
-                        enabled: !isSaving,
-                        onChanged: (_) => setState(() {}),
-                      ),
+                            return null;
+                          },
+                          enabled: !isSaving,
+                          onChanged: (_) => setState(() {}),
+                        ),
                       ],
                       AppFormFields.gap,
                       Text(
@@ -957,7 +1005,15 @@ class _AddEditJobWorkScreenState extends State<AddEditJobWorkScreen> {
                       AppFormFields.gap,
                       TextFormField(
                         controller: _advanceController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          ThousandsTextInputFormatter(
+                            allowDecimal: true,
+                            decimalDigits: 2,
+                          ),
+                        ],
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,

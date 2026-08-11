@@ -57,7 +57,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
     if (!mounted || payment == null) return;
     setState(() {
       _editingPayment = payment;
-      _amountController.text = payment.amount.toStringAsFixed(0);
+      _amountController.text = ThousandsTextInputFormatter.format(payment.amount);
       _method = payment.method;
       _paymentDate = payment.paymentDate;
       _referenceController.text = payment.reference ?? '';
@@ -77,7 +77,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   void _populate(double dueAmount) {
     if (_populated || _isEditing) return;
     _populated = true;
-    _amountController.text = dueAmount.toStringAsFixed(0);
+    _amountController.text = ThousandsTextInputFormatter.format(dueAmount);
   }
 
   Future<void> _pickDate() async {
@@ -122,7 +122,8 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   void _submit() {
     if (_submitting) return;
     if (!_formKey.currentState!.validate()) return;
-    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+    final amount =
+        ThousandsTextInputFormatter.tryParseDouble(_amountController.text) ?? 0;
     if (amount <= 0) return;
 
     setState(() => _submitting = true);
@@ -262,6 +263,12 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        inputFormatters: [
+                          ThousandsTextInputFormatter(
+                            allowDecimal: true,
+                            decimalDigits: 2,
+                          ),
+                        ],
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
@@ -269,7 +276,8 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                         ),
                         validator: (value) {
                           final amount =
-                              double.tryParse(value?.trim() ?? '') ?? 0;
+                              ThousandsTextInputFormatter.tryParseDouble(value) ??
+                                  0;
                           if (amount <= 0) return 'Enter a valid amount';
                           if (amount > maxAmount) {
                             return 'Cannot exceed ${Formatters.currencyPkr(maxAmount)}';

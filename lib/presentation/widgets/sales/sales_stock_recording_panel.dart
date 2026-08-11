@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
@@ -306,7 +305,10 @@ class _SalesStockDataRow extends StatelessWidget {
             enabled: enabled,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+              ThousandsTextInputFormatter(
+                allowDecimal: true,
+                decimalDigits: 2,
+              ),
             ],
             style: valueStyle,
             textAlign: TextAlign.center,
@@ -314,7 +316,7 @@ class _SalesStockDataRow extends StatelessWidget {
             onChanged: (_) => onChanged(),
             validator: (value) {
               if (value == null || value.trim().isEmpty) return null;
-              final parsed = double.tryParse(value.trim());
+              final parsed = ThousandsTextInputFormatter.tryParseDouble(value);
               if (parsed == null || parsed < 0) {
                 return AppStrings.sqFtCannotBeNegative;
               }
@@ -329,7 +331,10 @@ class _SalesStockDataRow extends StatelessWidget {
             enabled: enabled,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+              ThousandsTextInputFormatter(
+                allowDecimal: true,
+                decimalDigits: 2,
+              ),
             ],
             style: valueStyle,
             textAlign: TextAlign.center,
@@ -337,7 +342,7 @@ class _SalesStockDataRow extends StatelessWidget {
             onChanged: (_) => onChanged(),
             validator: (value) {
               if (!hasSqFt) return null;
-              final parsed = double.tryParse(value?.trim() ?? '');
+              final parsed = ThousandsTextInputFormatter.tryParseDouble(value);
               if (parsed == null || parsed <= 0) {
                 return AppStrings.pricePerSqFtRequired;
               }

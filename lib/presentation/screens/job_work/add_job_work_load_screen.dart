@@ -12,6 +12,7 @@ import '../../../core/constants/mine_owners.dart';
 import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/enums/customer_enums.dart';
 import '../../../domain/enums/job_work_enums.dart';
+import '../../../core/utils/formatters.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/job_work_size_selector.dart';
@@ -101,18 +102,18 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
     _finish = draft.finish;
     _pricingModel = draft.pricingModel;
     _paymentTerms = draft.paymentTerms;
-    _blockCountController.text = '${draft.blockCount}';
+    _blockCountController.text = ThousandsTextInputFormatter.format(draft.blockCount);
     _totalTonsController.text =
-        draft.totalTons > 0 ? draft.totalTons.toString() : '';
+        draft.totalTons > 0 ? ThousandsTextInputFormatter.format(draft.totalTons) : '';
     _vehicleController.text = draft.vehicleNumber ?? '';
     _conditionNotesController.text = draft.conditionNotes ?? '';
     _specialInstructionsController.text = draft.specialInstructions ?? '';
     _agreedRateController.text =
-        draft.agreedRate > 0 ? draft.agreedRate.toString() : '';
+        draft.agreedRate > 0 ? ThousandsTextInputFormatter.format(draft.agreedRate) : '';
     _smallStockPriceController.text =
-        draft.smallStockPrice > 0 ? draft.smallStockPrice.toString() : '';
+        draft.smallStockPrice > 0 ? ThousandsTextInputFormatter.format(draft.smallStockPrice) : '';
     _largeStockPriceController.text =
-        draft.largeStockPrice > 0 ? draft.largeStockPrice.toString() : '';
+        draft.largeStockPrice > 0 ? ThousandsTextInputFormatter.format(draft.largeStockPrice) : '';
   }
 
   Future<void> _pickDate({
@@ -128,8 +129,8 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
     if (picked != null) onPicked(picked);
   }
 
-  double _parse(String value) => double.tryParse(value.trim()) ?? 0;
-  int _parseInt(String value) => int.tryParse(value.trim()) ?? 0;
+  double _parse(String value) => ThousandsTextInputFormatter.tryParseDouble(value) ?? 0;
+  int _parseInt(String value) => ThousandsTextInputFormatter.tryParseInt(value) ?? 0;
 
   void _submit(JobWorkLoad draft) {
     if (!_formKey.currentState!.validate()) return;
@@ -386,6 +387,9 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                             TextFormField(
                               controller: _blockCountController,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                ThousandsTextInputFormatter(allowDecimal: false),
+                              ],
                               style: AppFormFields.valueStyle(context),
                               decoration: AppFormFields.decoration(
                                 context,
@@ -406,6 +410,12 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                                   const TextInputType.numberWithOptions(
                                 decimal: true,
                               ),
+                              inputFormatters: [
+                                ThousandsTextInputFormatter(
+                                  allowDecimal: true,
+                                  decimalDigits: 2,
+                                ),
+                              ],
                               style: AppFormFields.valueStyle(context),
                               decoration: AppFormFields.decoration(
                                 context,
@@ -658,6 +668,12 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                                   const TextInputType.numberWithOptions(
                                 decimal: true,
                               ),
+                              inputFormatters: [
+                                ThousandsTextInputFormatter(
+                                  allowDecimal: true,
+                                  decimalDigits: 2,
+                                ),
+                              ],
                               style: AppFormFields.valueStyle(context),
                               decoration: AppFormFields.decoration(
                                 context,
@@ -674,6 +690,12 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                                   const TextInputType.numberWithOptions(
                                 decimal: true,
                               ),
+                              inputFormatters: [
+                                ThousandsTextInputFormatter(
+                                  allowDecimal: true,
+                                  decimalDigits: 2,
+                                ),
+                              ],
                               style: AppFormFields.valueStyle(context),
                               decoration: AppFormFields.decoration(
                                 context,
@@ -690,6 +712,12 @@ class _AddJobWorkLoadScreenState extends State<AddJobWorkLoadScreen> {
                                   const TextInputType.numberWithOptions(
                                 decimal: true,
                               ),
+                              inputFormatters: [
+                                ThousandsTextInputFormatter(
+                                  allowDecimal: true,
+                                  decimalDigits: 2,
+                                ),
+                              ],
                               style: AppFormFields.valueStyle(context),
                               decoration: AppFormFields.decoration(
                                 context,

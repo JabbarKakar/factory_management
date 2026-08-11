@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_strings.dart';
+import '../../../core/utils/formatters.dart';
 import '../forms/app_form_fields.dart';
 import 'app_dialog.dart';
 
@@ -15,6 +16,7 @@ class AppInputDialog extends StatefulWidget {
     this.keyboardType,
     this.icon,
     this.parse,
+    this.isNumberField = false,
     super.key,
   });
 
@@ -27,6 +29,7 @@ class AppInputDialog extends StatefulWidget {
   final TextInputType? keyboardType;
   final IconData? icon;
   final Object? Function(String value)? parse;
+  final bool isNumberField;
 
   static Future<double?> showNumber(
     BuildContext context, {
@@ -47,10 +50,11 @@ class AppInputDialog extends StatefulWidget {
         helperText: helperText,
         confirmLabel: confirmLabel,
         initialValue:
-            initialValue > 0 ? initialValue.toStringAsFixed(0) : '',
+            initialValue > 0 ? ThousandsTextInputFormatter.format(initialValue) : '',
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         icon: icon,
-        parse: (value) => double.tryParse(value.trim()) ?? 0,
+        parse: (value) => ThousandsTextInputFormatter.tryParseDouble(value) ?? 0,
+        isNumberField: true,
       ),
     );
   }
@@ -93,6 +97,14 @@ class _AppInputDialogState extends State<AppInputDialog> {
         controller: _controller,
         autofocus: true,
         keyboardType: widget.keyboardType,
+        inputFormatters: widget.isNumberField
+            ? [
+                ThousandsTextInputFormatter(
+                  allowDecimal: true,
+                  decimalDigits: 2,
+                ),
+              ]
+            : null,
         style: AppFormFields.valueStyle(context),
         decoration: AppFormFields.decoration(
           context,

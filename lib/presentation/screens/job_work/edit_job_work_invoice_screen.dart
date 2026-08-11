@@ -71,7 +71,7 @@ class _EditJobWorkInvoiceScreenState extends State<EditJobWorkInvoiceScreen> {
         .map(
           (fields) => InvoiceLineItem(
             description: fields.descriptionController.text.trim(),
-            amount: double.tryParse(fields.amountController.text.trim()) ?? 0,
+            amount: ThousandsTextInputFormatter.tryParseDouble(fields.amountController.text) ?? 0,
           ),
         )
         .where((item) => item.description.isNotEmpty)
@@ -80,7 +80,7 @@ class _EditJobWorkInvoiceScreenState extends State<EditJobWorkInvoiceScreen> {
 
   double _computedTotal() {
     return _lineItems.fold<double>(0, (sum, fields) {
-      final amount = double.tryParse(fields.amountController.text.trim()) ?? 0;
+      final amount = ThousandsTextInputFormatter.tryParseDouble(fields.amountController.text) ?? 0;
       return sum + amount;
     });
   }
@@ -237,11 +237,17 @@ class _EditJobWorkInvoiceScreenState extends State<EditJobWorkInvoiceScreen> {
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
                             ),
+                            inputFormatters: [
+                              ThousandsTextInputFormatter(
+                                allowDecimal: true,
+                                decimalDigits: 2,
+                              ),
+                            ],
                             enabled: !isSaving,
                             onChanged: (_) => setState(() {}),
                             validator: (value) {
                               final amount =
-                                  double.tryParse(value?.trim() ?? '') ?? 0;
+                                  ThousandsTextInputFormatter.tryParseDouble(value) ?? 0;
                               if (amount < 0) {
                                 return 'Enter a valid amount';
                               }

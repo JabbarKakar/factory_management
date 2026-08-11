@@ -1,6 +1,8 @@
 import '../../domain/enums/factory_role_enums.dart';
 import 'currency_formatter.dart';
 
+export 'thousands_text_input_formatter.dart';
+
 abstract final class Formatters {
   static String roleLabel(String role) {
     return FactoryRole.fromString(role).label;

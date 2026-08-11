@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/formatters.dart';
 import '../../../core/utils/stock_output_calculator.dart';
 import '../../../domain/entities/stock_output.dart';
 
@@ -71,7 +72,7 @@ class SalesStockFormController {
   }) {
     final sqFt = TextEditingController(
       text: existing != null && existing.squareFeet > 0
-          ? existing.squareFeet.toStringAsFixed(2)
+          ? ThousandsTextInputFormatter.format(existing.squareFeet)
           : '',
     );
     final seededPrice = existing != null && existing.pricePerSqFt > 0
@@ -92,19 +93,18 @@ class SalesStockFormController {
 
   String _formatPrice(double value) {
     if (value <= 0) return '';
-    final rounded = value.round();
-    if ((value - rounded).abs() < 0.01) return rounded.toString();
-    return value.toStringAsFixed(2);
+    return ThousandsTextInputFormatter.format(value);
   }
 
   double _parsePriceText(String text) {
-    final value = double.tryParse(text.trim());
+    final value = ThousandsTextInputFormatter.tryParseDouble(text);
     if (value == null || value < 0) return 0;
     return value;
   }
 
   double _parseSqFt(String size) {
-    final value = double.tryParse(_sqFtControllers[size]!.text.trim());
+    final value =
+        ThousandsTextInputFormatter.tryParseDouble(_sqFtControllers[size]!.text);
     if (value == null || value < 0) return 0;
     return value;
   }

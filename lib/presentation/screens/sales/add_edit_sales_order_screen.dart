@@ -74,7 +74,7 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
     _paymentTerms = order.paymentTerms;
     _deliveryAddressController.text = order.deliveryAddress ?? '';
     _specialInstructionsController.text = order.specialInstructions ?? '';
-    _advanceController.text = order.advanceReceived.toStringAsFixed(0);
+    _advanceController.text = ThousandsTextInputFormatter.format(order.advanceReceived);
 
     _lineItems.clear();
     if (order.lineItems.isEmpty) {
@@ -96,7 +96,7 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
       _lineItems.fold<double>(0, (sum, item) => sum + item.totalSquareFeet);
 
   double get _advance =>
-      double.tryParse(_advanceController.text.trim()) ?? 0;
+      ThousandsTextInputFormatter.tryParseDouble(_advanceController.text) ?? 0;
 
   double get _grandTotal => _subtotal;
 
@@ -488,6 +488,12 @@ class _AddEditSalesOrderScreenState extends State<AddEditSalesOrderScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
+                        inputFormatters: [
+                          ThousandsTextInputFormatter(
+                            allowDecimal: true,
+                            decimalDigits: 2,
+                          ),
+                        ],
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
