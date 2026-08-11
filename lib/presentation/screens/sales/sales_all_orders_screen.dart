@@ -4,9 +4,17 @@ import 'package:go_router/go_router.dart';
 
 import '../../../blocs/sales/sales_agreement_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/di/injection.dart';
+import '../../../data/repositories/sales_order_repository.dart';
+import '../../../data/services/sales_order_dispatch_status_helper.dart';
 import '../../../domain/entities/sales_order.dart';
+import '../../../domain/enums/app_module_enums.dart';
+import '../../../domain/enums/sales_enums.dart';
 import '../../routes/route_paths.dart';
+import '../../utils/user_permissions_context.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/sales/sales_order_list_tile.dart';
+import '../../widgets/tile_options_menu.dart';
 
 class SalesAllOrdersScreen extends StatefulWidget {
   const SalesAllOrdersScreen({required this.agreementId, super.key});
@@ -22,6 +30,7 @@ class _SalesAllOrdersScreenState extends State<SalesAllOrdersScreen> {
   static const _pageSize = 20;
   int _visibleCount = _pageSize;
   bool _isLoadingMore = false;
+  String? _busyOrderId;
 
   @override
   void initState() {
@@ -62,8 +71,226 @@ class _SalesAllOrdersScreenState extends State<SalesAllOrdersScreen> {
     }
   }
 
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              isError ? Theme.of(context).colorScheme.error : null,
+        ),
+      );
+  }
+
+  Future<void> _confirmDelete(SalesOrder order) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.deleteSalesOrderTitle,
+      message: AppStrings.deleteSalesOrderMessage,
+      confirmLabel: AppStrings.delete,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyOrderId = order.id);
+
+    try {
+      await getIt<SalesOrderRepository>().deleteSalesOrder(order.id);
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderDeleted);
+      context.read<SalesAgreementDetailBloc>().add(
+            const SalesAgreementDetailRefreshRequested(),
+          );
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderDeleteError, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _busyOrderId = null);
+      }
+    }
+  }
+
+  Future<void> _confirmCancel(SalesOrder order) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.cancelSalesOrderTitle,
+      message: AppStrings.cancelSalesOrderMessage,
+      confirmLabel: AppStrings.cancelOrder,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyOrderId = order.id);
+
+    try {
+      await getIt<SalesOrderRepository>().cancelSalesOrder(order.id);
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderCancelled);
+      context.read<SalesAgreementDetailBloc>().add(
+            const SalesAgreementDetailRefreshRequested(),
+          );
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack(AppStrings.salesOrderCancelError, isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _busyOrderId = null);
+      }
+    }
+  }
+
+  List<TileMenuAction> _menuActionsFor(
+    SalesOrder order, {
+    required bool canEdit,
+    required bool canDelete,
+  }) {
+    final status = order.status;
+    final hasInvoice = order.invoiceId != null && order.invoiceId!.isNotEmpty;
+    final canDispatch =
+        SalesOrderDispatchStatusHelper.canScheduleDispatch(status);
+    final actions = <TileMenuAction>[];
+    final agreementId = order.agreementId?.trim().isNotEmpty == true
+        ? order.agreementId!.trim()
+        : widget.agreementId;
+
+    if (canEdit) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.editSalesOrder,
+          icon: Icons.edit_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.salesOrderEdit(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+            if (mounted) {
+              context.read<SalesAgreementDetailBloc>().add(
+                    const SalesAgreementDetailRefreshRequested(),
+                  );
+            }
+          },
+        ),
+      );
+    }
+
+    if ((status == SalesOrderStatus.ready ||
+            status == SalesOrderStatus.partiallyDispatched) &&
+        !hasInvoice) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.generateInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.salesInvoice(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+            if (mounted) {
+              context.read<SalesAgreementDetailBloc>().add(
+                    const SalesAgreementDetailRefreshRequested(),
+                  );
+            }
+          },
+        ),
+      );
+    }
+
+    if (hasInvoice) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.viewInvoice,
+          icon: Icons.receipt_long_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.salesInvoice(
+                agreementId: agreementId,
+                salesOrderId: order.id,
+              ),
+            );
+            if (mounted) {
+              context.read<SalesAgreementDetailBloc>().add(
+                    const SalesAgreementDetailRefreshRequested(),
+                  );
+            }
+          },
+        ),
+      );
+      if (order.balanceDue > 0 &&
+          status != SalesOrderStatus.closed &&
+          status != SalesOrderStatus.cancelled) {
+        actions.add(
+          TileMenuAction(
+            label: AppStrings.recordPayment,
+            icon: Icons.payments_outlined,
+            onSelected: () async {
+              await context.push(
+                RoutePaths.salesRecordPayment(order.invoiceId!),
+              );
+              if (mounted) {
+                context.read<SalesAgreementDetailBloc>().add(
+                      const SalesAgreementDetailRefreshRequested(),
+                    );
+              }
+            },
+          ),
+        );
+      }
+    }
+
+    if (canDispatch) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.dispatchStock,
+          icon: Icons.local_shipping_outlined,
+          onSelected: () async {
+            await context.push(
+              RoutePaths.deliveriesAddForOrder(order.id),
+            );
+            if (mounted) {
+              context.read<SalesAgreementDetailBloc>().add(
+                    const SalesAgreementDetailRefreshRequested(),
+                  );
+            }
+          },
+        ),
+      );
+    }
+
+    if (canEdit && status != SalesOrderStatus.cancelled) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.cancelOrder,
+          icon: Icons.cancel_outlined,
+          onSelected: () => _confirmCancel(order),
+        ),
+      );
+    }
+
+    if (canDelete) {
+      actions.add(
+        TileMenuAction(
+          label: AppStrings.delete,
+          icon: Icons.delete_outline_rounded,
+          destructive: true,
+          onSelected: () => _confirmDelete(order),
+        ),
+      );
+    }
+
+    return actions;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final canEdit = context.userCanEdit(AppModule.sales);
+    final canDelete = context.userCanDelete(AppModule.sales);
+
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.allOrders)),
       body: BlocBuilder<SalesAgreementDetailBloc, SalesAgreementDetailState>(
@@ -103,6 +330,12 @@ class _SalesAllOrdersScreenState extends State<SalesAllOrdersScreen> {
               final order = visibleOrders[index];
               return SalesOrderListTile(
                 order: order,
+                isBusy: _busyOrderId == order.id,
+                menuActions: _menuActionsFor(
+                  order,
+                  canEdit: canEdit,
+                  canDelete: canDelete,
+                ),
                 onTap: () async {
                   await context.push(
                     RoutePaths.salesOrderDetail(
@@ -124,4 +357,5 @@ class _SalesAllOrdersScreenState extends State<SalesAllOrdersScreen> {
     );
   }
 }
+
 
