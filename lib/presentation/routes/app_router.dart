@@ -78,6 +78,7 @@ import '../screens/job_work/add_job_work_load_screen.dart';
 import '../screens/job_work/collect_material_screen.dart';
 import '../screens/job_work/job_work_collection_slip_screen.dart';
 import '../screens/job_work/job_work_detail_screen.dart';
+import '../screens/job_work/job_work_all_loads_screen.dart';
 import '../screens/job_work/job_work_grand_invoice_screen.dart';
 import '../screens/job_work/job_work_invoice_screen.dart';
 import '../screens/job_work/job_work_load_invoice_screen.dart';
@@ -94,6 +95,7 @@ import '../screens/finished_goods/record_inventory_correction_screen.dart';
 import '../screens/sales/add_edit_sales_agreement_screen.dart';
 import '../screens/sales/add_edit_sales_order_screen.dart';
 import '../screens/sales/sales_agreement_detail_screen.dart';
+import '../screens/sales/sales_all_orders_screen.dart';
 import '../screens/sales/sales_agreement_list_screen.dart';
 import '../screens/sales/sales_grand_invoice_screen.dart';
 import '../screens/sales/sales_invoice_screen.dart';
@@ -1415,6 +1417,21 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     },
                     routes: [
                       GoRoute(
+                        path: 'all-loads',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final jobWorkId =
+                              state.pathParameters['jobWorkId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<JobWorkFormBloc>()
+                              ..add(JobWorkFormLoadRequested(jobWorkId)),
+                            child: JobWorkAllLoadsScreen(
+                              jobWorkId: jobWorkId,
+                            ),
+                          );
+                        },
+                      ),
+                      GoRoute(
                         path: 'edit',
                         parentNavigatorKey: rootNavigatorKey,
                         builder: (context, state) {
@@ -1857,6 +1874,23 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                       );
                     },
                     routes: [
+                      GoRoute(
+                        path: 'all-orders',
+                        parentNavigatorKey: rootNavigatorKey,
+                        builder: (context, state) {
+                          final agreementId =
+                              state.pathParameters['agreementId']!;
+                          return BlocProvider(
+                            create: (_) => getIt<SalesAgreementDetailBloc>()
+                              ..add(
+                                SalesAgreementDetailWatchStarted(agreementId),
+                              ),
+                            child: SalesAllOrdersScreen(
+                              agreementId: agreementId,
+                            ),
+                          );
+                        },
+                      ),
                       GoRoute(
                         path: 'edit',
                         parentNavigatorKey: rootNavigatorKey,

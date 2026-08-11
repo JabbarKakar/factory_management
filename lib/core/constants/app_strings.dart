@@ -230,6 +230,7 @@ abstract final class AppStrings {
   static const String loadDeleteError = 'Could not delete load';
   static const String loadsSummary = 'Loads Summary';
   static const String allLoads = 'All Loads';
+  static const String showAllLoads = 'Show All Loads';
   static const String allLoadsProduction = 'All Loads Production';
   static const String productionDetails = 'Production Details';
   static const String activeLoads = 'Active Loads';
@@ -717,6 +718,7 @@ abstract final class AppStrings {
   static const String salesAgreementCreated = 'Sales agreement created';
   static const String addSalesOrder = 'Add Order';
   static const String allOrders = 'All Orders';
+  static const String showAllSales = 'Show All Sales';
   static const String salesAgreementLoadError = 'Could not load sales agreements';
   static const String noSalesAgreements = 'No sales agreements yet';
   static const String noOrdersUnderAgreement = 'No orders under this agreement yet';

@@ -299,6 +299,7 @@ class _SalesAgreementDetailScreenState
 
         final orders = List<SalesOrder>.from(state.orders)
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        final previewOrders = orders.take(5).toList(growable: false);
         final statusColor = _accentFor(agreement.summaryStatus);
         final canGenerateGrand = canEdit &&
             SalesContainerSyncHelper.canGenerateGrandInvoice(
@@ -419,12 +420,12 @@ class _SalesAgreementDetailScreenState
                         padding: const EdgeInsets.only(top: 4, bottom: 8),
                         child: Column(
                           children: [
-                            for (var i = 0; i < orders.length; i++) ...[
+                            for (var i = 0; i < previewOrders.length; i++) ...[
                               SalesOrderListTile(
-                                order: orders[i],
-                                isBusy: _busyOrderId == orders[i].id,
+                                order: previewOrders[i],
+                                isBusy: _busyOrderId == previewOrders[i].id,
                                 menuActions: _menuActionsFor(
-                                  orders[i],
+                                  previewOrders[i],
                                   canEdit: canEdit,
                                   canDelete: canDelete,
                                 ),
@@ -432,13 +433,29 @@ class _SalesAgreementDetailScreenState
                                   await context.push(
                                     RoutePaths.salesOrderDetail(
                                       agreementId: widget.agreementId,
-                                      salesOrderId: orders[i].id,
+                                      salesOrderId: previewOrders[i].id,
                                     ),
                                   );
                                   if (mounted) _refresh();
                                 },
                               ),
                             ],
+                            if (orders.length > 5)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                                child: SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => context.push(
+                                      RoutePaths.salesAllOrders(
+                                        widget.agreementId,
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.list_alt_outlined),
+                                    label: const Text(AppStrings.showAllSales),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),

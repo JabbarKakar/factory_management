@@ -279,6 +279,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
     BuildContext context, {
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
+    required List<JobWorkLoad> allLoads,
     required List<JobWorkInvoice> invoices,
     required bool isSaving,
     required bool canEditJobWork,
@@ -288,7 +289,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
     final theme = Theme.of(context);
     final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
       order: order,
-      loads: loads,
+      loads: allLoads,
       invoices: invoices,
     );
     final byYear = <int, List<JobWorkLoad>>{};
@@ -333,7 +334,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
               load,
               canEdit: canEditJobWork,
               canDelete: canDeleteJobWork,
-              isLastLoad: loads.length <= 1,
+              isLastLoad: allLoads.length <= 1,
               collections: collections,
             ),
             onTap: load.isVirtual
@@ -478,6 +479,9 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
         final canAddLoad = order.status != JobWorkStatus.cancelled &&
             context.userCanEdit(AppModule.jobWork);
         final hasLoads = state.loads.isNotEmpty;
+        final recentLoads = List<JobWorkLoad>.from(state.loads)
+          ..sort((a, b) => b.receivedDate.compareTo(a.receivedDate));
+        final previewLoads = recentLoads.take(5).toList(growable: false);
         final canEditJobWork = context.userCanEdit(AppModule.jobWork);
         final canDeleteJobWork = context.userCanDelete(AppModule.jobWork);
         // Ops live on Loads once authoritative — never show JW nested actions.
@@ -673,7 +677,8 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                         ..._buildLoadsGroupedByYear(
                           context,
                           order: order,
-                          loads: state.loads,
+                          loads: previewLoads,
+                          allLoads: state.loads,
                           invoices: state.invoices.isNotEmpty
                               ? state.invoices
                               : (hasInvoice ? [invoice] : const []),
@@ -682,6 +687,16 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                           canDeleteJobWork: canDeleteJobWork,
                           collections: state.collections,
                         ),
+                      if (state.loads.length > 5) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => context.push(
+                            RoutePaths.jobWorkAllLoads(jobWorkId),
+                          ),
+                          icon: const Icon(Icons.list_alt_outlined),
+                          label: const Text(AppStrings.showAllLoads),
+                        ),
+                      ],
                     ],
                   ),
                 ),

@@ -31,6 +31,8 @@ abstract final class RoutePaths {
 
   static String jobWorkDetail(String id) => '/job-work/$id';
 
+  static String jobWorkAllLoads(String id) => '/job-work/$id/all-loads';
+
   static String jobWorkEdit(String id) => '/job-work/$id/edit';
 
   static String jobWorkAddLoad(String id) => '/job-work/$id/loads/add';
@@ -113,6 +115,9 @@ abstract final class RoutePaths {
 
   /// Agreement detail (Job Work container equivalent).
   static String salesDetail(String agreementId) => '/sales/$agreementId';
+
+  static String salesAllOrders(String agreementId) =>
+      '/sales/$agreementId/all-orders';
 
   static String salesEdit(String agreementId) => '/sales/$agreementId/edit';
 
