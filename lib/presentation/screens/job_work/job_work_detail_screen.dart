@@ -329,6 +329,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
             paidAmount: fin?.paid,
             dueAmount: fin?.due,
             isBusy: isSaving || _busyLoadId == load.id,
+            padding: EdgeInsets.zero,
             menuActions: _loadMenuActions(
               context,
               load,

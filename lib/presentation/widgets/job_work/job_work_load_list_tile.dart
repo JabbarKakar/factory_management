@@ -18,6 +18,8 @@ class JobWorkLoadListTile extends StatelessWidget {
     this.onTap,
     this.menuActions = const [],
     this.isBusy = false,
+    this.showChevron = false,
+    this.padding = const EdgeInsets.fromLTRB(16, 0, 16, 8),
     super.key,
   });
 
@@ -27,6 +29,8 @@ class JobWorkLoadListTile extends StatelessWidget {
   final VoidCallback? onTap;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
+  final bool showChevron;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -53,69 +57,71 @@ class JobWorkLoadListTile extends StatelessWidget {
     final paid = paidAmount ?? load.advanceReceived;
     final due = dueAmount ?? load.balanceDue;
 
-    return Opacity(
-      opacity: isMuted ? 0.72 : 1,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: isBusy ? null : onTap,
-          borderRadius: cardShape,
-          child: Ink(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: cardShape,
-              border: Border.all(color: outline),
-            ),
-            child: IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(width: 3, color: accent),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        12,
-                        11,
-                        menuActions.isNotEmpty ? 2 : 8,
-                        11,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  loadLabel,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    height: 1.2,
+    return Padding(
+      padding: padding,
+      child: Opacity(
+        opacity: isMuted ? 0.72 : 1,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isBusy ? null : onTap,
+            borderRadius: cardShape,
+            child: Ink(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: cardShape,
+                border: Border.all(color: outline),
+              ),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(width: 3, color: accent),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          12,
+                          11,
+                          menuActions.isNotEmpty ? 2 : 8,
+                          11,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    loadLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      height: 1.2,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              JobWorkStatusBadge(
-                                status: load.status,
-                                compact: true,
-                              ),
-                              if (menuActions.isNotEmpty)
-                                TileOptionsButton(
-                                  isBusy: isBusy,
-                                  actions: menuActions,
-                                )
-                              else if (onTap != null) ...[
-                                const SizedBox(width: 2),
-                                Icon(
-                                  Icons.chevron_right,
-                                  size: 20,
-                                  color: muted.withValues(alpha: 0.7),
+                                JobWorkStatusBadge(
+                                  status: load.status,
+                                  compact: true,
                                 ),
+                                if (menuActions.isNotEmpty)
+                                  TileOptionsButton(
+                                    isBusy: isBusy,
+                                    actions: menuActions,
+                                  )
+                                else if (showChevron && onTap != null) ...[
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 20,
+                                    color: muted.withValues(alpha: 0.7),
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
+                            ),
                           const SizedBox(height: 4),
                           Text(
                             dateLabel,
@@ -344,8 +350,9 @@ class JobWorkLoadListTile extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   static Widget _financialCell({
     required String label,

@@ -13,6 +13,7 @@ class SalesOrderListTile extends StatelessWidget {
     required this.onTap,
     this.menuActions = const [],
     this.isBusy = false,
+    this.showChevron = false,
     super.key,
   });
 
@@ -20,6 +21,7 @@ class SalesOrderListTile extends StatelessWidget {
   final VoidCallback onTap;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
+  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
@@ -167,7 +169,7 @@ class SalesOrderListTile extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (menuActions.isEmpty)
+                    if (showChevron && menuActions.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: Icon(
