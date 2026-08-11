@@ -6,7 +6,6 @@ import '../../../blocs/sales/sales_agreement_detail_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../domain/entities/sales_order.dart';
 import '../../routes/route_paths.dart';
-import '../../widgets/paged_list_footer.dart';
 import '../../widgets/sales/sales_order_list_tile.dart';
 
 class SalesAllOrdersScreen extends StatefulWidget {
@@ -19,8 +18,49 @@ class SalesAllOrdersScreen extends StatefulWidget {
 }
 
 class _SalesAllOrdersScreenState extends State<SalesAllOrdersScreen> {
+  final _scrollController = ScrollController();
   static const _pageSize = 20;
-  int _page = 0;
+  int _visibleCount = _pageSize;
+  bool _isLoadingMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _isLoadingMore) return;
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    final currentScroll = _scrollController.position.pixels;
+    if (currentScroll >= maxScroll * 0.85) {
+      _loadNextPage();
+    }
+  }
+
+  void _loadNextPage() {
+    final blocState = context.read<SalesAgreementDetailBloc>().state;
+    if (_visibleCount < blocState.orders.length) {
+      setState(() {
+        _isLoadingMore = true;
+      });
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          setState(() {
+            _visibleCount += _pageSize;
+            _isLoadingMore = false;
+          });
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,41 +79,49 @@ class _SalesAllOrdersScreenState extends State<SalesAllOrdersScreen> {
             return const Center(child: Text(AppStrings.noOrdersUnderAgreement));
           }
 
-          final totalPages = (orders.length / _pageSize).ceil();
-          final safePage = _page.clamp(0, totalPages - 1) as int;
-          final start = safePage * _pageSize;
-          final pageOrders = orders.skip(start).take(_pageSize).toList();
+          final visibleOrders = orders.take(_visibleCount).toList();
+          final hasMore = _visibleCount < orders.length;
 
-          return ListView(
-            padding: const EdgeInsets.only(top: 12),
-            children: [
-              for (final order in pageOrders)
-                SalesOrderListTile(
-                  order: order,
-                  onTap: () async {
-                    await context.push(
-                      RoutePaths.salesOrderDetail(
-                        agreementId: widget.agreementId,
-                        salesOrderId: order.id,
-                      ),
-                    );
-                    if (context.mounted) {
-                      context.read<SalesAgreementDetailBloc>().add(
-                            const SalesAgreementDetailRefreshRequested(),
-                          );
-                    }
-                  },
-                ),
-              PagedListFooter(
-                currentPage: safePage,
-                totalPages: totalPages,
-                totalItems: orders.length,
-                onPageChanged: (page) => setState(() => _page = page),
-              ),
-            ],
+          return ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.only(top: 12, bottom: 24),
+            itemCount: visibleOrders.length + (hasMore ? 1 : 0),
+            itemBuilder: (context, index) {
+              if (index == visibleOrders.length) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                  ),
+                );
+              }
+
+              final order = visibleOrders[index];
+              return SalesOrderListTile(
+                order: order,
+                onTap: () async {
+                  await context.push(
+                    RoutePaths.salesOrderDetail(
+                      agreementId: widget.agreementId,
+                      salesOrderId: order.id,
+                    ),
+                  );
+                  if (context.mounted) {
+                    context.read<SalesAgreementDetailBloc>().add(
+                          const SalesAgreementDetailRefreshRequested(),
+                        );
+                  }
+                },
+              );
+            },
           );
         },
       ),
     );
   }
 }
+
