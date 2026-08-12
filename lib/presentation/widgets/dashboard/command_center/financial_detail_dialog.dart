@@ -122,13 +122,37 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
       parent: _animController,
       curve: Curves.easeOutCubic,
     );
-    _animController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _animController.forward();
+      }
+    });
   }
 
   @override
   void dispose() {
     _animController.dispose();
     super.dispose();
+  }
+
+  void _handlePointerScrub(Offset localPosition, Size boxSize) {
+    if (widget.trendPoints.isEmpty) return;
+    const paddingHorizontal = 12.0;
+    final width = math.max(1.0, boxSize.width - (paddingHorizontal * 2));
+    final dx = (localPosition.dx - paddingHorizontal).clamp(0.0, width);
+    final count = widget.trendPoints.length;
+
+    int idx;
+    if (widget.metricType == FinancialMetricType.receivables) {
+      idx = (dx / (width / count)).floor().clamp(0, count - 1);
+    } else {
+      final step = count > 1 ? width / (count - 1) : width;
+      idx = (dx / step).round().clamp(0, count - 1);
+    }
+
+    if (idx != _hoveredPointIndex) {
+      setState(() => _hoveredPointIndex = idx);
+    }
   }
 
   IconData get _metricIcon {
@@ -276,21 +300,22 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
                     children: [
                       // Precise Value Banner Card
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: cardBg,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: borderColor),
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
                                     'UNAGGREGATED PRECISE AMOUNT',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 9.5,
                                       fontWeight: FontWeight.w800,
@@ -298,111 +323,118 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
                                       letterSpacing: 0.8,
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  SelectableText(
-                                    Formatters.currencyFull(
-                                        widget.preciseAmount),
-                                    style: TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900,
-                                      color: widget.accentColor,
-                                      letterSpacing: -0.5,
+                                ),
+                                if (widget.changePercent != null) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: (widget.changePercent! >= 0
+                                              ? const Color(0xFF22C55E)
+                                              : const Color(0xFFEF4444))
+                                          .withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: (widget.changePercent! >= 0
+                                                ? const Color(0xFF22C55E)
+                                                : const Color(0xFFEF4444))
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          widget.changePercent! >= 0
+                                              ? Icons.arrow_upward_rounded
+                                              : Icons.arrow_downward_rounded,
+                                          size: 11,
+                                          color: widget.changePercent! >= 0
+                                              ? const Color(0xFF22C55E)
+                                              : const Color(0xFFEF4444),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '${widget.changePercent! >= 0 ? '+' : ''}${widget.changePercent!.toStringAsFixed(1)}%',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w800,
+                                            color: widget.changePercent! >= 0
+                                                ? const Color(0xFF22C55E)
+                                                : const Color(0xFFEF4444),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ] else if (widget.caption != null) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: widget.accentColor
+                                          .withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: widget.accentColor
+                                            .withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      widget.caption!,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: widget.accentColor,
+                                      ),
                                     ),
                                   ),
                                 ],
-                              ),
-                            ),
-                            if (widget.changePercent != null) ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: (widget.changePercent! >= 0
-                                          ? const Color(0xFF22C55E)
-                                          : const Color(0xFFEF4444))
-                                      .withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: (widget.changePercent! >= 0
-                                            ? const Color(0xFF22C55E)
-                                            : const Color(0xFFEF4444))
-                                        .withValues(alpha: 0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      widget.changePercent! >= 0
-                                          ? Icons.arrow_upward_rounded
-                                          : Icons.arrow_downward_rounded,
-                                      size: 12,
-                                      color: widget.changePercent! >= 0
-                                          ? const Color(0xFF22C55E)
-                                          : const Color(0xFFEF4444),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${widget.changePercent! >= 0 ? '+' : ''}${widget.changePercent!.toStringAsFixed(1)}%',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w800,
-                                        color: widget.changePercent! >= 0
-                                            ? const Color(0xFF22C55E)
-                                            : const Color(0xFFEF4444),
+                                if (widget.badgeText != null) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEF4444)
+                                          .withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFFEF4444)
+                                            .withValues(alpha: 0.4),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ] else if (widget.caption != null) ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: widget.accentColor
-                                      .withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: widget.accentColor
-                                        .withValues(alpha: 0.3),
+                                    child: Text(
+                                      widget.badgeText!,
+                                      style: const TextStyle(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFFEF4444),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                child: Text(
-                                  widget.caption!,
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: SelectableText(
+                                  Formatters.currencyFull(
+                                      widget.preciseAmount),
                                   style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: widget.accentColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                            if (widget.badgeText != null) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444)
-                                      .withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                    color: const Color(0xFFEF4444)
-                                        .withValues(alpha: 0.4),
-                                  ),
-                                ),
-                                child: Text(
-                                  widget.badgeText!,
-                                  style: const TextStyle(
-                                    fontSize: 9,
+                                    fontSize: 26,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFFEF4444),
-                                    letterSpacing: 0.5,
+                                    color: widget.accentColor,
+                                    letterSpacing: -0.5,
                                   ),
                                 ),
                               ),
-                            ],
+                            ),
                           ],
                         ),
                       ),
@@ -411,29 +443,48 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
 
                       // Interactive Graph Section
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            isReceivables
-                                ? 'AGE BREAKDOWN DISTRIBUTION'
-                                : 'HISTORICAL PERFORMANCE TREND',
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              color: textMuted,
-                              letterSpacing: 0.6,
+                          Expanded(
+                            child: Text(
+                              isReceivables
+                                  ? 'AGE BREAKDOWN DISTRIBUTION'
+                                  : 'HISTORICAL PERFORMANCE TREND',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                                color: textMuted,
+                                letterSpacing: 0.6,
+                              ),
                             ),
                           ),
                           if (_hoveredPointIndex != null &&
-                              _hoveredPointIndex! < widget.trendPoints.length)
-                            Text(
-                              '${widget.trendPoints[_hoveredPointIndex!].label}: ${Formatters.currencyFull(widget.trendPoints[_hoveredPointIndex!].value)}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: widget.accentColor,
+                              _hoveredPointIndex! < widget.trendPoints.length) ...[
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: widget.accentColor
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '${widget.trendPoints[_hoveredPointIndex!].label}: ${Formatters.currencyFull(widget.trendPoints[_hoveredPointIndex!].value)}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: widget.accentColor,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
+                          ],
                         ],
                       ),
 
@@ -448,33 +499,43 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: borderColor),
                         ),
-                        child: MouseRegion(
-                          onHover: (event) {
-                            final box = context.findRenderObject() as RenderBox?;
-                            if (box != null && widget.trendPoints.isNotEmpty) {
-                              final width = box.size.width - 48;
-                              final step = width / widget.trendPoints.length;
-                              final idx = (event.localPosition.dx / step)
-                                  .clamp(0, widget.trendPoints.length - 1)
-                                  .toInt();
-                              if (idx != _hoveredPointIndex) {
-                                setState(() => _hoveredPointIndex = idx);
-                              }
-                            }
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final boxSize = Size(constraints.maxWidth, 180);
+                            return MouseRegion(
+                              onHover: (event) => _handlePointerScrub(
+                                  event.localPosition, boxSize),
+                              onExit: (_) =>
+                                  setState(() => _hoveredPointIndex = null),
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTapDown: (details) => _handlePointerScrub(
+                                    details.localPosition, boxSize),
+                                onPanStart: (details) => _handlePointerScrub(
+                                    details.localPosition, boxSize),
+                                onPanUpdate: (details) => _handlePointerScrub(
+                                    details.localPosition, boxSize),
+                                onPanEnd: (_) =>
+                                    setState(() => _hoveredPointIndex = null),
+                                child: AnimatedBuilder(
+                                  animation: _revealAnim,
+                                  builder: (context, _) {
+                                    return CustomPaint(
+                                      size: Size.infinite,
+                                      painter: _FinancialChartPainter(
+                                        points: widget.trendPoints,
+                                        accentColor: widget.accentColor,
+                                        isBarChart: isReceivables,
+                                        hoveredIndex: _hoveredPointIndex,
+                                        progress: _revealAnim.value,
+                                        isDark: isDark,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
                           },
-                          onExit: (_) =>
-                              setState(() => _hoveredPointIndex = null),
-                          child: CustomPaint(
-                            size: Size.infinite,
-                            painter: _FinancialChartPainter(
-                              points: widget.trendPoints,
-                              accentColor: widget.accentColor,
-                              isBarChart: isReceivables,
-                              hoveredIndex: _hoveredPointIndex,
-                              progress: _revealAnim.value,
-                              isDark: isDark,
-                            ),
-                          ),
                         ),
                       ),
 
@@ -498,7 +559,7 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            mainAxisExtent: 64,
+                            mainAxisExtent: 78,
                             mainAxisSpacing: 8,
                             crossAxisSpacing: 8,
                           ),
@@ -507,7 +568,7 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
                             final item = widget.breakdownItems![index];
                             final itemColor = item.color ?? widget.accentColor;
                             return Container(
-                              padding: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                               decoration: BoxDecoration(
                                 color: cardBg,
                                 borderRadius: BorderRadius.circular(10),
@@ -515,64 +576,71 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
                                   color: borderColor,
                                 ),
                               ),
-                              child: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  if (item.icon != null) ...[
-                                    Icon(item.icon,
-                                        size: 18, color: itemColor),
-                                    const SizedBox(width: 8),
-                                  ],
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
+                                  Row(
+                                    children: [
+                                      if (item.icon != null) ...[
+                                        Icon(item.icon,
+                                            size: 14, color: itemColor),
+                                        const SizedBox(width: 6),
+                                      ],
+                                      Expanded(
+                                        child: Text(
                                           item.label,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            fontSize: 11,
+                                            fontSize: 10.5,
                                             fontWeight: FontWeight.w600,
                                             color: textMuted,
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          Formatters.currencyFull(item.amount),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: isDark
-                                                ? Colors.white
-                                                : const Color(0xFF0F172A),
+                                      ),
+                                      if (item.percentage != null) ...[
+                                        const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: itemColor
+                                                .withValues(alpha: 0.14),
+                                            borderRadius:
+                                                BorderRadius.circular(5),
+                                          ),
+                                          child: Text(
+                                            item.percentage!,
+                                            style: TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: itemColor,
+                                            ),
                                           ),
                                         ),
                                       ],
-                                    ),
+                                    ],
                                   ),
-                                  if (item.percentage != null)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color:
-                                            itemColor.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
+                                  const SizedBox(height: 4),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
                                       child: Text(
-                                        item.percentage!,
+                                        Formatters.currencyFull(item.amount),
+                                        maxLines: 1,
                                         style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w700,
-                                          color: itemColor,
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF0F172A),
                                         ),
                                       ),
                                     ),
+                                  ),
                                 ],
                               ),
                             );
@@ -588,51 +656,39 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
 
               // Action Buttons Row
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    OutlinedButton(
+                    FilledButton.tonal(
                       onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 40),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : const Color(0xFFE2E8F0),
+                        foregroundColor:
+                            isDark ? Colors.white : const Color(0xFF0F172A),
+                        minimumSize: const Size(80, 34),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
+                            horizontal: 16, vertical: 8),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: borderColor,
+                            width: 1,
+                          ),
                         ),
-                        side: BorderSide(color: borderColor),
+                        elevation: 0,
                       ),
-                      child: Text(
+                      child: const Text(
                         'Close',
                         style: TextStyle(
-                          color: isDark ? Colors.white70 : Colors.black87,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ),
-                    if (widget.onViewReport != null) ...[
-                      const SizedBox(width: 10),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.onViewReport!();
-                        },
-                        icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                        label: const Text('View Detailed Report'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: widget.accentColor,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(0, 40),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
