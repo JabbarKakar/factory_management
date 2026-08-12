@@ -13,9 +13,7 @@ import '../../../../domain/entities/app_user.dart';
 import '../../../../domain/entities/dashboard_analytics.dart';
 import '../../../../domain/entities/dashboard_command_center.dart';
 import '../../../../domain/entities/dashboard_kpis.dart';
-import '../../../../domain/enums/app_module_enums.dart';
 import '../../../../domain/enums/dashboard_finance_period.dart';
-import '../../../../domain/extensions/app_user_permissions.dart';
 import '../../../routes/route_paths.dart';
 import '../../../../domain/entities/job_work_dispatch_metrics.dart';
 import 'dashboard_fx_card.dart';
@@ -327,17 +325,14 @@ class _DashboardCommandCenterViewState
 
               const SizedBox(height: DashboardFxStyle.spaceLg),
 
-              // Live Activity & Quick Actions Bottom Dock
+              // Live Activity Bottom Dock
               SlideTransition(
                 position: _dockSlide,
                 child: FadeTransition(
                   opacity: _dockFade,
-                  child: SizedBox(
-                    height: medium ? 220 : 360,
-                    child: _BottomDock(
-                      activity: widget.state.analytics.recentActivity,
-                      user: widget.user,
-                    ),
+                  child: _BottomDock(
+                    activity: widget.state.analytics.recentActivity,
+                    user: widget.user,
                   ),
                 ),
               ),
@@ -2052,163 +2047,77 @@ class _BottomDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions = <({String label, IconData icon, VoidCallback? onTap})>[
-      if (user?.canView(AppModule.jobWork) == true)
-        (
-          label: 'Create Job Work',
-          icon: Icons.add_business_outlined,
-          onTap: () => context.push(RoutePaths.jobWorkAdd),
-        ),
-      if (user?.canView(AppModule.sales) == true)
-        (
-          label: 'New Sales Order',
-          icon: Icons.shopping_bag_outlined,
-          onTap: () => context.push(RoutePaths.salesAdd),
-        ),
-      if (user?.canView(AppModule.sales) == true ||
-          user?.canView(AppModule.jobWork) == true)
-        (
-          label: 'Record Payment',
-          icon: Icons.payments_outlined,
-          onTap: () => context.push(RoutePaths.notifications),
-        ),
-    ];
-
     final electricColor = DashboardFx.electric(context);
-    final primaryColor = DashboardFx.primary(context);
     final cardBorderColor = DashboardFx.cardBorder(context);
     final successColor = DashboardFx.success(context);
 
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: DashboardFxCard(
-            title: 'Live Activity',
-            subtitle: 'Recent payments',
-            glowColor: electricColor,
-            child: activity.isEmpty
-                ? const _EmptyHint(AppStrings.recentActivityEmpty)
-                : ListView.separated(
-                    itemCount: activity.take(5).length,
-                    separatorBuilder: (_, _) => Divider(
-                      height: 10,
-                      color: cardBorderColor,
-                    ),
-                    itemBuilder: (context, index) {
-                      final item = activity[index];
-                      return IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 3,
-                              decoration: BoxDecoration(
-                                color: successColor,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: DashboardFx.text(context),
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    _relativeTime(item.timestamp),
-                                    style: TextStyle(
-                                      color: DashboardFx.muted(context),
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (item.amount != null)
-                              Text(
-                                Formatters.currencyCompact(item.amount!),
-                                style: TextStyle(
-                                  color: successColor,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 11,
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          flex: 2,
-          child: DashboardFxCard(
-            title: 'Quick Actions',
-            subtitle: 'Fast shortcuts',
-            glowColor: primaryColor,
-            child: Column(
-              children: [
-                for (final action in actions)
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Material(
-                        color: DashboardFx.elevated(context),
-                        borderRadius: BorderRadius.circular(10),
-                        child: InkWell(
-                          onTap: action.onTap,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  action.icon,
-                                  size: 16,
-                                  color: primaryColor,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    action.label,
-                                    style: TextStyle(
-                                      color: DashboardFx.text(context),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  Icons.arrow_forward_ios_rounded,
-                                  size: 12,
-                                  color: DashboardFx.muted(context),
-                                ),
-                              ],
-                            ),
-                          ),
+    return DashboardFxCard(
+      title: 'Live Activity',
+      subtitle: 'Recent payments',
+      glowColor: electricColor,
+      expandChild: false,
+      child: activity.isEmpty
+          ? const _EmptyHint(AppStrings.recentActivityEmpty)
+          : ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: activity.take(5).length,
+              separatorBuilder: (_, _) => Divider(
+                height: 10,
+                color: cardBorderColor,
+              ),
+              itemBuilder: (context, index) {
+                final item = activity[index];
+                return IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 3,
+                        decoration: BoxDecoration(
+                          color: successColor,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: DashboardFx.text(context),
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              _relativeTime(item.timestamp),
+                              style: TextStyle(
+                                color: DashboardFx.muted(context),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (item.amount != null)
+                        Text(
+                          Formatters.currencyCompact(item.amount!),
+                          style: TextStyle(
+                            color: successColor,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
                   ),
-                if (actions.isEmpty)
-                  const Expanded(
-                    child: _EmptyHint('No quick actions for your role'),
-                  ),
-              ],
+                );
+              },
             ),
-          ),
-        ),
-      ],
     );
   }
 }

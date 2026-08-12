@@ -10,6 +10,8 @@ import '../../widgets/dashboard/command_center/dashboard_command_center_view.dar
 import '../../widgets/dashboard/command_center/dashboard_fx_theme.dart';
 import '../../widgets/notification_bell.dart';
 
+import '../../widgets/dashboard/expandable_quick_actions_fab.dart';
+
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -31,6 +33,7 @@ class DashboardScreen extends StatelessWidget {
           AccountMenuButton(),
         ],
       ),
+      floatingActionButton: const ExpandableQuickActionsFab(),
       body: BlocConsumer<DashboardBloc, DashboardState>(
         listenWhen: (prev, curr) =>
             prev.status != curr.status &&
