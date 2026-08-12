@@ -5,7 +5,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/dashboard_stock_cut_metrics.dart';
 import '../../../domain/enums/dashboard_finance_period.dart';
-import '../dialogs/app_dialog.dart';
+import 'command_center/stock_cut_detail_dialog.dart';
 
 /// Period-aware small / large / total stock cut (sq. ft) — mirrors Cashflow card.
 class DashboardStockCutCard extends StatelessWidget {
@@ -41,173 +41,17 @@ class DashboardStockCutCard extends StatelessWidget {
   }
 
   Future<void> _showDetails(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final outline =
-        theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.45);
-    final panelBg = isDark
-        ? const Color(0xFF1B2230)
-        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
-    final vsLabel = period.vsPreviousLabel;
-
-    return AppDialog.show(
+    return StockCutDetailDialog.show(
       context,
-      child: Builder(
-        builder: (dialogContext) {
-          return Dialog(
-            backgroundColor: theme.colorScheme.surface,
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: outline),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                _small.withValues(alpha: 0.28),
-                                _large.withValues(alpha: 0.12),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _small.withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.content_cut_outlined,
-                            size: 20,
-                            color: isDark ? _small : const Color(0xFF0284C7),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${AppStrings.stockCutTitle} · ${period.label}',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                  height: 1.2,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                AppStrings.stockCutSubtitle,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontSize: 11.5,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: panelBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border:
-                            Border.all(color: outline.withValues(alpha: 0.55)),
-                      ),
-                      child: Column(
-                        children: [
-                          _DetailRow(
-                            icon: Icons.grid_view_outlined,
-                            label: AppStrings.smallStock,
-                            value: formatSqFt(metrics.smallSqFt),
-                            color: _small,
-                            caption: _changeCaption(
-                              metrics.smallChangePercent,
-                              vsLabel,
-                            ),
-                          ),
-                          Divider(
-                            height: 1,
-                            indent: 14,
-                            endIndent: 14,
-                            color: outline.withValues(alpha: 0.45),
-                          ),
-                          _DetailRow(
-                            icon: Icons.crop_landscape_outlined,
-                            label: AppStrings.largeStock,
-                            value: formatSqFt(metrics.largeSqFt),
-                            color: _large,
-                            caption: _changeCaption(
-                              metrics.largeChangePercent,
-                              vsLabel,
-                            ),
-                          ),
-                          Divider(
-                            height: 1,
-                            indent: 14,
-                            endIndent: 14,
-                            color: outline.withValues(alpha: 0.45),
-                          ),
-                          _DetailRow(
-                            icon: Icons.summarize_outlined,
-                            label: AppStrings.stockCutTotal,
-                            value: formatSqFt(metrics.totalSqFt),
-                            color: _total,
-                            caption: AppStrings.stockCutTotalSubtitle,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(AppStrings.close),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  String _changeCaption(double? change, String vsLabel) {
-    if (period == DashboardFinancePeriod.allTime) {
-      return AppStrings.stockCutAllTimeCaption;
-    }
-    if (change == null) return '${AppStrings.vsYesterdayNa} $vsLabel';
-    return AppStrings.vsPeriodPercent(
-      '${change >= 0 ? '+' : ''}${change.toStringAsFixed(1)}',
-      vsLabel,
+      smallSqFt: metrics.smallSqFt,
+      largeSqFt: metrics.largeSqFt,
+      wasteSqFt: 0,
+      smallAmount: metrics.smallAmount,
+      largeAmount: metrics.largeAmount,
+      salesSmallSqFt: metrics.smallSqFt,
+      salesLargeSqFt: metrics.largeSqFt,
+      salesSmallAmount: metrics.smallAmount,
+      salesLargeAmount: metrics.largeAmount,
     );
   }
 
@@ -573,8 +417,7 @@ class _MetricCell extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: trendColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,                      fontSize: 9.5,
                       height: 1,
                     ),
                   ),
@@ -596,94 +439,6 @@ class _MetricCell extends StatelessWidget {
             )
           else
             const SizedBox(height: 12),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-    required this.caption,
-    this.amountText,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-  final String caption;
-  final String? amountText;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final muted = theme.colorScheme.onSurfaceVariant;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 18, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  caption,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: muted,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                value,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-              if (amountText != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  amountText!,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ],
-          ),
         ],
       ),
     );

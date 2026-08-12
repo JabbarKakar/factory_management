@@ -22,6 +22,7 @@ import 'dashboard_fx_operations_hub.dart';
 import 'dashboard_fx_style.dart';
 import 'dashboard_fx_theme.dart';
 import 'financial_detail_dialog.dart';
+import 'stock_cut_detail_dialog.dart';
 
 /// Compact futuristic executive control center body supporting Light & Dark themes and responsive multi-column layouts.
 class DashboardCommandCenterView extends StatefulWidget {
@@ -1114,15 +1115,36 @@ class _ChartsGridState extends State<_ChartsGrid> {
         index: _panelBTab,
         onChanged: (i) => setState(() => _panelBTab = i),
       ),
-      child: _StockDonut(
-        small: stockIsCut ? cc.smallStockSqFt : cc.salesSmallSqFt,
-        large: stockIsCut ? cc.largeStockSqFt : cc.salesLargeSqFt,
-        waste: stockIsCut ? cc.wasteYieldSqFt : 0,
-        smallAmount: stockIsCut ? cc.smallStockAmount : cc.salesSmallAmount,
-        largeAmount: stockIsCut ? cc.largeStockAmount : cc.salesLargeAmount,
-        totalAmount: stockIsCut ? cc.stockCutTotalAmount : cc.salesTotalAmount,
-        showWaste: stockIsCut,
-        centerLabel: stockIsCut ? 'Cut' : 'Sold',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            StockCutDetailDialog.show(
+              context,
+              smallSqFt: cc.smallStockSqFt,
+              largeSqFt: cc.largeStockSqFt,
+              wasteSqFt: cc.wasteYieldSqFt,
+              smallAmount: cc.smallStockAmount,
+              largeAmount: cc.largeStockAmount,
+              salesSmallSqFt: cc.salesSmallSqFt,
+              salesLargeSqFt: cc.salesLargeSqFt,
+              salesSmallAmount: cc.salesSmallAmount,
+              salesLargeAmount: cc.salesLargeAmount,
+              initialTabIndex: _panelBTab,
+            );
+          },
+          child: _StockDonut(
+            small: stockIsCut ? cc.smallStockSqFt : cc.salesSmallSqFt,
+            large: stockIsCut ? cc.largeStockSqFt : cc.salesLargeSqFt,
+            waste: stockIsCut ? cc.wasteYieldSqFt : 0,
+            smallAmount: stockIsCut ? cc.smallStockAmount : cc.salesSmallAmount,
+            largeAmount: stockIsCut ? cc.largeStockAmount : cc.salesLargeAmount,
+            totalAmount: stockIsCut ? cc.stockCutTotalAmount : cc.salesTotalAmount,
+            showWaste: stockIsCut,
+            centerLabel: stockIsCut ? 'Cut' : 'Sold',
+          ),
+        ),
       ),
     );
 
