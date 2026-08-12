@@ -55,59 +55,60 @@ class DashboardScreen extends StatelessWidget {
             );
           }
 
-          return RefreshIndicator(
-            color: primary,
-            backgroundColor: cardBg,
-            onRefresh: () async {
-              final factoryId = user?.factoryId;
-              if (factoryId != null) {
-                context
-                    .read<DashboardBloc>()
-                    .add(DashboardWatchStarted(factoryId));
-              }
-            },
-            child: Stack(
-              children: [
-                DashboardCommandCenterView(
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              RefreshIndicator(
+                color: primary,
+                backgroundColor: cardBg,
+                onRefresh: () async {
+                  final factoryId = user?.factoryId;
+                  if (factoryId != null) {
+                    context
+                        .read<DashboardBloc>()
+                        .add(DashboardWatchStarted(factoryId));
+                  }
+                },
+                child: DashboardCommandCenterView(
                   state: state,
                   user: user,
                 ),
-                if (state.status == DashboardStatus.failure)
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    top: 8,
-                    child: Material(
-                      color: cardBg,
-                      borderRadius: BorderRadius.circular(12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.error_outline_rounded,
-                              color: DashboardFx.danger(context),
-                              size: 18,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                state.errorMessage ??
-                                    AppStrings.dashboardLoadError,
-                                style: TextStyle(
-                                  color: DashboardFx.text(context),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12.5,
-                                ),
+              ),
+              if (state.status == DashboardStatus.failure)
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  top: 8,
+                  child: Material(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            color: DashboardFx.danger(context),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              state.errorMessage ??
+                                  AppStrings.dashboardLoadError,
+                              style: TextStyle(
+                                color: DashboardFx.text(context),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12.5,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           );
         },
       ),

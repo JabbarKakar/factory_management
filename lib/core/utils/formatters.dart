@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import '../../domain/enums/factory_role_enums.dart';
 import 'currency_formatter.dart';
 
@@ -94,9 +95,58 @@ abstract final class Formatters {
 
   static const String exportEmpty = '-';
 
+  /// Formats physical inventory quantities (e.g. sqft / pcs) without currency symbols.
+  /// Standard (exact): formatStockQuantity(211400, 'sqft') -> "211,400 sqft"
+  /// Compact: formatStockQuantity(211400, 'sqft', compact: true) -> "211.4K sqft"
+  static String formatStockQuantity(
+    num value,
+    String unit, {
+    bool compact = false,
+    int? decimalDigits,
+  }) {
+    final absVal = value.abs().toDouble();
+    final isNeg = value < 0;
+    final prefix = isNeg ? '-' : '';
+
+    final String formattedNum;
+    if (compact) {
+      if (absVal >= 1000000000) {
+        formattedNum = '${_trimZeros((absVal / 1000000000).toStringAsFixed(1))}B';
+      } else if (absVal >= 1000000) {
+        formattedNum = '${_trimZeros((absVal / 1000000).toStringAsFixed(1))}M';
+      } else if (absVal >= 1000) {
+        formattedNum = '${_trimZeros((absVal / 1000).toStringAsFixed(1))}K';
+      } else {
+        formattedNum = _formatExactNum(value, decimalDigits);
+      }
+    } else {
+      formattedNum = _formatExactNum(value, decimalDigits);
+    }
+
+    final trimmedUnit = unit.trim();
+    final unitSuffix = trimmedUnit.isNotEmpty ? ' $trimmedUnit' : '';
+    return '$prefix$formattedNum$unitSuffix'.trim();
+  }
+
+  static String _trimZeros(String v) {
+    if (!v.contains('.')) return v;
+    return v.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+  }
+
+  static String _formatExactNum(num value, int? decimalDigits) {
+    if (decimalDigits != null) {
+      final pattern = decimalDigits > 0
+          ? '#,##0.${'0' * decimalDigits}'
+          : '#,##0';
+      return NumberFormat(pattern).format(value);
+    }
+    if (value is int || value.toDouble() == value.toDouble().roundToDouble()) {
+      return NumberFormat('#,##0').format(value.toInt());
+    }
+    return NumberFormat('#,##0.##').format(value);
+  }
+
   static String stockQuantity(double quantity, String unitLabel) {
-    final formatted =
-        quantity.toStringAsFixed(quantity == quantity.roundToDouble() ? 0 : 2);
-    return '$formatted $unitLabel';
+    return formatStockQuantity(quantity, unitLabel);
   }
 }

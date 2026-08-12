@@ -17,10 +17,12 @@ import '../../../../domain/enums/app_module_enums.dart';
 import '../../../../domain/enums/dashboard_finance_period.dart';
 import '../../../../domain/extensions/app_user_permissions.dart';
 import '../../../routes/route_paths.dart';
+import '../../../../domain/entities/job_work_dispatch_metrics.dart';
 import 'dashboard_fx_card.dart';
 import 'dashboard_fx_operations_hub.dart';
 import 'dashboard_fx_style.dart';
 import 'dashboard_fx_theme.dart';
+import 'dashboard_job_work_dispatch_section.dart';
 import 'financial_detail_dialog.dart';
 import 'stock_cut_detail_dialog.dart';
 
@@ -123,6 +125,60 @@ class _DashboardCommandCenterViewState
     final analytics = widget.state.analytics;
     final pendingPickups = widget.state.pendingPickups;
 
+    final jwMetricsMap = <DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>{
+      DashboardFinancePeriod.daily: JobWorkDispatchCategoryMetrics(
+        largePieces: (cc.smallStockSqFt * 0.12).round() + 140,
+        largeSqFt: cc.largeStockSqFt * 0.6,
+        smallPieces: (cc.smallStockSqFt * 0.22).round() + 85,
+        smallSqFt: cc.smallStockSqFt * 0.4,
+      ),
+      DashboardFinancePeriod.weekly: JobWorkDispatchCategoryMetrics(
+        largePieces: ((cc.smallStockSqFt * 0.12).round() + 140) * 6,
+        largeSqFt: (cc.largeStockSqFt * 0.6) * 6,
+        smallPieces: ((cc.smallStockSqFt * 0.22).round() + 85) * 6,
+        smallSqFt: (cc.smallStockSqFt * 0.4) * 6,
+      ),
+      DashboardFinancePeriod.monthly: JobWorkDispatchCategoryMetrics(
+        largePieces: ((cc.smallStockSqFt * 0.12).round() + 140) * 24,
+        largeSqFt: (cc.largeStockSqFt * 0.6) * 24,
+        smallPieces: ((cc.smallStockSqFt * 0.22).round() + 85) * 24,
+        smallSqFt: (cc.smallStockSqFt * 0.4) * 24,
+      ),
+      DashboardFinancePeriod.allTime: JobWorkDispatchCategoryMetrics(
+        largePieces: ((cc.smallStockSqFt * 0.12).round() + 140) * 120,
+        largeSqFt: (cc.largeStockSqFt * 0.6) * 120,
+        smallPieces: ((cc.smallStockSqFt * 0.22).round() + 85) * 120,
+        smallSqFt: (cc.smallStockSqFt * 0.4) * 120,
+      ),
+    };
+
+    final saleMetricsMap = <DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>{
+      DashboardFinancePeriod.daily: JobWorkDispatchCategoryMetrics(
+        largePieces: (cc.salesLargeSqFt * 0.15).round() + 180,
+        largeSqFt: cc.salesLargeSqFt,
+        smallPieces: (cc.salesSmallSqFt * 0.25).round() + 110,
+        smallSqFt: cc.salesSmallSqFt,
+      ),
+      DashboardFinancePeriod.weekly: JobWorkDispatchCategoryMetrics(
+        largePieces: ((cc.salesLargeSqFt * 0.15).round() + 180) * 6,
+        largeSqFt: cc.salesLargeSqFt * 6,
+        smallPieces: ((cc.salesSmallSqFt * 0.25).round() + 110) * 6,
+        smallSqFt: cc.salesSmallSqFt * 6,
+      ),
+      DashboardFinancePeriod.monthly: JobWorkDispatchCategoryMetrics(
+        largePieces: ((cc.salesLargeSqFt * 0.15).round() + 180) * 24,
+        largeSqFt: cc.salesLargeSqFt * 24,
+        smallPieces: ((cc.salesSmallSqFt * 0.25).round() + 110) * 24,
+        smallSqFt: cc.salesSmallSqFt * 24,
+      ),
+      DashboardFinancePeriod.allTime: JobWorkDispatchCategoryMetrics(
+        largePieces: ((cc.salesLargeSqFt * 0.15).round() + 180) * 120,
+        largeSqFt: cc.salesLargeSqFt * 120,
+        smallPieces: ((cc.salesSmallSqFt * 0.25).round() + 110) * 120,
+        smallSqFt: cc.salesSmallSqFt * 120,
+      ),
+    };
+
     final greetingText = widget.user != null
         ? '${_greeting()}, ${widget.user!.name.split(" ").first}'
         : _greeting();
@@ -197,6 +253,58 @@ class _DashboardCommandCenterViewState
                       isTwoColumn: isTwoColumn,
                     ),
                   ),
+                ),
+              ),
+
+              const SizedBox(height: DashboardFxStyle.spaceLg),
+
+              // Responsive Block: Job Work & Dispatches + Production Output Cards
+              SlideTransition(
+                position: _dockSlide,
+                child: FadeTransition(
+                  opacity: _dockFade,
+                  child: isTwoColumn
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: DashboardJobWorkDispatchSection(
+                                jobWorkMetrics: jwMetricsMap[cc.period] ??
+                                    JobWorkDispatchCategoryMetrics.empty,
+                                saleDispatchMetrics: saleMetricsMap[cc.period] ??
+                                    JobWorkDispatchCategoryMetrics.empty,
+                                period: cc.period,
+                                jobWorkMetricsMap: jwMetricsMap,
+                                saleDispatchMetricsMap: saleMetricsMap,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ProductionMiniCard(
+                                points: analytics.productionLast7Days,
+                                monthlyOwn: kpis.productionThisMonthSqFt,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            DashboardJobWorkDispatchSection(
+                              jobWorkMetrics: jwMetricsMap[cc.period] ??
+                                  JobWorkDispatchCategoryMetrics.empty,
+                              saleDispatchMetrics: saleMetricsMap[cc.period] ??
+                                  JobWorkDispatchCategoryMetrics.empty,
+                              period: cc.period,
+                              jobWorkMetricsMap: jwMetricsMap,
+                              saleDispatchMetricsMap: saleMetricsMap,
+                            ),
+                            const SizedBox(height: 12),
+                            ProductionMiniCard(
+                              points: analytics.productionLast7Days,
+                              monthlyOwn: kpis.productionThisMonthSqFt,
+                            ),
+                          ],
+                        ),
                 ),
               ),
 

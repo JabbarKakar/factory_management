@@ -51,14 +51,6 @@ class DashboardFxOperationsHub extends StatelessWidget {
           icon: Icons.dashboard_customize_outlined,
         ),
         _OpsAlertStrip(kpis: kpis, user: user),
-        const SizedBox(height: DashboardFxStyle.spaceMd),
-        SizedBox(
-          height: 220,
-          child: _ProductionMiniCard(
-            points: analytics.productionLast7Days,
-            monthlyOwn: kpis.productionThisMonthSqFt,
-          ),
-        ),
         if (user != null &&
             (_can(AppModule.sales) || _can(AppModule.jobWork))) ...[
           const SizedBox(height: DashboardFxStyle.spaceMd),
@@ -325,10 +317,11 @@ class _AlertTileState extends State<_AlertTile>
   }
 }
 
-class _ProductionMiniCard extends StatelessWidget {
-  const _ProductionMiniCard({
+class ProductionMiniCard extends StatelessWidget {
+  const ProductionMiniCard({
     required this.points,
     required this.monthlyOwn,
+    super.key,
   });
 
   final List<DailyProductionPoint> points;
@@ -347,20 +340,23 @@ class _ProductionMiniCard extends StatelessWidget {
       title: AppStrings.productionChartTitle,
       subtitle: AppStrings.productionChartSubtitle,
       glowColor: successColor,
+      expandChild: false,
       trailing: Text(
         Formatters.stockQuantity(monthlyOwn, 'sq. ft'),
         style: DashboardFxStyle.caption(context).copyWith(color: successColor),
       ),
-      child: !hasData
-          ? Center(
-              child: Text(
-                AppStrings.productionChartEmpty,
-                textAlign: TextAlign.center,
-                style: DashboardFxStyle.subtitle(context),
-              ),
-            )
-          : ClipRect(
-              child: BarChart(
+      child: SizedBox(
+        height: 140,
+        child: !hasData
+            ? Center(
+                child: Text(
+                  AppStrings.productionChartEmpty,
+                  textAlign: TextAlign.center,
+                  style: DashboardFxStyle.subtitle(context),
+                ),
+              )
+            : ClipRect(
+                child: BarChart(
                 BarChartData(
                   maxY: chartMax,
                   gridData: FlGridData(
@@ -431,6 +427,7 @@ class _ProductionMiniCard extends StatelessWidget {
                 ),
               ),
             ),
+      ),
     );
   }
 }
