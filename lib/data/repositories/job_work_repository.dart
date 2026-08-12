@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/job_work_charges_calculator.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -134,8 +135,9 @@ class JobWorkRepository {
     );
 
     await _jobWorkCollection.doc(id).set(model.toFirestore(isCreate: true));
-    final created = await getJobWorkOrder(id);
-    return created ?? model.toEntity();
+    final created = (await getJobWorkOrder(id)) ?? model.toEntity();
+    EntityReactiveEventBus.instance.notifyCreated<JobWorkOrder>(created);
+    return created;
   }
 
   Future<void> updateJobWorkOrder(JobWorkOrder order) async {
@@ -146,6 +148,7 @@ class JobWorkRepository {
         ? model.toFirestore(containerOnly: true)
         : model.toFirestoreWithComputedYield();
     await _jobWorkCollection.doc(order.id).update(map);
+    EntityReactiveEventBus.instance.notifyUpdated<JobWorkOrder>(order);
   }
 
   Future<void> deleteJobWorkOrder(String id) async {
@@ -191,6 +194,7 @@ class JobWorkRepository {
       value: id,
     );
     await _jobWorkCollection.doc(id).delete();
+    EntityReactiveEventBus.instance.notifyDeleted<JobWorkOrder>(order);
   }
 
   Future<void> _deleteInvoicesAndPaymentsForJobWork({

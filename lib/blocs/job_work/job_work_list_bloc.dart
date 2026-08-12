@@ -18,6 +18,7 @@ import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/quality_enums.dart';
+import '../../core/events/entity_reactive_event_bus.dart';
 
 part 'job_work_list_event.dart';
 part 'job_work_list_state.dart';
@@ -57,6 +58,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
   StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
   StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
+  StreamSubscription<EntityMutationEvent<JobWorkOrder>>? _jobWorkEventSub;
 
   JobWorkStatus? _statusFilterForJobWork(JobWorkListStageFilter filter) {
     return switch (filter) {
@@ -207,6 +209,27 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           (loads) => add(_JobWorkLoadsUpdated(loads)),
           onError: (_) {},
         );
+
+    _jobWorkEventSub?.cancel();
+    _jobWorkEventSub =
+        EntityReactiveEventBus.instance.on<JobWorkOrder>().listen((evt) {
+      if (evt.type == EntityMutationType.created) {
+        final updatedOrders = [
+          evt.entity,
+          ...state.orders.where((o) => o.id != evt.entity.id),
+        ];
+        add(_JobWorkListUpdated(updatedOrders));
+      } else if (evt.type == EntityMutationType.updated) {
+        final updatedOrders = state.orders
+            .map((o) => o.id == evt.entity.id ? evt.entity : o)
+            .toList();
+        add(_JobWorkListUpdated(updatedOrders));
+      } else if (evt.type == EntityMutationType.deleted) {
+        final updatedOrders =
+            state.orders.where((o) => o.id != evt.entity.id).toList();
+        add(_JobWorkListUpdated(updatedOrders));
+      }
+    });
   }
 
   void _onSearchChanged(

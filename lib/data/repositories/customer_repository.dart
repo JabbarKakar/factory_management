@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/firestore_paginator.dart';
 import '../models/paginated_result.dart';
 import '../../domain/entities/customer.dart';
@@ -78,16 +79,22 @@ class CustomerRepository {
     );
 
     await _collection.doc(id).set(model.toFirestore(isCreate: true));
-    final created = await getCustomer(id);
-    return created ?? model.toEntity();
+    final created = (await getCustomer(id)) ?? model.toEntity();
+    EntityReactiveEventBus.instance.notifyCreated<Customer>(created);
+    return created;
   }
 
   Future<void> updateCustomer(Customer customer) async {
     final model = CustomerModel.fromEntity(customer);
     await _collection.doc(customer.id).update(model.toFirestore());
+    EntityReactiveEventBus.instance.notifyUpdated<Customer>(customer);
   }
 
   Future<void> deleteCustomer(String id) async {
+    final existing = await getCustomer(id);
     await _collection.doc(id).delete();
+    if (existing != null) {
+      EntityReactiveEventBus.instance.notifyDeleted<Customer>(existing);
+    }
   }
 }

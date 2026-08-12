@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/events/entity_reactive_event_bus.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/customer_enums.dart';
@@ -241,7 +242,9 @@ class SalesOrderRepository {
         created.agreementId!,
       );
     }
-    return await getSalesOrder(id) ?? created;
+    final finalCreated = (await getSalesOrder(id)) ?? created;
+    EntityReactiveEventBus.instance.notifyCreated<SalesOrder>(finalCreated);
+    return finalCreated;
   }
 
   Future<void> updateSalesOrder(SalesOrder order) async {
@@ -257,6 +260,7 @@ class SalesOrderRepository {
     final model = SalesOrderModel.fromEntity(updated);
     await _ordersCollection.doc(order.id).update(model.toFirestore());
     await _syncAgreementIfLinked(updated.agreementId);
+    EntityReactiveEventBus.instance.notifyUpdated<SalesOrder>(updated);
   }
 
   Future<void> advanceSalesOrderStatus(String id, SalesOrderStatus status) async {
@@ -292,6 +296,9 @@ class SalesOrderRepository {
     final order = await getSalesOrder(id);
     await _ordersCollection.doc(id).delete();
     await _syncAgreementIfLinked(order?.agreementId);
+    if (order != null) {
+      EntityReactiveEventBus.instance.notifyDeleted<SalesOrder>(order);
+    }
   }
 
   Future<void> cancelSalesOrder(String id) async {

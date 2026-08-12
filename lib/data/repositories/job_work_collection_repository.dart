@@ -189,6 +189,39 @@ class JobWorkCollectionRepository {
   Future<void> syncLoadCollectionDerivedStatus(String loadId) =>
       _syncLoadCollectionDerivedStatus(loadId);
 
+  /// Cancels a collection record and re-syncs the load status.
+  Future<void> cancelCollection(String collectionId) async {
+    final docRef = _collection.doc(collectionId);
+    final doc = await docRef.get();
+    if (!doc.exists || doc.data() == null) return;
+
+    final collection =
+        JobWorkCollectionModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    await docRef.update({
+      'status': JobWorkCollectionStatus.cancelled.name,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    if (collection.loadId != null && collection.loadId!.isNotEmpty) {
+      await _syncLoadCollectionDerivedStatus(collection.loadId!);
+    }
+  }
+
+  /// Deletes a collection record and re-syncs the load status.
+  Future<void> deleteCollection(String collectionId) async {
+    final docRef = _collection.doc(collectionId);
+    final doc = await docRef.get();
+    if (!doc.exists || doc.data() == null) return;
+
+    final collection =
+        JobWorkCollectionModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    await docRef.delete();
+
+    if (collection.loadId != null && collection.loadId!.isNotEmpty) {
+      await _syncLoadCollectionDerivedStatus(collection.loadId!);
+    }
+  }
+
   Future<JobWorkLoad> _resolveLoadForCollection({
     required String jobWorkOrderId,
     String? loadId,

@@ -211,7 +211,17 @@ class _CustomersScreenState extends State<CustomersScreen> {
       floatingActionButton: context.userCanCreate(AppModule.customers)
           ? AppExtendedFab(
               heroTag: 'fab-customers',
-              onPressed: () => context.push(RoutePaths.customersAdd),
+              onPressed: () async {
+                await context.push(RoutePaths.customersAdd);
+                if (context.mounted) {
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    context
+                        .read<CustomerListBloc>()
+                        .add(CustomerListWatchStarted(factoryId));
+                  }
+                }
+              },
               icon: Icons.person_add_alt_1_outlined,
               label: AppStrings.addCustomer,
             )

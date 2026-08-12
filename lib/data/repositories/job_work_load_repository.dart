@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/job_work_charges_calculator.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -290,7 +291,9 @@ class JobWorkLoadRepository {
       ),
     );
     await batch.commit();
-    return (await getLoad(id)) ?? load;
+    final created = (await getLoad(id)) ?? load;
+    EntityReactiveEventBus.instance.notifyCreated<JobWorkLoad>(created);
+    return created;
   }
 
   /// Updates an existing Load and refreshes JW container counters.

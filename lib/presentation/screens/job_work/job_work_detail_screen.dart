@@ -9,6 +9,7 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/constants/job_work_sizes.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/repositories/job_work_collection_repository.dart';
 import '../../../data/repositories/job_work_load_repository.dart';
 import '../../../data/repositories/payment_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
@@ -1163,18 +1164,137 @@ class _CollectionHistoryRow extends StatelessWidget {
                 ),
               ),
             ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: () => context.push(
-                RoutePaths.jobWorkCollectionSlip(collection.id),
-              ),
-              icon: const Icon(Icons.description_outlined, size: 16),
-              label: const Text(AppStrings.viewCollectionSlip),
-              style: TextButton.styleFrom(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-              ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton.icon(
+                  onPressed: () => context.push(
+                    RoutePaths.jobWorkCollectionSlip(collection.id),
+                  ),
+                  icon: const Icon(Icons.description_outlined, size: 16),
+                  label: const Text(AppStrings.viewCollectionSlip),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, size: 18),
+                  tooltip: 'Actions',
+                  onSelected: (value) async {
+                    if (value == 'slip') {
+                      context.push(
+                        RoutePaths.jobWorkCollectionSlip(collection.id),
+                      );
+                    } else if (value == 'update') {
+                      final loadId = collection.loadId;
+                      if (loadId != null && loadId.isNotEmpty) {
+                        context.push(
+                          RoutePaths.jobWorkLoadCollectMaterial(
+                            jobWorkId: collection.jobWorkOrderId,
+                            loadId: loadId,
+                          ),
+                        );
+                      } else {
+                        context.push(
+                          RoutePaths.jobWorkCollectMaterial(
+                            collection.jobWorkOrderId,
+                          ),
+                        );
+                      }
+                    } else if (value == 'cancel') {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Cancel Collection'),
+                          content: Text(
+                            'Are you sure you want to cancel collection ${collection.collectionNumber}?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('No'),
+                            ),
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.error,
+                              ),
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              child: const Text('Yes, Cancel'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true && context.mounted) {
+                        try {
+                          await getIt<JobWorkCollectionRepository>()
+                              .cancelCollection(collection.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Collection ${collection.collectionNumber} cancelled.',
+                                ),
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Error cancelling collection: $e'),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem<String>(
+                      value: 'slip',
+                      child: Row(
+                        children: [
+                          Icon(Icons.receipt_long_outlined, size: 18),
+                          SizedBox(width: 10),
+                          Text(AppStrings.collectionSlip),
+                        ],
+                      ),
+                    ),
+                    if (collection.status != JobWorkCollectionStatus.cancelled)
+                      const PopupMenuItem<String>(
+                        value: 'update',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 18),
+                            SizedBox(width: 10),
+                            Text('Update Collection'),
+                          ],
+                        ),
+                      ),
+                    if (collection.status != JobWorkCollectionStatus.cancelled)
+                      const PopupMenuItem<String>(
+                        value: 'cancel',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.cancel_outlined,
+                              size: 18,
+                              color: AppColors.error,
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Cancel Collection',
+                              style: TextStyle(color: AppColors.error),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],

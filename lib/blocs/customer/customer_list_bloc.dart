@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/events/entity_reactive_event_bus.dart';
 import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_load_repository.dart';
@@ -64,6 +65,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
   StreamSubscription<List<SalesOrder>>? _salesSubscription;
   StreamSubscription<List<SalesInvoice>>? _salesInvoiceSubscription;
   StreamSubscription<List<Payment>>? _paymentSubscription;
+  StreamSubscription<EntityMutationEvent<Customer>>? _customerEventSub;
 
   List<Customer> _rawCustomers = [];
   List<JobWorkOrder> _jobWorkOrders = [];
@@ -207,6 +209,27 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
       },
       onError: (_) {},
     );
+
+    _customerEventSub?.cancel();
+    _customerEventSub =
+        EntityReactiveEventBus.instance.on<Customer>().listen((evt) {
+      if (evt.type == EntityMutationType.created) {
+        _rawCustomers = [
+          evt.entity,
+          ..._rawCustomers.where((c) => c.id != evt.entity.id),
+        ];
+        add(const _CustomerDataChanged());
+      } else if (evt.type == EntityMutationType.updated) {
+        _rawCustomers = _rawCustomers
+            .map((c) => c.id == evt.entity.id ? evt.entity : c)
+            .toList();
+        add(const _CustomerDataChanged());
+      } else if (evt.type == EntityMutationType.deleted) {
+        _rawCustomers =
+            _rawCustomers.where((c) => c.id != evt.entity.id).toList();
+        add(const _CustomerDataChanged());
+      }
+    });
   }
 
   Future<void> _onWatchStopped(
@@ -217,6 +240,8 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
   }
 
   Future<void> _cancelSubscriptions() async {
+    await _customerEventSub?.cancel();
+    _customerEventSub = null;
     await _jobWorkSubscription?.cancel();
     _jobWorkSubscription = null;
     await _jobWorkLoadSubscription?.cancel();

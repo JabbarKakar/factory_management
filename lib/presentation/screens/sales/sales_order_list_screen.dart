@@ -295,7 +295,17 @@ class _SalesOrderListScreenState extends State<SalesOrderListScreen> {
       floatingActionButton: context.userCanCreate(AppModule.sales)
           ? AppExtendedFab(
               heroTag: 'fab-sales-orders-secondary',
-              onPressed: () => context.push(RoutePaths.salesAdd),
+              onPressed: () async {
+                await context.push(RoutePaths.salesAdd);
+                if (context.mounted) {
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    context
+                        .read<SalesOrderListBloc>()
+                        .add(SalesOrderListWatchStarted(factoryId));
+                  }
+                }
+              },
               icon: Icons.handshake_outlined,
               label: AppStrings.newSalesAgreement,
             )

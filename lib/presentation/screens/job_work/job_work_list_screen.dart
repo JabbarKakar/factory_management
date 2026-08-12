@@ -388,7 +388,17 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       floatingActionButton: context.userCanCreate(AppModule.jobWork)
           ? AppExtendedFab(
               heroTag: 'fab-job-work',
-              onPressed: () => context.push(RoutePaths.jobWorkAdd),
+              onPressed: () async {
+                await context.push(RoutePaths.jobWorkAdd);
+                if (context.mounted) {
+                  final factoryId = readFactoryId(context);
+                  if (factoryId != null) {
+                    context
+                        .read<JobWorkListBloc>()
+                        .add(JobWorkListWatchStarted(factoryId));
+                  }
+                }
+              },
               icon: Icons.work_outline,
               label: AppStrings.newJobWorkOrder,
             )

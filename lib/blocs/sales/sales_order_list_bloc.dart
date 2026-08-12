@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../core/events/entity_reactive_event_bus.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/sales_enums.dart';
@@ -24,6 +25,7 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
   }
 
   final SalesOrderRepository _repository;
+  StreamSubscription<EntityMutationEvent<SalesOrder>>? _salesEventSub;
 
   SalesOrderStatus? _statusFilterForSales(SalesListFilter filter) {
     return switch (filter) {
@@ -43,6 +45,26 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
     SalesOrderListWatchStarted event,
     Emitter<SalesOrderListState> emit,
   ) async {
+    _salesEventSub?.cancel();
+    _salesEventSub =
+        EntityReactiveEventBus.instance.on<SalesOrder>().listen((evt) {
+      if (evt.type == EntityMutationType.created) {
+        final updated = [
+          evt.entity,
+          ...state.orders.where((o) => o.id != evt.entity.id),
+        ];
+        add(_SalesOrderListUpdated(updated));
+      } else if (evt.type == EntityMutationType.updated) {
+        final updated = state.orders
+            .map((o) => o.id == evt.entity.id ? evt.entity : o)
+            .toList();
+        add(_SalesOrderListUpdated(updated));
+      } else if (evt.type == EntityMutationType.deleted) {
+        final updated =
+            state.orders.where((o) => o.id != evt.entity.id).toList();
+        add(_SalesOrderListUpdated(updated));
+      }
+    });
     final stageFilter = event.initialFilter ?? state.stageFilter;
     emit(
       state.copyWith(
@@ -223,5 +245,11 @@ class SalesOrderListBloc extends Bloc<SalesOrderListEvent, SalesOrderListState> 
     });
 
     return filtered;
+  }
+
+  @override
+  Future<void> close() {
+    _salesEventSub?.cancel();
+    return super.close();
   }
 }

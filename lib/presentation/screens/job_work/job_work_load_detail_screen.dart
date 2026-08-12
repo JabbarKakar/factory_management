@@ -8,6 +8,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/repositories/job_work_collection_repository.dart';
 import '../../../data/repositories/job_work_load_repository.dart';
 import '../../../data/services/job_work_collection_quantity_helper.dart';
 import '../../../data/services/job_work_container_sync_helper.dart';
@@ -770,9 +771,13 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                       for (final collection in loadCollections)
                         _LoadCollectionRow(
                           collection: collection,
+                          jobWorkId: jobWorkId,
+                          loadId: load.id,
+                          canEdit: canEdit,
                           onOpenSlip: () => context.push(
                             RoutePaths.jobWorkCollectionSlip(collection.id),
                           ),
+                          onReload: () => _reload(context),
                         ),
                     ],
                   ),
@@ -956,29 +961,48 @@ class _LoadHero extends StatelessWidget {
 class _LoadCollectionRow extends StatelessWidget {
   const _LoadCollectionRow({
     required this.collection,
+    required this.jobWorkId,
+    required this.loadId,
+    required this.canEdit,
     required this.onOpenSlip,
+    required this.onReload,
   });
 
   final JobWorkCollection collection;
+  final String jobWorkId;
+  final String loadId;
+  final bool canEdit;
   final VoidCallback onOpenSlip;
+  final VoidCallback onReload;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final accent = collection.status == JobWorkCollectionStatus.cancelled
-        ? AppColors.error
-        : AppColors.success;
+    final isCancelled = collection.status == JobWorkCollectionStatus.cancelled;
+    final accent = isCancelled ? AppColors.error : AppColors.success;
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 12),
       leading: Icon(Icons.handshake_outlined, color: accent, size: 20),
-      title: Text(
-        collection.collectionNumber,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              collection.collectionNumber,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                decoration: isCancelled ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+          if (isCancelled)
+            const CompactStatusChip(
+              label: 'Cancelled',
+              color: AppColors.error,
+            ),
+        ],
       ),
       subtitle: Text(
         '${DateFormat.yMMMd().format(collection.collectedAt)} · '
@@ -986,11 +1010,104 @@ class _LoadCollectionRow extends StatelessWidget {
         '${collection.totalSquareFeet.toStringAsFixed(2)} sq. ft',
         style: theme.textTheme.labelSmall?.copyWith(color: muted),
       ),
-      trailing: IconButton(
-        onPressed: onOpenSlip,
-        icon: const Icon(Icons.receipt_long_outlined, size: 20),
-        tooltip: AppStrings.collectionSlip,
+      trailing: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert_rounded, size: 20),
+        tooltip: 'Actions',
+        onSelected: (value) async {
+          if (value == 'slip') {
+            onOpenSlip();
+          } else if (value == 'update') {
+            await context.push(
+              RoutePaths.jobWorkLoadCollectMaterial(
+                jobWorkId: jobWorkId,
+                loadId: loadId,
+              ),
+            );
+            onReload();
+          } else if (value == 'cancel') {
+            await _confirmAndCancel(context);
+          }
+        },
+        itemBuilder: (context) => [
+          const PopupMenuItem<String>(
+            value: 'slip',
+            child: Row(
+              children: [
+                Icon(Icons.receipt_long_outlined, size: 18),
+                SizedBox(width: 10),
+                Text(AppStrings.collectionSlip),
+              ],
+            ),
+          ),
+          if (canEdit && !isCancelled)
+            const PopupMenuItem<String>(
+              value: 'update',
+              child: Row(
+                children: [
+                  Icon(Icons.edit_outlined, size: 18),
+                  SizedBox(width: 10),
+                  Text('Update Collection'),
+                ],
+              ),
+            ),
+          if (canEdit && !isCancelled)
+            const PopupMenuItem<String>(
+              value: 'cancel',
+              child: Row(
+                children: [
+                  Icon(Icons.cancel_outlined, size: 18, color: AppColors.error),
+                  SizedBox(width: 10),
+                  Text('Cancel Collection', style: TextStyle(color: AppColors.error)),
+                ],
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  Future<void> _confirmAndCancel(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Collection'),
+        content: Text(
+          'Are you sure you want to cancel collection ${collection.collectionNumber}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        await getIt<JobWorkCollectionRepository>().cancelCollection(collection.id);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Collection ${collection.collectionNumber} cancelled.',
+              ),
+            ),
+          );
+          onReload();
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error cancelling collection: $e')),
+          );
+        }
+      }
+    }
   }
 }
