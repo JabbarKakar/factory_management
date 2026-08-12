@@ -220,14 +220,14 @@ class _DonutBody extends StatelessWidget {
                     PieChart(
                       PieChartData(
                         sectionsSpace: 2,
-                        centerSpaceRadius: 32,
+                        centerSpaceRadius: 36,
                         sections: [
                           PieChartSectionData(
                             value: metrics.largeSqFt <= 0
                                 ? 0.001
                                 : metrics.largeSqFt,
                             color: _largeColor,
-                            radius: 12,
+                            radius: 10,
                             showTitle: false,
                           ),
                           PieChartSectionData(
@@ -235,34 +235,42 @@ class _DonutBody extends StatelessWidget {
                                 ? 0.001
                                 : metrics.smallSqFt,
                             color: _smallColor,
-                            radius: 12,
+                            radius: 10,
                             showTitle: false,
                           ),
                         ],
                       ),
                     ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            _sqftLabel(totalSq),
-                            style: TextStyle(
-                              color: textColor,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 11,
+                    Container(
+                      width: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _sqftLabel(totalSq),
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
                             ),
                           ),
-                        ),
-                        Text(
-                          centerLabel,
-                          style: TextStyle(
-                            color: mutedColor,
-                            fontSize: 9.5,
+                          const SizedBox(height: 1),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              centerLabel,
+                              style: TextStyle(
+                                color: mutedColor,
+                                fontSize: 9.5,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),

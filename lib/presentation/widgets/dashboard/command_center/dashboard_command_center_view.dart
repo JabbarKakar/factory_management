@@ -1713,49 +1713,60 @@ class _StockDonut extends StatelessWidget {
                     PieChart(
                       PieChartData(
                         sectionsSpace: 2,
-                        centerSpaceRadius: 32,
+                        centerSpaceRadius: 36,
                         sections: [
                           PieChartSectionData(
                             value: large <= 0 ? 0.001 : large,
                             color: primaryColor,
-                            radius: 12,
+                            radius: 10,
                             showTitle: false,
                           ),
                           PieChartSectionData(
                             value: small <= 0 ? 0.001 : small,
                             color: electricColor,
-                            radius: 12,
+                            radius: 10,
                             showTitle: false,
                           ),
                           if (showWaste)
                             PieChartSectionData(
                               value: waste <= 0 ? 0.001 : waste,
                               color: dangerColor,
-                              radius: 12,
+                              radius: 10,
                               showTitle: false,
                             ),
                         ],
                       ),
                     ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _compactSqFt(totalSq),
-                          style: TextStyle(
-                            color: textColor,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12,
+                    Container(
+                      width: 56,
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              _compactSqFt(totalSq),
+                              style: TextStyle(
+                                color: textColor,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 11,
+                              ),
+                            ),
                           ),
-                        ),
-                        Text(
-                          centerLabel,
-                          style: TextStyle(
-                            color: mutedColor,
-                            fontSize: 9.5,
+                          const SizedBox(height: 1),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              centerLabel,
+                              style: TextStyle(
+                                color: mutedColor,
+                                fontSize: 9.5,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
