@@ -194,42 +194,45 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
     return Dialog(
       backgroundColor: surfaceColor,
       elevation: 24,
+      clipBehavior: Clip.antiAlias,
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(color: borderColor, width: 1.2),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 580),
-        child: AnimatedBuilder(
-          animation: _revealAnim,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: 0.95 + (0.05 * _revealAnim.value),
-              child: Opacity(
-                opacity: _revealAnim.value,
-                child: child,
-              ),
-            );
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Glowing Top Indicator Strip
-              Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(20)),
-                  gradient: LinearGradient(
-                    colors: [
-                      widget.accentColor,
-                      widget.accentColor.withValues(alpha: 0.3),
-                    ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 580),
+          child: AnimatedBuilder(
+            animation: _revealAnim,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: 0.95 + (0.05 * _revealAnim.value),
+                child: Opacity(
+                  opacity: _revealAnim.value,
+                  child: child,
+                ),
+              );
+            },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Glowing Top Indicator Strip
+                Container(
+                  height: 3.5,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        widget.accentColor,
+                        widget.accentColor.withValues(alpha: 0.25),
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
               // Header Bar
               Padding(
@@ -696,8 +699,9 @@ class _FinancialDetailDialogState extends State<FinancialDetailDialog>
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _FinancialChartPainter extends CustomPainter {
