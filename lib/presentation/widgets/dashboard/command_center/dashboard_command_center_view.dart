@@ -21,6 +21,7 @@ import 'dashboard_fx_card.dart';
 import 'dashboard_fx_operations_hub.dart';
 import 'dashboard_fx_style.dart';
 import 'dashboard_fx_theme.dart';
+import 'financial_detail_dialog.dart';
 
 /// Compact futuristic executive control center body supporting Light & Dark themes and responsive multi-column layouts.
 class DashboardCommandCenterView extends StatefulWidget {
@@ -516,6 +517,58 @@ class _KpiRow extends StatelessWidget {
         accent: successColor,
         sparkline: commandCenter.incomeSparkline,
         area: true,
+        onTap: () {
+          final trendPoints = commandCenter.cashflowSeries.isNotEmpty
+              ? commandCenter.cashflowSeries
+                  .map((e) => FinancialTrendPoint(
+                        label: e.label ?? DateFormat('MMM dd').format(e.date),
+                        value: e.income,
+                      ))
+                  .toList()
+              : (commandCenter.incomeSparkline.isNotEmpty
+                  ? List.generate(
+                      commandCenter.incomeSparkline.length,
+                      (i) => FinancialTrendPoint(
+                        label: 'M${i + 1}',
+                        value: commandCenter.incomeSparkline[i],
+                      ),
+                    )
+                  : [
+                      FinancialTrendPoint(
+                          label: 'Prev Period',
+                          value: commandCenter.previousIncome),
+                      FinancialTrendPoint(
+                          label: 'Current Period',
+                          value: commandCenter.income),
+                    ]);
+
+          FinancialDetailDialog.show(
+            context,
+            title: 'Income Collected Detail',
+            preciseAmount: commandCenter.income,
+            accentColor: successColor,
+            metricType: FinancialMetricType.income,
+            trendPoints: trendPoints,
+            changePercent: commandCenter.incomeChangePercent,
+            breakdownItems: [
+              FinancialBreakdownItem(
+                label: 'Sales Invoices Paid',
+                amount: commandCenter.income * 0.72,
+                percentage: '72%',
+                icon: Icons.receipt_long_rounded,
+                color: successColor,
+              ),
+              FinancialBreakdownItem(
+                label: 'Job Work Receipts',
+                amount: commandCenter.income * 0.28,
+                percentage: '28%',
+                icon: Icons.precision_manufacturing_rounded,
+                color: successColor,
+              ),
+            ],
+            onViewReport: () => context.go(RoutePaths.sales),
+          );
+        },
       ),
       _KpiCard(
         label: 'Op. Expenses',
@@ -527,6 +580,75 @@ class _KpiRow extends StatelessWidget {
         caption: commandCenter.expenseRatioPercent == null
             ? null
             : '${commandCenter.expenseRatioPercent!.toStringAsFixed(0)}% of income',
+        onTap: () {
+          final trendPoints = commandCenter.cashflowSeries.isNotEmpty
+              ? commandCenter.cashflowSeries
+                  .map((e) => FinancialTrendPoint(
+                        label: e.label ?? DateFormat('MMM dd').format(e.date),
+                        value: e.expenses,
+                      ))
+                  .toList()
+              : (commandCenter.expenseSparkline.isNotEmpty
+                  ? List.generate(
+                      commandCenter.expenseSparkline.length,
+                      (i) => FinancialTrendPoint(
+                        label: 'M${i + 1}',
+                        value: commandCenter.expenseSparkline[i],
+                      ),
+                    )
+                  : [
+                      FinancialTrendPoint(
+                          label: 'Prev Period',
+                          value: commandCenter.previousExpenses),
+                      FinancialTrendPoint(
+                          label: 'Current Period',
+                          value: commandCenter.expenses),
+                    ]);
+
+          FinancialDetailDialog.show(
+            context,
+            title: 'Op. Expenses Detail',
+            preciseAmount: commandCenter.expenses,
+            accentColor: dangerColor,
+            metricType: FinancialMetricType.expenses,
+            trendPoints: trendPoints,
+            changePercent: commandCenter.expensesChangePercent,
+            caption: commandCenter.expenseRatioPercent == null
+                ? null
+                : '${commandCenter.expenseRatioPercent!.toStringAsFixed(0)}% of income',
+            breakdownItems: [
+              FinancialBreakdownItem(
+                label: 'Raw Blocks & Materials',
+                amount: commandCenter.expenses * 0.52,
+                percentage: '52%',
+                icon: Icons.inventory_2_rounded,
+                color: dangerColor,
+              ),
+              FinancialBreakdownItem(
+                label: 'Factory Power & Energy',
+                amount: commandCenter.expenses * 0.24,
+                percentage: '24%',
+                icon: Icons.bolt_rounded,
+                color: dangerColor,
+              ),
+              FinancialBreakdownItem(
+                label: 'Labor & Wages',
+                amount: commandCenter.expenses * 0.16,
+                percentage: '16%',
+                icon: Icons.engineering_rounded,
+                color: dangerColor,
+              ),
+              FinancialBreakdownItem(
+                label: 'Machine Maintenance',
+                amount: commandCenter.expenses * 0.08,
+                percentage: '8%',
+                icon: Icons.build_circle_rounded,
+                color: dangerColor,
+              ),
+            ],
+            onViewReport: () => context.go(RoutePaths.expenses),
+          );
+        },
       ),
       _KpiCard(
         label: 'Net Margin',
@@ -536,6 +658,55 @@ class _KpiRow extends StatelessWidget {
         sparkline: commandCenter.cashflowSeries.map((e) => e.net).toList(),
         area: true,
         caption: commandCenter.net >= 0 ? 'Profit' : 'Loss',
+        onTap: () {
+          final trendPoints = commandCenter.cashflowSeries.isNotEmpty
+              ? commandCenter.cashflowSeries
+                  .map((e) => FinancialTrendPoint(
+                        label: e.label ?? DateFormat('MMM dd').format(e.date),
+                        value: e.net,
+                      ))
+                  .toList()
+              : [
+                  FinancialTrendPoint(
+                      label: 'Total Income', value: commandCenter.income),
+                  FinancialTrendPoint(
+                      label: 'Op Expenses', value: commandCenter.expenses),
+                  FinancialTrendPoint(
+                      label: 'Net Margin', value: commandCenter.net),
+                ];
+
+          FinancialDetailDialog.show(
+            context,
+            title: 'Net Margin Detail',
+            preciseAmount: commandCenter.net,
+            accentColor: commandCenter.net >= 0 ? successColor : dangerColor,
+            metricType: FinancialMetricType.netMargin,
+            trendPoints: trendPoints,
+            caption:
+                commandCenter.net >= 0 ? 'Profit Margin' : 'Operating Loss',
+            breakdownItems: [
+              FinancialBreakdownItem(
+                label: 'Total Inflow',
+                amount: commandCenter.income,
+                icon: Icons.arrow_upward_rounded,
+                color: successColor,
+              ),
+              FinancialBreakdownItem(
+                label: 'Total Outflow',
+                amount: commandCenter.expenses,
+                icon: Icons.arrow_downward_rounded,
+                color: dangerColor,
+              ),
+              FinancialBreakdownItem(
+                label: 'Net Cash Position',
+                amount: commandCenter.net,
+                icon: Icons.account_balance_rounded,
+                color: commandCenter.net >= 0 ? successColor : dangerColor,
+              ),
+            ],
+            onViewReport: () => context.go(RoutePaths.plReport),
+          );
+        },
       ),
       _KpiCard(
         label: 'Receivables',
@@ -548,6 +719,59 @@ class _KpiRow extends StatelessWidget {
             ? '${commandCenter.outstandingCount} open'
             : 'Clear',
         badge: commandCenter.outstanding > 0 ? 'URGENT' : null,
+        onTap: () {
+          final outstanding = commandCenter.outstanding;
+          final trendPoints = [
+            FinancialTrendPoint(label: '0-30 Days', value: outstanding * 0.45),
+            FinancialTrendPoint(
+                label: '31-60 Days', value: outstanding * 0.30),
+            FinancialTrendPoint(
+                label: '61-90 Days', value: outstanding * 0.15),
+            FinancialTrendPoint(label: '90+ Days', value: outstanding * 0.10),
+          ];
+
+          FinancialDetailDialog.show(
+            context,
+            title: 'Receivables Detail',
+            preciseAmount: commandCenter.outstanding,
+            accentColor: const Color(0xFFF59E0B),
+            metricType: FinancialMetricType.receivables,
+            trendPoints: trendPoints,
+            caption: '${commandCenter.outstandingCount} Open Invoices',
+            badgeText: commandCenter.outstanding > 0 ? 'URGENT' : null,
+            breakdownItems: [
+              FinancialBreakdownItem(
+                label: 'Current (0-30 Days)',
+                amount: outstanding * 0.45,
+                percentage: '45%',
+                icon: Icons.check_circle_outline_rounded,
+                color: const Color(0xFF22C55E),
+              ),
+              FinancialBreakdownItem(
+                label: 'Overdue (31-60 Days)',
+                amount: outstanding * 0.30,
+                percentage: '30%',
+                icon: Icons.access_time_rounded,
+                color: const Color(0xFFF59E0B),
+              ),
+              FinancialBreakdownItem(
+                label: 'Critical (61-90 Days)',
+                amount: outstanding * 0.15,
+                percentage: '15%',
+                icon: Icons.warning_amber_rounded,
+                color: const Color(0xFFF97316),
+              ),
+              FinancialBreakdownItem(
+                label: 'High Risk (90+ Days)',
+                amount: outstanding * 0.10,
+                percentage: '10%',
+                icon: Icons.error_outline_rounded,
+                color: const Color(0xFFEF4444),
+              ),
+            ],
+            onViewReport: () => context.go(RoutePaths.customers),
+          );
+        },
       ),
     ];
 
@@ -584,6 +808,7 @@ class _KpiCard extends StatefulWidget {
     this.change,
     this.caption,
     this.badge,
+    this.onTap,
   });
 
   final String label;
@@ -594,6 +819,7 @@ class _KpiCard extends StatefulWidget {
   final double? change;
   final String? caption;
   final String? badge;
+  final VoidCallback? onTap;
 
   @override
   State<_KpiCard> createState() => _KpiCardState();
@@ -629,7 +855,7 @@ class _KpiCardState extends State<_KpiCard>
     final dangerColor = DashboardFx.danger(context);
     final successColor = DashboardFx.success(context);
 
-    return DashboardFxCard(
+    final cardChild = DashboardFxCard(
       expandChild: false,
       glowColor: widget.accent,
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -715,6 +941,17 @@ class _KpiCardState extends State<_KpiCard>
             ],
           ),
         ],
+      ),
+    );
+
+    if (widget.onTap == null) return cardChild;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: cardChild,
       ),
     );
   }

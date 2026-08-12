@@ -59,6 +59,20 @@ abstract final class Formatters {
     );
   }
 
+  /// Precise full currency without K/M truncation (e.g. Rs 30,900).
+  static String currencyFull(
+    double amount, {
+    String? currencyCode,
+    bool showDecimals = false,
+  }) {
+    return CurrencyFormatter.formatFull(
+      amount,
+      currencyCode: currencyCode,
+      showDecimals: showDecimals,
+    );
+  }
+
+
   /// ASCII-safe currency for PDF/Excel exports (Helvetica fallback friendly).
   static String currencyForExport(double amount, {String? currencyCode}) {
     return CurrencyFormatter.format(

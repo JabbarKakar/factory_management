@@ -39,6 +39,22 @@ abstract final class CurrencyFormatter {
     return '$prefix$symbol $formattedNumber'.trim();
   }
 
+  /// Formats exact un-abbreviated currency value with localized symbol and thousands separators.
+  /// Example: 30900 -> "Rs 30,900", 4500000 -> "Rs 4,500,000".
+  static String formatFull(
+    num amount, {
+    String? currencyCode,
+    bool showDecimals = false,
+    bool asciiSafe = false,
+  }) {
+    return format(
+      amount,
+      currencyCode: currencyCode,
+      decimalDigits: showDecimals ? 2 : (amount.toDouble() % 1 == 0 ? 0 : 2),
+      asciiSafe: asciiSafe,
+    );
+  }
+
   /// Compact currency for dense UI (K / M suffixes).
   static String formatCompact(
     num amount, {
