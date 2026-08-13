@@ -18,28 +18,28 @@ class JobWorkSaleDispatchDetailDialog extends StatefulWidget {
   });
 
   final Map<DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>
-      jobWorkMetricsMap;
+  jobWorkMetricsMap;
   final Map<DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>
-      saleDispatchMetricsMap;
+  saleDispatchMetricsMap;
   final DashboardFinancePeriod initialPeriod;
   final int initialTabIndex; // 0: Job Work, 1: Sale Dispatch
   final Map<DashboardFinancePeriod, List<JobWorkDispatchTrendPoint>>?
-      jobWorkTrendMap;
+  jobWorkTrendMap;
   final Map<DashboardFinancePeriod, List<JobWorkDispatchTrendPoint>>?
-      saleDispatchTrendMap;
+  saleDispatchTrendMap;
 
   static Future<void> show(
     BuildContext context, {
     required Map<DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>
-        jobWorkMetricsMap,
+    jobWorkMetricsMap,
     required Map<DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>
-        saleDispatchMetricsMap,
+    saleDispatchMetricsMap,
     DashboardFinancePeriod initialPeriod = DashboardFinancePeriod.daily,
     int initialTabIndex = 0,
     Map<DashboardFinancePeriod, List<JobWorkDispatchTrendPoint>>?
-        jobWorkTrendMap,
+    jobWorkTrendMap,
     Map<DashboardFinancePeriod, List<JobWorkDispatchTrendPoint>>?
-        saleDispatchTrendMap,
+    saleDispatchTrendMap,
   }) {
     return showDialog<void>(
       context: context,
@@ -66,7 +66,7 @@ class _JobWorkSaleDispatchDetailDialogState
   late final AnimationController _animController;
   late final Animation<double> _revealAnim;
   late int _selectedTab;
-  late DashboardFinancePeriod _selectedPeriod;
+  late final DashboardFinancePeriod _selectedPeriod;
   int? _hoveredTrendIndex;
 
   static const Color _largeColor = Color(0xFFF59E0B);
@@ -110,14 +110,16 @@ class _JobWorkSaleDispatchDetailDialogState
   bool get _isJobWork => _selectedTab == 0;
 
   JobWorkDispatchCategoryMetrics get _currentMetrics {
-    final map =
-        _isJobWork ? widget.jobWorkMetricsMap : widget.saleDispatchMetricsMap;
+    final map = _isJobWork
+        ? widget.jobWorkMetricsMap
+        : widget.saleDispatchMetricsMap;
     return map[_selectedPeriod] ?? JobWorkDispatchCategoryMetrics.empty;
   }
 
   List<JobWorkDispatchTrendPoint> get _effectiveTrendPoints {
-    final map =
-        _isJobWork ? widget.jobWorkTrendMap : widget.saleDispatchTrendMap;
+    final map = _isJobWork
+        ? widget.jobWorkTrendMap
+        : widget.saleDispatchTrendMap;
     final provided = map?[_selectedPeriod];
     if (provided != null && provided.isNotEmpty) return provided;
 
@@ -126,8 +128,8 @@ class _JobWorkSaleDispatchDetailDialogState
     final labels = _selectedPeriod == DashboardFinancePeriod.daily
         ? ['08:00', '11:00', '14:00', '17:00', '20:00']
         : (_selectedPeriod == DashboardFinancePeriod.weekly
-            ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-            : ['W1', 'W2', 'W3', 'W4']);
+              ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+              : ['W1', 'W2', 'W3', 'W4']);
 
     final count = labels.length;
     return List.generate(count, (i) {
@@ -164,12 +166,15 @@ class _JobWorkSaleDispatchDetailDialogState
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
     final surfaceColor = isDark ? const Color(0xFF131927) : Colors.white;
     final cardBg = isDark ? const Color(0xFF1A2234) : const Color(0xFFF8FAFC);
-    final borderColor =
-        isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE2E8F0);
-    final textMuted =
-        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFE2E8F0);
+    final textMuted = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
     final accentColor = _isJobWork ? _jobWorkColor : _saleColor;
     final metrics = _currentMetrics;
 
@@ -192,10 +197,7 @@ class _JobWorkSaleDispatchDetailDialogState
             builder: (context, child) {
               return Transform.scale(
                 scale: 0.95 + (0.05 * _revealAnim.value),
-                child: Opacity(
-                  opacity: _revealAnim.value,
-                  child: child,
-                ),
+                child: Opacity(opacity: _revealAnim.value, child: child),
               );
             },
             child: Column(
@@ -218,166 +220,53 @@ class _JobWorkSaleDispatchDetailDialogState
 
                 // Header Bar with Job Work / Sale Dispatch Segmented Toggle
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 16, 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: accentColor.withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Icon(
-                          _isJobWork
-                              ? Icons.precision_manufacturing_rounded
-                              : Icons.local_shipping_rounded,
-                          size: 20,
-                          color: accentColor,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _isJobWork
-                                  ? 'Job Work Collection Detail'
-                                  : 'Sale Dispatch Detail',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: isDark
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
-                                letterSpacing: -0.2,
-                              ),
-                            ),
-                            Text(
-                              'Pieces (pcs) & Volume (sqft) breakdown',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Header Module Switcher
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFFE2E8F0),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _PillTab(
-                              label: 'Job Work',
-                              selected: _isJobWork,
-                              color: _jobWorkColor,
-                              onTap: () => setState(() {
-                                _selectedTab = 0;
-                                _hoveredTrendIndex = null;
-                              }),
-                            ),
-                            _PillTab(
-                              label: 'Dispatch',
-                              selected: !_isJobWork,
-                              color: _saleColor,
-                              onTap: () => setState(() {
-                                _selectedTab = 1;
-                                _hoveredTrendIndex = null;
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                        color: textMuted,
-                        hoverColor: accentColor.withValues(alpha: 0.1),
-                        tooltip: 'Close',
-                      ),
-                    ],
+                  padding: EdgeInsets.fromLTRB(
+                    isCompact ? 16 : 20,
+                    14,
+                    isCompact ? 8 : 16,
+                    12,
+                  ),
+                  child: _ResponsiveDialogHeader(
+                    compact: isCompact,
+                    icon: _isJobWork
+                        ? Icons.precision_manufacturing_rounded
+                        : Icons.local_shipping_rounded,
+                    title: _isJobWork
+                        ? 'Job Work Collection Detail'
+                        : 'Sale Dispatch Detail',
+                    subtitle: 'Pieces (pcs) & Volume (sqft) breakdown',
+                    accentColor: accentColor,
+                    borderColor: borderColor,
+                    textMuted: textMuted,
+                    isDark: isDark,
+                    onClose: () => Navigator.of(context).pop(),
+                    switcher: _ModuleSwitcher(
+                      expanded: isCompact,
+                      isDark: isDark,
+                      borderColor: borderColor,
+                      isJobWork: _isJobWork,
+                      onJobWorkTap: () => setState(() {
+                        _selectedTab = 0;
+                        _hoveredTrendIndex = null;
+                      }),
+                      onDispatchTap: () => setState(() {
+                        _selectedTab = 1;
+                        _hoveredTrendIndex = null;
+                      }),
+                    ),
                   ),
                 ),
 
                 const Divider(height: 1, thickness: 1),
 
-                // Interactive Period Selector Bar
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                  child: Row(
-                    children: [
-                      Text(
-                        'PERIOD:',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: textMuted,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Wrap(
-                        spacing: 6,
-                        children: DashboardFinancePeriod.values.map((p) {
-                          final selected = p == _selectedPeriod;
-                          return ChoiceChip(
-                            label: Text(p.label),
-                            selected: selected,
-                            onSelected: (val) {
-                              if (val) {
-                                setState(() {
-                                  _selectedPeriod = p;
-                                  _hoveredTrendIndex = null;
-                                });
-                              }
-                            },
-                            showCheckmark: false,
-                            selectedColor: accentColor.withValues(alpha: 0.2),
-                            backgroundColor: isDark
-                                ? const Color(0xFF1B2230)
-                                : const Color(0xFFEDF2F7),
-                            labelStyle: TextStyle(
-                              fontSize: 11,
-                              fontWeight:
-                                  selected ? FontWeight.w800 : FontWeight.w600,
-                              color: selected
-                                  ? accentColor
-                                  : (isDark ? Colors.white70 : Colors.black87),
-                            ),
-                            side: BorderSide(
-                              color: selected
-                                  ? accentColor.withValues(alpha: 0.4)
-                                  : borderColor,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 0),
-                            visualDensity: VisualDensity.compact,
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ),
-                ),
-
                 Flexible(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                    padding: EdgeInsets.fromLTRB(
+                      isCompact ? 16 : 20,
+                      16,
+                      isCompact ? 16 : 20,
+                      20,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -411,19 +300,22 @@ class _JobWorkSaleDispatchDetailDialogState
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: accentColor.withValues(alpha: 0.15),
+                                      color: accentColor.withValues(
+                                        alpha: 0.15,
+                                      ),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color:
-                                            accentColor.withValues(alpha: 0.3),
+                                        color: accentColor.withValues(
+                                          alpha: 0.3,
+                                        ),
                                       ),
                                     ),
                                     child: Text(
-                                      _isJobWork
-                                          ? 'JOB WORK'
-                                          : 'SALE DISPATCH',
+                                      _isJobWork ? 'JOB WORK' : 'SALE DISPATCH',
                                       style: TextStyle(
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.w800,
@@ -476,7 +368,8 @@ class _JobWorkSaleDispatchDetailDialogState
                                     width: 1,
                                     color: borderColor,
                                     margin: const EdgeInsets.symmetric(
-                                        horizontal: 14),
+                                      horizontal: 14,
+                                    ),
                                   ),
                                   Expanded(
                                     child: Column(
@@ -579,7 +472,9 @@ class _JobWorkSaleDispatchDetailDialogState
                               Flexible(
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: accentColor.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
@@ -617,20 +512,26 @@ class _JobWorkSaleDispatchDetailDialogState
                             builder: (context, constraints) {
                               final boxSize = Size(constraints.maxWidth, 180);
                               return MouseRegion(
-                                onHover: (event) => _handleScrub(
-                                    event.localPosition, boxSize),
+                                onHover: (event) =>
+                                    _handleScrub(event.localPosition, boxSize),
                                 onExit: (_) =>
                                     setState(() => _hoveredTrendIndex = null),
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
                                   onTapDown: (details) => _handleScrub(
-                                      details.localPosition, boxSize),
+                                    details.localPosition,
+                                    boxSize,
+                                  ),
                                   onPanStart: (details) => _handleScrub(
-                                      details.localPosition, boxSize),
+                                    details.localPosition,
+                                    boxSize,
+                                  ),
                                   onPanUpdate: (details) => _handleScrub(
-                                      details.localPosition, boxSize),
-                                  onPanEnd: (_) => setState(
-                                      () => _hoveredTrendIndex = null),
+                                    details.localPosition,
+                                    boxSize,
+                                  ),
+                                  onPanEnd: (_) =>
+                                      setState(() => _hoveredTrendIndex = null),
                                   child: AnimatedBuilder(
                                     animation: _revealAnim,
                                     builder: (context, _) {
@@ -671,17 +572,17 @@ class _JobWorkSaleDispatchDetailDialogState
                           backgroundColor: isDark
                               ? Colors.white.withValues(alpha: 0.08)
                               : const Color(0xFFE2E8F0),
-                          foregroundColor:
-                              isDark ? Colors.white : const Color(0xFF0F172A),
+                          foregroundColor: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                           minimumSize: const Size(80, 34),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(
-                              color: borderColor,
-                              width: 1,
-                            ),
+                            side: BorderSide(color: borderColor, width: 1),
                           ),
                           elevation: 0,
                         ),
@@ -706,6 +607,160 @@ class _JobWorkSaleDispatchDetailDialogState
   }
 }
 
+class _ResponsiveDialogHeader extends StatelessWidget {
+  const _ResponsiveDialogHeader({
+    required this.compact,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.accentColor,
+    required this.borderColor,
+    required this.textMuted,
+    required this.isDark,
+    required this.onClose,
+    required this.switcher,
+  });
+
+  final bool compact;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color accentColor;
+  final Color borderColor;
+  final Color textMuted;
+  final bool isDark;
+  final VoidCallback onClose;
+  final Widget switcher;
+
+  @override
+  Widget build(BuildContext context) {
+    final leading = Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: accentColor.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Icon(icon, size: 20, color: accentColor),
+    );
+    final heading = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: compact ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 16,
+            height: 1.2,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : const Color(0xFF0F172A),
+            letterSpacing: -0.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11,
+            height: 1.25,
+            fontWeight: FontWeight.w500,
+            color: textMuted,
+          ),
+        ),
+      ],
+    );
+    final closeButton = IconButton(
+      onPressed: onClose,
+      icon: const Icon(Icons.close_rounded, size: 20),
+      color: textMuted,
+      hoverColor: accentColor.withValues(alpha: 0.1),
+      tooltip: 'Close',
+    );
+
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              leading,
+              const SizedBox(width: 12),
+              Expanded(child: heading),
+              closeButton,
+            ],
+          ),
+          const SizedBox(height: 12),
+          switcher,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        leading,
+        const SizedBox(width: 12),
+        Expanded(child: heading),
+        switcher,
+        const SizedBox(width: 8),
+        closeButton,
+      ],
+    );
+  }
+}
+
+class _ModuleSwitcher extends StatelessWidget {
+  const _ModuleSwitcher({
+    required this.expanded,
+    required this.isDark,
+    required this.borderColor,
+    required this.isJobWork,
+    required this.onJobWorkTap,
+    required this.onDispatchTap,
+  });
+
+  final bool expanded;
+  final bool isDark;
+  final Color borderColor;
+  final bool isJobWork;
+  final VoidCallback onJobWorkTap;
+  final VoidCallback onDispatchTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final jobWorkTab = _PillTab(
+      label: 'Job Work',
+      selected: isJobWork,
+      color: _JobWorkSaleDispatchDetailDialogState._jobWorkColor,
+      onTap: onJobWorkTap,
+    );
+    final dispatchTab = _PillTab(
+      label: 'Dispatch',
+      selected: !isJobWork,
+      color: _JobWorkSaleDispatchDetailDialogState._saleColor,
+      onTap: onDispatchTap,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+        children: expanded
+            ? [Expanded(child: jobWorkTab), Expanded(child: dispatchTab)]
+            : [jobWorkTab, dispatchTab],
+      ),
+    );
+  }
+}
+
 class _PillTab extends StatelessWidget {
   const _PillTab({
     required this.label,
@@ -725,6 +780,7 @@ class _PillTab extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.2) : Colors.transparent,
@@ -877,9 +933,7 @@ class _JobWorkDispatchTrendPainter extends CustomPainter {
     final barGroupWidth = chartWidth / points.length;
     final barWidth = (barGroupWidth * 0.45).clamp(16.0, 34.0);
 
-    final textPainter = TextPainter(
-      textDirection: ui.TextDirection.ltr,
-    );
+    final textPainter = TextPainter(textDirection: ui.TextDirection.ltr);
 
     for (int i = 0; i < points.length; i++) {
       final p = points[i];
@@ -900,7 +954,11 @@ class _JobWorkDispatchTrendPainter extends CustomPainter {
       if (largeBarH > 0) {
         final largeRect = RRect.fromRectAndRadius(
           Rect.fromLTRB(
-              cx - (barWidth / 2), largeTopY, cx + (barWidth / 2), baseBottomY),
+            cx - (barWidth / 2),
+            largeTopY,
+            cx + (barWidth / 2),
+            baseBottomY,
+          ),
           const Radius.circular(4),
         );
         final largePaint = Paint()
@@ -912,7 +970,11 @@ class _JobWorkDispatchTrendPainter extends CustomPainter {
       if (smallBarH > 0) {
         final smallRect = RRect.fromRectAndRadius(
           Rect.fromLTRB(
-              cx - (barWidth / 2), smallTopY, cx + (barWidth / 2), largeTopY),
+            cx - (barWidth / 2),
+            smallTopY,
+            cx + (barWidth / 2),
+            largeTopY,
+          ),
           const Radius.circular(4),
         );
         final smallPaint = Paint()
@@ -922,7 +984,11 @@ class _JobWorkDispatchTrendPainter extends CustomPainter {
 
       // Top value text
       textPainter.text = TextSpan(
-        text: Formatters.formatStockQuantity(p.totalSqFt, 'sqft', compact: true),
+        text: Formatters.formatStockQuantity(
+          p.totalSqFt,
+          'sqft',
+          compact: true,
+        ),
         style: TextStyle(
           color: isHovered
               ? largeColor

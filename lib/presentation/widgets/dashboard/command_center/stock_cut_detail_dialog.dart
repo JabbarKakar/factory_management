@@ -135,12 +135,17 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
 
   bool get _isCut => _selectedTab == 0;
 
-  double get _currentLargeSqFt => _isCut ? widget.largeSqFt : widget.salesLargeSqFt;
-  double get _currentSmallSqFt => _isCut ? widget.smallSqFt : widget.salesSmallSqFt;
+  double get _currentLargeSqFt =>
+      _isCut ? widget.largeSqFt : widget.salesLargeSqFt;
+  double get _currentSmallSqFt =>
+      _isCut ? widget.smallSqFt : widget.salesSmallSqFt;
   double get _currentWasteSqFt => _isCut ? widget.wasteSqFt : 0;
-  double get _currentLargeAmount => _isCut ? widget.largeAmount : widget.salesLargeAmount;
-  double get _currentSmallAmount => _isCut ? widget.smallAmount : widget.salesSmallAmount;
-  double get _currentTotalSqFt => _currentLargeSqFt + _currentSmallSqFt + _currentWasteSqFt;
+  double get _currentLargeAmount =>
+      _isCut ? widget.largeAmount : widget.salesLargeAmount;
+  double get _currentSmallAmount =>
+      _isCut ? widget.smallAmount : widget.salesSmallAmount;
+  double get _currentTotalSqFt =>
+      _currentLargeSqFt + _currentSmallSqFt + _currentWasteSqFt;
   double get _currentTotalAmount => _currentLargeAmount + _currentSmallAmount;
 
   List<StockCutTrendPoint> get _effectiveTrendPoints {
@@ -185,12 +190,15 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
     final surfaceColor = isDark ? const Color(0xFF131927) : Colors.white;
     final cardBg = isDark ? const Color(0xFF1A2234) : const Color(0xFFF8FAFC);
-    final borderColor =
-        isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE2E8F0);
-    final textMuted =
-        isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : const Color(0xFFE2E8F0);
+    final textMuted = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
     final accentColor = _isCut ? _largeColor : _smallColor;
 
     final wastePct = _currentTotalSqFt > 0
@@ -222,10 +230,7 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
             builder: (context, child) {
               return Transform.scale(
                 scale: 0.95 + (0.05 * _revealAnim.value),
-                child: Opacity(
-                  opacity: _revealAnim.value,
-                  child: child,
-                ),
+                child: Opacity(opacity: _revealAnim.value, child: child),
               );
             },
             child: Column(
@@ -248,100 +253,128 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
 
                 // Header Bar with Cut / Sold Mode Segmented Toggle
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 16, 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: accentColor.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: accentColor.withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: Icon(
-                          _isCut
+                  padding: EdgeInsets.fromLTRB(
+                    isCompact ? 16 : 20,
+                    14,
+                    isCompact ? 8 : 16,
+                    12,
+                  ),
+                  child: isCompact
+                      ? _CompactStockDialogHeader(
+                          icon: _isCut
                               ? Icons.content_cut_rounded
                               : Icons.shopping_bag_rounded,
-                          size: 20,
-                          color: accentColor,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          title: _isCut
+                              ? 'Stock Cut Distribution'
+                              : 'Sales Stock Distribution',
+                          accentColor: accentColor,
+                          borderColor: borderColor,
+                          textMuted: textMuted,
+                          isDark: isDark,
+                          isCut: _isCut,
+                          onClose: () => Navigator.of(context).pop(),
+                          onCutTap: () => setState(() {
+                            _selectedTab = 0;
+                            _hoveredTrendIndex = null;
+                          }),
+                          onSoldTap: () => setState(() {
+                            _selectedTab = 1;
+                            _hoveredTrendIndex = null;
+                          }),
+                        )
+                      : Row(
                           children: [
-                            Text(
-                              _isCut
-                                  ? 'Stock Cut Distribution'
-                                  : 'Sales Stock Distribution',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: accentColor.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: accentColor.withValues(alpha: 0.3),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Icon(
+                                _isCut
+                                    ? Icons.content_cut_rounded
+                                    : Icons.shopping_bag_rounded,
+                                size: 20,
+                                color: accentColor,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _isCut
+                                        ? 'Stock Cut Distribution'
+                                        : 'Sales Stock Distribution',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF0F172A),
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Large · Small · Waste & Yield',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Header Segmented Toggle
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
                                 color: isDark
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
-                                letterSpacing: -0.2,
+                                    ? const Color(0xFF0F172A)
+                                    : const Color(0xFFE2E8F0),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _HeaderTabPill(
+                                    label: 'Cut',
+                                    selected: _isCut,
+                                    color: _largeColor,
+                                    onTap: () => setState(() {
+                                      _selectedTab = 0;
+                                      _hoveredTrendIndex = null;
+                                    }),
+                                  ),
+                                  _HeaderTabPill(
+                                    label: 'Sold',
+                                    selected: !_isCut,
+                                    color: _smallColor,
+                                    onTap: () => setState(() {
+                                      _selectedTab = 1;
+                                      _hoveredTrendIndex = null;
+                                    }),
+                                  ),
+                                ],
                               ),
                             ),
-                            Text(
-                              'Large · Small · Waste & Yield',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: textMuted,
-                              ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.close_rounded, size: 20),
+                              color: textMuted,
+                              hoverColor: accentColor.withValues(alpha: 0.1),
+                              tooltip: 'Close',
                             ),
                           ],
                         ),
-                      ),
-                      // Header Segmented Toggle
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFFE2E8F0),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _HeaderTabPill(
-                              label: 'Cut',
-                              selected: _isCut,
-                              color: _largeColor,
-                              onTap: () => setState(() {
-                                _selectedTab = 0;
-                                _hoveredTrendIndex = null;
-                              }),
-                            ),
-                            _HeaderTabPill(
-                              label: 'Sold',
-                              selected: !_isCut,
-                              color: _smallColor,
-                              onTap: () => setState(() {
-                                _selectedTab = 1;
-                                _hoveredTrendIndex = null;
-                              }),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                        color: textMuted,
-                        hoverColor: accentColor.withValues(alpha: 0.1),
-                        tooltip: 'Close',
-                      ),
-                    ],
-                  ),
                 ),
 
                 const Divider(height: 1, thickness: 1),
@@ -382,13 +415,18 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                                   ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: accentColor.withValues(alpha: 0.15),
+                                      color: accentColor.withValues(
+                                        alpha: 0.15,
+                                      ),
                                       borderRadius: BorderRadius.circular(20),
                                       border: Border.all(
-                                        color:
-                                            accentColor.withValues(alpha: 0.3),
+                                        color: accentColor.withValues(
+                                          alpha: 0.3,
+                                        ),
                                       ),
                                     ),
                                     child: Text(
@@ -445,7 +483,8 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                                     width: 1,
                                     color: borderColor,
                                     margin: const EdgeInsets.symmetric(
-                                        horizontal: 14),
+                                      horizontal: 14,
+                                    ),
                                   ),
                                   Expanded(
                                     child: Column(
@@ -468,7 +507,8 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                                             alignment: Alignment.centerLeft,
                                             child: Text(
                                               Formatters.currencyFull(
-                                                  _currentTotalAmount),
+                                                _currentTotalAmount,
+                                              ),
                                               style: TextStyle(
                                                 fontSize: 22,
                                                 fontWeight: FontWeight.w900,
@@ -533,7 +573,8 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                                                 wasteColor: _wasteColor,
                                                 progress: _revealAnim.value,
                                                 isDark: isDark,
-                                                hoveredIndex: _hoveredDonutIndex,
+                                                hoveredIndex:
+                                                    _hoveredDonutIndex,
                                               ),
                                             );
                                           },
@@ -544,19 +585,22 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                                             FittedBox(
                                               fit: BoxFit.scaleDown,
                                               child: Padding(
-                                                padding: const EdgeInsets.symmetric(
-                                                    horizontal: 8),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                    ),
                                                 child: Text(
                                                   _formatSqFt(
-                                                      _currentTotalSqFt),
+                                                    _currentTotalSqFt,
+                                                  ),
                                                   style: TextStyle(
                                                     fontSize: 11,
-                                                    fontWeight:
-                                                        FontWeight.w900,
+                                                    fontWeight: FontWeight.w900,
                                                     color: isDark
                                                         ? Colors.white
                                                         : const Color(
-                                                            0xFF0F172A),
+                                                            0xFF0F172A,
+                                                          ),
                                                   ),
                                                 ),
                                               ),
@@ -585,7 +629,8 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                                           label: 'Large Slabs',
                                           sqft: _formatSqFt(_currentLargeSqFt),
                                           amount: Formatters.currencyFull(
-                                              _currentLargeAmount),
+                                            _currentLargeAmount,
+                                          ),
                                           percentage:
                                               '${largePct.toStringAsFixed(0)}%',
                                           isDark: isDark,
@@ -597,7 +642,8 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                                           label: 'Small Tiles',
                                           sqft: _formatSqFt(_currentSmallSqFt),
                                           amount: Formatters.currencyFull(
-                                              _currentSmallAmount),
+                                            _currentSmallAmount,
+                                          ),
                                           percentage:
                                               '${smallPct.toStringAsFixed(0)}%',
                                           isDark: isDark,
@@ -609,7 +655,8 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                                             color: _wasteColor,
                                             label: 'Waste / Yield',
                                             sqft: _formatSqFt(
-                                                _currentWasteSqFt),
+                                              _currentWasteSqFt,
+                                            ),
                                             amount:
                                                 '${wastePct.toStringAsFixed(1)}% loss',
                                             percentage:
@@ -654,7 +701,9 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                               Flexible(
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: accentColor.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
@@ -692,19 +741,27 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                               final boxSize = Size(constraints.maxWidth, 175);
                               return MouseRegion(
                                 onHover: (event) => _handleTrendScrub(
-                                    event.localPosition, boxSize),
+                                  event.localPosition,
+                                  boxSize,
+                                ),
                                 onExit: (_) =>
                                     setState(() => _hoveredTrendIndex = null),
                                 child: GestureDetector(
                                   behavior: HitTestBehavior.opaque,
                                   onTapDown: (details) => _handleTrendScrub(
-                                      details.localPosition, boxSize),
+                                    details.localPosition,
+                                    boxSize,
+                                  ),
                                   onPanStart: (details) => _handleTrendScrub(
-                                      details.localPosition, boxSize),
+                                    details.localPosition,
+                                    boxSize,
+                                  ),
                                   onPanUpdate: (details) => _handleTrendScrub(
-                                      details.localPosition, boxSize),
-                                  onPanEnd: (_) => setState(
-                                      () => _hoveredTrendIndex = null),
+                                    details.localPosition,
+                                    boxSize,
+                                  ),
+                                  onPanEnd: (_) =>
+                                      setState(() => _hoveredTrendIndex = null),
                                   child: AnimatedBuilder(
                                     animation: _revealAnim,
                                     builder: (context, _) {
@@ -747,17 +804,17 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
                           backgroundColor: isDark
                               ? Colors.white.withValues(alpha: 0.08)
                               : const Color(0xFFE2E8F0),
-                          foregroundColor:
-                              isDark ? Colors.white : const Color(0xFF0F172A),
+                          foregroundColor: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                           minimumSize: const Size(80, 34),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(
-                              color: borderColor,
-                              width: 1,
-                            ),
+                            side: BorderSide(color: borderColor, width: 1),
                           ),
                           elevation: 0,
                         ),
@@ -782,6 +839,123 @@ class _StockCutDetailDialogState extends State<StockCutDetailDialog>
   }
 }
 
+class _CompactStockDialogHeader extends StatelessWidget {
+  const _CompactStockDialogHeader({
+    required this.icon,
+    required this.title,
+    required this.accentColor,
+    required this.borderColor,
+    required this.textMuted,
+    required this.isDark,
+    required this.isCut,
+    required this.onClose,
+    required this.onCutTap,
+    required this.onSoldTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final Color accentColor;
+  final Color borderColor;
+  final Color textMuted;
+  final bool isDark;
+  final bool isCut;
+  final VoidCallback onClose;
+  final VoidCallback onCutTap;
+  final VoidCallback onSoldTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: accentColor.withValues(alpha: 0.3)),
+              ),
+              child: Icon(icon, size: 20, color: accentColor),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.2,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Large · Small · Waste & Yield',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.25,
+                      fontWeight: FontWeight.w500,
+                      color: textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: onClose,
+              icon: const Icon(Icons.close_rounded, size: 20),
+              color: textMuted,
+              hoverColor: accentColor.withValues(alpha: 0.1),
+              tooltip: 'Close',
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _HeaderTabPill(
+                  label: 'Cut',
+                  selected: isCut,
+                  color: _StockCutDetailDialogState._largeColor,
+                  onTap: onCutTap,
+                ),
+              ),
+              Expanded(
+                child: _HeaderTabPill(
+                  label: 'Sold',
+                  selected: !isCut,
+                  color: _StockCutDetailDialogState._smallColor,
+                  onTap: onSoldTap,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _HeaderTabPill extends StatelessWidget {
   const _HeaderTabPill({
     required this.label,
@@ -801,6 +975,7 @@ class _HeaderTabPill extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.2) : Colors.transparent,
@@ -814,7 +989,9 @@ class _HeaderTabPill extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            color: selected ? color : Theme.of(context).colorScheme.onSurfaceVariant,
+            color: selected
+                ? color
+                : Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       ),
@@ -854,10 +1031,7 @@ class _CategoryMetricRow extends StatelessWidget {
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -865,16 +1039,22 @@ class _CategoryMetricRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 4),
                     Text(
                       percentage,
                       style: TextStyle(
@@ -1030,9 +1210,7 @@ class _StockTrendChartPainter extends CustomPainter {
     final barGroupWidth = chartWidth / points.length;
     final barWidth = (barGroupWidth * 0.4).clamp(14.0, 32.0);
 
-    final textPainter = TextPainter(
-      textDirection: ui.TextDirection.ltr,
-    );
+    final textPainter = TextPainter(textDirection: ui.TextDirection.ltr);
 
     for (int i = 0; i < points.length; i++) {
       final p = points[i];
@@ -1045,22 +1223,25 @@ class _StockTrendChartPainter extends CustomPainter {
 
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTRB(
-            cx - (barWidth / 2), topY, cx + (barWidth / 2), topPadding + chartHeight),
+          cx - (barWidth / 2),
+          topY,
+          cx + (barWidth / 2),
+          topPadding + chartHeight,
+        ),
         const Radius.circular(5),
       );
 
       final barColor = isHovered
           ? (isCutMode ? largeColor : smallColor)
-          : (isCutMode ? largeColor.withValues(alpha: 0.8) : smallColor.withValues(alpha: 0.8));
+          : (isCutMode
+                ? largeColor.withValues(alpha: 0.8)
+                : smallColor.withValues(alpha: 0.8));
 
       final barPaint = Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            barColor,
-            barColor.withValues(alpha: 0.3),
-          ],
+          colors: [barColor, barColor.withValues(alpha: 0.3)],
         ).createShader(rect.outerRect);
 
       canvas.drawRRect(rect, barPaint);

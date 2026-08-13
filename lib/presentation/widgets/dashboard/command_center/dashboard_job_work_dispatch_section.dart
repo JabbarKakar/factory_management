@@ -28,15 +28,15 @@ class DashboardJobWorkDispatchSection extends StatefulWidget {
   final JobWorkDispatchCategoryMetrics saleDispatchMetrics;
   final DashboardFinancePeriod period;
 
-  /// Full maps needed by the drill-down dialog for period switching.
+  /// Full maps used by the drill-down dialog to resolve the selected period.
   final Map<DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>
-      jobWorkMetricsMap;
+  jobWorkMetricsMap;
   final Map<DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>
-      saleDispatchMetricsMap;
+  saleDispatchMetricsMap;
   final Map<DashboardFinancePeriod, List<JobWorkDispatchTrendPoint>>?
-      jobWorkTrendMap;
+  jobWorkTrendMap;
   final Map<DashboardFinancePeriod, List<JobWorkDispatchTrendPoint>>?
-      saleDispatchTrendMap;
+  saleDispatchTrendMap;
 
   @override
   State<DashboardJobWorkDispatchSection> createState() =>
@@ -133,8 +133,7 @@ class _MiniToggle extends StatelessWidget {
               onTap: () => onChanged(i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: i == index
                       ? primaryColor.withValues(alpha: 0.18)
@@ -375,10 +374,7 @@ class _LegendRow extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 5),
         Text(
