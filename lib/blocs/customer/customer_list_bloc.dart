@@ -74,6 +74,20 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
   List<SalesOrder> _salesOrders = [];
   List<SalesInvoice> _salesInvoices = [];
   List<Payment> _payments = [];
+  bool _jobWorksReady = false;
+  bool _jobWorkLoadsReady = false;
+  bool _jobWorkInvoicesReady = false;
+  bool _salesReady = false;
+  bool _salesInvoicesReady = false;
+  bool _paymentsReady = false;
+
+  bool get _allLedgersReady =>
+      _jobWorksReady &&
+      _jobWorkLoadsReady &&
+      _jobWorkInvoicesReady &&
+      _salesReady &&
+      _salesInvoicesReady &&
+      _paymentsReady;
 
   Future<void> _onWatchStarted(
     CustomerListWatchStarted event,
@@ -99,12 +113,12 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
 
       _rawCustomers = paginated.items;
 
-      _emitProcessedCustomers(
-        emit,
-        isLoadingInitial: false,
+      // Do not publish zero-valued summaries while the six related ledger
+      // snapshots are still loading. Their first snapshots drive the result.
+      emit(state.copyWith(
         lastDocument: paginated.lastDocument,
         hasMoreData: paginated.hasMore,
-      );
+      ));
     } catch (_) {
       emit(
         state.copyWith(
@@ -115,7 +129,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
       );
     }
 
-    _subscribeRelatedStreams(event.factoryId);
+    await _subscribeRelatedStreams(event.factoryId);
   }
 
   Future<void> _onFetchNext(
@@ -151,25 +165,43 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     }
   }
 
-  void _subscribeRelatedStreams(String factoryId) {
-    _cancelSubscriptions();
+  Future<void> _subscribeRelatedStreams(String factoryId) async {
+    // Cancellation must finish before new subscriptions are assigned. Without
+    // awaiting this, the old cleanup can race and cancel the new streams.
+    await _cancelSubscriptions();
+    _jobWorksReady = false;
+    _jobWorkLoadsReady = false;
+    _jobWorkInvoicesReady = false;
+    _salesReady = false;
+    _salesInvoicesReady = false;
+    _paymentsReady = false;
 
     _jobWorkSubscription =
         _jobWorkRepository.watchJobWorkOrders(factoryId).listen(
       (orders) {
         _jobWorkOrders = orders;
+        _jobWorksReady = true;
         add(const _CustomerDataChanged());
       },
-      onError: (_) {},
+      onError: (_) {
+        add(const _CustomerListStreamFailed(
+          'Could not load Job Work ledger. Please retry.',
+        ));
+      },
     );
 
     _jobWorkLoadSubscription =
         _jobWorkLoadRepository.watchLoads(factoryId).listen(
       (loads) {
         _jobWorkLoads = loads;
+        _jobWorkLoadsReady = true;
         add(const _CustomerDataChanged());
       },
-      onError: (_) {},
+      onError: (_) {
+        add(const _CustomerListStreamFailed(
+          'Could not load Job Work loads. Please retry.',
+        ));
+      },
     );
 
     _jobWorkInvoiceSubscription = _jobWorkInvoiceRepository
@@ -177,18 +209,28 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
         .listen(
       (invoices) {
         _jobWorkInvoices = invoices;
+        _jobWorkInvoicesReady = true;
         add(const _CustomerDataChanged());
       },
-      onError: (_) {},
+      onError: (_) {
+        add(const _CustomerListStreamFailed(
+          'Could not load Job Work invoices. Please retry.',
+        ));
+      },
     );
 
     _salesSubscription =
         _salesOrderRepository.watchSalesOrders(factoryId).listen(
       (orders) {
         _salesOrders = orders;
+        _salesReady = true;
         add(const _CustomerDataChanged());
       },
-      onError: (_) {},
+      onError: (_) {
+        add(const _CustomerListStreamFailed(
+          'Could not load Sales ledger. Please retry.',
+        ));
+      },
     );
 
     _salesInvoiceSubscription = _salesInvoiceRepository
@@ -196,18 +238,28 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
         .listen(
       (invoices) {
         _salesInvoices = invoices;
+        _salesInvoicesReady = true;
         add(const _CustomerDataChanged());
       },
-      onError: (_) {},
+      onError: (_) {
+        add(const _CustomerListStreamFailed(
+          'Could not load Sales invoices. Please retry.',
+        ));
+      },
     );
 
     _paymentSubscription =
         _paymentRepository.watchPaymentsForFactory(factoryId).listen(
       (payments) {
         _payments = payments;
+        _paymentsReady = true;
         add(const _CustomerDataChanged());
       },
-      onError: (_) {},
+      onError: (_) {
+        add(const _CustomerListStreamFailed(
+          'Could not load payment ledger. Please retry.',
+        ));
+      },
     );
 
     _customerEventSub?.cancel();
@@ -315,10 +367,20 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
 
       final updatedCustomer = customer.copyWith(
         balance: summary.totalDue,
+        totalAmountPaid: summary.totalPaid,
+        totalBalanceDue: summary.totalDue,
         nextDueDate: summary.nextDueDate,
       );
 
       updatedCustomers.add(updatedCustomer);
+      // Reconcile the denormalized parent whenever any watched ledger changes.
+      // The tolerance avoids a Firestore update -> snapshot -> update loop.
+      if ((customer.balance - summary.totalDue).abs() > 0.005 ||
+          (customer.totalAmountPaid - summary.totalPaid).abs() > 0.005 ||
+          (customer.totalBalanceDue - summary.totalDue).abs() > 0.005 ||
+          customer.nextDueDate != summary.nextDueDate) {
+        unawaited(_repository.updateCustomer(updatedCustomer));
+      }
       jobWorkCounts[customer.id] = summary.jobWorkOrderCount;
       salesCounts[customer.id] = summary.salesOrderCount;
     }
@@ -349,6 +411,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     _CustomerDataChanged event,
     Emitter<CustomerListState> emit,
   ) {
+    if (!_allLedgersReady) return;
     _emitProcessedCustomers(emit);
   }
 
@@ -359,6 +422,7 @@ class CustomerListBloc extends Bloc<CustomerListEvent, CustomerListState> {
     emit(
       state.copyWith(
         status: CustomerListStatus.failure,
+        isLoadingInitial: false,
         errorMessage: event.message,
       ),
     );

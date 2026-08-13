@@ -37,6 +37,8 @@ class NotificationCard extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = _priorityColor(notification.priority);
     final icon = _iconFor(notification.type);
+    final invoiceNumber = _primaryInvoiceNumber(notification.invoiceNumber);
+    final displayBody = _cleanBody(notification.body);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
@@ -132,7 +134,7 @@ class NotificationCard extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    notification.body,
+                                    displayBody,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.bodySmall?.copyWith(
@@ -150,36 +152,49 @@ class NotificationCard extends StatelessWidget {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            _MetaChip(
-                              label: relativeTime(notification.createdAt),
-                              icon: Icons.schedule_rounded,
+                            Expanded(
+                              child: Wrap(
+                                spacing: 5,
+                                runSpacing: 5,
+                                children: [
+                                  _MetaChip(
+                                    label:
+                                        relativeTime(notification.createdAt),
+                                    icon: Icons.schedule_rounded,
+                                  ),
+                                  if (invoiceNumber != null)
+                                    _MetaChip(
+                                      label: invoiceNumber,
+                                      icon: Icons.receipt_long_outlined,
+                                    ),
+                                  if (notification.amountDue != null &&
+                                      notification.amountDue! > 0)
+                                    _MetaChip(
+                                      label: Formatters.currencyPkr(
+                                        notification.amountDue!,
+                                      ),
+                                      icon: Icons.payments_outlined,
+                                      color: accent,
+                                    ),
+                                  if (notification.daysOverdue != null &&
+                                      notification.daysOverdue! > 0)
+                                    _MetaChip(
+                                      label:
+                                          '${notification.daysOverdue}d overdue',
+                                      icon: Icons.schedule_rounded,
+                                      color: AppColors.overdue,
+                                    ),
+                                ],
+                              ),
                             ),
-                            if (notification.amountDue != null &&
-                                notification.amountDue! > 0) ...[
-                              const SizedBox(width: 5),
-                              _MetaChip(
-                                label: Formatters.currencyPkr(
-                                  notification.amountDue!,
-                                ),
-                                icon: Icons.payments_outlined,
-                                color: accent,
-                              ),
-                            ],
-                            if (notification.daysOverdue != null &&
-                                notification.daysOverdue! > 0) ...[
-                              const SizedBox(width: 5),
-                              _MetaChip(
-                                label:
-                                    '${notification.daysOverdue}d overdue',
-                                icon: Icons.schedule_rounded,
-                                color: AppColors.overdue,
-                              ),
-                            ],
-                            const Spacer(),
-                            if (onSendReminder != null)
+                            if (onSendReminder != null) ...[
+                              const SizedBox(width: 4),
                               IconButton(
                                 onPressed: onSendReminder,
-                                icon: const Icon(Icons.chat_outlined, size: 17),
+                                icon: const Icon(
+                                  Icons.chat_outlined,
+                                  size: 17,
+                                ),
                                 tooltip: AppStrings.sendPaymentReminder,
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,
@@ -188,11 +203,7 @@ class NotificationCard extends StatelessWidget {
                                   minHeight: 30,
                                 ),
                               ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              size: 16,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                            ],
                           ],
                         ),
                       ],
@@ -205,6 +216,23 @@ class NotificationCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String? _primaryInvoiceNumber(String? value) {
+    final normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) return null;
+    // Older notifications stored "JWI · JW · JWL" in invoiceNumber.
+    return normalized.split('·').first.trim();
+  }
+
+  String _cleanBody(String body) {
+    final colon = body.indexOf(':');
+    if (colon <= 0) return body;
+    final prefix = body.substring(0, colon);
+    final looksLikeDocumentReference = prefix.contains('JWI-') ||
+        prefix.contains('SI-') ||
+        prefix.contains('INV-');
+    return looksLikeDocumentReference ? body.substring(colon + 1).trim() : body;
   }
 
   Color _priorityColor(NotificationPriority priority) {

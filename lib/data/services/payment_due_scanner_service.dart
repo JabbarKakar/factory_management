@@ -230,6 +230,7 @@ class PaymentDueScannerService {
 
   AppNotification buildPartialPaymentNotification({
     required JobWorkInvoice invoice,
+    required String paymentId,
     required double amountPaid,
     required double remainingDue,
   }) {
@@ -238,7 +239,8 @@ class PaymentDueScannerService {
       customerId: invoice.customerId,
       customerName: invoice.customerName,
       invoiceId: invoice.id,
-      invoiceLabel: _jobWorkInvoiceLabel(invoice),
+      paymentId: paymentId,
+      invoiceLabel: invoice.invoiceNumber,
       dueDate: invoice.dueDate,
       amountPaid: amountPaid,
       remainingDue: remainingDue,
@@ -250,6 +252,7 @@ class PaymentDueScannerService {
 
   AppNotification buildSalesPartialPaymentNotification({
     required SalesInvoice invoice,
+    required String paymentId,
     required double amountPaid,
     required double remainingDue,
   }) {
@@ -258,6 +261,7 @@ class PaymentDueScannerService {
       customerId: invoice.customerId,
       customerName: invoice.customerName,
       invoiceId: invoice.id,
+      paymentId: paymentId,
       invoiceLabel: invoice.invoiceNumber,
       dueDate: invoice.dueDate,
       amountPaid: amountPaid,
@@ -272,6 +276,7 @@ class PaymentDueScannerService {
     required String customerId,
     required String customerName,
     required String invoiceId,
+    required String paymentId,
     required String invoiceLabel,
     required DateTime? dueDate,
     required double amountPaid,
@@ -299,7 +304,9 @@ class PaymentDueScannerService {
       amountDue: remainingDue,
       dueDate: dueDate,
       createdAt: DateTime.now(),
-      dedupeKey: 'partial_${invoiceId}_${DateTime.now().millisecondsSinceEpoch}',
+      // One alert per committed payment. Timestamp-based keys created a new
+      // notification whenever the same mutation path was retried.
+      dedupeKey: 'partial_${invoiceId}_$paymentId',
     );
   }
 
@@ -336,15 +343,6 @@ class PaymentDueScannerService {
     );
   }
 
-  static String _jobWorkInvoiceLabel(JobWorkInvoice invoice) {
-    final refs = <String>[
-      invoice.invoiceNumber,
-      if (invoice.jobWorkNumber.isNotEmpty) invoice.jobWorkNumber,
-      if (invoice.loadNumber != null && invoice.loadNumber!.trim().isNotEmpty)
-        invoice.loadNumber!.trim(),
-    ];
-    return refs.join(' · ');
-  }
 }
 
 class _DueInvoiceRef {
@@ -379,13 +377,9 @@ class _DueInvoiceRef {
   final InvoiceType invoiceType;
 
   String get displayLabel {
-    final refs = <String>[
-      invoiceNumber,
-      if (jobWorkNumber != null && jobWorkNumber!.isNotEmpty) jobWorkNumber!,
-      if (loadNumber != null && loadNumber!.trim().isNotEmpty)
-        loadNumber!.trim(),
-    ];
-    return refs.join(' · ');
+    // The notification card navigates by the stored entity IDs. Showing every
+    // related document number here is noisy and looks like a duplicate invoice.
+    return invoiceNumber;
   }
 
   factory _DueInvoiceRef.fromJobWork(JobWorkInvoice invoice) {

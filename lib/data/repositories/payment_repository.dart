@@ -712,6 +712,7 @@ class PaymentRepository {
         await _notificationRepository.createNotification(
           _scannerService.buildPartialPaymentNotification(
             invoice: updatedInvoice,
+            paymentId: payment.id,
             amountPaid: appliedAmount,
             remainingDue: newDue,
           ),
@@ -788,6 +789,7 @@ class PaymentRepository {
         await _notificationRepository.createNotification(
           _scannerService.buildSalesPartialPaymentNotification(
             invoice: updatedInvoice,
+            paymentId: payment.id,
             amountPaid: appliedAmount,
             remainingDue: newDue,
           ),

@@ -147,23 +147,27 @@ class CustomerListTile extends StatelessWidget {
                           Row(
                             children: [
                               Expanded(
-                                child: Text(
-                                  customer.balanceStatus.label,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: accent,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 10,
-                                  ),
+                                child: _FinancialMetric(
+                                  label: AppStrings.amountPaid,
+                                  amount: customer.totalAmountPaid,
+                                  color: AppColors.success,
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: Text(
-                                  Formatters.currencyPkr(customer.balance),
-                                  style: theme.textTheme.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 12,
+                              Container(
+                                width: 1,
+                                height: 28,
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 10),
+                                color: outline.withValues(alpha: 0.65),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: _FinancialMetric(
+                                    label: AppStrings.outstandingBalance,
+                                    amount: customer.totalBalanceDue,
                                     color: accent,
+                                    alignEnd: true,
                                   ),
                                 ),
                               ),
@@ -197,8 +201,54 @@ class CustomerListTile extends StatelessWidget {
       CustomerBalanceStatus.dueSoon => AppColors.dueSoon,
       CustomerBalanceStatus.dueToday => AppColors.warning,
       CustomerBalanceStatus.overdue => AppColors.overdue,
-      CustomerBalanceStatus.outstanding => AppColors.textSecondary,
+      CustomerBalanceStatus.outstanding => AppColors.error,
     };
+  }
+}
+
+class _FinancialMetric extends StatelessWidget {
+  const _FinancialMetric({
+    required this.label,
+    required this.amount,
+    required this.color,
+    this.alignEnd = false,
+  });
+
+  final String label;
+  final double amount;
+  final Color color;
+  final bool alignEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment:
+          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+            fontSize: 9,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          Formatters.currencyPkr(amount),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            fontSize: 12,
+            color: color,
+          ),
+        ),
+      ],
+    );
   }
 }
 

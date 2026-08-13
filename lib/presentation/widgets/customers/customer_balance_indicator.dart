@@ -57,7 +57,7 @@ class CustomerBalanceIndicator extends StatelessWidget {
       CustomerBalanceStatus.dueSoon => AppColors.dueSoon,
       CustomerBalanceStatus.dueToday => AppColors.warning,
       CustomerBalanceStatus.overdue => AppColors.overdue,
-      CustomerBalanceStatus.outstanding => AppColors.textSecondary,
+      CustomerBalanceStatus.outstanding => AppColors.error,
     };
   }
 }

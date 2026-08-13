@@ -16,6 +16,8 @@ class Customer extends Equatable {
     required this.balance,
     required this.openingBalance,
     required this.createdAt,
+    this.totalAmountPaid = 0,
+    this.totalBalanceDue = 0,
     this.contactPersonName,
     this.phoneSecondary,
     this.whatsApp,
@@ -61,6 +63,9 @@ class Customer extends Equatable {
   final String? notes;
   final double balance;
   final double openingBalance;
+  /// Denormalized cross-ledger totals (Sales + Job Work).
+  final double totalAmountPaid;
+  final double totalBalanceDue;
   final DateTime? nextDueDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -115,6 +120,8 @@ class Customer extends Equatable {
     String? notes,
     double? balance,
     double? openingBalance,
+    double? totalAmountPaid,
+    double? totalBalanceDue,
     DateTime? nextDueDate,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -148,6 +155,8 @@ class Customer extends Equatable {
       notes: notes ?? this.notes,
       balance: balance ?? this.balance,
       openingBalance: openingBalance ?? this.openingBalance,
+      totalAmountPaid: totalAmountPaid ?? this.totalAmountPaid,
+      totalBalanceDue: totalBalanceDue ?? this.totalBalanceDue,
       nextDueDate: nextDueDate ?? this.nextDueDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -182,6 +191,8 @@ class Customer extends Equatable {
         notes,
         balance,
         openingBalance,
+        totalAmountPaid,
+        totalBalanceDue,
         nextDueDate,
         createdAt,
         updatedAt,

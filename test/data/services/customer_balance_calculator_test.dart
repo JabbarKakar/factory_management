@@ -198,5 +198,44 @@ void main() {
       expect(summary.totalDue, 600.0);
       expect(summary.salesOrderCount, 1);
     });
+
+    test('hybrid customer combines sales and Job Work without double-counting', () {
+      final now = DateTime.now();
+      final hybrid = testCustomer.copyWith(
+        serviceType: CustomerServiceType.both,
+      );
+      final job = JobWorkOrder(
+        id: 'jw-hybrid', factoryId: 'factory-1', jobWorkNumber: 'JW-H',
+        customerId: 'cust-1', customerName: 'Hussain',
+        status: JobWorkStatus.ready, marbleVariety: 'White', blockCount: 1,
+        totalTons: 1, cuttingStrategy: CuttingStrategy.bridgeSaw,
+        targetProduct: TargetProduct.tiles, thickness: '18mm',
+        finish: FinishType.polished, pricingModel: PricingModel.perSqFt,
+        receivedDate: now, agreedRate: 1, finalCuttingCharges: 1000,
+        advanceReceived: 400, balanceDue: 600, paymentTerms: PaymentTerms.cash,
+        createdAt: now,
+      );
+      final sale = SalesOrder(
+        id: 'sale-hybrid', orderNumber: 'SO-H', factoryId: 'factory-1',
+        customerId: 'cust-1', customerName: 'Hussain',
+        status: SalesOrderStatus.received, orderDate: now,
+        orderSource: SalesOrderSource.walkIn, lineItems: const [],
+        subtotal: 500, orderDiscount: 0, tax: 0, grandTotal: 500,
+        paymentTerms: PaymentTerms.cash, advanceReceived: 100,
+        balanceDue: 400, createdAt: now,
+      );
+
+      final summary = CustomerBalanceCalculator.calculateCustomerSummary(
+        customer: hybrid, salesOrders: [sale], salesInvoices: const [],
+        jobWorkOrders: [job], jobWorkLoads: const [],
+        jobWorkInvoices: const [], payments: const [],
+      );
+
+      expect(summary.totalRevenue, 1500);
+      expect(summary.totalPaid, 500);
+      expect(summary.totalDue, 1000);
+      expect(summary.jobWorkOrderCount, 1);
+      expect(summary.salesOrderCount, 1);
+    });
   });
 }

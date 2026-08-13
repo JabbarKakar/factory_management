@@ -98,6 +98,8 @@ class CustomerLedgerService {
     await _customerRepository.updateCustomer(
       customer.copyWith(
         balance: summary.totalDue,
+        totalAmountPaid: summary.totalPaid,
+        totalBalanceDue: summary.totalDue,
         nextDueDate: summary.nextDueDate,
       ),
     );

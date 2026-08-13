@@ -17,6 +17,8 @@ class CustomerModel {
     required this.balance,
     required this.openingBalance,
     required this.createdAt,
+    this.totalAmountPaid = 0,
+    this.totalBalanceDue = 0,
     this.contactPersonName,
     this.phoneSecondary,
     this.whatsApp,
@@ -62,6 +64,8 @@ class CustomerModel {
   final String? notes;
   final double balance;
   final double openingBalance;
+  final double totalAmountPaid;
+  final double totalBalanceDue;
   final DateTime? nextDueDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -97,6 +101,10 @@ class CustomerModel {
       notes: data['notes'] as String?,
       balance: (data['balance'] as num?)?.toDouble() ?? 0,
       openingBalance: (data['openingBalance'] as num?)?.toDouble() ?? 0,
+      totalAmountPaid: (data['totalAmountPaid'] as num?)?.toDouble() ?? 0,
+      totalBalanceDue: (data['totalBalanceDue'] as num?)?.toDouble() ??
+          (data['balance'] as num?)?.toDouble() ??
+          0,
       nextDueDate: (data['nextDueDate'] as Timestamp?)?.toDate(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
@@ -132,6 +140,8 @@ class CustomerModel {
       if (notes != null) 'notes': notes,
       'balance': balance,
       'openingBalance': openingBalance,
+      'totalAmountPaid': totalAmountPaid,
+      'totalBalanceDue': totalBalanceDue,
       if (nextDueDate != null) 'nextDueDate': Timestamp.fromDate(nextDueDate!),
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
@@ -166,6 +176,8 @@ class CustomerModel {
       notes: notes,
       balance: balance,
       openingBalance: openingBalance,
+      totalAmountPaid: totalAmountPaid,
+      totalBalanceDue: totalBalanceDue,
       nextDueDate: nextDueDate,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -200,6 +212,8 @@ class CustomerModel {
       notes: customer.notes,
       balance: customer.balance,
       openingBalance: customer.openingBalance,
+      totalAmountPaid: customer.totalAmountPaid,
+      totalBalanceDue: customer.totalBalanceDue,
       nextDueDate: customer.nextDueDate,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
