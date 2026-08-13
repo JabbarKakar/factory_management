@@ -170,6 +170,7 @@ abstract final class CustomerBalanceCalculator {
         order: order,
         loads: customerJobWorkLoads,
         invoices: orderInvoices,
+        payments: payments,
       );
 
       jobWorkRevenue += finance.charges;

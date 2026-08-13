@@ -522,6 +522,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
           invoices: state.invoices.isNotEmpty
               ? state.invoices
               : (hasInvoice ? [invoice] : const []),
+          payments: state.payments,
         );
         final outstandingBalance = finance.due;
         final canGenerateInvoice =

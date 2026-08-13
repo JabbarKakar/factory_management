@@ -1,6 +1,7 @@
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/payment.dart';
 import '../../domain/enums/job_work_enums.dart';
 import 'job_work_collection_quantity_helper.dart';
 
@@ -193,25 +194,75 @@ abstract final class JobWorkContainerSyncHelper {
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
     required List<JobWorkInvoice> invoices,
+    List<Payment> payments = const [],
   }) {
     final billable = billableLoadsForGrandInvoice(loads);
     final loadsToProcess = billable.isNotEmpty ? billable : loads;
 
+    final invoiceReferenceCounts = <String, int>{};
+    for (final load in loadsToProcess) {
+      final invoiceId = load.invoiceId?.trim() ?? '';
+      if (invoiceId.isNotEmpty) {
+        invoiceReferenceCounts[invoiceId] =
+            (invoiceReferenceCounts[invoiceId] ?? 0) + 1;
+      }
+    }
+    final sharedInvoiceIds = invoiceReferenceCounts.entries
+        .where((entry) => entry.value > 1)
+        .map((entry) => entry.key)
+        .toSet();
+
+    bool isContainerInvoice(JobWorkInvoice invoice) {
+      final loadId = invoice.loadId?.trim() ?? '';
+      if (loadId.isEmpty || sharedInvoiceIds.contains(invoice.id)) return true;
+      if (loadsToProcess.length <= 1) return false;
+
+      // Some legacy grand invoices were incorrectly stamped with the first
+      // Load's ID. Their line items still prove that they cover several Loads.
+      final referencedLoadCount = loadsToProcess.where((load) {
+        final number = load.loadNumber.trim();
+        if (number.isEmpty) return false;
+        return invoice.lineItems.any(
+          (item) => item.description.contains(number),
+        );
+      }).length;
+      if (referencedLoadCount > 1) return true;
+
+      // Last-resort structural check for old invoices whose descriptions were
+      // edited: invoice total equals the combined Load charges, not one Load.
+      final combinedCharges = loadsToProcess.fold<double>(
+        0,
+        (sum, load) => sum + load.finalCuttingCharges,
+      );
+      return (invoice.totalAmount - combinedCharges).abs() <= 0.01;
+    }
+
     final byLoadId = <String, JobWorkInvoice>{};
     for (final invoice in invoices) {
       final loadId = invoice.loadId?.trim();
-      if (loadId != null && loadId.isNotEmpty) {
+      if (loadId != null &&
+          loadId.isNotEmpty &&
+          !isContainerInvoice(invoice)) {
         byLoadId[loadId] = invoice;
       }
     }
 
     final grandInvoice = invoices
-        .where((i) => i.loadId == null || i.loadId!.trim().isEmpty)
+        .where(isContainerInvoice)
         .firstOrNull;
 
-    final totalPaymentsRecorded = grandInvoice != null
-        ? grandInvoice.paidAmount
-        : invoices.fold<double>(0, (sum, i) => sum + i.paidAmount);
+    final invoiceIds = invoices.map((invoice) => invoice.id).toSet();
+    final relevantPayments = payments
+        .where((payment) => invoiceIds.contains(payment.invoiceId))
+        .toList();
+    final usePaymentLedger = relevantPayments.isNotEmpty;
+    final ledgerPaid = relevantPayments
+        .fold<double>(0, (sum, payment) => sum + payment.amount);
+    final totalPaymentsRecorded = usePaymentLedger
+        ? ledgerPaid
+        : grandInvoice != null
+            ? grandInvoice.paidAmount
+            : invoices.fold<double>(0, (sum, i) => sum + i.paidAmount);
 
     final result = <String, ({double charges, double paid, double due})>{};
     var specificPaymentsSum = 0.0;
@@ -232,18 +283,26 @@ abstract final class JobWorkContainerSyncHelper {
 
       final total = load.finalCuttingCharges;
       double specificPaid = 0.0;
-      final lineItemPaid = extractPaidFromLineItems(invoices, load, loadIndex: i);
+      final lineItemPaid = usePaymentLedger
+          ? null
+          : extractPaidFromLineItems(invoices, load, loadIndex: i);
 
       if (inv != null) {
-        specificPaid = inv.paidAmount;
-      } else if (load.advanceReceived > 0) {
+        specificPaid = usePaymentLedger
+            ? relevantPayments
+                .where((payment) => payment.invoiceId == inv.id)
+                .fold<double>(0, (sum, payment) => sum + payment.amount)
+            : inv.paidAmount;
+      } else if (!usePaymentLedger && load.advanceReceived > 0) {
         specificPaid = load.advanceReceived;
       } else if (lineItemPaid != null) {
         specificPaid = lineItemPaid;
       }
 
       // Mark load as having explicit payment data if ANY source provided a value
-      if (inv != null || load.advanceReceived > 0 || lineItemPaid != null) {
+      if (inv != null ||
+          (!usePaymentLedger && load.advanceReceived > 0) ||
+          lineItemPaid != null) {
         final paid = specificPaid.clamp(0.0, total).toDouble();
         final due = (total - paid).clamp(0.0, total).toDouble();
         result[load.id] = (charges: total, paid: paid, due: due);
@@ -262,8 +321,11 @@ abstract final class JobWorkContainerSyncHelper {
 
       // Check if this load has explicit payment data from any source
       final inv = byLoadId[load.id];
-      final lineItemPaid = extractPaidFromLineItems(invoices, load, loadIndex: i);
-      final hasExplicitPayment = (load.advanceReceived > 0 ||
+      final lineItemPaid = usePaymentLedger
+          ? null
+          : extractPaidFromLineItems(invoices, load, loadIndex: i);
+      final hasExplicitPayment = ((!usePaymentLedger &&
+              load.advanceReceived > 0) ||
           inv != null ||
           (lineItemPaid != null));
 
@@ -308,8 +370,9 @@ abstract final class JobWorkContainerSyncHelper {
     return result;
   }
 
-  /// Prefer invoice documents when present (authoritative paid/due/charges).
-  /// Only counts active (non-cancelled) Loads so Summary matches visible cards.
+  /// Reconciles aggregate Job Work finance without relying on per-Load payment
+  /// allocation. Loads own charges, payment documents own paid, and due is the
+  /// mathematical difference. Invoice fields are only a stream/fallback source.
   ///
   /// When Loads exist (Option A), finance is always rolled up from those Loads /
   /// Load-scoped invoices. A JW-level grand invoice (empty [loadId]) is used only
@@ -318,38 +381,73 @@ abstract final class JobWorkContainerSyncHelper {
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
     required List<JobWorkInvoice> invoices,
+    List<Payment> payments = const [],
     List<JobWorkLoad>? loadsToSum,
   }) {
-    final byLoadId = <String, JobWorkInvoice>{};
-    for (final invoice in invoices) {
-      final loadId = invoice.loadId?.trim();
-      if (loadId == null || loadId.isEmpty) continue;
-      byLoadId[loadId] = invoice;
-    }
-    for (final invoice in invoices) {
-      final loadId = invoice.loadId?.trim();
-      if (loadId == null || loadId.isEmpty) continue;
-      byLoadId.putIfAbsent(loadId, () => invoice);
-    }
-
     final orderLoads = loadsToSum ?? activeLoadsForFinance(order, loads);
     if (orderLoads.isNotEmpty) {
-      var charges = 0.0;
-      var paid = 0.0;
-      var due = 0.0;
-      for (final load in orderLoads) {
-        JobWorkInvoice? invoice = byLoadId[load.id];
-        final linkedId = load.invoiceId?.trim();
-        if (linkedId != null && linkedId.isNotEmpty) {
-          final linked = invoices.where((item) => item.id == linkedId).firstOrNull;
-          if (linked != null) invoice = linked;
+      final charges = orderLoads.fold<double>(
+        0,
+        (sum, load) => sum + load.finalCuttingCharges,
+      );
+
+      final invoiceIds = invoices.map((invoice) => invoice.id).toSet();
+      final uniquePayments = <String, Payment>{};
+      for (final payment in payments) {
+        if (invoiceIds.contains(payment.invoiceId)) {
+          uniquePayments[payment.id] = payment;
         }
-        final finance = financeForLoad(load: load, invoice: invoice);
-        charges += finance.charges;
-        paid += finance.paid;
-        due += finance.due;
       }
-      return (charges: charges, paid: paid, due: due);
+
+      final double paid;
+      if (uniquePayments.isNotEmpty) {
+        // Aggregate screens reconcile directly from the immutable payment
+        // ledger. Per-Load allocation must never change Job Work/customer totals.
+        paid = uniquePayments.values.fold<double>(
+          0,
+          (sum, payment) => sum + payment.amount,
+        );
+      } else {
+        // Firestore streams do not arrive atomically. While the payment stream
+        // is catching up, prefer the invoice that represents the whole Job Work
+        // instead of briefly publishing a misleading per-Load allocation.
+        final containerInvoice = invoices.where((invoice) {
+          if (invoice.loadId == null || invoice.loadId!.trim().isEmpty) {
+            return true;
+          }
+          if ((invoice.totalAmount - charges).abs() <= 0.01) return true;
+          final referencedLoads = orderLoads.where((load) {
+            final number = load.loadNumber.trim();
+            return number.isNotEmpty &&
+                invoice.lineItems.any(
+                  (item) => item.description.contains(number),
+                );
+          }).length;
+          return referencedLoads > 1;
+        }).firstOrNull;
+
+        if (containerInvoice != null) {
+          paid = containerInvoice.paidAmount;
+        } else {
+          final uniqueInvoices = <String, JobWorkInvoice>{
+            for (final invoice in invoices) invoice.id: invoice,
+          };
+          paid = uniqueInvoices.values.fold<double>(
+            0,
+            (sum, invoice) => sum + invoice.paidAmount,
+          );
+        }
+      }
+
+      final normalizedPaid = paid.clamp(0.0, double.infinity).toDouble();
+      final due = (charges - normalizedPaid)
+          .clamp(0.0, double.infinity)
+          .toDouble();
+      return (
+        charges: charges,
+        paid: normalizedPaid,
+        due: due,
+      );
     }
 
     final grandInvoice = invoices

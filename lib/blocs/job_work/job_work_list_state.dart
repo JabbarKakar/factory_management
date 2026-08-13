@@ -10,6 +10,7 @@ class JobWorkListState extends Equatable {
     this.qualityChecks = const [],
     this.collections = const [],
     this.loads = const [],
+    this.payments = const [],
     this.jobWorkIdsWithQc = const {},
     this.loadIdsWithQc = const {},
     this.awaitingQcCount = 0,
@@ -32,6 +33,7 @@ class JobWorkListState extends Equatable {
   final List<QualityCheck> qualityChecks;
   final List<JobWorkCollection> collections;
   final List<JobWorkLoad> loads;
+  final List<Payment> payments;
   final Set<String> jobWorkIdsWithQc;
   final Set<String> loadIdsWithQc;
   final int awaitingQcCount;
@@ -67,6 +69,15 @@ class JobWorkListState extends Equatable {
     return invoicesByJobWorkId[jobWorkId] ?? const [];
   }
 
+  List<Payment> paymentsForOrder(String jobWorkId) {
+    final invoiceIds = invoicesForOrder(jobWorkId)
+        .map((invoice) => invoice.id)
+        .toSet();
+    return payments
+        .where((payment) => invoiceIds.contains(payment.invoiceId))
+        .toList();
+  }
+
   JobWorkListState copyWith({
     JobWorkListStatus? status,
     List<JobWorkOrder>? orders,
@@ -74,6 +85,7 @@ class JobWorkListState extends Equatable {
     List<QualityCheck>? qualityChecks,
     List<JobWorkCollection>? collections,
     List<JobWorkLoad>? loads,
+    List<Payment>? payments,
     Set<String>? jobWorkIdsWithQc,
     Set<String>? loadIdsWithQc,
     int? awaitingQcCount,
@@ -98,6 +110,7 @@ class JobWorkListState extends Equatable {
       qualityChecks: qualityChecks ?? this.qualityChecks,
       collections: collections ?? this.collections,
       loads: loads ?? this.loads,
+      payments: payments ?? this.payments,
       jobWorkIdsWithQc: jobWorkIdsWithQc ?? this.jobWorkIdsWithQc,
       loadIdsWithQc: loadIdsWithQc ?? this.loadIdsWithQc,
       awaitingQcCount: awaitingQcCount ?? this.awaitingQcCount,
@@ -124,6 +137,7 @@ class JobWorkListState extends Equatable {
         qualityChecks,
         collections,
         loads,
+        payments,
         jobWorkIdsWithQc,
         loadIdsWithQc,
         awaitingQcCount,

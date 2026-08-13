@@ -8,6 +8,7 @@ import '../../data/repositories/job_work_collection_repository.dart';
 import '../../data/repositories/job_work_invoice_repository.dart';
 import '../../data/repositories/job_work_load_repository.dart';
 import '../../data/repositories/job_work_repository.dart';
+import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/quality_check_repository.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../data/services/job_work_load_production_helper.dart';
@@ -15,6 +16,7 @@ import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
+import '../../domain/entities/payment.dart';
 import '../../domain/entities/quality_check.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/quality_enums.dart';
@@ -30,11 +32,13 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     required JobWorkCollectionRepository collectionRepository,
     required JobWorkLoadRepository loadRepository,
     required QualityCheckRepository qualityCheckRepository,
+    required PaymentRepository paymentRepository,
   })  : _repository = repository,
         _invoiceRepository = invoiceRepository,
         _collectionRepository = collectionRepository,
         _loadRepository = loadRepository,
         _qualityCheckRepository = qualityCheckRepository,
+        _paymentRepository = paymentRepository,
         super(const JobWorkListState()) {
     on<JobWorkListWatchStarted>(_onWatchStarted);
     on<JobWorkListFetchNext>(_onFetchNext);
@@ -46,6 +50,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     on<_JobWorkQualityChecksUpdated>(_onQualityChecksUpdated);
     on<_JobWorkCollectionsUpdated>(_onCollectionsUpdated);
     on<_JobWorkLoadsUpdated>(_onLoadsUpdated);
+    on<_JobWorkPaymentsUpdated>(_onPaymentsUpdated);
     on<_JobWorkListStreamFailed>(_onStreamFailed);
   }
 
@@ -54,10 +59,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
   final JobWorkCollectionRepository _collectionRepository;
   final JobWorkLoadRepository _loadRepository;
   final QualityCheckRepository _qualityCheckRepository;
+  final PaymentRepository _paymentRepository;
   StreamSubscription<List<JobWorkInvoice>>? _invoicesSubscription;
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
   StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
   StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
+  StreamSubscription<List<Payment>>? _paymentsSubscription;
   StreamSubscription<EntityMutationEvent<JobWorkOrder>>? _jobWorkEventSub;
 
   JobWorkStatus? _statusFilterForJobWork(JobWorkListStageFilter filter) {
@@ -184,6 +191,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     _qualityChecksSubscription?.cancel();
     _collectionsSubscription?.cancel();
     _loadsSubscription?.cancel();
+    _paymentsSubscription?.cancel();
 
     _invoicesSubscription =
         _invoiceRepository.watchInvoicesForFactory(factoryId).listen(
@@ -209,6 +217,12 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
           (loads) => add(_JobWorkLoadsUpdated(loads)),
           onError: (_) {},
         );
+
+    _paymentsSubscription =
+        _paymentRepository.watchPaymentsForFactory(factoryId).listen(
+      (payments) => add(_JobWorkPaymentsUpdated(payments)),
+      onError: (_) {},
+    );
 
     _jobWorkEventSub?.cancel();
     _jobWorkEventSub =
@@ -439,6 +453,13 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     );
   }
 
+  void _onPaymentsUpdated(
+    _JobWorkPaymentsUpdated event,
+    Emitter<JobWorkListState> emit,
+  ) {
+    emit(state.copyWith(payments: event.payments));
+  }
+
   Set<String> _jobWorkIdsWithQc(List<QualityCheck> checks) {
     return checks
         .where((check) => check.referenceType == QcReferenceType.jobWork)
@@ -611,6 +632,7 @@ class JobWorkListBloc extends Bloc<JobWorkListEvent, JobWorkListState> {
     _qualityChecksSubscription?.cancel();
     _collectionsSubscription?.cancel();
     _loadsSubscription?.cancel();
+    _paymentsSubscription?.cancel();
     return super.close();
   }
 }
@@ -649,4 +671,13 @@ final class _JobWorkLoadsUpdated extends JobWorkListEvent {
 
   @override
   List<Object?> get props => [loads];
+}
+
+final class _JobWorkPaymentsUpdated extends JobWorkListEvent {
+  const _JobWorkPaymentsUpdated(this.payments);
+
+  final List<Payment> payments;
+
+  @override
+  List<Object?> get props => [payments];
 }

@@ -2,6 +2,7 @@ import 'package:factory_management/data/services/job_work_container_sync_helper.
 import 'package:factory_management/domain/entities/job_work_invoice.dart';
 import 'package:factory_management/domain/entities/job_work_load.dart';
 import 'package:factory_management/domain/entities/job_work_order.dart';
+import 'package:factory_management/domain/entities/payment.dart';
 import 'package:factory_management/domain/enums/customer_enums.dart';
 import 'package:factory_management/domain/enums/invoice_enums.dart';
 import 'package:factory_management/domain/enums/job_work_enums.dart';
@@ -326,6 +327,96 @@ void main() {
       // Load 3: Unpaid (Rs 0) from line items
       expect(financeMap['l3']?.paid, closeTo(0.0, 1.0));
       expect(financeMap['l3']?.due, closeTo(29581.14, 1.0));
+    });
+  });
+
+  group('rollupInvoiceFinance grand invoice attribution', () {
+    test('counts a shared grand invoice once across four loads', () {
+      final order = buildOrder(invoiceId: 'grand-1');
+      final loads = [
+        buildLoad(id: 'l1', sequence: 1, finalCuttingCharges: 190491)
+            .copyWith(invoiceId: 'grand-1'),
+        buildLoad(id: 'l2', sequence: 2, finalCuttingCharges: 112200),
+        buildLoad(id: 'l3', sequence: 3, finalCuttingCharges: 119500),
+        buildLoad(id: 'l4', sequence: 4, finalCuttingCharges: 124500),
+      ];
+      final grandInvoice = JobWorkInvoice(
+        id: 'grand-1',
+        invoiceNumber: 'JWI-2026-0001',
+        factoryId: 'factory-1',
+        jobWorkId: order.id,
+        jobWorkNumber: order.jobWorkNumber,
+        customerId: order.customerId,
+        customerName: order.customerName,
+        // Legacy defect: this grand invoice is incorrectly stamped as l1.
+        loadId: 'l1',
+        loadNumber: 'JWL-1',
+        lineItems: const [
+          InvoiceLineItem(
+            description: 'JWL-1 · Total: Rs 190491',
+            amount: 190491,
+          ),
+          InvoiceLineItem(
+            description: 'JWL-2 · Total: Rs 112200',
+            amount: 112200,
+          ),
+          InvoiceLineItem(
+            description: 'JWL-3 · Total: Rs 119500',
+            amount: 119500,
+          ),
+          InvoiceLineItem(
+            description: 'JWL-4 · Total: Rs 124500',
+            amount: 124500,
+          ),
+        ],
+        totalAmount: 546691,
+        // Simulate the production defect: denormalized invoice finance is stale,
+        // while the authoritative payment collection contains Rs 500,000.
+        paidAmount: 0,
+        dueAmount: 546691,
+        status: InvoiceStatus.partial,
+        createdAt: DateTime(2026, 8, 12),
+      );
+
+      final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+        order: order,
+        loads: loads,
+        invoices: [grandInvoice],
+        payments: [
+          Payment(
+            id: 'payment-1',
+            factoryId: 'factory-1',
+            customerId: order.customerId,
+            customerName: order.customerName,
+            invoiceId: grandInvoice.id,
+            invoiceType: InvoiceType.jobWork,
+            invoiceNumber: grandInvoice.invoiceNumber,
+            amount: 500000,
+            method: PaymentMethod.cash,
+            paymentDate: DateTime(2026, 8, 12),
+            createdAt: DateTime(2026, 8, 12),
+          ),
+        ],
+      );
+
+      expect(finance.charges, 546691);
+      expect(finance.paid, 500000);
+      expect(finance.due, 46691);
+
+      final beforePaymentStream =
+          JobWorkContainerSyncHelper.rollupInvoiceFinance(
+        order: order,
+        loads: loads,
+        invoices: [
+          grandInvoice.copyWith(
+            paidAmount: 500000,
+            dueAmount: 46691,
+          ),
+        ],
+      );
+      expect(beforePaymentStream.charges, 546691);
+      expect(beforePaymentStream.paid, 500000);
+      expect(beforePaymentStream.due, 46691);
     });
   });
 }
