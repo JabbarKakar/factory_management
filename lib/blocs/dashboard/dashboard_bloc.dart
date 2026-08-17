@@ -748,6 +748,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       salesInvoices: _salesInvoices,
       salesOrders: _salesOrders,
       deliveries: _deliveries,
+      jobWorkCollections: _jobWorkCollections,
     );
 
     final cashflow = _buildCashflowMetrics(
@@ -777,6 +778,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       salesOrders: _salesOrders,
       deliveries: _deliveries,
       activeJobWorks: activeJobWorkCount,
+      jobWorkCollections: _jobWorkCollections,
       factoryCreatedAt: earliest,
     );
 

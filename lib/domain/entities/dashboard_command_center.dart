@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../enums/dashboard_finance_period.dart';
+import 'job_work_dispatch_metrics.dart';
 import 'dashboard_kpis.dart';
 
 class DashboardCashflowPoint extends Equatable {
@@ -68,6 +69,8 @@ class DashboardCommandCenter extends Equatable {
     required this.activeJobWorks,
     required this.activeDispatches,
     required this.throughputSqFt,
+    this.jobWorkCollectionMetrics = JobWorkDispatchCategoryMetrics.empty,
+    this.saleDispatchMetrics = JobWorkDispatchCategoryMetrics.empty,
   });
 
   static const empty = DashboardCommandCenter(
@@ -95,6 +98,8 @@ class DashboardCommandCenter extends Equatable {
     activeJobWorks: 0,
     activeDispatches: 0,
     throughputSqFt: 0,
+    jobWorkCollectionMetrics: JobWorkDispatchCategoryMetrics.empty,
+    saleDispatchMetrics: JobWorkDispatchCategoryMetrics.empty,
   );
 
   final DashboardFinancePeriod period;
@@ -121,6 +126,8 @@ class DashboardCommandCenter extends Equatable {
   final int activeJobWorks;
   final int activeDispatches;
   final double throughputSqFt;
+  final JobWorkDispatchCategoryMetrics jobWorkCollectionMetrics;
+  final JobWorkDispatchCategoryMetrics saleDispatchMetrics;
 
   double get net => income - expenses;
 
@@ -177,5 +184,7 @@ class DashboardCommandCenter extends Equatable {
         activeJobWorks,
         activeDispatches,
         throughputSqFt,
+        jobWorkCollectionMetrics,
+        saleDispatchMetrics,
       ];
 }

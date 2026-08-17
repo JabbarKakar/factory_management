@@ -123,58 +123,17 @@ class _DashboardCommandCenterViewState
     final analytics = widget.state.analytics;
     final pendingPickups = widget.state.pendingPickups;
 
+    final activeJwMetrics = cc.jobWorkCollectionMetrics;
+    final activeSaleMetrics = cc.saleDispatchMetrics;
+
     final jwMetricsMap = <DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>{
-      DashboardFinancePeriod.daily: JobWorkDispatchCategoryMetrics(
-        largePieces: (cc.smallStockSqFt * 0.12).round() + 140,
-        largeSqFt: cc.largeStockSqFt * 0.6,
-        smallPieces: (cc.smallStockSqFt * 0.22).round() + 85,
-        smallSqFt: cc.smallStockSqFt * 0.4,
-      ),
-      DashboardFinancePeriod.weekly: JobWorkDispatchCategoryMetrics(
-        largePieces: ((cc.smallStockSqFt * 0.12).round() + 140) * 6,
-        largeSqFt: (cc.largeStockSqFt * 0.6) * 6,
-        smallPieces: ((cc.smallStockSqFt * 0.22).round() + 85) * 6,
-        smallSqFt: (cc.smallStockSqFt * 0.4) * 6,
-      ),
-      DashboardFinancePeriod.monthly: JobWorkDispatchCategoryMetrics(
-        largePieces: ((cc.smallStockSqFt * 0.12).round() + 140) * 24,
-        largeSqFt: (cc.largeStockSqFt * 0.6) * 24,
-        smallPieces: ((cc.smallStockSqFt * 0.22).round() + 85) * 24,
-        smallSqFt: (cc.smallStockSqFt * 0.4) * 24,
-      ),
-      DashboardFinancePeriod.allTime: JobWorkDispatchCategoryMetrics(
-        largePieces: ((cc.smallStockSqFt * 0.12).round() + 140) * 120,
-        largeSqFt: (cc.largeStockSqFt * 0.6) * 120,
-        smallPieces: ((cc.smallStockSqFt * 0.22).round() + 85) * 120,
-        smallSqFt: (cc.smallStockSqFt * 0.4) * 120,
-      ),
+      for (final p in DashboardFinancePeriod.values)
+        p: p == cc.period ? activeJwMetrics : JobWorkDispatchCategoryMetrics.empty,
     };
 
     final saleMetricsMap = <DashboardFinancePeriod, JobWorkDispatchCategoryMetrics>{
-      DashboardFinancePeriod.daily: JobWorkDispatchCategoryMetrics(
-        largePieces: (cc.salesLargeSqFt * 0.15).round() + 180,
-        largeSqFt: cc.salesLargeSqFt,
-        smallPieces: (cc.salesSmallSqFt * 0.25).round() + 110,
-        smallSqFt: cc.salesSmallSqFt,
-      ),
-      DashboardFinancePeriod.weekly: JobWorkDispatchCategoryMetrics(
-        largePieces: ((cc.salesLargeSqFt * 0.15).round() + 180) * 6,
-        largeSqFt: cc.salesLargeSqFt * 6,
-        smallPieces: ((cc.salesSmallSqFt * 0.25).round() + 110) * 6,
-        smallSqFt: cc.salesSmallSqFt * 6,
-      ),
-      DashboardFinancePeriod.monthly: JobWorkDispatchCategoryMetrics(
-        largePieces: ((cc.salesLargeSqFt * 0.15).round() + 180) * 24,
-        largeSqFt: cc.salesLargeSqFt * 24,
-        smallPieces: ((cc.salesSmallSqFt * 0.25).round() + 110) * 24,
-        smallSqFt: cc.salesSmallSqFt * 24,
-      ),
-      DashboardFinancePeriod.allTime: JobWorkDispatchCategoryMetrics(
-        largePieces: ((cc.salesLargeSqFt * 0.15).round() + 180) * 120,
-        largeSqFt: cc.salesLargeSqFt * 120,
-        smallPieces: ((cc.salesSmallSqFt * 0.25).round() + 110) * 120,
-        smallSqFt: cc.salesSmallSqFt * 120,
-      ),
+      for (final p in DashboardFinancePeriod.values)
+        p: p == cc.period ? activeSaleMetrics : JobWorkDispatchCategoryMetrics.empty,
     };
 
     final greetingText = widget.user != null

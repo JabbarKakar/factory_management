@@ -1,17 +1,21 @@
 import 'package:intl/intl.dart';
 
+import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../domain/entities/dashboard_cashflow_metrics.dart';
 import '../../domain/entities/dashboard_command_center.dart';
+import '../../domain/entities/delivery.dart';
 import '../../domain/entities/expense.dart';
+import '../../domain/entities/job_work_collection.dart';
+import '../../domain/entities/job_work_dispatch_metrics.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/sales_invoice.dart';
+import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/dashboard_finance_period.dart';
 import '../../domain/enums/invoice_enums.dart';
-import '../../domain/entities/delivery.dart';
-import '../../domain/entities/sales_order.dart';
+import '../../domain/enums/sales_enums.dart';
 import 'dashboard_job_work_metrics.dart';
 import 'dashboard_sales_sqft_metrics.dart';
 
@@ -27,6 +31,7 @@ abstract final class DashboardCommandCenterBuilder {
     List<SalesInvoice>? salesInvoices,
     List<SalesOrder>? salesOrders,
     List<Delivery>? deliveries,
+    List<JobWorkCollection>? jobWorkCollections,
   }) {
     DateTime? minDate = factoryCreatedAt;
 
@@ -80,8 +85,88 @@ abstract final class DashboardCommandCenterBuilder {
         check(d.scheduledDate);
       }
     }
+    if (jobWorkCollections != null) {
+      for (final c in jobWorkCollections) {
+        check(c.collectedAt);
+      }
+    }
 
     return minDate;
+  }
+
+  static JobWorkDispatchCategoryMetrics _jobWorkCollectionMetricsInRange({
+    required List<JobWorkCollection> collections,
+    required DateTime start,
+    required DateTime end,
+  }) {
+    var largePieces = 0;
+    var largeSqFt = 0.0;
+    var smallPieces = 0;
+    var smallSqFt = 0.0;
+
+    for (final collection in collections) {
+      if (!JobWorkCollectionQuantityHelper.counts(collection)) continue;
+      if (!DashboardFinancePeriodRange.contains(
+        collection.collectedAt,
+        start,
+        end,
+      )) {
+        continue;
+      }
+      for (final item in collection.lineItems) {
+        if (item.isSmall) {
+          smallPieces += item.pieces;
+          smallSqFt += item.squareFeet;
+        } else {
+          largePieces += item.pieces;
+          largeSqFt += item.squareFeet;
+        }
+      }
+    }
+
+    return JobWorkDispatchCategoryMetrics(
+      largePieces: largePieces,
+      largeSqFt: largeSqFt,
+      smallPieces: smallPieces,
+      smallSqFt: smallSqFt,
+    );
+  }
+
+  static JobWorkDispatchCategoryMetrics _saleDispatchMetricsInRange({
+    required List<Delivery> deliveries,
+    required DateTime start,
+    required DateTime end,
+  }) {
+    var largePieces = 0;
+    var largeSqFt = 0.0;
+    var smallPieces = 0;
+    var smallSqFt = 0.0;
+
+    for (final delivery in deliveries) {
+      if (!DashboardFinancePeriodRange.contains(
+        delivery.scheduledDate,
+        start,
+        end,
+      )) {
+        continue;
+      }
+      for (final item in delivery.lineItems) {
+        if (item.productType == SalesProductType.tile) {
+          smallPieces += item.effectivePieces;
+          smallSqFt += item.effectiveSquareFeet;
+        } else {
+          largePieces += item.effectivePieces;
+          largeSqFt += item.effectiveSquareFeet;
+        }
+      }
+    }
+
+    return JobWorkDispatchCategoryMetrics(
+      largePieces: largePieces,
+      largeSqFt: largeSqFt,
+      smallPieces: smallPieces,
+      smallSqFt: smallSqFt,
+    );
   }
 
   static DashboardCommandCenter build({
@@ -96,6 +181,7 @@ abstract final class DashboardCommandCenterBuilder {
     required List<SalesOrder> salesOrders,
     required List<Delivery> deliveries,
     required int activeJobWorks,
+    List<JobWorkCollection> jobWorkCollections = const [],
     DateTime? factoryCreatedAt,
   }) {
     final earliest = findEarliestTransactionDate(
@@ -108,6 +194,7 @@ abstract final class DashboardCommandCenterBuilder {
       salesInvoices: salesInvoices,
       salesOrders: salesOrders,
       deliveries: deliveries,
+      jobWorkCollections: jobWorkCollections,
     );
 
     final range = DashboardFinancePeriodRange.forPeriod(
@@ -218,6 +305,18 @@ abstract final class DashboardCommandCenterBuilder {
       end: today,
     );
 
+    final jwCollectionMetrics = _jobWorkCollectionMetricsInRange(
+      collections: jobWorkCollections,
+      start: range.currentStart,
+      end: range.currentEnd,
+    );
+
+    final saleDispatchMetrics = _saleDispatchMetricsInRange(
+      deliveries: deliveries,
+      start: range.currentStart,
+      end: range.currentEnd,
+    );
+
     return DashboardCommandCenter(
       period: period,
       income: income,
@@ -243,6 +342,8 @@ abstract final class DashboardCommandCenterBuilder {
       activeJobWorks: activeJobWorks,
       activeDispatches: activeDispatches,
       throughputSqFt: throughput.smallSqFt + throughput.largeSqFt,
+      jobWorkCollectionMetrics: jwCollectionMetrics,
+      saleDispatchMetrics: saleDispatchMetrics,
     );
   }
 
