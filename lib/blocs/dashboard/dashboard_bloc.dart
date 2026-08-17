@@ -739,17 +739,31 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       now: now,
     );
 
+    final earliest = DashboardCommandCenterBuilder.findEarliestTransactionDate(
+      payments: _payments,
+      expenses: _expenses,
+      jobWorkOrders: _orders,
+      jobWorkLoads: _jobWorkLoads,
+      jobWorkInvoices: _jobWorkInvoices,
+      salesInvoices: _salesInvoices,
+      salesOrders: _salesOrders,
+      deliveries: _deliveries,
+    );
+
     final cashflow = _buildCashflowMetrics(
       period: state.financePeriod,
       now: now,
+      earliestDate: earliest,
     );
     final stockCut = _buildStockCutMetrics(
       period: state.stockCutPeriod,
       now: now,
+      earliestDate: earliest,
     );
     final salesSqFt = _buildSalesSqFtMetrics(
       period: state.salesSqFtPeriod,
       now: now,
+      earliestDate: earliest,
     );
     final commandCenter = DashboardCommandCenterBuilder.build(
       period: state.financePeriod,
@@ -763,6 +777,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       salesOrders: _salesOrders,
       deliveries: _deliveries,
       activeJobWorks: activeJobWorkCount,
+      factoryCreatedAt: earliest,
     );
 
     emit(
@@ -829,8 +844,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   DashboardCashflowMetrics _buildCashflowMetrics({
     required DashboardFinancePeriod period,
     required DateTime now,
+    DateTime? earliestDate,
   }) {
-    final range = DashboardFinancePeriodRange.forPeriod(period, now);
+    final range = DashboardFinancePeriodRange.forPeriod(
+      period,
+      now,
+      earliestDate: earliestDate,
+    );
 
     double sumPayments(DateTime start, DateTime end) {
       return _payments
@@ -868,8 +888,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   DashboardStockCutMetrics _buildStockCutMetrics({
     required DashboardFinancePeriod period,
     required DateTime now,
+    DateTime? earliestDate,
   }) {
-    final range = DashboardFinancePeriodRange.forPeriod(period, now);
+    final range = DashboardFinancePeriodRange.forPeriod(
+      period,
+      now,
+      earliestDate: earliestDate,
+    );
     final current = DashboardJobWorkMetrics.factoryStockCutInRange(
       orders: _orders,
       loads: _jobWorkLoads,
@@ -898,8 +923,13 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   DashboardSalesSqFtMetrics _buildSalesSqFtMetrics({
     required DashboardFinancePeriod period,
     required DateTime now,
+    DateTime? earliestDate,
   }) {
-    final range = DashboardFinancePeriodRange.forPeriod(period, now);
+    final range = DashboardFinancePeriodRange.forPeriod(
+      period,
+      now,
+      earliestDate: earliestDate,
+    );
     final current = DashboardSalesSqFtHelper.factorySalesSqFtInRange(
       orders: _salesOrders,
       start: range.currentStart,

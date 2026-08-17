@@ -1526,7 +1526,7 @@ class _CashflowAreaChart extends StatelessWidget {
             preventCurveOverShooting: true,
             color: successColor,
             barWidth: 2.5,
-            dotData: const FlDotData(show: false),
+            dotData: FlDotData(show: series.length <= 2),
             belowBarData: BarAreaData(
               show: true,
               color: successColor.withValues(alpha: 0.14),
@@ -1541,7 +1541,7 @@ class _CashflowAreaChart extends StatelessWidget {
             preventCurveOverShooting: true,
             color: dangerColor,
             barWidth: 2.5,
-            dotData: const FlDotData(show: false),
+            dotData: FlDotData(show: series.length <= 2),
             belowBarData: BarAreaData(
               show: true,
               color: dangerColor.withValues(alpha: 0.1),

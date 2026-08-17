@@ -81,8 +81,9 @@ class DashboardFinancePeriodRange {
   /// Builds current/previous ranges for [period] relative to [now].
   static DashboardFinancePeriodRange forPeriod(
     DashboardFinancePeriod period,
-    DateTime now,
-  ) {
+    DateTime now, {
+    DateTime? earliestDate,
+  }) {
     final today = dateOnly(now);
 
     switch (period) {
@@ -135,26 +136,39 @@ class DashboardFinancePeriodRange {
         );
 
       case DashboardFinancePeriod.yearly:
-        final yearStart = DateTime(today.year, 1, 1);
-        final prevYearEnd =
-            _clampDay(today.year - 1, today.month, today.day);
-        final prevYearStart = DateTime(today.year - 1, 1, 1);
+        // Rolling 12-month window starting from the 1st of the month 1 year ago.
+        final currentStart = DateTime(today.year - 1, today.month, 1);
+        final previousStart = DateTime(today.year - 2, today.month, 1);
+        final previousEnd = currentStart.subtract(const Duration(days: 1));
         return DashboardFinancePeriodRange(
-          currentStart: yearStart,
+          currentStart: currentStart,
           currentEnd: today,
-          previousStart: prevYearStart,
-          previousEnd: prevYearEnd,
+          previousStart: previousStart,
+          previousEnd: previousEnd,
         );
 
       case DashboardFinancePeriod.allTime:
-        // Open-ended history; previous window is empty so trends stay N/A.
-        final epoch = DateTime(2000, 1, 1);
-        final emptyEnd = epoch.subtract(const Duration(days: 1));
+        // Scoped to earliest actual creation or transaction date.
+        // Enforce a minimum window of 5 months prior so line charts always have at least 6 buckets to draw curves.
+        final minStart = today.subtract(const Duration(days: 150));
+        final effectiveEarliest = (earliestDate != null && !earliestDate.isAfter(today))
+            ? dateOnly(earliestDate)
+            : null;
+        DateTime currentStart;
+        if (effectiveEarliest != null) {
+          final earliestStart = DateTime(effectiveEarliest.year, effectiveEarliest.month, 1);
+          currentStart = earliestStart.isAfter(minStart)
+              ? DateTime(minStart.year, minStart.month, 1)
+              : earliestStart;
+        } else {
+          currentStart = DateTime(minStart.year, minStart.month, 1);
+        }
+        final previousEnd = currentStart.subtract(const Duration(days: 1));
         return DashboardFinancePeriodRange(
-          currentStart: epoch,
+          currentStart: currentStart,
           currentEnd: today,
-          previousStart: epoch,
-          previousEnd: emptyEnd,
+          previousStart: currentStart,
+          previousEnd: previousEnd,
         );
     }
   }

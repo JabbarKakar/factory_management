@@ -17,6 +17,73 @@ import 'dashboard_sales_sqft_metrics.dart';
 
 /// Builds period-driven command-center metrics and chart series.
 abstract final class DashboardCommandCenterBuilder {
+  static DateTime? findEarliestTransactionDate({
+    DateTime? factoryCreatedAt,
+    List<Payment>? payments,
+    List<Expense>? expenses,
+    List<JobWorkOrder>? jobWorkOrders,
+    List<JobWorkLoad>? jobWorkLoads,
+    List<JobWorkInvoice>? jobWorkInvoices,
+    List<SalesInvoice>? salesInvoices,
+    List<SalesOrder>? salesOrders,
+    List<Delivery>? deliveries,
+  }) {
+    DateTime? minDate = factoryCreatedAt;
+
+    void check(DateTime? date) {
+      if (date == null) return;
+      if (minDate == null || date.isBefore(minDate!)) {
+        minDate = date;
+      }
+    }
+
+    if (payments != null) {
+      for (final p in payments) {
+        check(p.paymentDate);
+      }
+    }
+    if (expenses != null) {
+      for (final e in expenses) {
+        check(e.expenseDate);
+      }
+    }
+    if (jobWorkOrders != null) {
+      for (final o in jobWorkOrders) {
+        check(o.createdAt);
+      }
+    }
+    if (jobWorkLoads != null) {
+      for (final l in jobWorkLoads) {
+        check(l.createdAt);
+        if (l.output?.recordedAt != null) {
+          check(l.output!.recordedAt);
+        }
+      }
+    }
+    if (jobWorkInvoices != null) {
+      for (final i in jobWorkInvoices) {
+        check(i.createdAt);
+      }
+    }
+    if (salesInvoices != null) {
+      for (final i in salesInvoices) {
+        check(i.createdAt);
+      }
+    }
+    if (salesOrders != null) {
+      for (final o in salesOrders) {
+        check(o.createdAt);
+      }
+    }
+    if (deliveries != null) {
+      for (final d in deliveries) {
+        check(d.scheduledDate);
+      }
+    }
+
+    return minDate;
+  }
+
   static DashboardCommandCenter build({
     required DashboardFinancePeriod period,
     required DateTime now,
@@ -29,8 +96,25 @@ abstract final class DashboardCommandCenterBuilder {
     required List<SalesOrder> salesOrders,
     required List<Delivery> deliveries,
     required int activeJobWorks,
+    DateTime? factoryCreatedAt,
   }) {
-    final range = DashboardFinancePeriodRange.forPeriod(period, now);
+    final earliest = findEarliestTransactionDate(
+      factoryCreatedAt: factoryCreatedAt,
+      payments: payments,
+      expenses: expenses,
+      jobWorkOrders: jobWorkOrders,
+      jobWorkLoads: jobWorkLoads,
+      jobWorkInvoices: jobWorkInvoices,
+      salesInvoices: salesInvoices,
+      salesOrders: salesOrders,
+      deliveries: deliveries,
+    );
+
+    final range = DashboardFinancePeriodRange.forPeriod(
+      period,
+      now,
+      earliestDate: earliest,
+    );
     final buckets = _buckets(period, range.currentStart, range.currentEnd);
 
     final cashflowSeries = <DashboardCashflowPoint>[];
