@@ -106,13 +106,12 @@ abstract final class DashboardCommandCenterBuilder {
 
     for (final collection in collections) {
       if (!JobWorkCollectionQuantityHelper.counts(collection)) continue;
-      if (!DashboardFinancePeriodRange.contains(
-        collection.collectedAt,
-        start,
-        end,
-      )) {
-        continue;
-      }
+      final collectedDate = collection.collectedAt;
+      final createdDate = collection.createdAt;
+      final inRange = DashboardFinancePeriodRange.contains(collectedDate, start, end) ||
+          DashboardFinancePeriodRange.contains(createdDate, start, end);
+      if (!inRange) continue;
+
       for (final item in collection.lineItems) {
         if (item.isSmall) {
           smallPieces += item.pieces;
@@ -143,15 +142,18 @@ abstract final class DashboardCommandCenterBuilder {
     var smallSqFt = 0.0;
 
     for (final delivery in deliveries) {
-      if (!DashboardFinancePeriodRange.contains(
-        delivery.scheduledDate,
-        start,
-        end,
-      )) {
-        continue;
-      }
+      final dispatchDate = delivery.actualDeliveryDate ??
+          delivery.createdAt;
+      final inRange = DashboardFinancePeriodRange.contains(dispatchDate, start, end) ||
+          DashboardFinancePeriodRange.contains(delivery.scheduledDate, start, end) ||
+          DashboardFinancePeriodRange.contains(delivery.createdAt, start, end);
+
+      if (!inRange) continue;
+
       for (final item in delivery.lineItems) {
-        if (item.productType == SalesProductType.tile) {
+        final isSmall = item.productType == SalesProductType.tile ||
+            item.sizeThickness.toLowerCase().contains('small');
+        if (isSmall) {
           smallPieces += item.effectivePieces;
           smallSqFt += item.effectiveSquareFeet;
         } else {
