@@ -301,26 +301,11 @@ class CustomerFormBloc extends Bloc<CustomerFormEvent, CustomerFormState> {
   ) async {
     emit(state.copyWith(status: CustomerFormStatus.saving));
     try {
-      final factoryId = _currentCustomer?.factoryId;
-      if (factoryId == null || factoryId.isEmpty) {
-        emit(
-          state.copyWith(
-            status: CustomerFormStatus.failure,
-            errorMessage: 'Could not delete customer.',
-          ),
-        );
-        return;
-      }
-      await _salesInvoiceRepository.deleteInvoicesForCustomer(event.customerId);
-      await _salesOrderRepository.deleteOrdersForCustomer(
-        factoryId: factoryId,
+      final factoryId = _currentCustomer?.factoryId ?? '';
+      await _repository.deleteCustomerCascade(
         customerId: event.customerId,
-      );
-      await _jobWorkRepository.deleteOrdersForCustomer(
         factoryId: factoryId,
-        customerId: event.customerId,
       );
-      await _repository.deleteCustomer(event.customerId);
       await _cancelSubscriptions();
       emit(state.copyWith(status: CustomerFormStatus.deleted));
     } catch (_) {

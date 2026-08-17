@@ -162,7 +162,6 @@ class JobWorkRepository {
     final factoryId = order.factoryId;
     final loadSnap = await _firestore
         .collection('jobWorkLoads')
-        .where('factoryId', isEqualTo: factoryId)
         .where('jobWorkId', isEqualTo: id)
         .get();
 
@@ -170,7 +169,6 @@ class JobWorkRepository {
     for (final loadDoc in loadSnap.docs) {
       await _deleteDocumentsMatching(
         collection: 'qualityChecks',
-        factoryId: factoryId,
         field: 'referenceId',
         value: loadDoc.id,
       );
@@ -179,17 +177,14 @@ class JobWorkRepository {
     await _deleteLoadsForJobWork(factoryId: factoryId, jobWorkId: id);
     await _deleteDocumentsMatching(
       collection: 'jobWorkCollections',
-      factoryId: factoryId,
       field: 'jobWorkOrderId',
       value: id,
     );
     await _deleteInvoicesAndPaymentsForJobWork(
-      factoryId: factoryId,
       jobWorkId: id,
     );
     await _deleteDocumentsMatching(
       collection: 'qualityChecks',
-      factoryId: factoryId,
       field: 'referenceId',
       value: id,
     );
@@ -198,12 +193,10 @@ class JobWorkRepository {
   }
 
   Future<void> _deleteInvoicesAndPaymentsForJobWork({
-    required String factoryId,
     required String jobWorkId,
   }) async {
     final invoiceSnap = await _firestore
         .collection('jobWorkInvoices')
-        .where('factoryId', isEqualTo: factoryId)
         .where('jobWorkId', isEqualTo: jobWorkId)
         .get();
     if (invoiceSnap.docs.isEmpty) return;
@@ -212,7 +205,6 @@ class JobWorkRepository {
     for (final invoiceDoc in invoiceSnap.docs) {
       final paymentsSnap = await _firestore
           .collection('payments')
-          .where('factoryId', isEqualTo: factoryId)
           .where('invoiceId', isEqualTo: invoiceDoc.id)
           .get();
       toDelete.addAll(paymentsSnap.docs.map((doc) => doc.reference));
@@ -223,13 +215,11 @@ class JobWorkRepository {
 
   Future<void> _deleteDocumentsMatching({
     required String collection,
-    required String factoryId,
     required String field,
     required String value,
   }) async {
     final snapshot = await _firestore
         .collection(collection)
-        .where('factoryId', isEqualTo: factoryId)
         .where(field, isEqualTo: value)
         .get();
     if (snapshot.docs.isEmpty) return;

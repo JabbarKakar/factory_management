@@ -7,9 +7,6 @@ import '../../../blocs/customer/customer_list_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../data/repositories/customer_repository.dart';
-import '../../../data/repositories/job_work_repository.dart';
-import '../../../data/repositories/sales_invoice_repository.dart';
-import '../../../data/repositories/sales_order_repository.dart';
 import '../../../domain/entities/customer.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../routes/route_paths.dart';
@@ -90,21 +87,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
     setState(() => _busyCustomerId = customer.id);
 
     try {
-      // Same cascade as CustomerFormBloc: remove dependent records first.
-      await getIt<SalesInvoiceRepository>()
-          .deleteInvoicesForCustomer(customer.id);
-      await getIt<SalesOrderRepository>().deleteOrdersForCustomer(
-        factoryId: customer.factoryId,
+      await getIt<CustomerRepository>().deleteCustomerCascade(
         customerId: customer.id,
-      );
-      await getIt<JobWorkRepository>().deleteOrdersForCustomer(
         factoryId: customer.factoryId,
-        customerId: customer.id,
       );
-      await getIt<CustomerRepository>().deleteCustomer(customer.id);
       if (!mounted) return;
       _showSnack(AppStrings.customerDeleted);
-    } catch (_) {
+    } catch (e, st) {
+      debugPrint('Error deleting customer: $e\n$st');
       if (!mounted) return;
       _showSnack(AppStrings.customerDeleteError, isError: true);
     } finally {
