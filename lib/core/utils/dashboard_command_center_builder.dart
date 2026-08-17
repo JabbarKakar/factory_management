@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import '../../core/constants/job_work_sizes.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../domain/entities/dashboard_cashflow_metrics.dart';
 import '../../domain/entities/dashboard_command_center.dart';
@@ -15,7 +16,6 @@ import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/dashboard_finance_period.dart';
 import '../../domain/enums/invoice_enums.dart';
-import '../../domain/enums/sales_enums.dart';
 import 'dashboard_job_work_metrics.dart';
 import 'dashboard_sales_sqft_metrics.dart';
 
@@ -94,6 +94,23 @@ abstract final class DashboardCommandCenterBuilder {
     return minDate;
   }
 
+  static bool _isSmallSize(String size) {
+    final clean = size.trim();
+    if (clean.isEmpty) return false;
+    if (JobWorkSizes.isSmall(clean)) return true;
+    if (JobWorkSizes.isLarge(clean)) return false;
+
+    // Fallback: parse width dimension (e.g. "6x24" -> 6 is small < 12; "12x60" -> 12 is large >= 12)
+    final parts = clean.split(RegExp(r'[xX*]'));
+    if (parts.isNotEmpty) {
+      final width = double.tryParse(parts[0].trim());
+      if (width != null) {
+        return width < 12;
+      }
+    }
+    return false;
+  }
+
   static JobWorkDispatchCategoryMetrics _jobWorkCollectionMetricsInRange({
     required List<JobWorkCollection> collections,
     required DateTime start,
@@ -113,7 +130,8 @@ abstract final class DashboardCommandCenterBuilder {
       if (!inRange) continue;
 
       for (final item in collection.lineItems) {
-        if (item.isSmall) {
+        final isSmall = item.isSmall || _isSmallSize(item.size);
+        if (isSmall) {
           smallPieces += item.pieces;
           smallSqFt += item.squareFeet;
         } else {
@@ -151,8 +169,7 @@ abstract final class DashboardCommandCenterBuilder {
       if (!inRange) continue;
 
       for (final item in delivery.lineItems) {
-        final isSmall = item.productType == SalesProductType.tile ||
-            item.sizeThickness.toLowerCase().contains('small');
+        final isSmall = _isSmallSize(item.sizeThickness);
         if (isSmall) {
           smallPieces += item.effectivePieces;
           smallSqFt += item.effectiveSquareFeet;

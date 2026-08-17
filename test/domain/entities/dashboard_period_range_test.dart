@@ -1,8 +1,11 @@
 import 'package:factory_management/core/utils/dashboard_command_center_builder.dart';
 import 'package:factory_management/domain/entities/dashboard_cashflow_metrics.dart';
+import 'package:factory_management/domain/entities/delivery.dart';
 import 'package:factory_management/domain/entities/payment.dart';
 import 'package:factory_management/domain/enums/dashboard_finance_period.dart';
+import 'package:factory_management/domain/enums/delivery_enums.dart';
 import 'package:factory_management/domain/enums/invoice_enums.dart';
+import 'package:factory_management/domain/enums/sales_enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -67,6 +70,67 @@ void main() {
       );
 
       expect(result, DateTime(2024, 3, 1));
+    });
+  });
+
+  group('DashboardCommandCenterBuilder dispatch metrics', () {
+    test('correctly categorizes small vs large deliveries by size', () {
+      final today = DateTime(2026, 8, 17);
+      final d1 = Delivery(
+        id: 'd1',
+        deliveryNumber: 'DEL-001',
+        factoryId: 'f1',
+        salesOrderId: 'so1',
+        salesOrderNumber: 'SO-001',
+        customerId: 'c1',
+        customerName: 'Customer 1',
+        deliveryAddress: 'Addr',
+        scheduledDate: today,
+        status: DeliveryStatus.delivered,
+        createdAt: today,
+        lineItems: const [
+          DeliveryLineItem(
+            productType: SalesProductType.custom,
+            marbleVariety: 'Variety',
+            sizeThickness: '12x24',
+            pieces: 10,
+            squareFeet: 200,
+          ),
+          DeliveryLineItem(
+            productType: SalesProductType.custom,
+            marbleVariety: 'Variety',
+            sizeThickness: '12x60',
+            pieces: 5,
+            squareFeet: 250,
+          ),
+          DeliveryLineItem(
+            productType: SalesProductType.tile,
+            marbleVariety: 'Variety',
+            sizeThickness: '6x24',
+            pieces: 20,
+            squareFeet: 200,
+          ),
+        ],
+      );
+
+      final cc = DashboardCommandCenterBuilder.build(
+        period: DashboardFinancePeriod.monthly,
+        now: today,
+        payments: const [],
+        expenses: const [],
+        jobWorkOrders: const [],
+        jobWorkLoads: const [],
+        jobWorkInvoices: const [],
+        salesInvoices: const [],
+        salesOrders: const [],
+        deliveries: [d1],
+        activeJobWorks: 0,
+      );
+
+      expect(cc.saleDispatchMetrics.largePieces, 15);
+      expect(cc.saleDispatchMetrics.largeSqFt, 450);
+      expect(cc.saleDispatchMetrics.smallPieces, 20);
+      expect(cc.saleDispatchMetrics.smallSqFt, 200);
     });
   });
 }
