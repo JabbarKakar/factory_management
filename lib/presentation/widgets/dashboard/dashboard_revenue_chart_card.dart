@@ -118,10 +118,11 @@ class DashboardRevenueChartCard extends StatelessWidget {
         bottomTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            interval: 5,
+            interval: (points.length / 5).ceilToDouble().clamp(1.0, double.infinity),
             getTitlesWidget: (value, meta) {
               final index = value.round();
-              if (index < 0 || index >= points.length || index % 5 != 0) {
+              final step = (points.length / 5).ceil();
+              if (index < 0 || index >= points.length || (step > 0 && index % step != 0)) {
                 return const SizedBox.shrink();
               }
               return Padding(

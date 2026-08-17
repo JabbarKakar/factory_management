@@ -1202,8 +1202,14 @@ class _ChartsGridState extends State<_ChartsGrid> {
         onChanged: (i) => setState(() => _panelATab = i),
       ),
       child: _panelATab == 0
-          ? _CashflowAreaChart(series: cc.cashflowSeries)
-          : _SalesJwBarChart(series: cc.salesVsJobWorkSeries),
+          ? _CashflowAreaChart(
+              series: cc.cashflowSeries,
+              period: cc.period,
+            )
+          : _SalesJwBarChart(
+              series: cc.salesVsJobWorkSeries,
+              period: cc.period,
+            ),
     );
 
     final stockIsCut = _panelBTab == 0;
@@ -1257,7 +1263,12 @@ class _ChartsGridState extends State<_ChartsGrid> {
       glowColor: successColor,
       child: Column(
         children: [
-          Expanded(child: _SalesJwBarChart(series: cc.salesVsJobWorkSeries)),
+          Expanded(
+            child: _SalesJwBarChart(
+              series: cc.salesVsJobWorkSeries,
+              period: cc.period,
+            ),
+          ),
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1379,9 +1390,13 @@ class _MiniTabs extends StatelessWidget {
 }
 
 class _CashflowAreaChart extends StatelessWidget {
-  const _CashflowAreaChart({required this.series});
+  const _CashflowAreaChart({
+    required this.series,
+    required this.period,
+  });
 
   final List<DashboardCashflowPoint> series;
+  final DashboardFinancePeriod period;
 
   @override
   Widget build(BuildContext context) {
@@ -1390,6 +1405,7 @@ class _CashflowAreaChart extends StatelessWidget {
       return const _EmptyHint('No cashflow in this period');
     }
 
+    final isAllTime = period == DashboardFinancePeriod.allTime;
     final maxY = series
         .map((p) => p.income > p.expenses ? p.income : p.expenses)
         .fold<double>(0, (m, v) => v > m ? v : m);
@@ -1443,9 +1459,13 @@ class _CashflowAreaChart extends StatelessWidget {
           ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
-              showTitles: true,
-              interval: (series.length / 5).clamp(1, 8).toDouble(),
+              showTitles: !isAllTime,
+              reservedSize: isAllTime ? 10 : 22,
+              interval: isAllTime
+                  ? 1
+                  : (series.length / 5).ceilToDouble().clamp(1.0, double.infinity),
               getTitlesWidget: (value, meta) {
+                if (isAllTime) return const SizedBox.shrink();
                 final i = value.round();
                 if (i < 0 || i >= series.length) {
                   return const SizedBox.shrink();
@@ -1480,8 +1500,13 @@ class _CashflowAreaChart extends StatelessWidget {
               final growth = prev == null || prev == 0
                   ? ''
                   : ' (${(((amount - prev) / prev) * 100).toStringAsFixed(0)}%)';
+              final dateFmt = (period == DashboardFinancePeriod.daily ||
+                      period == DashboardFinancePeriod.weekly)
+                  ? DateFormat('MMM d, yyyy')
+                  : DateFormat('MMM yyyy');
+              final dateStr = dateFmt.format(point.date);
               return LineTooltipItem(
-                '$label\n${Formatters.currencyPkr(amount)}$growth',
+                '$label: ${Formatters.currencyCompact(amount)} ($dateStr)$growth',
                 TextStyle(
                   color: isIncome ? successColor : dangerColor,
                   fontWeight: FontWeight.w700,
@@ -1529,9 +1554,13 @@ class _CashflowAreaChart extends StatelessWidget {
 }
 
 class _SalesJwBarChart extends StatelessWidget {
-  const _SalesJwBarChart({required this.series});
+  const _SalesJwBarChart({
+    required this.series,
+    required this.period,
+  });
 
   final List<DashboardRevenueComparePoint> series;
+  final DashboardFinancePeriod period;
 
   @override
   Widget build(BuildContext context) {
@@ -1539,6 +1568,7 @@ class _SalesJwBarChart extends StatelessWidget {
       return const _EmptyHint('No sales / job work revenue in this period');
     }
 
+    final isAllTime = period == DashboardFinancePeriod.allTime;
     final maxY = series
         .map((p) => p.total)
         .fold<double>(0, (m, v) => v > m ? v : m);
@@ -1589,9 +1619,11 @@ class _SalesJwBarChart extends StatelessWidget {
             ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
-                showTitles: true,
+                showTitles: !isAllTime,
+                reservedSize: isAllTime ? 10 : 22,
                 interval: dense ? (series.length / 5).ceilToDouble() : 1,
                 getTitlesWidget: (value, meta) {
+                  if (isAllTime) return const SizedBox.shrink();
                   final i = value.toInt();
                   if (i < 0 || i >= series.length) {
                     return const SizedBox.shrink();
@@ -1616,9 +1648,16 @@ class _SalesJwBarChart extends StatelessWidget {
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
               getTooltipItem: (group, gI, rod, rI) {
+                final i = group.x.toInt().clamp(0, series.length - 1);
+                final point = series[i];
                 final label = rI == 0 ? 'Sales' : 'Job Work';
+                final dateFmt = (period == DashboardFinancePeriod.daily ||
+                        period == DashboardFinancePeriod.weekly)
+                    ? DateFormat('MMM d, yyyy')
+                    : DateFormat('MMM yyyy');
+                final dateStr = dateFmt.format(point.date);
                 return BarTooltipItem(
-                  '$label\n${Formatters.currencyPkr(rod.toY)}',
+                  '$label: ${Formatters.currencyCompact(rod.toY)} ($dateStr)',
                   TextStyle(
                     color: rI == 0 ? electricColor : primaryColor,
                     fontWeight: FontWeight.w700,
