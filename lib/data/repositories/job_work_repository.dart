@@ -162,13 +162,18 @@ class JobWorkRepository {
     final factoryId = order.factoryId;
     final loadSnap = await _firestore
         .collection('jobWorkLoads')
-        .where('jobWorkId', isEqualTo: id)
+        .where('factoryId', isEqualTo: factoryId)
         .get();
 
+    final loads = loadSnap.docs
+        .where((doc) => doc.data()['jobWorkId'] == id)
+        .toList();
+
     // Load-scoped QC uses referenceId = loadId (not jobWorkId).
-    for (final loadDoc in loadSnap.docs) {
+    for (final loadDoc in loads) {
       await _deleteDocumentsMatching(
         collection: 'qualityChecks',
+        factoryId: factoryId,
         field: 'referenceId',
         value: loadDoc.id,
       );
@@ -177,14 +182,17 @@ class JobWorkRepository {
     await _deleteLoadsForJobWork(factoryId: factoryId, jobWorkId: id);
     await _deleteDocumentsMatching(
       collection: 'jobWorkCollections',
+      factoryId: factoryId,
       field: 'jobWorkOrderId',
       value: id,
     );
     await _deleteInvoicesAndPaymentsForJobWork(
+      factoryId: factoryId,
       jobWorkId: id,
     );
     await _deleteDocumentsMatching(
       collection: 'qualityChecks',
+      factoryId: factoryId,
       field: 'referenceId',
       value: id,
     );
@@ -193,21 +201,30 @@ class JobWorkRepository {
   }
 
   Future<void> _deleteInvoicesAndPaymentsForJobWork({
+    required String factoryId,
     required String jobWorkId,
   }) async {
     final invoiceSnap = await _firestore
         .collection('jobWorkInvoices')
-        .where('jobWorkId', isEqualTo: jobWorkId)
+        .where('factoryId', isEqualTo: factoryId)
         .get();
-    if (invoiceSnap.docs.isEmpty) return;
+    final invoices = invoiceSnap.docs
+        .where((doc) => doc.data()['jobWorkId'] == jobWorkId)
+        .toList();
+
+    if (invoices.isEmpty) return;
 
     final toDelete = <DocumentReference<Map<String, dynamic>>>[];
-    for (final invoiceDoc in invoiceSnap.docs) {
+    for (final invoiceDoc in invoices) {
       final paymentsSnap = await _firestore
           .collection('payments')
-          .where('invoiceId', isEqualTo: invoiceDoc.id)
+          .where('factoryId', isEqualTo: factoryId)
           .get();
-      toDelete.addAll(paymentsSnap.docs.map((doc) => doc.reference));
+      final payments = paymentsSnap.docs
+          .where((doc) => doc.data()['invoiceId'] == invoiceDoc.id)
+          .toList();
+
+      toDelete.addAll(payments.map((doc) => doc.reference));
       toDelete.add(invoiceDoc.reference);
     }
     await _commitDeletes(toDelete);
@@ -215,16 +232,21 @@ class JobWorkRepository {
 
   Future<void> _deleteDocumentsMatching({
     required String collection,
+    required String factoryId,
     required String field,
     required String value,
   }) async {
     final snapshot = await _firestore
         .collection(collection)
-        .where(field, isEqualTo: value)
+        .where('factoryId', isEqualTo: factoryId)
         .get();
-    if (snapshot.docs.isEmpty) return;
+    final docs = snapshot.docs
+        .where((doc) => doc.data()[field] == value)
+        .toList();
+
+    if (docs.isEmpty) return;
     await _commitDeletes(
-      snapshot.docs.map((doc) => doc.reference).toList(),
+      docs.map((doc) => doc.reference).toList(),
     );
   }
 

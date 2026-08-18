@@ -24,27 +24,38 @@ abstract final class ExportActions {
     final safeName = _safeFilename(filename);
     final bounds = sharePositionOrigin ?? _defaultShareOrigin();
 
-    var shared = await Printing.sharePdf(
+    final shared = await Printing.sharePdf(
       bytes: bytes,
       filename: safeName,
       bounds: bounds,
     );
+
+    if (kIsWeb) {
+      if (!shared) {
+        // On web, if sharePdf returned false, layoutPdf opens print/save dialog
+        await Printing.layoutPdf(
+          name: safeName,
+          onLayout: (format) async => bytes,
+        );
+      }
+      return;
+    }
 
     if (!shared) {
       final file = await _writeExportFile(
         bytes: Uint8List.fromList(bytes),
         filename: safeName,
       );
-      shared = await _shareFile(
+      final didShare = await _shareFile(
         file: file,
         sharePositionOrigin: bounds,
       );
-    }
 
-    if (!shared) {
-      final opened = await _openExportFile(safeName);
-      if (!opened) {
-        throw StateError('PDF share unavailable');
+      if (!didShare) {
+        final opened = await _openExportFile(safeName);
+        if (!opened) {
+          throw StateError('PDF share unavailable');
+        }
       }
     }
   }
@@ -69,6 +80,25 @@ abstract final class ExportActions {
     }
 
     final safeName = _safeFilename(filename);
+    final bounds = sharePositionOrigin ?? _defaultShareOrigin();
+
+    if (kIsWeb) {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile.fromData(
+              Uint8List.fromList(bytes),
+              name: safeName,
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ),
+          ],
+          sharePositionOrigin: bounds,
+        ),
+      );
+      return;
+    }
+
     final file = await _writeExportFile(
       bytes: Uint8List.fromList(bytes),
       filename: safeName,
@@ -76,7 +106,7 @@ abstract final class ExportActions {
 
     var shared = await _shareFile(
       file: file,
-      sharePositionOrigin: sharePositionOrigin ?? _defaultShareOrigin(),
+      sharePositionOrigin: bounds,
     );
 
     if (!shared) {

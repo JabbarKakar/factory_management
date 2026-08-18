@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -9,7 +8,10 @@ import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/delivery.dart';
 import '../../../domain/entities/factory_profile.dart';
+import '../../../domain/entities/job_work_collection.dart';
 import '../../../domain/entities/job_work_invoice.dart';
+import '../../../domain/entities/job_work_load.dart';
+import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/entities/payment.dart';
 import '../../../domain/entities/sales_invoice.dart';
 import '../../../domain/entities/sales_order.dart';
@@ -371,7 +373,15 @@ class InvoicePdfExporter {
     final dateFormat = DateFormat.yMMMd();
 
     final factoryRepo = _factoryRepository ?? getIt<FactoryRepository>();
-    final profile = factoryProfile ?? await factoryRepo.getFactory(invoice.factoryId);
+    FactoryProfile? profile = factoryProfile;
+    if (profile == null && invoice.factoryId.isNotEmpty) {
+      try {
+        profile = await factoryRepo.getFactory(invoice.factoryId);
+      } catch (e) {
+        debugPrint('InvoicePdfExporter: Could not load factory profile: $e');
+      }
+    }
+
     final rawPhone = profile?.contact.phone.trim();
     final rawProfPhone = profile?.phone?.trim();
     String? factoryPhone = rawPhone != null && rawPhone.isNotEmpty
@@ -395,16 +405,33 @@ class InvoicePdfExporter {
     final jobWorkRepo = _jobWorkRepository ?? getIt<JobWorkRepository>();
     final loadRepo = _loadRepository ?? getIt<JobWorkLoadRepository>();
 
-    final order = await jobWorkRepo.getJobWorkOrder(invoice.jobWorkId);
+    JobWorkOrder? order;
+    try {
+      order = await jobWorkRepo.getJobWorkOrder(invoice.jobWorkId);
+    } catch (e) {
+      debugPrint('InvoicePdfExporter: Could not load job work order: $e');
+    }
+
     if (order != null) {
-      final allLoads = await loadRepo.fetchLoadsForJobWork(
-        factoryId: invoice.factoryId,
-        jobWorkId: invoice.jobWorkId,
-      );
-      final collections = await getIt<JobWorkCollectionRepository>().fetchCollectionsForJobWork(
-        factoryId: invoice.factoryId,
-        jobWorkOrderId: invoice.jobWorkId,
-      );
+      List<JobWorkLoad> allLoads = const [];
+      List<JobWorkCollection> collections = const [];
+      try {
+        allLoads = await loadRepo.fetchLoadsForJobWork(
+          factoryId: invoice.factoryId,
+          jobWorkId: invoice.jobWorkId,
+        );
+      } catch (e) {
+        debugPrint('InvoicePdfExporter: Could not fetch loads: $e');
+      }
+
+      try {
+        collections = await getIt<JobWorkCollectionRepository>().fetchCollectionsForJobWork(
+          factoryId: invoice.factoryId,
+          jobWorkOrderId: invoice.jobWorkId,
+        );
+      } catch (e) {
+        debugPrint('InvoicePdfExporter: Could not fetch collections: $e');
+      }
 
       final branding = await PdfFactoryBranding.resolve(profile: profile);
       final logoBytes = branding.logoBytes;
@@ -422,7 +449,6 @@ class InvoicePdfExporter {
           jobWorkId: invoice.jobWorkId,
         );
       } catch (_) {
-        // Fall back to single invoice if fetch fails
         allInvoices = [invoice];
       }
 

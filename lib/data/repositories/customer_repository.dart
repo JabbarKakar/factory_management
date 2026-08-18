@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/events/entity_reactive_event_bus.dart';
@@ -99,114 +98,143 @@ class CustomerRepository {
     }
   }
 
-  /// Cascading removal of a customer and all linked records across collections
-  /// using safe single-field queries (no composite index requirements).
+  /// Cascading removal of a customer and all linked records.
+  ///
+  /// Uses targeted `factoryId` + `customerId` queries so only the documents
+  /// belonging specifically to this customer are fetched and batch-deleted,
+  /// executing in milliseconds without scanning whole collections.
   Future<void> deleteCustomerCascade({
     required String customerId,
     String? factoryId,
   }) async {
     if (customerId.trim().isEmpty) return;
 
-    // 1. Delete Sales Invoices & Sales Orders
-    await _deleteCollectionByField('salesInvoices', 'customerId', customerId);
-    await _deleteCollectionByField('salesOrders', 'customerId', customerId);
+    final customer = await getCustomer(customerId);
+    final fid = (factoryId != null && factoryId.isNotEmpty)
+        ? factoryId
+        : (customer?.factoryId ?? '');
 
-    // 2. Delete Job Work Orders & their nested entities
-    try {
-      final jwSnap = await _firestore
-          .collection('jobWorkOrders')
-          .where('customerId', isEqualTo: customerId)
-          .get();
-
-      for (final doc in jwSnap.docs) {
-        await _deleteJobWorkOrderNested(doc.id);
-        try {
-          await doc.reference.delete();
-        } catch (e) {
-          debugPrint('Error deleting jobWorkOrder doc ${doc.id}: $e');
-        }
-      }
-    } catch (e) {
-      debugPrint('Error querying jobWorkOrders for customer $customerId: $e');
+    if (fid.isEmpty) {
+      await deleteCustomer(customerId);
+      return;
     }
 
-    // 3. Delete Job Work Collections, Invoices, Loads
-    await _deleteCollectionByField('jobWorkCollections', 'customerId', customerId);
-    await _deleteCollectionByField('jobWorkInvoices', 'customerId', customerId);
-    await _deleteCollectionByField('jobWorkLoads', 'customerId', customerId);
+    final toDelete = <DocumentReference<Map<String, dynamic>>>[];
 
-    // 4. Delete Deliveries, Payments, Reminders, Agreements
-    await _deleteCollectionByField('deliveries', 'customerId', customerId);
-    await _deleteCollectionByField('payments', 'customerId', customerId);
-    await _deleteCollectionByField('paymentReminders', 'customerId', customerId);
-    await _deleteCollectionByField('salesAgreements', 'customerId', customerId);
+    // 1. Fetch records linked directly to customerId
+    final directResults = await Future.wait([
+      _firestore
+          .collection('jobWorkOrders')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+      _firestore
+          .collection('jobWorkCollections')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+      _firestore
+          .collection('jobWorkInvoices')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+      _firestore
+          .collection('salesOrders')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+      _firestore
+          .collection('salesInvoices')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+      _firestore
+          .collection('deliveries')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+      _firestore
+          .collection('payments')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+      _firestore
+          .collection('paymentReminders')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+      _firestore
+          .collection('salesAgreements')
+          .where('factoryId', isEqualTo: fid)
+          .where('customerId', isEqualTo: customerId)
+          .get(),
+    ]);
 
-    // 5. Delete Customer document itself
-    await deleteCustomer(customerId);
-  }
+    final jwOrderDocs = directResults[0].docs;
+    final jwCollDocs = directResults[1].docs;
+    final jwInvDocs = directResults[2].docs;
+    final salesOrderDocs = directResults[3].docs;
+    final salesInvDocs = directResults[4].docs;
+    final deliveryDocs = directResults[5].docs;
+    final paymentDocs = directResults[6].docs;
+    final reminderDocs = directResults[7].docs;
+    final agreementDocs = directResults[8].docs;
 
-  Future<void> _deleteCollectionByField(
-    String collectionName,
-    String fieldName,
-    String value,
-  ) async {
-    try {
-      final snapshot = await _firestore
-          .collection(collectionName)
-          .where(fieldName, isEqualTo: value)
-          .get();
+    // Collect direct doc refs
+    toDelete.addAll(jwOrderDocs.map((d) => d.reference));
+    toDelete.addAll(jwCollDocs.map((d) => d.reference));
+    toDelete.addAll(jwInvDocs.map((d) => d.reference));
+    toDelete.addAll(salesOrderDocs.map((d) => d.reference));
+    toDelete.addAll(salesInvDocs.map((d) => d.reference));
+    toDelete.addAll(deliveryDocs.map((d) => d.reference));
+    toDelete.addAll(paymentDocs.map((d) => d.reference));
+    toDelete.addAll(reminderDocs.map((d) => d.reference));
+    toDelete.addAll(agreementDocs.map((d) => d.reference));
 
-      if (snapshot.docs.isEmpty) return;
+    // 2. Fetch nested Job Work Loads and Quality Checks ONLY if customer had Job Work Orders
+    final jwOrderIds = jwOrderDocs.map((d) => d.id).toList();
+    if (jwOrderIds.isNotEmpty) {
+      for (final jwId in jwOrderIds) {
+        final loadSnap = await _firestore
+            .collection('jobWorkLoads')
+            .where('factoryId', isEqualTo: fid)
+            .where('jobWorkId', isEqualTo: jwId)
+            .get();
 
+        for (final loadDoc in loadSnap.docs) {
+          toDelete.add(loadDoc.reference);
+          final qcSnap = await _firestore
+              .collection('qualityChecks')
+              .where('factoryId', isEqualTo: fid)
+              .where('referenceId', isEqualTo: loadDoc.id)
+              .get();
+          toDelete.addAll(qcSnap.docs.map((d) => d.reference));
+        }
+
+        final orderQcSnap = await _firestore
+            .collection('qualityChecks')
+            .where('factoryId', isEqualTo: fid)
+            .where('referenceId', isEqualTo: jwId)
+            .get();
+        toDelete.addAll(orderQcSnap.docs.map((d) => d.reference));
+      }
+    }
+
+    // 3. Batch-delete all linked documents (if any)
+    if (toDelete.isNotEmpty) {
       const batchLimit = 400;
-      final docs = snapshot.docs;
-      for (var i = 0; i < docs.length; i += batchLimit) {
+      for (var i = 0; i < toDelete.length; i += batchLimit) {
         final batch = _firestore.batch();
-        final chunk = docs.skip(i).take(batchLimit);
-        for (final doc in chunk) {
-          batch.delete(doc.reference);
+        final chunk = toDelete.skip(i).take(batchLimit);
+        for (final ref in chunk) {
+          batch.delete(ref);
         }
         await batch.commit();
       }
-    } catch (e) {
-      debugPrint('Error deleting $collectionName for $fieldName=$value: $e');
     }
+
+    // 4. Delete the customer document itself
+    await deleteCustomer(customerId);
   }
 
-  Future<void> _deleteJobWorkOrderNested(String jobWorkId) async {
-    try {
-      final loadSnap = await _firestore
-          .collection('jobWorkLoads')
-          .where('jobWorkId', isEqualTo: jobWorkId)
-          .get();
-
-      for (final loadDoc in loadSnap.docs) {
-        await _deleteCollectionByField('qualityChecks', 'referenceId', loadDoc.id);
-        try {
-          await loadDoc.reference.delete();
-        } catch (e) {
-          debugPrint('Error deleting loadDoc ${loadDoc.id}: $e');
-        }
-      }
-
-      await _deleteCollectionByField('qualityChecks', 'referenceId', jobWorkId);
-      await _deleteCollectionByField('jobWorkCollections', 'jobWorkOrderId', jobWorkId);
-
-      final invSnap = await _firestore
-          .collection('jobWorkInvoices')
-          .where('jobWorkId', isEqualTo: jobWorkId)
-          .get();
-
-      for (final invDoc in invSnap.docs) {
-        await _deleteCollectionByField('payments', 'invoiceId', invDoc.id);
-        try {
-          await invDoc.reference.delete();
-        } catch (e) {
-          debugPrint('Error deleting invDoc ${invDoc.id}: $e');
-        }
-      }
-    } catch (e) {
-      debugPrint('Error cleaning up nested job work order $jobWorkId: $e');
-    }
-  }
 }
