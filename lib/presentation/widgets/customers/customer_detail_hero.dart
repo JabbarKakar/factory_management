@@ -117,6 +117,7 @@ class CustomerDetailHero extends StatelessWidget {
       CustomerBalanceStatus.dueToday => AppColors.warning,
       CustomerBalanceStatus.overdue => AppColors.overdue,
       CustomerBalanceStatus.outstanding => AppColors.error,
+      CustomerBalanceStatus.inCredit => AppColors.primary,
     };
   }
 }

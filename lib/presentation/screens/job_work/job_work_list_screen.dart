@@ -303,7 +303,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     return actions;
   }
 
-  ({double paid, double remaining})? _paymentSummaryFor(
+  ({double paid, double remaining, double credit})? _paymentSummaryFor(
     JobWorkOrder order,
     JobWorkListState state,
     List<JobWorkLoad> loads,
@@ -317,17 +317,17 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
 
     final persistedLoads = loads.where((load) => !load.isVirtual).toList();
     if (persistedLoads.isNotEmpty) {
-      if (finance.charges <= 0 && finance.paid <= 0 && finance.due <= 0) {
+      if (finance.charges <= 0 && finance.paid <= 0 && finance.due <= 0 && finance.credit <= 0) {
         return null;
       }
-      return (paid: finance.paid, remaining: finance.due);
+      return (paid: finance.paid, remaining: finance.due, credit: finance.credit);
     }
 
     final showPayment =
-        finance.charges > 0 || finance.paid > 0 || finance.due > 0;
+        finance.charges > 0 || finance.paid > 0 || finance.due > 0 || finance.credit > 0;
     if (!showPayment) return null;
 
-    return (paid: finance.paid, remaining: finance.due);
+    return (paid: finance.paid, remaining: finance.due, credit: finance.credit);
   }
 
   ({double invoiced, double received, double pending}) _financeOverviewFor(
@@ -365,17 +365,21 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
             final appBarForeground =
                 Theme.of(context).appBarTheme.foregroundColor ??
                     Theme.of(context).colorScheme.onSurface;
-
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(AppStrings.jobWork),
                 Text(
-                  '${state.visibleOrders.length} orders'
-                  '${state.stageFilter != JobWorkListStageFilter.all ? ' · ${state.stageFilter.label}' : ''}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: appBarForeground.withValues(alpha: 0.78),
-                        fontWeight: FontWeight.w500,
+                  AppStrings.jobWork,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: appBarForeground,
+                      ),
+                ),
+                Text(
+                  '${state.visibleOrders.length} ${state.visibleOrders.length == 1 ? 'order' : 'orders'}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: appBarForeground.withValues(alpha: 0.7),
                       ),
                 ),
               ],
@@ -385,39 +389,30 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
         actions: const [
           NotificationBell(),
           AccountMenuButton(),
+          SizedBox(width: 8),
         ],
       ),
       floatingActionButton: context.userCanCreate(AppModule.jobWork)
           ? AppExtendedFab(
-              heroTag: 'fab-job-work',
-              onPressed: () async {
-                await context.push(RoutePaths.jobWorkAdd);
-                if (context.mounted) {
-                  final factoryId = readFactoryId(context);
-                  if (factoryId != null) {
-                    context
-                        .read<JobWorkListBloc>()
-                        .add(JobWorkListWatchStarted(factoryId));
-                  }
-                }
-              },
-              icon: Icons.work_outline,
+              heroTag: 'job_work_add_fab',
+              icon: Icons.add,
               label: AppStrings.newJobWorkOrder,
+              onPressed: () => context.push(RoutePaths.jobWorkAdd),
             )
           : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: Row(
               children: [
                 Expanded(
                   child: JobWorkSearchBar(
                     controller: _searchController,
-                    onChanged: (value) => context
+                    onChanged: (query) => context
                         .read<JobWorkListBloc>()
-                        .add(JobWorkListSearchChanged(value)),
+                        .add(JobWorkListSearchChanged(query)),
                     onClear: _onSearchClear,
                   ),
                 ),
@@ -550,6 +545,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                                 ?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 12,
+                                  height: 1.2,
                                 ),
                           ),
                         ),
@@ -664,6 +660,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                         isBusy: _busyJobWorkId == order.id,
                         paidAmount: paymentSummary?.paid,
                         remainingAmount: paymentSummary?.remaining,
+                        creditAmount: paymentSummary?.credit,
                         menuActions: _menuActionsFor(
                           order,
                           canEdit: canEdit,

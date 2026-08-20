@@ -294,6 +294,7 @@ class _JobWorkAllLoadsScreenState extends State<JobWorkAllLoadsScreen> {
                           : (state.invoice == null
                               ? const []
                               : [state.invoice!]),
+                      payments: state.payments,
                     );
 
               return ListView.builder(
@@ -319,6 +320,7 @@ class _JobWorkAllLoadsScreenState extends State<JobWorkAllLoadsScreen> {
                     load: load,
                     paidAmount: financeMap?[load.id]?.paid,
                     dueAmount: financeMap?[load.id]?.due,
+                    creditAmount: financeMap?[load.id]?.credit,
                     isBusy: _busyLoadId == load.id,
                     menuActions: _loadMenuActions(
                       context,

@@ -275,13 +275,13 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
     }
   }
 
-
   List<Widget> _buildLoadsGroupedByYear(
     BuildContext context, {
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
     required List<JobWorkLoad> allLoads,
     required List<JobWorkInvoice> invoices,
+    List<Payment> payments = const [],
     required bool isSaving,
     required bool canEditJobWork,
     required bool canDeleteJobWork,
@@ -292,6 +292,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
       order: order,
       loads: allLoads,
       invoices: invoices,
+      payments: payments,
     );
     final byYear = <int, List<JobWorkLoad>>{};
     for (final load in loads) {
@@ -329,6 +330,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
             load: load,
             paidAmount: fin?.paid,
             dueAmount: fin?.due,
+            creditAmount: fin?.credit,
             isBusy: isSaving || _busyLoadId == load.id,
             padding: EdgeInsets.zero,
             menuActions: _loadMenuActions(
@@ -473,40 +475,39 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
           );
         }
 
-        final invoice = state.invoice;
-        final hasInvoice = invoice != null;
-        final canEditIntake = (order.status == JobWorkStatus.agreed ||
-                order.status == JobWorkStatus.received) &&
-            context.userCanEdit(AppModule.jobWork);
-        final canAddLoad = order.status != JobWorkStatus.cancelled &&
-            context.userCanEdit(AppModule.jobWork);
-        final hasLoads = state.loads.isNotEmpty;
-        final recentLoads = List<JobWorkLoad>.from(state.loads)
-          ..sort((a, b) => b.receivedDate.compareTo(a.receivedDate));
-        final previewLoads = recentLoads.take(5).toList(growable: false);
         final canEditJobWork = context.userCanEdit(AppModule.jobWork);
         final canDeleteJobWork = context.userCanDelete(AppModule.jobWork);
-        // Ops live on Loads once authoritative — never show JW nested actions.
+        final canEditIntake = canEditJobWork &&
+            order.status != JobWorkStatus.cancelled &&
+            order.status != JobWorkStatus.closed;
+        final hasLoads = state.loads.isNotEmpty;
+        final previewLoads = state.loads.take(5).toList();
+        final canAddLoad =
+            canEditJobWork && order.status != JobWorkStatus.cancelled;
         final usesLegacyJwOps =
-            !hasLoads && !order.isLoadsAuthoritative;
+            JobWorkContainerSyncHelper.persistedLoadsForOrder(
+          order,
+          state.loads,
+        ).isEmpty;
+        final isPickupOverdue = usesLegacyJwOps &&
+            JobWorkCollectionQuantityHelper.isPickupOverdue(
+              order,
+              state.collections,
+            );
         final canRecordOutput = usesLegacyJwOps &&
+            canEditJobWork &&
             order.status.canRecordOutput &&
-            canEditJobWork;
-        // Collect lives on Loads when any Load exists (or migrated container).
+            order.status != JobWorkStatus.cancelled;
         final canCollectMaterial = usesLegacyJwOps &&
             canEditJobWork &&
             JobWorkCollectionQuantityHelper.canOpenCollectMaterial(
               order,
               state.collections,
             );
+        final invoice = state.invoice;
+        final hasInvoice = invoice != null;
         final collectionTotals =
             JobWorkCollectionQuantityHelper.aggregateTotals(
-          order: order,
-          collections: state.collections,
-          loads: state.loads,
-        );
-        final isPickupOverdue =
-            JobWorkCollectionQuantityHelper.isPickupOverdueForOrder(
           order: order,
           collections: state.collections,
           loads: state.loads,
@@ -624,12 +625,27 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                       value: Formatters.currencyPkr(finance.charges),
                       bold: true,
                     ),
-                    JobWorkDetailRow(
-                      label: AppStrings.outstandingBalance,
-                      value: Formatters.currencyPkr(outstandingBalance),
-                      bold: outstandingBalance > 0,
-                      highlight: outstandingBalance > 0,
-                    ),
+                    if (outstandingBalance > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.outstandingBalance,
+                        value: Formatters.currencyPkr(outstandingBalance),
+                        bold: true,
+                        highlight: true,
+                        color: AppColors.warning,
+                      )
+                    else if (finance.credit > 0)
+                      JobWorkDetailRow(
+                        label: 'In Credit',
+                        value: Formatters.currencyPkr(finance.credit),
+                        bold: true,
+                        highlight: true,
+                        color: AppColors.success,
+                      )
+                    else
+                      JobWorkDetailRow(
+                        label: AppStrings.outstandingBalance,
+                        value: Formatters.currencyPkr(0),
+                      ),
                     if (order.summaryStatus != null)
                       JobWorkDetailRow(
                         label: AppStrings.containerStatus,
@@ -685,6 +701,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                           invoices: state.invoices.isNotEmpty
                               ? state.invoices
                               : (hasInvoice ? [invoice] : const []),
+                          payments: state.payments,
                           isSaving: isSaving,
                           canEditJobWork: canEditJobWork,
                           canDeleteJobWork: canDeleteJobWork,

@@ -3,10 +3,13 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/events/entity_reactive_event_bus.dart';
 import '../../domain/entities/customer.dart';
+import '../../domain/entities/payment.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/customer_enums.dart';
+import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/customer_model.dart';
+import '../models/payment_model.dart';
 import '../models/sales_order_model.dart';
 import 'sales_agreement_repository.dart';
 
@@ -232,7 +235,38 @@ class SalesOrderRepository {
 
     final withTotals = _recomputeTotals(draft);
     final model = SalesOrderModel.fromEntity(withTotals);
-    await _ordersCollection.doc(id).set(model.toFirestore(isCreate: true));
+
+    final batch = _firestore.batch();
+    batch.set(_ordersCollection.doc(id), model.toFirestore(isCreate: true));
+
+    if (withTotals.advanceReceived > 0) {
+      final paymentId = _uuid.v4();
+      final payment = Payment(
+        id: paymentId,
+        factoryId: withTotals.factoryId,
+        customerId: withTotals.customerId,
+        customerName: withTotals.customerName,
+        invoiceId: '',
+        invoiceType: InvoiceType.sales,
+        invoiceNumber: withTotals.orderNumber,
+        amount: withTotals.advanceReceived,
+        method: withTotals.paymentTerms == PaymentTerms.cash
+            ? PaymentMethod.cash
+            : PaymentMethod.bankTransfer,
+        paymentDate: withTotals.orderDate,
+        reference: withTotals.orderNumber,
+        notes: 'Advance deposit for Sales Order #${withTotals.orderNumber}',
+        createdAt: DateTime.now(),
+        isAdvance: true,
+        orderId: withTotals.id,
+      );
+      batch.set(
+        _firestore.collection('payments').doc(paymentId),
+        PaymentModel.fromEntity(payment).toFirestore(isCreate: true),
+      );
+    }
+
+    await batch.commit();
     final created = await getSalesOrder(id) ?? withTotals;
 
     if (!created.hasAgreement) {
@@ -303,11 +337,57 @@ class SalesOrderRepository {
 
   Future<void> cancelSalesOrder(String id) async {
     final order = await getSalesOrder(id);
-    await _ordersCollection.doc(id).update({
+    if (order == null) return;
+
+    final batch = _firestore.batch();
+    batch.update(_ordersCollection.doc(id), {
       'status': SalesOrderStatus.cancelled.firestoreValue,
       'updatedAt': FieldValue.serverTimestamp(),
     });
-    await _syncAgreementIfLinked(order?.agreementId);
+
+    // 1. Cancel linked single invoices
+    final invoiceSnap = await _firestore
+        .collection('salesInvoices')
+        .where('factoryId', isEqualTo: order.factoryId)
+        .where('salesOrderId', isEqualTo: id)
+        .get();
+
+    for (final doc in invoiceSnap.docs) {
+      batch.update(doc.reference, {
+        'status': InvoiceStatus.cancelled.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 2. Void linked advance payments or payments linked to this order/invoices
+    final paymentsSnap = await _firestore
+        .collection('payments')
+        .where('factoryId', isEqualTo: order.factoryId)
+        .where('customerId', isEqualTo: order.customerId)
+        .get();
+
+    final invoiceIds = invoiceSnap.docs.map((d) => d.id).toSet();
+
+    for (final doc in paymentsSnap.docs) {
+      final data = doc.data();
+      final orderId = data['orderId'] as String? ?? '';
+      final invoiceId = data['invoiceId'] as String? ?? '';
+
+      if (orderId == id ||
+          invoiceIds.contains(invoiceId) ||
+          doc.id == 'advance_sales_$id') {
+        batch.update(doc.reference, {
+          'status': PaymentStatus.voided.firestoreValue,
+          'notes': '${data['notes'] ?? ''} (Cancelled with order #${order.orderNumber})'.trim(),
+        });
+      }
+    }
+
+    await batch.commit();
+    await _syncAgreementIfLinked(order.agreementId);
+    EntityReactiveEventBus.instance.notifyUpdated<SalesOrder>(
+      order.copyWith(status: SalesOrderStatus.cancelled),
+    );
   }
 
   Future<void> _syncAgreementIfLinked(String? agreementId) async {

@@ -621,8 +621,8 @@ class JobWorkInvoiceRepository {
       final total = load.finalCuttingCharges;
 
       final fin = financeMap[load.id];
-      final paid = fin?.paid ?? (totalPaid > 0 ? 0.0 : load.advanceReceived);
-      final remaining = fin?.due ?? (totalPaid > 0 ? total : load.balanceDue);
+      final paid = fin?.paid ?? load.advanceReceived;
+      final remaining = fin?.due ?? load.balanceDue;
 
       items.add(
         InvoiceLineItem(

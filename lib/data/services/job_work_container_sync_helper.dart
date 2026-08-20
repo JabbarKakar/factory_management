@@ -2,6 +2,7 @@ import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
+import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import 'job_work_collection_quantity_helper.dart';
 
@@ -155,7 +156,7 @@ abstract final class JobWorkContainerSyncHelper {
             final valStr = match.group(1)?.replaceAll(',', '');
             if (valStr != null) {
               final parsed = double.tryParse(valStr);
-              if (parsed != null) {
+              if (parsed != null && parsed > 0) {
                 return parsed;
               }
             }
@@ -177,7 +178,7 @@ abstract final class JobWorkContainerSyncHelper {
           final valStr = match.group(1)?.replaceAll(',', '');
           if (valStr != null) {
             final parsed = double.tryParse(valStr);
-            if (parsed != null) {
+            if (parsed != null && parsed > 0) {
               return parsed;
             }
           }
@@ -187,9 +188,9 @@ abstract final class JobWorkContainerSyncHelper {
     return null;
   }
 
-  /// Map of per-load financial breakdown ({double charges, double paid, double due})
+  /// Map of per-load financial breakdown ({double charges, double paid, double due, double credit})
   /// giving priority to load-specific invoice payments before distributing general payments.
-  static Map<String, ({double charges, double paid, double due})>
+  static Map<String, ({double charges, double paid, double due, double credit})>
       calculatePerLoadFinanceMap({
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
@@ -253,7 +254,11 @@ abstract final class JobWorkContainerSyncHelper {
 
     final invoiceIds = invoices.map((invoice) => invoice.id).toSet();
     final relevantPayments = payments
-        .where((payment) => invoiceIds.contains(payment.invoiceId))
+        .where((payment) =>
+            payment.status != PaymentStatus.voided &&
+            (payment.orderId == order.id ||
+                loadsToProcess.any((l) => l.id == payment.loadId) ||
+                invoiceIds.contains(payment.invoiceId)))
         .toList();
     final usePaymentLedger = relevantPayments.isNotEmpty;
     final ledgerPaid = relevantPayments
@@ -262,9 +267,11 @@ abstract final class JobWorkContainerSyncHelper {
         ? ledgerPaid
         : grandInvoice != null
             ? grandInvoice.paidAmount
-            : invoices.fold<double>(0, (sum, i) => sum + i.paidAmount);
+            : (invoices.isNotEmpty
+                ? invoices.fold<double>(0, (sum, i) => sum + i.paidAmount)
+                : loadsToProcess.fold<double>(0, (sum, l) => sum + l.advanceReceived));
 
-    final result = <String, ({double charges, double paid, double due})>{};
+    final result = <String, ({double charges, double paid, double due, double credit})>{};
     var specificPaymentsSum = 0.0;
 
     // Step 1: Assign specific payments to loads that have their own
@@ -293,20 +300,31 @@ abstract final class JobWorkContainerSyncHelper {
                 .where((payment) => payment.invoiceId == inv.id)
                 .fold<double>(0, (sum, payment) => sum + payment.amount)
             : inv.paidAmount;
-      } else if (!usePaymentLedger && load.advanceReceived > 0) {
+      } else if (usePaymentLedger) {
+        final loadPayments = relevantPayments
+            .where((payment) => payment.loadId == load.id)
+            .fold<double>(0, (sum, payment) => sum + payment.amount);
+        if (loadPayments > 0) {
+          specificPaid = loadPayments;
+        } else if (load.advanceReceived > 0) {
+          specificPaid = load.advanceReceived;
+        }
+      } else if (load.advanceReceived > 0) {
         specificPaid = load.advanceReceived;
-      } else if (lineItemPaid != null) {
+      } else if (lineItemPaid != null && lineItemPaid > 0) {
         specificPaid = lineItemPaid;
       }
 
-      // Mark load as having explicit payment data if ANY source provided a value
+      // Mark load as having explicit payment data if ANY source provided a positive value
       if (inv != null ||
-          (!usePaymentLedger && load.advanceReceived > 0) ||
-          lineItemPaid != null) {
-        final paid = specificPaid.clamp(0.0, total).toDouble();
-        final due = (total - paid).clamp(0.0, total).toDouble();
-        result[load.id] = (charges: total, paid: paid, due: due);
-        specificPaymentsSum += paid;
+          load.advanceReceived > 0 ||
+          specificPaid > 0 ||
+          (lineItemPaid != null && lineItemPaid > 0)) {
+        final paid = specificPaid >= total ? total : specificPaid;
+        final due = (total - specificPaid).clamp(0.0, total).toDouble();
+        final credit = (specificPaid - total).clamp(0.0, double.infinity).toDouble();
+        result[load.id] = (charges: total, paid: paid, due: due, credit: credit);
+        specificPaymentsSum += specificPaid;
       }
     }
 
@@ -324,10 +342,10 @@ abstract final class JobWorkContainerSyncHelper {
       final lineItemPaid = usePaymentLedger
           ? null
           : extractPaidFromLineItems(invoices, load, loadIndex: i);
-      final hasExplicitPayment = ((!usePaymentLedger &&
-              load.advanceReceived > 0) ||
+      final hasExplicitPayment = (load.advanceReceived > 0 ||
           inv != null ||
-          (lineItemPaid != null));
+          (lineItemPaid != null && lineItemPaid > 0) ||
+          (usePaymentLedger && relevantPayments.any((p) => p.loadId == load.id)));
 
       if (result.containsKey(load.id)) {
         final existing = result[load.id]!;
@@ -340,6 +358,9 @@ abstract final class JobWorkContainerSyncHelper {
           final newDue = (existing.charges - newPaid)
               .clamp(0.0, existing.charges)
               .toDouble();
+          final newCredit = (newPaid - existing.charges)
+              .clamp(0.0, double.infinity)
+              .toDouble();
           generalPool = (generalPool - additionalPaid)
               .clamp(0.0, double.infinity)
               .toDouble();
@@ -347,23 +368,27 @@ abstract final class JobWorkContainerSyncHelper {
             charges: existing.charges,
             paid: newPaid,
             due: newDue,
+            credit: newCredit,
           );
         }
       } else {
         final total = load.finalCuttingCharges;
         final double paid;
         final double due;
+        final double credit;
         if (generalPool > 0 && !hasExplicitPayment) {
           paid = generalPool >= total ? total : generalPool;
           due = (total - paid).clamp(0.0, total).toDouble();
+          credit = (generalPool - total).clamp(0.0, double.infinity).toDouble();
           generalPool = (generalPool - paid)
               .clamp(0.0, double.infinity)
               .toDouble();
         } else {
           paid = 0.0;
           due = total;
+          credit = 0.0;
         }
-        result[load.id] = (charges: total, paid: paid, due: due);
+        result[load.id] = (charges: total, paid: paid, due: due, credit: credit);
       }
     }
 
@@ -377,7 +402,7 @@ abstract final class JobWorkContainerSyncHelper {
   /// When Loads exist (Option A), finance is always rolled up from those Loads /
   /// Load-scoped invoices. A JW-level grand invoice (empty [loadId]) is used only
   /// as a fallback when there are no Loads — never short-circuit Load totals.
-  static ({double charges, double paid, double due}) rollupInvoiceFinance({
+  static ({double charges, double paid, double due, double credit}) rollupInvoiceFinance({
     required JobWorkOrder order,
     required List<JobWorkLoad> loads,
     required List<JobWorkInvoice> invoices,
@@ -394,7 +419,10 @@ abstract final class JobWorkContainerSyncHelper {
       final invoiceIds = invoices.map((invoice) => invoice.id).toSet();
       final uniquePayments = <String, Payment>{};
       for (final payment in payments) {
-        if (invoiceIds.contains(payment.invoiceId)) {
+        if (payment.status != PaymentStatus.voided &&
+            (payment.orderId == order.id ||
+                orderLoads.any((l) => l.id == payment.loadId) ||
+                invoiceIds.contains(payment.invoiceId))) {
           uniquePayments[payment.id] = payment;
         }
       }
@@ -428,13 +456,18 @@ abstract final class JobWorkContainerSyncHelper {
 
         if (containerInvoice != null) {
           paid = containerInvoice.paidAmount;
-        } else {
+        } else if (invoices.isNotEmpty) {
           final uniqueInvoices = <String, JobWorkInvoice>{
             for (final invoice in invoices) invoice.id: invoice,
           };
           paid = uniqueInvoices.values.fold<double>(
             0,
             (sum, invoice) => sum + invoice.paidAmount,
+          );
+        } else {
+          paid = orderLoads.fold<double>(
+            0,
+            (sum, load) => sum + load.advanceReceived,
           );
         }
       }
@@ -443,10 +476,14 @@ abstract final class JobWorkContainerSyncHelper {
       final due = (charges - normalizedPaid)
           .clamp(0.0, double.infinity)
           .toDouble();
+      final credit = (normalizedPaid - charges)
+          .clamp(0.0, double.infinity)
+          .toDouble();
       return (
         charges: charges,
         paid: normalizedPaid,
         due: due,
+        credit: credit,
       );
     }
 
@@ -454,25 +491,39 @@ abstract final class JobWorkContainerSyncHelper {
         .where((i) => i.loadId == null || i.loadId!.trim().isEmpty)
         .firstOrNull;
     if (grandInvoice != null) {
+      final credit = (grandInvoice.paidAmount - grandInvoice.totalAmount)
+          .clamp(0.0, double.infinity)
+          .toDouble();
       return (
         charges: grandInvoice.totalAmount,
         paid: grandInvoice.paidAmount,
         due: grandInvoice.dueAmount,
+        credit: credit,
       );
     }
 
     if (invoices.isNotEmpty) {
+      final charges = invoices.fold<double>(0, (s, i) => s + i.totalAmount);
+      final paid = invoices.fold<double>(0, (s, i) => s + i.paidAmount);
+      final due = (charges - paid).clamp(0.0, double.infinity).toDouble();
+      final credit = (paid - charges).clamp(0.0, double.infinity).toDouble();
       return (
-        charges: invoices.fold<double>(0, (s, i) => s + i.totalAmount),
-        paid: invoices.fold<double>(0, (s, i) => s + i.paidAmount),
-        due: invoices.fold<double>(0, (s, i) => s + i.dueAmount),
+        charges: charges,
+        paid: paid,
+        due: due,
+        credit: credit,
       );
     }
 
+    final charges = order.finalCuttingCharges;
+    final paid = order.advanceReceived;
+    final due = (charges - paid).clamp(0.0, double.infinity).toDouble();
+    final credit = (paid - charges).clamp(0.0, double.infinity).toDouble();
     return (
-      charges: order.finalCuttingCharges,
-      paid: order.advanceReceived,
-      due: order.balanceDue,
+      charges: charges,
+      paid: paid,
+      due: due,
+      credit: credit,
     );
   }
 

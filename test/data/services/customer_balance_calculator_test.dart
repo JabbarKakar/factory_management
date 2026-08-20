@@ -7,7 +7,6 @@ import 'package:factory_management/domain/entities/sales_order.dart';
 import 'package:factory_management/domain/enums/customer_enums.dart';
 import 'package:factory_management/domain/enums/invoice_enums.dart';
 import 'package:factory_management/domain/enums/job_work_enums.dart';
-import 'package:factory_management/domain/enums/job_work_load_enums.dart';
 import 'package:factory_management/domain/enums/sales_enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 

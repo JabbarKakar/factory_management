@@ -77,6 +77,7 @@ class Customer extends Equatable {
   }
 
   CustomerBalanceStatus get balanceStatus {
+    if (balance < 0) return CustomerBalanceStatus.inCredit;
     if (balance <= 0) return CustomerBalanceStatus.paidUp;
 
     final due = nextDueDate;

@@ -13,8 +13,11 @@ class PlReportService {
   }) {
     bool inMonth(DateTime date) => date.year == year && date.month == month;
 
-    final monthPayments =
-        payments.where((payment) => inMonth(payment.paymentDate)).toList();
+    final monthPayments = payments
+        .where((payment) =>
+            payment.status != PaymentStatus.voided &&
+            inMonth(payment.paymentDate))
+        .toList();
 
     final salesRevenue = monthPayments
         .where((payment) => payment.invoiceType == InvoiceType.sales)

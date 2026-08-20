@@ -59,7 +59,9 @@ class CustomerStatementService {
       ...salesInvoices
           .where((invoice) => invoice.status != InvoiceStatus.cancelled)
           .map(_txnFromSalesInvoice),
-      ...payments.map(_txnFromPayment),
+      ...payments
+          .where((payment) => payment.status != PaymentStatus.voided)
+          .map(_txnFromPayment),
     ]..sort((a, b) => a.date.compareTo(b.date));
 
     var openingBalance = customer.openingBalance;

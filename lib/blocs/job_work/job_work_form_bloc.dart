@@ -74,6 +74,8 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   StreamSubscription<List<QualityCheck>>? _qualityChecksSubscription;
   StreamSubscription<List<JobWorkCollection>>? _collectionsSubscription;
   StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
+  StreamSubscription<List<Payment>>? _advancePaymentsSub;
+  List<Payment> _advancePayments = const [];
   final Map<String, List<Payment>> _paymentsByInvoiceId = {};
   Set<String> _watchedInvoiceIds = {};
   final Map<String, StreamSubscription<List<Payment>>> _paymentSubsByInvoice =
@@ -217,6 +219,19 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
             },
             onError: (_) {},
           );
+
+      _advancePaymentsSub = _paymentRepository
+          .watchAdvancePaymentsForOrder(
+            factoryId: refreshed.factoryId,
+            orderId: event.jobWorkId,
+          )
+          .listen(
+            (advances) {
+              _advancePayments = advances;
+              if (!isClosed) _emitMergedPayments();
+            },
+            onError: (_) {},
+          );
     } catch (_) {
       emit(
         state.copyWith(
@@ -268,7 +283,12 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
 
     if (invoices.isEmpty) {
       await _cancelPaymentSubscriptions();
-      emit(state.copyWith(payments: const [], clearInvoice: true));
+      // Advance payments survive — they exist independently of invoices.
+      if (_advancePayments.isNotEmpty) {
+        _emitMergedPayments();
+      } else {
+        emit(state.copyWith(payments: const [], clearInvoice: true));
+      }
       return;
     }
 
@@ -315,6 +335,21 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     emit(state.copyWith(payments: event.payments));
   }
 
+  /// Merge invoice-scoped and advance payments into a single deduplicated list.
+  void _emitMergedPayments() {
+    final invoicePayments = _paymentsByInvoiceId.values
+        .expand((items) => items)
+        .toList();
+    final all = [...invoicePayments, ..._advancePayments];
+    final unique = <String, Payment>{};
+    for (final p in all) {
+      unique[p.id] = p;
+    }
+    final deduplicated = unique.values.toList()
+      ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+    add(_JobWorkPaymentsUpdated(deduplicated));
+  }
+
   void _ensurePaymentsWatch(List<JobWorkInvoice> invoices) {
     final ids = invoices.map((invoice) => invoice.id).toSet();
     final removed = _watchedInvoiceIds.difference(ids);
@@ -334,20 +369,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
           .listen(
             (payments) {
               _paymentsByInvoiceId[invoice.id] = payments;
-              final merged = _paymentsByInvoiceId.values
-                  .expand((items) => items)
-                  .toList();
-              
-              final unique = <String, Payment>{};
-              for (final p in merged) {
-                unique[p.id] = p;
-              }
-              
-              final deduplicated = unique.values.toList()
-                ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
-              if (!isClosed) {
-                add(_JobWorkPaymentsUpdated(deduplicated));
-              }
+              if (!isClosed) _emitMergedPayments();
             },
             onError: (_) {},
           );
@@ -362,12 +384,19 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     _paymentSubsByInvoice.clear();
     _paymentsByInvoiceId.clear();
     _watchedInvoiceIds = {};
+    // NOTE: Do NOT cancel _advancePaymentsSub here.
+    // Advance payments exist independently of invoices and must survive
+    // invoice teardown. They are only canceled in _cancelDetailSubscriptions.
   }
 
   Future<void> _cancelDetailSubscriptions() async {
     await _orderSubscription?.cancel();
     await _invoiceSubscription?.cancel();
     await _cancelPaymentSubscriptions();
+    // Cancel advance payments only on full teardown.
+    await _advancePaymentsSub?.cancel();
+    _advancePaymentsSub = null;
+    _advancePayments = const [];
     _orderSubscription = null;
     _invoiceSubscription = null;
     await _collectionsSubscription?.cancel();

@@ -419,4 +419,199 @@ void main() {
       expect(beforePaymentStream.due, 46691);
     });
   });
+
+  group('In Credit calculation with excess advance payments', () {
+    test('accurately calculates in credit balance per load and for container', () {
+      final order = buildOrder(finalCuttingCharges: 181884.56, advanceReceived: 450000);
+      final load1 = buildLoad(
+        id: 'load-1',
+        sequence: 1,
+        finalCuttingCharges: 106989.0,
+        advanceReceived: 300000.0,
+      );
+      final load2 = buildLoad(
+        id: 'load-2',
+        sequence: 2,
+        finalCuttingCharges: 74895.0,
+        advanceReceived: 150000.0,
+      );
+
+      final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+        order: order,
+        loads: [load1, load2],
+        invoices: [],
+      );
+
+      // Load 1: 300k advance, 106,989 charges -> Paid: 106989, Due: 0, Credit: 193011
+      expect(financeMap['load-1']?.charges, closeTo(106989.0, 0.01));
+      expect(financeMap['load-1']?.paid, closeTo(106989.0, 0.01));
+      expect(financeMap['load-1']?.due, closeTo(0.0, 0.01));
+      expect(financeMap['load-1']?.credit, closeTo(193011.0, 0.01));
+
+      // Load 2: 150k advance, 74,895 charges -> Paid: 74895, Due: 0, Credit: 75105
+      expect(financeMap['load-2']?.charges, closeTo(74895.0, 0.01));
+      expect(financeMap['load-2']?.paid, closeTo(74895.0, 0.01));
+      expect(financeMap['load-2']?.due, closeTo(0.0, 0.01));
+      expect(financeMap['load-2']?.credit, closeTo(75105.0, 0.01));
+
+      // Order rollup: 450k advance, 181,884 charges -> Charges: 181884, Paid: 450000, Due: 0, Credit: 268116
+      final rollup = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+        order: order,
+        loads: [load1, load2],
+        invoices: [],
+      );
+
+      expect(rollup.charges, closeTo(181884.0, 1.0));
+      expect(rollup.paid, closeTo(450000.0, 0.01));
+      expect(rollup.due, closeTo(0.0, 0.01));
+      expect(rollup.credit, closeTo(268116.0, 1.0));
+    });
+
+    test('accurately calculates finance when grand invoice exists with payments ledger', () {
+      final order = buildOrder(finalCuttingCharges: 181884.56, advanceReceived: 450000);
+      final load1 = buildLoad(
+        id: 'load-1',
+        sequence: 1,
+        finalCuttingCharges: 106989.0,
+        advanceReceived: 300000.0,
+      );
+      final load2 = buildLoad(
+        id: 'load-2',
+        sequence: 2,
+        finalCuttingCharges: 74895.0,
+        advanceReceived: 150000.0,
+      );
+      final grandInvoice = JobWorkInvoice(
+        id: 'grand-inv',
+        invoiceNumber: 'INV-001',
+        jobWorkNumber: 'JW-2026-0001',
+        factoryId: 'factory-1',
+        jobWorkId: 'jw-1',
+        customerId: 'customer-1',
+        customerName: 'Basir',
+        lineItems: [
+          const InvoiceLineItem(
+            description: 'Load #1 · Total: Rs 106989 · Paid: Rs 0 · Remaining: Rs 106989',
+            amount: 106989,
+          ),
+          const InvoiceLineItem(
+            description: 'Load #2 · Total: Rs 74895 · Paid: Rs 0 · Remaining: Rs 74895',
+            amount: 74895,
+          ),
+        ],
+        totalAmount: 181884.56,
+        paidAmount: 450000.0,
+        dueAmount: 0.0,
+        status: InvoiceStatus.paid,
+        createdAt: DateTime(2026, 8, 19),
+      );
+
+      final payments = <Payment>[
+        Payment(
+          id: 'pay-1',
+          factoryId: 'factory-1',
+          customerId: 'customer-1',
+          customerName: 'Basir',
+          invoiceId: '',
+          invoiceNumber: '',
+          invoiceType: InvoiceType.jobWork,
+          amount: 300000,
+          method: PaymentMethod.cash,
+          paymentDate: DateTime(2026, 8, 19),
+          createdAt: DateTime(2026, 8, 19),
+          isAdvance: true,
+          orderId: 'jw-1',
+          loadId: 'load-1',
+        ),
+        Payment(
+          id: 'pay-2',
+          factoryId: 'factory-1',
+          customerId: 'customer-1',
+          customerName: 'Basir',
+          invoiceId: '',
+          invoiceNumber: '',
+          invoiceType: InvoiceType.jobWork,
+          amount: 150000,
+          method: PaymentMethod.cash,
+          paymentDate: DateTime(2026, 8, 19),
+          createdAt: DateTime(2026, 8, 19),
+          isAdvance: true,
+          orderId: 'jw-1',
+          loadId: 'load-2',
+        ),
+      ];
+
+      final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+        order: order,
+        loads: [load1, load2],
+        invoices: [grandInvoice],
+        payments: payments,
+      );
+
+      expect(financeMap['load-1']?.charges, closeTo(106989.0, 0.01));
+      expect(financeMap['load-1']?.paid, closeTo(106989.0, 0.01));
+      expect(financeMap['load-1']?.due, closeTo(0.0, 0.01));
+      expect(financeMap['load-1']?.credit, closeTo(193011.0, 0.01));
+
+      expect(financeMap['load-2']?.charges, closeTo(74895.0, 0.01));
+      expect(financeMap['load-2']?.paid, closeTo(74895.0, 0.01));
+      expect(financeMap['load-2']?.due, closeTo(0.0, 0.01));
+      expect(financeMap['load-2']?.credit, closeTo(75105.0, 0.01));
+    });
+
+    test('ignores Paid: Rs 0 in line items when fallback advanceReceived is present', () {
+      final order = buildOrder(finalCuttingCharges: 181884.56, advanceReceived: 450000);
+      final load1 = buildLoad(
+        id: 'load-1',
+        sequence: 1,
+        finalCuttingCharges: 106989.0,
+        advanceReceived: 300000.0,
+      );
+      final load2 = buildLoad(
+        id: 'load-2',
+        sequence: 2,
+        finalCuttingCharges: 74895.0,
+        advanceReceived: 150000.0,
+      );
+      final grandInvoice = JobWorkInvoice(
+        id: 'grand-inv',
+        invoiceNumber: 'INV-001',
+        jobWorkNumber: 'JW-2026-0001',
+        factoryId: 'factory-1',
+        jobWorkId: 'jw-1',
+        customerId: 'customer-1',
+        customerName: 'Basir',
+        lineItems: [
+          const InvoiceLineItem(
+            description: 'Load #1 · Total: Rs 106989 · Paid: Rs 0 · Remaining: Rs 106989',
+            amount: 106989,
+          ),
+          const InvoiceLineItem(
+            description: 'Load #2 · Total: Rs 74895 · Paid: Rs 0 · Remaining: Rs 74895',
+            amount: 74895,
+          ),
+        ],
+        totalAmount: 181884.56,
+        paidAmount: 450000.0,
+        dueAmount: 0.0,
+        status: InvoiceStatus.paid,
+        createdAt: DateTime(2026, 8, 19),
+      );
+
+      final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+        order: order,
+        loads: [load1, load2],
+        invoices: [grandInvoice],
+        payments: [], // without payments stream loaded yet
+      );
+
+      expect(financeMap['load-1']?.paid, closeTo(106989.0, 0.01));
+      expect(financeMap['load-1']?.due, closeTo(0.0, 0.01));
+      expect(financeMap['load-1']?.credit, closeTo(193011.0, 0.01));
+
+      expect(financeMap['load-2']?.paid, closeTo(74895.0, 0.01));
+      expect(financeMap['load-2']?.due, closeTo(0.0, 0.01));
+      expect(financeMap['load-2']?.credit, closeTo(75105.0, 0.01));
+    });
+  });
 }

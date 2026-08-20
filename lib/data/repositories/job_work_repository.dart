@@ -7,6 +7,7 @@ import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
 import '../../domain/enums/customer_enums.dart';
+import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../models/customer_model.dart';
 import '../models/job_work_collection_model.dart';
@@ -416,31 +417,76 @@ class JobWorkRepository {
       throw StateError('Job work order not found.');
     }
 
+    final batch = _firestore.batch();
+
+    // 1. Cancel all loads
     final loadSnap = await _firestore
         .collection('jobWorkLoads')
         .where('factoryId', isEqualTo: order.factoryId)
         .where('jobWorkId', isEqualTo: id)
         .get();
 
-    const batchLimit = 400;
-    for (var index = 0; index < loadSnap.docs.length; index += batchLimit) {
-      final batch = _firestore.batch();
-      final chunk = loadSnap.docs.skip(index).take(batchLimit);
-      for (final doc in chunk) {
-        batch.update(doc.reference, {
-          'status': JobWorkStatus.cancelled.firestoreValue,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-      await batch.commit();
+    for (final doc in loadSnap.docs) {
+      batch.update(doc.reference, {
+        'status': JobWorkStatus.cancelled.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
 
-    await _jobWorkCollection.doc(id).update({
+    // 2. Cancel Job Work Order
+    batch.update(_jobWorkCollection.doc(id), {
       'status': JobWorkStatus.cancelled.firestoreValue,
       'summaryStatus': 'cancelled',
       'activeLoadCount': 0,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    // 3. Cancel linked invoices
+    final invoiceSnap = await _firestore
+        .collection('jobWorkInvoices')
+        .where('factoryId', isEqualTo: order.factoryId)
+        .where('jobWorkId', isEqualTo: id)
+        .get();
+
+    for (final doc in invoiceSnap.docs) {
+      batch.update(doc.reference, {
+        'status': InvoiceStatus.cancelled.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 4. Void linked payments
+    final paymentsSnap = await _firestore
+        .collection('payments')
+        .where('factoryId', isEqualTo: order.factoryId)
+        .where('customerId', isEqualTo: order.customerId)
+        .get();
+
+    final loadIds = loadSnap.docs.map((d) => d.id).toSet();
+    final invoiceIds = invoiceSnap.docs.map((d) => d.id).toSet();
+
+    for (final doc in paymentsSnap.docs) {
+      final data = doc.data();
+      final orderId = data['orderId'] as String? ?? '';
+      final loadId = data['loadId'] as String? ?? '';
+      final invoiceId = data['invoiceId'] as String? ?? '';
+
+      if (orderId == id ||
+          loadIds.contains(loadId) ||
+          invoiceIds.contains(invoiceId) ||
+          doc.id == 'advance_job_$id' ||
+          doc.id.startsWith('advance_load_')) {
+        batch.update(doc.reference, {
+          'status': PaymentStatus.voided.firestoreValue,
+          'notes': '${data['notes'] ?? ''} (Cancelled with Job Work #${order.jobWorkNumber})'.trim(),
+        });
+      }
+    }
+
+    await batch.commit();
+    EntityReactiveEventBus.instance.notifyUpdated<JobWorkOrder>(
+      order.copyWith(status: JobWorkStatus.cancelled),
+    );
   }
 
   /// Live count of non-cancelled job work orders for a customer.

@@ -302,11 +302,15 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
           order: order,
           loads: state.siblingLoads,
           invoices: state.invoices,
+          payments: state.payments,
         );
         final fin = financeMap[load.id] ?? (
           charges: load.finalCuttingCharges,
           paid: load.advanceReceived,
           due: load.balanceDue,
+          credit: (load.advanceReceived > load.finalCuttingCharges
+              ? load.advanceReceived - load.finalCuttingCharges
+              : 0.0),
         );
 
         final loadLabel = load.loadNumber.isEmpty
@@ -450,14 +454,29 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                     ),
                     JobWorkDetailRow(
                       label: AppStrings.advanceReceived,
-                      value: Formatters.currencyPkr(fin.paid),
+                      value: Formatters.currencyPkr(load.advanceReceived),
                     ),
-                    JobWorkDetailRow(
-                      label: AppStrings.balanceDue,
-                      value: Formatters.currencyPkr(fin.due),
-                      bold: fin.due > 0,
-                      highlight: fin.due > 0,
-                    ),
+                    if (fin.due > 0)
+                      JobWorkDetailRow(
+                        label: AppStrings.balanceDue,
+                        value: Formatters.currencyPkr(fin.due),
+                        bold: true,
+                        highlight: true,
+                        color: AppColors.warning,
+                      )
+                    else if (fin.credit > 0)
+                      JobWorkDetailRow(
+                        label: 'In Credit',
+                        value: Formatters.currencyPkr(fin.credit),
+                        bold: true,
+                        highlight: true,
+                        color: AppColors.success,
+                      )
+                    else
+                      JobWorkDetailRow(
+                        label: AppStrings.balanceDue,
+                        value: Formatters.currencyPkr(0),
+                      ),
                     JobWorkDetailRow(
                       label: AppStrings.paymentTerms,
                       value: load.paymentTerms.label,

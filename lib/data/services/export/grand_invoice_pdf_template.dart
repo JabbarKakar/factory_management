@@ -113,7 +113,15 @@ abstract final class GrandInvoicePdfTemplate {
     var totalPaid = 0.0;
     var totalDue = 0.0;
     for (final load in displayLoads) {
-      final fin = financeMap[load.id] ?? (charges: load.finalCuttingCharges, paid: load.advanceReceived, due: load.balanceDue);
+      final fin = financeMap[load.id] ??
+          (
+            charges: load.finalCuttingCharges,
+            paid: load.advanceReceived,
+            due: load.balanceDue,
+            credit: (load.advanceReceived > load.finalCuttingCharges
+                ? load.advanceReceived - load.finalCuttingCharges
+                : 0.0),
+          );
       totalCuttingCharges += fin.charges;
       totalPaid += fin.paid;
       totalDue += fin.due;
@@ -458,7 +466,14 @@ abstract final class GrandInvoicePdfTemplate {
               index: i + 1,
               collections: collections,
               fin: financeMap[displayLoads[i].id] ??
-                  (charges: displayLoads[i].finalCuttingCharges, paid: displayLoads[i].advanceReceived, due: displayLoads[i].balanceDue),
+                  (
+                    charges: displayLoads[i].finalCuttingCharges,
+                    paid: displayLoads[i].advanceReceived,
+                    due: displayLoads[i].balanceDue,
+                    credit: (displayLoads[i].advanceReceived > displayLoads[i].finalCuttingCharges
+                        ? displayLoads[i].advanceReceived - displayLoads[i].finalCuttingCharges
+                        : 0.0),
+                  ),
               fonts: fonts,
               dateFormat: dateFormat,
               isSingleLoad: isSingleLoad,
@@ -657,7 +672,7 @@ abstract final class GrandInvoicePdfTemplate {
     required JobWorkLoad load,
     required int index,
     required List<JobWorkCollection> collections,
-    required ({double charges, double paid, double due}) fin,
+    required ({double charges, double paid, double due, double credit}) fin,
     required PdfFonts fonts,
     required DateFormat dateFormat,
     required bool isSingleLoad,

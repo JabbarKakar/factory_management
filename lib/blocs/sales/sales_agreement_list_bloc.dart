@@ -231,7 +231,7 @@ extension SalesAgreementListStateFinanceX on SalesAgreementListState {
   List<SalesInvoice> invoicesFor(String agreementId) =>
       invoices.where((invoice) => invoice.agreementId == agreementId).toList();
 
-  ({double charges, double paid, double due}) financeFor(
+  ({double charges, double paid, double due, double credit}) financeFor(
     SalesAgreement agreement,
   ) {
     return SalesContainerSyncHelper.rollupInvoiceFinance(

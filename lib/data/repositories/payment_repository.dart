@@ -5,7 +5,9 @@ import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
+import '../models/job_work_invoice_model.dart';
 import '../models/payment_model.dart';
+import '../models/sales_invoice_model.dart';
 import '../services/customer_ledger_service.dart';
 import '../services/job_work_container_sync_helper.dart';
 import '../services/payment_due_scanner_service.dart';
@@ -146,6 +148,27 @@ class PaymentRepository {
         });
   }
 
+  /// Watch advance payments linked to a Job Work order (by orderId).
+  /// These payments have an empty invoiceId and are tagged with isAdvance.
+  Stream<List<Payment>> watchAdvancePaymentsForOrder({
+    required String factoryId,
+    required String orderId,
+  }) {
+    return _collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('orderId', isEqualTo: orderId)
+        .snapshots()
+        .map((snapshot) {
+          final payments = snapshot.docs
+              .map((doc) =>
+                  PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
+              .where((p) => p.isAdvance)
+              .toList();
+          payments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+          return payments;
+        });
+  }
+
   Future<Payment?> getPayment(String id) async {
     try {
       final doc = await _collection.doc(id).get();
@@ -206,6 +229,10 @@ class PaymentRepository {
       reference: reference?.trim().isEmpty ?? true ? null : reference?.trim(),
       notes: notes?.trim().isEmpty ?? true ? null : notes?.trim(),
       createdAt: existing.createdAt,
+      isAdvance: existing.isAdvance,
+      orderId: existing.orderId,
+      loadId: existing.loadId,
+      status: existing.status,
     );
 
     final updates = <String, dynamic>{
@@ -241,32 +268,42 @@ class PaymentRepository {
 
     await _collection.doc(paymentId).delete();
 
-    // Reset advanceReceived on load/order when a payment is deleted
-    // to prevent ensureInvoicePaidAmountRecorded from auto-recreating phantom advances.
-    if (existing.invoiceType == InvoiceType.jobWork) {
-      final invoice =
-          await _jobWorkInvoiceRepository.getInvoice(existing.invoiceId);
-      if (invoice != null) {
-        final loadId = (paymentId.startsWith('advance_load_'))
-            ? paymentId.replaceAll('advance_load_', '').trim()
-            : invoice.loadId?.trim();
+    // Only decrement/adjust advanceReceived if the payment being deleted was actually an advance deposit
+    if (existing.isAdvance || paymentId.startsWith('advance_')) {
+      if (existing.invoiceType == InvoiceType.jobWork) {
+        final invoice =
+            await _jobWorkInvoiceRepository.getInvoice(existing.invoiceId);
+        final loadId = existing.loadId ??
+            (paymentId.startsWith('advance_load_')
+                ? paymentId.replaceAll('advance_load_', '').trim()
+                : invoice?.loadId?.trim());
 
         if (loadId != null && loadId.isNotEmpty) {
-          await _jobWorkLoadRepository.loadDoc(loadId).update({
-            'pricing.advanceReceived': 0,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+          final load = await _jobWorkLoadRepository.getLoad(loadId);
+          if (load != null) {
+            final updatedAdvance = (load.advanceReceived - existing.amount)
+                .clamp(0.0, double.infinity);
+            await _jobWorkLoadRepository.loadDoc(loadId).update({
+              'pricing.advanceReceived': updatedAdvance,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
         }
-
-        final orderId = (paymentId.startsWith('advance_job_'))
-            ? paymentId.replaceAll('advance_job_', '').trim()
-            : invoice.jobWorkId;
-
-        if (orderId.isNotEmpty) {
-          await _jobWorkRepository.jobWorkDoc(orderId).update({
-            'pricing.advanceReceived': 0,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+      } else if (existing.invoiceType == InvoiceType.sales) {
+        final orderId = existing.orderId ??
+            (paymentId.startsWith('advance_sales_')
+                ? paymentId.replaceAll('advance_sales_', '').trim()
+                : null);
+        if (orderId != null && orderId.isNotEmpty) {
+          final order = await _salesOrderRepository.getSalesOrder(orderId);
+          if (order != null) {
+            final updatedAdvance = (order.advanceReceived - existing.amount)
+                .clamp(0.0, double.infinity);
+            await _salesOrderRepository.salesOrderDoc(orderId).update({
+              'advanceReceived': updatedAdvance,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
         }
       }
     }
@@ -503,15 +540,38 @@ class PaymentRepository {
       final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
       if (invoice == null || invoice.paidAmount <= 0) return;
 
-      // Grand paidAmount is a rollup of order (+ agreement) payments. Seeding an
-      // advance here duplicates every real order payment in Agreement history.
+      // Grand paidAmount is a rollup of order payments.
       if (invoice.isGrandInvoice) {
         await _deletePaymentDocIfExists('advance_sales_${invoice.id}');
         return;
       }
 
-      final advanceId = 'advance_sales_${invoice.salesOrderId.trim()}';
+      // 1. Check if an advance payment document already exists for this order
+      final customerPayments = await getPaymentsForCustomer(
+        factoryId: invoice.factoryId,
+        customerId: invoice.customerId,
+      );
 
+      final existingForOrder = customerPayments.where((p) =>
+          p.orderId == invoice.salesOrderId &&
+          p.status != PaymentStatus.voided).toList();
+
+      if (existingForOrder.isNotEmpty) {
+        // Link any unlinked or stale invoiceId on these payments to this invoice
+        for (final p in existingForOrder) {
+          if (p.invoiceId != invoice.id) {
+            await _collection.doc(p.id).update({
+              'invoiceId': invoice.id,
+              'invoiceNumber': invoice.invoiceNumber,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
+        }
+        return;
+      }
+
+      // Legacy fallback: order had advance but no payment doc was created
+      final advanceId = 'advance_sales_${invoice.salesOrderId.trim()}';
       final existingPayments = await getPaymentsForInvoice(
         factoryId: invoice.factoryId,
         invoiceId: invoice.id,
@@ -520,8 +580,6 @@ class PaymentRepository {
           .where((payment) => payment.id != advanceId)
           .fold<double>(0, (total, payment) => total + payment.amount);
 
-      // Real payments already cover invoice.paid — remove a phantom advance
-      // row created by older logic that seeded the full paidAmount again.
       if (nonAdvancePaid + 0.01 >= invoice.paidAmount) {
         if (existingPayments.any((payment) => payment.id == advanceId)) {
           await _collection.doc(advanceId).delete();
@@ -536,6 +594,9 @@ class PaymentRepository {
       final gap = invoice.paidAmount - nonAdvancePaid;
       if (gap <= 0.01) return;
 
+      final order =
+          await _salesOrderRepository.getSalesOrder(invoice.salesOrderId);
+
       await _createStandalonePayment(
         factoryId: invoice.factoryId,
         customerId: invoice.customerId,
@@ -544,9 +605,11 @@ class PaymentRepository {
         invoiceType: InvoiceType.sales,
         invoiceNumber: invoice.invoiceNumber,
         amount: gap,
-        paymentDate: invoice.createdAt,
-        notes: 'Amount received at invoicing (incl. advance)',
+        paymentDate: order?.orderDate ?? invoice.createdAt,
+        notes: 'Advance deposit for Sales Order #${invoice.salesOrderId}',
         paymentId: advanceId,
+        orderId: invoice.salesOrderId,
+        isAdvance: true,
       );
       return;
     }
@@ -557,15 +620,41 @@ class PaymentRepository {
     final order = await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
     if (order == null) return;
 
+    // Check if advance payments already exist for this JW or load
+    final customerPayments = await getPaymentsForCustomer(
+      factoryId: invoice.factoryId,
+      customerId: invoice.customerId,
+    );
+
+    final existingForJob = customerPayments.where((p) =>
+        (p.orderId == invoice.jobWorkId ||
+            (invoice.loadId != null && p.loadId == invoice.loadId)) &&
+        p.status != PaymentStatus.voided).toList();
+
+    if (existingForJob.isNotEmpty) {
+      for (final p in existingForJob) {
+        if (p.invoiceId != invoice.id) {
+          await _collection.doc(p.id).update({
+            'invoiceId': invoice.id,
+            'invoiceNumber': invoice.invoiceNumber,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+      return;
+    }
+
+    // Legacy fallback
     if (order.isLoadsAuthoritative) {
       final loads = await _jobWorkLoadRepository.fetchLoadsForJobWork(
         factoryId: invoice.factoryId,
         jobWorkId: invoice.jobWorkId,
       );
-      
-      final loadsToProcess = invoice.loadId != null && invoice.loadId!.trim().isNotEmpty
-          ? loads.where((l) => l.id == invoice.loadId)
-          : loads;
+
+      final loadsToProcess =
+          invoice.loadId != null && invoice.loadId!.trim().isNotEmpty
+              ? loads.where((l) => l.id == invoice.loadId)
+              : loads;
 
       for (final load in loadsToProcess) {
         if (load.advanceReceived <= 0) continue;
@@ -588,9 +677,12 @@ class PaymentRepository {
           invoiceType: InvoiceType.jobWork,
           invoiceNumber: invoice.invoiceNumber,
           amount: load.advanceReceived,
-          paymentDate: invoice.createdAt,
-          notes: 'Amount received at invoicing (incl. advance)',
+          paymentDate: load.receivedDate,
+          notes: 'Advance deposit for Job Work Load #${load.loadNumber}',
           paymentId: paymentId,
+          orderId: invoice.jobWorkId,
+          loadId: load.id,
+          isAdvance: true,
         );
       }
     } else {
@@ -614,9 +706,11 @@ class PaymentRepository {
         invoiceType: InvoiceType.jobWork,
         invoiceNumber: invoice.invoiceNumber,
         amount: order.advanceReceived,
-        paymentDate: invoice.createdAt,
-        notes: 'Amount received at invoicing (incl. advance)',
+        paymentDate: order.createdAt,
+        notes: 'Advance deposit for Job Work #${order.jobWorkNumber}',
         paymentId: paymentId,
+        orderId: order.id,
+        isAdvance: true,
       );
     }
   }
@@ -626,6 +720,7 @@ class PaymentRepository {
     required double amount,
     required PaymentMethod method,
     required DateTime paymentDate,
+    String? idempotencyKey,
     String? reference,
     String? notes,
   }) async {
@@ -633,88 +728,92 @@ class PaymentRepository {
       throw StateError('Payment amount must be greater than zero.');
     }
 
-    var invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
-    if (invoice == null) {
-      throw StateError('Invoice not found.');
-    }
+    final paymentId = idempotencyKey ?? _uuid.v4();
+    final paymentDocRef = _collection.doc(paymentId);
+    final invoiceDocRef = _jobWorkInvoiceRepository.collection.doc(invoiceId);
 
-    // The Firestore invoice may have stale financial data (e.g. total=0)
-    // if it was generated before cutting output was recorded. Compute the
-    // effective amounts from load data (same source of truth as the UI).
-    final effectiveInvoice = await _resolveEffectiveInvoice(invoice);
+    final payment =
+        await _firestore.runTransaction<Payment>((transaction) async {
+      final invoiceSnapshot = await transaction.get(invoiceDocRef);
+      if (!invoiceSnapshot.exists || invoiceSnapshot.data() == null) {
+        throw StateError('Invoice not found.');
+      }
 
-    if (effectiveInvoice.dueAmount <= 0 && effectiveInvoice.totalAmount <= 0) {
-      throw StateError('This invoice has no charges yet. Please record cutting output first.');
-    }
-    if (effectiveInvoice.dueAmount <= 0) {
-      throw StateError('This invoice is already fully paid.');
-    }
+      final invoice = JobWorkInvoiceModel.fromFirestore(
+        invoiceSnapshot.id,
+        invoiceSnapshot.data()!,
+      ).toEntity();
 
-    // If the Firestore document was stale, persist the corrected amounts
-    // before recording the payment so all downstream syncs are consistent.
-    if ((invoice.totalAmount - effectiveInvoice.totalAmount).abs() > 0.01 ||
-        (invoice.dueAmount - effectiveInvoice.dueAmount).abs() > 0.01 ||
-        (invoice.paidAmount - effectiveInvoice.paidAmount).abs() > 0.01) {
-      await _jobWorkInvoiceRepository.collection.doc(invoiceId).update({
-        'total': effectiveInvoice.totalAmount,
-        'paid': effectiveInvoice.paidAmount,
-        'due': effectiveInvoice.dueAmount,
-        'status': effectiveInvoice.status.firestoreValue,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      // Re-read so downstream calculations use the corrected snapshot.
-      invoice = (await _jobWorkInvoiceRepository.getInvoice(invoiceId))!;
-    }
+      if (invoice.dueAmount <= 0.005) {
+        throw StateError('This invoice is already fully paid.');
+      }
 
-    final appliedAmount =
-        amount > invoice.dueAmount ? invoice.dueAmount : amount;
-    final newPaid = invoice.paidAmount + appliedAmount;
-    final newDue = invoice.dueAmount - appliedAmount;
-    final newStatus = InvoiceStatus.fromAmounts(
-      dueAmount: newDue,
-      paidAmount: newPaid,
-      totalAmount: invoice.totalAmount,
-      dueDate: invoice.dueDate,
-    );
+      final appliedAmount =
+          amount > invoice.dueAmount ? invoice.dueAmount : amount;
+      final newPaid = double.parse(
+        (invoice.paidAmount + appliedAmount).toStringAsFixed(2),
+      );
+      final newDue = double.parse(
+        (invoice.totalAmount - newPaid)
+            .clamp(0, invoice.totalAmount)
+            .toStringAsFixed(2),
+      );
+      final newStatus = InvoiceStatus.fromAmounts(
+        dueAmount: newDue,
+        paidAmount: newPaid,
+        totalAmount: invoice.totalAmount,
+        dueDate: invoice.dueDate,
+      );
 
-    final payment = await _recordPayment(
-      factoryId: invoice.factoryId,
-      customerId: invoice.customerId,
-      customerName: invoice.customerName,
-      invoiceId: invoice.id,
-      invoiceType: InvoiceType.jobWork,
-      invoiceNumber: invoice.invoiceNumber,
-      amount: appliedAmount,
-      method: method,
-      paymentDate: paymentDate,
-      reference: reference,
-      notes: notes,
-      invoiceCollection: _jobWorkInvoiceRepository.collection,
-      invoiceUpdate: {
+      final newPayment = Payment(
+        id: paymentId,
+        factoryId: invoice.factoryId,
+        customerId: invoice.customerId,
+        customerName: invoice.customerName,
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.jobWork,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: appliedAmount,
+        method: method,
+        paymentDate: paymentDate,
+        reference: reference,
+        notes: notes,
+        orderId: invoice.jobWorkId,
+        loadId: invoice.loadId,
+        createdAt: DateTime.now(),
+      );
+
+      transaction.set(
+        paymentDocRef,
+        PaymentModel.fromEntity(newPayment).toFirestore(isCreate: true),
+      );
+
+      transaction.update(invoiceDocRef, {
         'paid': newPaid,
         'due': newDue,
         'status': newStatus.firestoreValue,
         'updatedAt': FieldValue.serverTimestamp(),
-      },
-    );
+      });
+
+      return newPayment;
+    });
 
     // Sync Load finance + JW rollup (or legacy JW finance when no loadId).
     await _syncInvoiceFromPayments(
-      invoiceId: invoice.id,
+      invoiceId: invoiceId,
       invoiceType: InvoiceType.jobWork,
     );
 
-    if (newDue > 0 &&
-        _notificationRepository != null &&
-        _scannerService != null) {
-      final updatedInvoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
-      if (updatedInvoice != null) {
+    if (_notificationRepository != null && _scannerService != null) {
+      final updatedInvoice =
+          await _jobWorkInvoiceRepository.getInvoice(invoiceId);
+      if (updatedInvoice != null && updatedInvoice.dueAmount > 0) {
         await _notificationRepository.createNotification(
           _scannerService.buildPartialPaymentNotification(
             invoice: updatedInvoice,
             paymentId: payment.id,
-            amountPaid: appliedAmount,
-            remainingDue: newDue,
+            amountPaid: payment.amount,
+            remainingDue: updatedInvoice.dueAmount,
           ),
         );
       }
@@ -728,6 +827,7 @@ class PaymentRepository {
     required double amount,
     required PaymentMethod method,
     required DateTime paymentDate,
+    String? idempotencyKey,
     String? reference,
     String? notes,
   }) async {
@@ -735,129 +835,94 @@ class PaymentRepository {
       throw StateError('Payment amount must be greater than zero.');
     }
 
-    final invoice = await _salesInvoiceRepository.getInvoice(invoiceId);
-    if (invoice == null) {
-      throw StateError('Invoice not found.');
-    }
-    if (invoice.dueAmount <= 0) {
-      throw StateError('This invoice is already fully paid.');
-    }
+    final paymentId = idempotencyKey ?? _uuid.v4();
+    final paymentDocRef = _collection.doc(paymentId);
+    final invoiceDocRef = _salesInvoiceRepository.collection.doc(invoiceId);
 
-    final appliedAmount =
-        amount > invoice.dueAmount ? invoice.dueAmount : amount;
-    final newPaid = invoice.paidAmount + appliedAmount;
-    final newDue = invoice.dueAmount - appliedAmount;
-    final newStatus = InvoiceStatus.fromAmounts(
-      dueAmount: newDue,
-      paidAmount: newPaid,
-      totalAmount: invoice.totalAmount,
-      dueDate: invoice.dueDate,
-    );
+    final payment =
+        await _firestore.runTransaction<Payment>((transaction) async {
+      final invoiceSnapshot = await transaction.get(invoiceDocRef);
+      if (!invoiceSnapshot.exists || invoiceSnapshot.data() == null) {
+        throw StateError('Invoice not found.');
+      }
 
-    final payment = await _recordPayment(
-      factoryId: invoice.factoryId,
-      customerId: invoice.customerId,
-      customerName: invoice.customerName,
-      invoiceId: invoice.id,
-      invoiceType: InvoiceType.sales,
-      invoiceNumber: invoice.invoiceNumber,
-      amount: appliedAmount,
-      method: method,
-      paymentDate: paymentDate,
-      reference: reference,
-      notes: notes,
-      invoiceCollection: _salesInvoiceRepository.collection,
-      invoiceUpdate: {
+      final invoice = SalesInvoiceModel.fromFirestore(
+        invoiceSnapshot.id,
+        invoiceSnapshot.data()!,
+      ).toEntity();
+
+      if (invoice.dueAmount <= 0.005) {
+        throw StateError('This invoice is already fully paid.');
+      }
+
+      final appliedAmount =
+          amount > invoice.dueAmount ? invoice.dueAmount : amount;
+      final newPaid = double.parse(
+        (invoice.paidAmount + appliedAmount).toStringAsFixed(2),
+      );
+      final newDue = double.parse(
+        (invoice.totalAmount - newPaid)
+            .clamp(0, invoice.totalAmount)
+            .toStringAsFixed(2),
+      );
+      final newStatus = InvoiceStatus.fromAmounts(
+        dueAmount: newDue,
+        paidAmount: newPaid,
+        totalAmount: invoice.totalAmount,
+        dueDate: invoice.dueDate,
+      );
+
+      final newPayment = Payment(
+        id: paymentId,
+        factoryId: invoice.factoryId,
+        customerId: invoice.customerId,
+        customerName: invoice.customerName,
+        invoiceId: invoice.id,
+        invoiceType: InvoiceType.sales,
+        invoiceNumber: invoice.invoiceNumber,
+        amount: appliedAmount,
+        method: method,
+        paymentDate: paymentDate,
+        reference: reference,
+        notes: notes,
+        orderId: invoice.salesOrderId.isNotEmpty ? invoice.salesOrderId : null,
+        createdAt: DateTime.now(),
+      );
+
+      transaction.set(
+        paymentDocRef,
+        PaymentModel.fromEntity(newPayment).toFirestore(isCreate: true),
+      );
+
+      transaction.update(invoiceDocRef, {
         'paid': newPaid,
         'due': newDue,
         'status': newStatus.firestoreValue,
         'updatedAt': FieldValue.serverTimestamp(),
-      },
-    );
+      });
+
+      return newPayment;
+    });
 
     // Recompute invoice + order finance + agreement rollup from payment docs.
     await _syncInvoiceFromPayments(
-      invoiceId: invoice.id,
+      invoiceId: invoiceId,
       invoiceType: InvoiceType.sales,
     );
 
-    if (newDue > 0 &&
-        _notificationRepository != null &&
-        _scannerService != null) {
-      final updatedInvoice = await _salesInvoiceRepository.getInvoice(invoiceId);
-      if (updatedInvoice != null) {
+    if (_notificationRepository != null && _scannerService != null) {
+      final updatedInvoice =
+          await _salesInvoiceRepository.getInvoice(invoiceId);
+      if (updatedInvoice != null && updatedInvoice.dueAmount > 0) {
         await _notificationRepository.createNotification(
           _scannerService.buildSalesPartialPaymentNotification(
             invoice: updatedInvoice,
             paymentId: payment.id,
-            amountPaid: appliedAmount,
-            remainingDue: newDue,
+            amountPaid: payment.amount,
+            remainingDue: updatedInvoice.dueAmount,
           ),
         );
       }
-    }
-
-    return payment;
-  }
-
-  Future<Payment> _recordPayment({
-    required String factoryId,
-    required String customerId,
-    required String customerName,
-    required String invoiceId,
-    required InvoiceType invoiceType,
-    required String invoiceNumber,
-    required double amount,
-    required PaymentMethod method,
-    required DateTime paymentDate,
-    required CollectionReference<Map<String, dynamic>> invoiceCollection,
-    required Map<String, dynamic> invoiceUpdate,
-    Future<void> Function()? onFullyPaid,
-    String? reference,
-    String? notes,
-  }) async {
-    final paymentId = _uuid.v4();
-    final payment = Payment(
-      id: paymentId,
-      factoryId: factoryId,
-      customerId: customerId,
-      customerName: customerName,
-      invoiceId: invoiceId,
-      invoiceType: invoiceType,
-      invoiceNumber: invoiceNumber,
-      amount: amount,
-      method: method,
-      paymentDate: paymentDate,
-      reference: reference,
-      notes: notes,
-      createdAt: DateTime.now(),
-    );
-
-    final batch = _firestore.batch();
-    batch.set(
-      _collection.doc(paymentId),
-      PaymentModel(
-        id: paymentId,
-        factoryId: payment.factoryId,
-        customerId: payment.customerId,
-        customerName: payment.customerName,
-        invoiceId: payment.invoiceId,
-        invoiceType: payment.invoiceType,
-        invoiceNumber: payment.invoiceNumber,
-        amount: payment.amount,
-        method: payment.method,
-        paymentDate: payment.paymentDate,
-        reference: payment.reference,
-        notes: payment.notes,
-        createdAt: payment.createdAt,
-      ).toFirestore(isCreate: true),
-    );
-
-    batch.update(invoiceCollection.doc(invoiceId), invoiceUpdate);
-    await batch.commit();
-
-    if (onFullyPaid != null) {
-      await onFullyPaid();
     }
 
     return payment;
@@ -876,6 +941,10 @@ class PaymentRepository {
     String? reference,
     String? notes,
     String? paymentId,
+    bool isAdvance = false,
+    String? orderId,
+    String? loadId,
+    PaymentStatus status = PaymentStatus.completed,
   }) async {
     final id = paymentId ?? _uuid.v4();
     final payment = Payment(
@@ -892,24 +961,14 @@ class PaymentRepository {
       reference: reference,
       notes: notes,
       createdAt: DateTime.now(),
+      isAdvance: isAdvance,
+      orderId: orderId,
+      loadId: loadId,
+      status: status,
     );
 
     await _collection.doc(id).set(
-          PaymentModel(
-            id: id,
-            factoryId: payment.factoryId,
-            customerId: payment.customerId,
-            customerName: payment.customerName,
-            invoiceId: payment.invoiceId,
-            invoiceType: payment.invoiceType,
-            invoiceNumber: payment.invoiceNumber,
-            amount: payment.amount,
-            method: payment.method,
-            paymentDate: payment.paymentDate,
-            reference: payment.reference,
-            notes: payment.notes,
-            createdAt: payment.createdAt,
-          ).toFirestore(isCreate: true),
+          PaymentModel.fromEntity(payment).toFirestore(isCreate: true),
         );
 
     return payment;

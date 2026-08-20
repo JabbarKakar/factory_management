@@ -401,17 +401,6 @@ class JobWorkOutput extends Equatable {
     return merged.values.toList();
   }
 
-  static double _squareFeetFor(String size, int pieces) {
-    final normalized = size.toLowerCase().replaceAll('×', 'x').trim();
-    final parts = normalized.split('x');
-    if (parts.length != 2) return 0;
-    final width = double.tryParse(parts[0].trim());
-    final height = double.tryParse(parts[1].trim());
-    if (width == null || height == null || width <= 0 || height <= 0) {
-      return 0;
-    }
-    return _roundSqFt((width * height * pieces) / 144);
-  }
 
   static double _roundSqFt(double value) =>
       double.parse(value.toStringAsFixed(2));

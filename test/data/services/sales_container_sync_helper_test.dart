@@ -298,7 +298,7 @@ void main() {
         dueAmount: 0,
       );
 
-      expect(finance.advanceReceived, 1000);
+      expect(finance.advanceReceived, 400);
       expect(finance.balanceDue, 0);
       expect(finance.status, SalesOrderStatus.paid);
     });
@@ -315,7 +315,7 @@ void main() {
         dueAmount: 300,
       );
 
-      expect(finance.advanceReceived, 700);
+      expect(finance.advanceReceived, 1000);
       expect(finance.balanceDue, 300);
       expect(finance.status, SalesOrderStatus.invoiced);
     });
@@ -332,7 +332,7 @@ void main() {
         dueAmount: 750,
       );
 
-      expect(finance.advanceReceived, 250);
+      expect(finance.advanceReceived, 0);
       expect(finance.balanceDue, 750);
       expect(finance.status, isNull);
     });

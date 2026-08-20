@@ -71,6 +71,29 @@ enum PaymentMethod {
   }
 }
 
+enum PaymentStatus {
+  completed,
+  refunded,
+  voided,
+  partiallyApplied;
+
+  String get label => switch (this) {
+        PaymentStatus.completed => 'Completed',
+        PaymentStatus.refunded => 'Refunded',
+        PaymentStatus.voided => 'Voided',
+        PaymentStatus.partiallyApplied => 'Partially Applied',
+      };
+
+  String get firestoreValue => name;
+
+  static PaymentStatus fromString(String? value) {
+    return PaymentStatus.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => PaymentStatus.completed,
+    );
+  }
+}
+
 enum InvoiceType {
   jobWork,
   sales;

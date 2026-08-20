@@ -15,6 +15,7 @@ class JobWorkLoadListTile extends StatelessWidget {
     required this.load,
     this.paidAmount,
     this.dueAmount,
+    this.creditAmount,
     this.onTap,
     this.menuActions = const [],
     this.isBusy = false,
@@ -26,6 +27,7 @@ class JobWorkLoadListTile extends StatelessWidget {
   final JobWorkLoad load;
   final double? paidAmount;
   final double? dueAmount;
+  final double? creditAmount;
   final VoidCallback? onTap;
   final List<TileMenuAction> menuActions;
   final bool isBusy;
@@ -56,6 +58,7 @@ class JobWorkLoadListTile extends StatelessWidget {
     final totalCharges = load.finalCuttingCharges;
     final paid = paidAmount ?? load.advanceReceived;
     final due = dueAmount ?? load.balanceDue;
+    final credit = creditAmount ?? (paid > totalCharges ? (paid - totalCharges) : 0.0);
 
     return Padding(
       padding: padding,
@@ -158,6 +161,12 @@ class JobWorkLoadListTile extends StatelessWidget {
                                   label:
                                       '${load.totalTons.toStringAsFixed(2)}t',
                                 ),
+                              if (load.advanceReceived > 0)
+                                _MetaChip(
+                                  icon: Icons.account_balance_wallet_outlined,
+                                  label:
+                                      'Advance: ${Formatters.currencyPkrWhole(load.advanceReceived)}',
+                                ),
                             ],
                           ),
                           if (load.hasFinalCuttingCharges) ...[
@@ -244,8 +253,12 @@ class JobWorkLoadListTile extends StatelessWidget {
                                     child: Padding(
                                       padding: const EdgeInsets.only(left: 2),
                                       child: _financialCell(
-                                        label: 'Remaining: ',
-                                        value: Formatters.currencyPkrWhole(due),
+                                        label: credit > 0
+                                            ? 'In Credit: '
+                                            : 'Remaining: ',
+                                        value: Formatters.currencyPkrWhole(
+                                          credit > 0 ? credit : due,
+                                        ),
                                         labelStyle: theme.textTheme.labelSmall
                                             ?.copyWith(
                                           color: muted,
@@ -255,9 +268,11 @@ class JobWorkLoadListTile extends StatelessWidget {
                                         valueStyle: theme.textTheme.labelSmall
                                             ?.copyWith(
                                           fontWeight: FontWeight.w700,
-                                          color: due > 0
-                                              ? AppColors.warning
-                                              : AppColors.success,
+                                          color: credit > 0
+                                              ? AppColors.success
+                                              : (due > 0
+                                                  ? AppColors.warning
+                                                  : AppColors.success),
                                           fontSize: 11,
                                         ),
                                       ),
@@ -266,6 +281,34 @@ class JobWorkLoadListTile extends StatelessWidget {
                                 ],
                               ),
                             ),
+                            if (load.advanceReceived > 0 && paid > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 3, left: 8),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 10,
+                                      color: AppColors.success.withValues(alpha: 0.7),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      credit > 0
+                                          ? 'Paid from advance · Excess credit available'
+                                          : due > 0
+                                              ? 'Partially adjusted from advance'
+                                              : 'Fully adjusted from advance',
+                                      style: theme.textTheme.labelSmall?.copyWith(
+                                        color: AppColors.success.withValues(alpha: 0.7),
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w500,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ] else ...[
                             const SizedBox(height: 4),
                             Container(

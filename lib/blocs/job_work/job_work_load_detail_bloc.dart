@@ -63,6 +63,9 @@ class JobWorkLoadDetailBloc
   StreamSubscription<List<Payment>>? _paymentsSub;
   StreamSubscription<List<JobWorkLoad>>? _siblingLoadsSub;
   StreamSubscription<List<JobWorkInvoice>>? _allInvoicesSub;
+  StreamSubscription<List<Payment>>? _advancePaymentsSub;
+  List<Payment> _advancePayments = const [];
+  List<Payment> _invoicePayments = const [];
   String? _watchedInvoiceId;
 
   Future<void> _onStarted(
@@ -175,6 +178,18 @@ class JobWorkLoadDetailBloc
           .listen(
             (invoice) => add(_JobWorkLoadDetailInvoiceUpdated(invoice)),
           );
+      _advancePaymentsSub = _paymentRepository
+          .watchAdvancePaymentsForOrder(
+            factoryId: order.factoryId,
+            orderId: order.id,
+          )
+          .listen(
+            (advances) {
+              _advancePayments = advances;
+              if (!isClosed) _emitMergedPayments();
+            },
+            onError: (_) {},
+          );
     } catch (_) {
       emit(
         state.copyWith(
@@ -231,7 +246,9 @@ class JobWorkLoadDetailBloc
       await _paymentsSub?.cancel();
       _paymentsSub = null;
       _watchedInvoiceId = null;
-      emit(state.copyWith(clearInvoice: true, payments: const []));
+      _invoicePayments = const [];
+      _emitMergedPayments();
+      emit(state.copyWith(clearInvoice: true));
       return;
     }
 
@@ -246,8 +263,22 @@ class JobWorkLoadDetailBloc
           invoiceId: invoice.id,
         )
         .listen(
-          (payments) => add(_JobWorkLoadDetailPaymentsUpdated(payments)),
+          (payments) {
+            _invoicePayments = payments;
+            if (!isClosed) _emitMergedPayments();
+          },
         );
+  }
+
+  void _emitMergedPayments() {
+    final all = [..._invoicePayments, ..._advancePayments];
+    final unique = <String, Payment>{};
+    for (final p in all) {
+      unique[p.id] = p;
+    }
+    final deduplicated = unique.values.toList()
+      ..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
+    add(_JobWorkLoadDetailPaymentsUpdated(deduplicated));
   }
 
   void _onPaymentsUpdated(
@@ -323,6 +354,7 @@ class JobWorkLoadDetailBloc
     await _paymentsSub?.cancel();
     await _siblingLoadsSub?.cancel();
     await _allInvoicesSub?.cancel();
+    await _advancePaymentsSub?.cancel();
     _loadSub = null;
     _collectionsSub = null;
     _qualitySub = null;
@@ -330,6 +362,9 @@ class JobWorkLoadDetailBloc
     _paymentsSub = null;
     _siblingLoadsSub = null;
     _allInvoicesSub = null;
+    _advancePaymentsSub = null;
+    _advancePayments = const [];
+    _invoicePayments = const [];
     _watchedInvoiceId = null;
   }
 

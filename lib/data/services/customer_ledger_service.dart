@@ -51,8 +51,9 @@ class CustomerLedgerService {
 
     final factoryId = customer.factoryId;
 
-    final List<SalesOrder> salesOrders = _salesOrderRepository != null
-        ? await _salesOrderRepository!.watchSalesOrders(factoryId).first
+    final salesOrderRepo = _salesOrderRepository;
+    final List<SalesOrder> salesOrders = salesOrderRepo != null
+        ? await salesOrderRepo.watchSalesOrders(factoryId).first
         : const [];
     final salesInvoices =
         await _salesInvoiceRepository.getInvoicesForCustomer(
@@ -60,16 +61,18 @@ class CustomerLedgerService {
       customerId: customerId,
     );
 
-    final List<JobWorkOrder> jobWorkOrders = _jobWorkRepository != null
-        ? await _jobWorkRepository!
+    final jobWorkRepo = _jobWorkRepository;
+    final List<JobWorkOrder> jobWorkOrders = jobWorkRepo != null
+        ? await jobWorkRepo
             .watchOrdersForCustomer(
               factoryId: factoryId,
               customerId: customerId,
             )
             .first
         : const [];
-    final List<JobWorkLoad> jobWorkLoads = _jobWorkLoadRepository != null
-        ? await _jobWorkLoadRepository!.watchLoads(factoryId).first
+    final jobWorkLoadRepo = _jobWorkLoadRepository;
+    final List<JobWorkLoad> jobWorkLoads = jobWorkLoadRepo != null
+        ? await jobWorkLoadRepo.watchLoads(factoryId).first
         : const [];
     final jobWorkInvoices =
         await _jobWorkInvoiceRepository.getInvoicesForCustomer(
@@ -95,9 +98,13 @@ class CustomerLedgerService {
       payments: payments,
     );
 
+    final customerBalance = summary.unallocatedCredit > 0
+        ? -summary.unallocatedCredit
+        : summary.totalDue;
+
     await _customerRepository.updateCustomer(
       customer.copyWith(
-        balance: summary.totalDue,
+        balance: customerBalance,
         totalAmountPaid: summary.totalPaid,
         totalBalanceDue: summary.totalDue,
         nextDueDate: summary.nextDueDate,

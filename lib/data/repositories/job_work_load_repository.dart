@@ -6,11 +6,14 @@ import '../../core/utils/job_work_charges_calculator.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
+import '../../domain/entities/payment.dart';
+import '../../domain/enums/customer_enums.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/job_work_load_enums.dart';
 import '../models/job_work_invoice_model.dart';
 import '../models/job_work_load_model.dart';
+import '../models/payment_model.dart';
 import '../services/job_work_container_sync_helper.dart';
 import '../services/job_work_load_production_helper.dart';
 import '../services/job_work_load_resolver.dart';
@@ -116,6 +119,43 @@ class JobWorkLoadRepository {
         .map((doc) => JobWorkLoadModel.fromFirestore(doc.id, doc.data()))
         .map((model) => model.toEntity())
         .toList();
+
+    // Self-healing: if any load has 0 advanceReceived, check if an advance payment exists for it
+    final zeroAdvanceLoads = loads.where((l) => l.advanceReceived <= 0).toList();
+    if (zeroAdvanceLoads.isNotEmpty) {
+      try {
+        final paymentsSnap = await _firestore
+            .collection('payments')
+            .where('factoryId', isEqualTo: factoryId)
+            .where('orderId', isEqualTo: jobWorkId)
+            .get();
+        final advancePayments = paymentsSnap.docs
+            .map((doc) => PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
+            .where((p) => p.isAdvance && p.loadId != null && p.loadId!.isNotEmpty)
+            .toList();
+
+        if (advancePayments.isNotEmpty) {
+          final advancesByLoadId = <String, double>{};
+          for (final p in advancePayments) {
+            advancesByLoadId[p.loadId!] =
+                (advancesByLoadId[p.loadId!] ?? 0.0) + p.amount;
+          }
+
+          for (var i = 0; i < loads.length; i++) {
+            final load = loads[i];
+            final advance = advancesByLoadId[load.id];
+            if (advance != null && advance > 0 && load.advanceReceived <= 0) {
+              loads[i] = load.copyWith(advanceReceived: advance);
+              _loads.doc(load.id).update({
+                'pricing.advanceReceived': advance,
+                'updatedAt': FieldValue.serverTimestamp(),
+              }).catchError((_) {});
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
     loads.sort((a, b) => a.loadSequence.compareTo(b.loadSequence));
     return loads;
   }
@@ -187,6 +227,33 @@ class JobWorkLoadRepository {
       _loads.doc(loadId),
       JobWorkLoadModel.fromEntity(load).toFirestore(isCreate: true),
     );
+    if (load.advanceReceived > 0) {
+      final paymentId = _uuid.v4();
+      final payment = Payment(
+        id: paymentId,
+        factoryId: load.factoryId,
+        customerId: load.customerId,
+        customerName: load.customerName,
+        invoiceId: '',
+        invoiceType: InvoiceType.jobWork,
+        invoiceNumber: load.loadNumber,
+        amount: load.advanceReceived,
+        method: load.paymentTerms == PaymentTerms.cash
+            ? PaymentMethod.cash
+            : PaymentMethod.bankTransfer,
+        paymentDate: load.receivedDate,
+        reference: load.loadNumber,
+        notes: 'Advance deposit for Job Work Load #${load.loadNumber}',
+        createdAt: DateTime.now(),
+        isAdvance: true,
+        orderId: load.jobWorkId,
+        loadId: load.id,
+      );
+      batch.set(
+        _firestore.collection('payments').doc(paymentId),
+        PaymentModel.fromEntity(payment).toFirestore(isCreate: true),
+      );
+    }
     _applyJobWorkMigratedUpdate(
       batch: batch,
       order: order,
@@ -263,6 +330,33 @@ class JobWorkLoadRepository {
       _loads.doc(id),
       JobWorkLoadModel.fromEntity(load).toFirestore(isCreate: true),
     );
+    if (load.advanceReceived > 0) {
+      final paymentId = _uuid.v4();
+      final payment = Payment(
+        id: paymentId,
+        factoryId: load.factoryId,
+        customerId: load.customerId,
+        customerName: load.customerName,
+        invoiceId: '',
+        invoiceType: InvoiceType.jobWork,
+        invoiceNumber: load.loadNumber,
+        amount: load.advanceReceived,
+        method: load.paymentTerms == PaymentTerms.cash
+            ? PaymentMethod.cash
+            : PaymentMethod.bankTransfer,
+        paymentDate: load.receivedDate,
+        reference: load.loadNumber,
+        notes: 'Advance deposit for Job Work Load #${load.loadNumber}',
+        createdAt: DateTime.now(),
+        isAdvance: true,
+        orderId: load.jobWorkId,
+        loadId: load.id,
+      );
+      batch.set(
+        _firestore.collection('payments').doc(paymentId),
+        PaymentModel.fromEntity(payment).toFirestore(isCreate: true),
+      );
+    }
     _applyJobWorkMigratedUpdate(
       batch: batch,
       order: order,
@@ -588,17 +682,21 @@ class JobWorkLoadRepository {
             .map((d) => d.data())
             .fold<double>(0.0, (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0));
             
-        final advanceId = 'advance_load_${load.id}';
-        DocumentSnapshot<Map<String, dynamic>>? advanceDoc;
-        try {
-          advanceDoc = await _firestore.collection('payments').doc(advanceId).get();
-        } catch (_) {}
-        if (advanceDoc != null && advanceDoc.exists) {
-          final isAlreadyCounted = paymentsSnap.docs.any((d) => d.id == advanceId);
-          if (!isAlreadyCounted) {
-            paid += (advanceDoc.data()?['amount'] as num?)?.toDouble() ?? 0.0;
-          }
-        }
+        // Also include advance payments for this load (not linked to any invoice).
+        final advancePaymentsSnap = await _firestore
+            .collection('payments')
+            .where('factoryId', isEqualTo: order.factoryId)
+            .where('orderId', isEqualTo: order.id)
+            .get();
+        final advancePaid = advancePaymentsSnap.docs
+            .map((d) => PaymentModel.fromFirestore(d.id, d.data()).toEntity())
+            .where((p) =>
+                p.isAdvance &&
+                p.loadId == loadId &&
+                p.status != PaymentStatus.voided &&
+                !paymentsSnap.docs.any((existing) => existing.id == p.id))
+            .fold<double>(0.0, (sum, p) => sum + p.amount);
+        paid += advancePaid;
         
         final due = (total - paid).clamp(0.0, total).toDouble();
         final status = InvoiceStatus.fromAmounts(
@@ -653,20 +751,42 @@ class JobWorkLoadRepository {
 
       final invoiceIds = invoicesSnap.docs.map((d) => d.id).toSet();
       var recordedPaymentsTotal = 0.0;
+      // Fetch ALL payments for this order (including advances).
+      final orderPaymentsSnap = await _firestore
+          .collection('payments')
+          .where('factoryId', isEqualTo: order.factoryId)
+          .where('orderId', isEqualTo: order.id)
+          .get();
+      final allPaymentEntities = orderPaymentsSnap.docs
+          .map((doc) => PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
+          .where((p) => p.status != PaymentStatus.voided)
+          .toList();
+
+      // Also fetch invoice-scoped payments that might not have orderId set.
       if (invoiceIds.isNotEmpty) {
-        final paymentsSnap = await _firestore
+        final invoicePaymentsSnap = await _firestore
             .collection('payments')
             .where('factoryId', isEqualTo: order.factoryId)
             .where('customerId', isEqualTo: order.customerId)
             .get();
-        recordedPaymentsTotal = paymentsSnap.docs
-            .map((doc) => doc.data())
-            .where((data) => invoiceIds.contains(data['invoiceId']))
-            .fold<double>(
-              0,
-              (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0),
-            );
+        final invoicePayments = invoicePaymentsSnap.docs
+            .map((doc) => PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
+            .where((p) =>
+                p.status != PaymentStatus.voided &&
+                invoiceIds.contains(p.invoiceId))
+            .toList();
+        // Merge: deduplicate by payment ID.
+        final seen = allPaymentEntities.map((p) => p.id).toSet();
+        for (final p in invoicePayments) {
+          if (!seen.contains(p.id)) {
+            allPaymentEntities.add(p);
+            seen.add(p.id);
+          }
+        }
       }
+
+      recordedPaymentsTotal = allPaymentEntities
+          .fold<double>(0, (sum, p) => sum + p.amount);
 
       final newPaid = recordedPaymentsTotal > 0
           ? recordedPaymentsTotal
@@ -682,6 +802,7 @@ class JobWorkLoadRepository {
         order: order,
         loads: loads,
         invoices: allInvoices,
+        payments: allPaymentEntities,
       );
 
       final lineItemsMaps = <Map<String, dynamic>>[];
@@ -691,23 +812,17 @@ class JobWorkLoadRepository {
             : load.loadNumber;
         final total = load.finalCuttingCharges;
         final fin = financeMap[load.id];
-        final paid = fin?.paid ?? (newPaid > 0 ? 0.0 : load.advanceReceived);
-        final remaining = fin?.due ?? (newPaid > 0 ? total : load.balanceDue);
+        final paid = fin?.paid ?? load.advanceReceived;
+        final remaining = fin?.due ?? load.balanceDue;
 
-        // Self-heal load document in Firestore
+        // Self-heal load document in Firestore — update balanceDue only.
+        // Never reset advanceReceived: the original advance is immutable once
+        // recorded and the payment ledger (queried by loadId) is the source of
+        // truth for paid amounts.
         final loadUpdates = <String, dynamic>{
           'pricing.balanceDue': remaining,
           'updatedAt': FieldValue.serverTimestamp(),
         };
-        if (load.advanceReceived > 0) {
-          final advDoc = await _firestore
-              .collection('payments')
-              .doc('advance_load_${load.id}')
-              .get();
-          if (!advDoc.exists) {
-            loadUpdates['pricing.advanceReceived'] = 0;
-          }
-        }
         await loadDoc(load.id).update(loadUpdates);
 
         lineItemsMaps.add({

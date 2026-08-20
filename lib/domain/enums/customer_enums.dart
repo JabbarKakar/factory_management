@@ -103,7 +103,8 @@ enum CustomerBalanceStatus {
   dueSoon,
   dueToday,
   overdue,
-  outstanding;
+  outstanding,
+  inCredit;
 
   String get label => switch (this) {
         CustomerBalanceStatus.paidUp => 'Paid up',
@@ -111,5 +112,6 @@ enum CustomerBalanceStatus {
         CustomerBalanceStatus.dueToday => 'Due today',
         CustomerBalanceStatus.overdue => 'Overdue',
         CustomerBalanceStatus.outstanding => 'Outstanding',
+        CustomerBalanceStatus.inCredit => 'In Credit',
       };
 }

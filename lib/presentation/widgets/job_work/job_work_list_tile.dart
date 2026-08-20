@@ -18,6 +18,7 @@ class JobWorkListTile extends StatelessWidget {
     this.isBusy = false,
     this.paidAmount,
     this.remainingAmount,
+    this.creditAmount,
     super.key,
   });
 
@@ -30,9 +31,10 @@ class JobWorkListTile extends StatelessWidget {
   final bool isBusy;
   final double? paidAmount;
   final double? remainingAmount;
+  final double? creditAmount;
 
   bool get _showPaymentStrip =>
-      paidAmount != null && remainingAmount != null;
+      paidAmount != null && (remainingAmount != null || creditAmount != null);
 
   JobWorkStatus get _status => displayStatus ?? order.status;
 
@@ -171,26 +173,37 @@ class JobWorkListTile extends StatelessWidget {
                             ),
                             if (_showPaymentStrip) ...[
                               const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _SummaryStrip(
-                                      label:
-                                          '${AppStrings.amountPaid}: ${Formatters.currencyPkrWhole(paidAmount!)}',
-                                      color: AppColors.success,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: _SummaryStrip(
-                                      label:
-                                          '${AppStrings.balanceDue}: ${Formatters.currencyPkrWhole(remainingAmount!)}',
-                                      color: remainingAmount! > 0
+                              Builder(
+                                builder: (context) {
+                                  final hasCredit = creditAmount != null && creditAmount! > 0;
+                                  final balanceLabel = hasCredit
+                                      ? 'In Credit: ${Formatters.currencyPkrWhole(creditAmount!)}'
+                                      : '${AppStrings.balanceDue}: ${Formatters.currencyPkrWhole(remainingAmount ?? 0)}';
+                                  final balanceColor = hasCredit
+                                      ? AppColors.success
+                                      : ((remainingAmount ?? 0) > 0
                                           ? AppColors.warning
-                                          : AppColors.success,
-                                    ),
-                                  ),
-                                ],
+                                          : AppColors.success);
+
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                        child: _SummaryStrip(
+                                          label:
+                                              '${AppStrings.amountPaid}: ${Formatters.currencyPkrWhole(paidAmount!)}',
+                                          color: AppColors.success,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: _SummaryStrip(
+                                          label: balanceLabel,
+                                          color: balanceColor,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
                               ),
                             ],
                             if (loadSummary.total == 0) ...[

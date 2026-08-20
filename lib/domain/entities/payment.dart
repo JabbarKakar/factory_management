@@ -17,6 +17,10 @@ class Payment extends Equatable {
     required this.createdAt,
     this.reference,
     this.notes,
+    this.isAdvance = false,
+    this.orderId,
+    this.loadId,
+    this.status = PaymentStatus.completed,
   });
 
   final String id;
@@ -32,6 +36,10 @@ class Payment extends Equatable {
   final String? reference;
   final String? notes;
   final DateTime createdAt;
+  final bool isAdvance;
+  final String? orderId;
+  final String? loadId;
+  final PaymentStatus status;
 
   Payment copyWith({
     String? id,
@@ -47,6 +55,10 @@ class Payment extends Equatable {
     String? reference,
     String? notes,
     DateTime? createdAt,
+    bool? isAdvance,
+    String? orderId,
+    String? loadId,
+    PaymentStatus? status,
   }) {
     return Payment(
       id: id ?? this.id,
@@ -59,9 +71,13 @@ class Payment extends Equatable {
       amount: amount ?? this.amount,
       method: method ?? this.method,
       paymentDate: paymentDate ?? this.paymentDate,
-      reference: reference,
-      notes: notes,
+      reference: reference ?? this.reference,
+      notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+      isAdvance: isAdvance ?? this.isAdvance,
+      orderId: orderId ?? this.orderId,
+      loadId: loadId ?? this.loadId,
+      status: status ?? this.status,
     );
   }
 
@@ -80,5 +96,9 @@ class Payment extends Equatable {
         reference,
         notes,
         createdAt,
+        isAdvance,
+        orderId,
+        loadId,
+        status,
       ];
 }

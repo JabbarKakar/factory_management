@@ -45,7 +45,7 @@ abstract final class SalesContainerSyncHelper {
   }
 
   /// Prefer order-scoped invoices; fall back to grand invoice, then order fields.
-  static ({double charges, double paid, double due}) rollupInvoiceFinance({
+  static ({double charges, double paid, double due, double credit}) rollupInvoiceFinance({
     required SalesAgreement agreement,
     required List<SalesOrder> orders,
     required List<SalesInvoice> invoices,
@@ -78,30 +78,45 @@ abstract final class SalesContainerSyncHelper {
         paid += finance.paid;
         due += finance.due;
       }
-      return (charges: charges, paid: paid, due: due);
+      final credit = (paid - charges).clamp(0.0, double.infinity).toDouble();
+      return (charges: charges, paid: paid, due: due, credit: credit);
     }
 
     final grandInvoice = invoices.where((i) => i.isGrandInvoice).firstOrNull;
     if (grandInvoice != null) {
+      final credit = (grandInvoice.paidAmount - grandInvoice.totalAmount)
+          .clamp(0.0, double.infinity)
+          .toDouble();
       return (
         charges: grandInvoice.totalAmount,
         paid: grandInvoice.paidAmount,
         due: grandInvoice.dueAmount,
+        credit: credit,
       );
     }
 
     if (invoices.isNotEmpty) {
+      final charges = invoices.fold<double>(0, (s, i) => s + i.totalAmount);
+      final paid = invoices.fold<double>(0, (s, i) => s + i.paidAmount);
+      final due = (charges - paid).clamp(0.0, double.infinity).toDouble();
+      final credit = (paid - charges).clamp(0.0, double.infinity).toDouble();
       return (
-        charges: invoices.fold<double>(0, (s, i) => s + i.totalAmount),
-        paid: invoices.fold<double>(0, (s, i) => s + i.paidAmount),
-        due: invoices.fold<double>(0, (s, i) => s + i.dueAmount),
+        charges: charges,
+        paid: paid,
+        due: due,
+        credit: credit,
       );
     }
 
+    final charges = agreement.totalAmount ?? 0.0;
+    final paid = agreement.paidAmount ?? 0.0;
+    final due = agreement.balanceDue ?? 0.0;
+    final credit = (paid - charges).clamp(0.0, double.infinity).toDouble();
     return (
-      charges: agreement.totalAmount ?? 0,
-      paid: agreement.paidAmount ?? 0,
-      due: agreement.balanceDue ?? 0,
+      charges: charges,
+      paid: paid,
+      due: due,
+      credit: credit,
     );
   }
 
@@ -252,7 +267,7 @@ abstract final class SalesContainerSyncHelper {
     required double dueAmount,
   }) {
     return (
-      advanceReceived: paidAmount,
+      advanceReceived: order.advanceReceived,
       balanceDue: dueAmount,
       status: orderStatusAfterPaymentSync(
         current: order.status,

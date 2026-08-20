@@ -18,6 +18,10 @@ class PaymentModel {
     required this.createdAt,
     this.reference,
     this.notes,
+    this.isAdvance = false,
+    this.orderId,
+    this.loadId,
+    this.status = PaymentStatus.completed,
   });
 
   final String id;
@@ -33,6 +37,10 @@ class PaymentModel {
   final String? reference;
   final String? notes;
   final DateTime createdAt;
+  final bool isAdvance;
+  final String? orderId;
+  final String? loadId;
+  final PaymentStatus status;
 
   factory PaymentModel.fromFirestore(String id, Map<String, dynamic> data) {
     return PaymentModel(
@@ -50,6 +58,32 @@ class PaymentModel {
       reference: data['reference'] as String?,
       notes: data['notes'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      isAdvance: data['isAdvance'] as bool? ?? false,
+      orderId: data['orderId'] as String?,
+      loadId: data['loadId'] as String?,
+      status: PaymentStatus.fromString(data['status'] as String?),
+    );
+  }
+
+  factory PaymentModel.fromEntity(Payment entity) {
+    return PaymentModel(
+      id: entity.id,
+      factoryId: entity.factoryId,
+      customerId: entity.customerId,
+      customerName: entity.customerName,
+      invoiceId: entity.invoiceId,
+      invoiceType: entity.invoiceType,
+      invoiceNumber: entity.invoiceNumber,
+      amount: entity.amount,
+      method: entity.method,
+      paymentDate: entity.paymentDate,
+      reference: entity.reference,
+      notes: entity.notes,
+      createdAt: entity.createdAt,
+      isAdvance: entity.isAdvance,
+      orderId: entity.orderId,
+      loadId: entity.loadId,
+      status: entity.status,
     );
   }
 
@@ -66,6 +100,10 @@ class PaymentModel {
       'date': Timestamp.fromDate(paymentDate),
       if (reference != null) 'reference': reference,
       if (notes != null) 'notes': notes,
+      if (isAdvance) 'isAdvance': true,
+      if (orderId != null) 'orderId': orderId,
+      if (loadId != null) 'loadId': loadId,
+      'status': status.firestoreValue,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
     };
   }
@@ -85,6 +123,10 @@ class PaymentModel {
       reference: reference,
       notes: notes,
       createdAt: createdAt,
+      isAdvance: isAdvance,
+      orderId: orderId,
+      loadId: loadId,
+      status: status,
     );
   }
 }

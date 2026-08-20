@@ -22,6 +22,7 @@ class CustomerFinancialSummary extends Equatable {
     required this.totalPaid,
     required this.totalDue,
     required this.balanceStatus,
+    this.unallocatedCredit = 0.0,
     this.nextDueDate,
     this.jobWorkOrderCount = 0,
     this.salesOrderCount = 0,
@@ -32,6 +33,7 @@ class CustomerFinancialSummary extends Equatable {
   final double totalRevenue;
   final double totalPaid;
   final double totalDue;
+  final double unallocatedCredit;
   final CustomerBalanceStatus balanceStatus;
   final DateTime? nextDueDate;
   final int jobWorkOrderCount;
@@ -44,6 +46,7 @@ class CustomerFinancialSummary extends Equatable {
         totalRevenue,
         totalPaid,
         totalDue,
+        unallocatedCredit,
         balanceStatus,
         nextDueDate,
         jobWorkOrderCount,
@@ -99,6 +102,12 @@ abstract final class CustomerBalanceCalculator {
               invoice.customerId == customerId &&
               invoice.status != InvoiceStatus.cancelled,
         )
+        .toList();
+
+    final validPayments = payments
+        .where((payment) =>
+            payment.customerId == customerId &&
+            payment.status != PaymentStatus.voided)
         .toList();
 
     var salesRevenue = 0.0;
@@ -170,7 +179,7 @@ abstract final class CustomerBalanceCalculator {
         order: order,
         loads: customerJobWorkLoads,
         invoices: orderInvoices,
-        payments: payments,
+        payments: validPayments,
       );
 
       jobWorkRevenue += finance.charges;
@@ -205,13 +214,19 @@ abstract final class CustomerBalanceCalculator {
       }
     }
 
-    final totalRevenue = salesRevenue + jobWorkRevenue;
-    final totalPaid = salesPaid + jobWorkPaid;
-    final netCalculatedDue = customer.openingBalance + totalRevenue - totalPaid;
+    final totalRevenue = double.parse((salesRevenue + jobWorkRevenue).toStringAsFixed(2));
+    final totalPaid = double.parse((salesPaid + jobWorkPaid).toStringAsFixed(2));
+    final netCalculatedDue = double.parse(
+      (customer.openingBalance + totalRevenue - totalPaid).toStringAsFixed(2),
+    );
     final totalDue = netCalculatedDue > 0 ? netCalculatedDue : 0.0;
+    final unallocatedCredit = netCalculatedDue < 0 ? (-netCalculatedDue) : 0.0;
 
     final CustomerBalanceStatus balanceStatus;
-    if (totalDue <= 0) {
+    if (unallocatedCredit > 0) {
+      balanceStatus = CustomerBalanceStatus.inCredit;
+      nextDueDate = null;
+    } else if (totalDue <= 0) {
       balanceStatus = CustomerBalanceStatus.paidUp;
       nextDueDate = null;
     } else if (nextDueDate == null) {
@@ -243,6 +258,7 @@ abstract final class CustomerBalanceCalculator {
       totalRevenue: totalRevenue,
       totalPaid: totalPaid,
       totalDue: totalDue,
+      unallocatedCredit: unallocatedCredit,
       balanceStatus: balanceStatus,
       nextDueDate: nextDueDate,
       jobWorkOrderCount: customerJobWorkOrders.length,

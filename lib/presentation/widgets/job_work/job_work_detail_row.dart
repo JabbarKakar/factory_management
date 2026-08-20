@@ -7,6 +7,7 @@ class JobWorkDetailRow extends StatelessWidget {
     this.valueWidget,
     this.bold = false,
     this.highlight = false,
+    this.color,
     super.key,
   }) : assert(value != null || valueWidget != null);
 
@@ -15,12 +16,13 @@ class JobWorkDetailRow extends StatelessWidget {
   final Widget? valueWidget;
   final bool bold;
   final bool highlight;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final valueColor = highlight ? theme.colorScheme.primary : null;
+    final valueColor = color ?? (highlight ? theme.colorScheme.primary : null);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
