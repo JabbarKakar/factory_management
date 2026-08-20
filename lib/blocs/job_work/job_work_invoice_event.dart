@@ -74,6 +74,7 @@ final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
     required this.amount,
     required this.method,
     required this.paymentDate,
+    this.loadId,
     this.reference,
     this.notes,
   });
@@ -82,6 +83,7 @@ final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
   final double amount;
   final PaymentMethod method;
   final DateTime paymentDate;
+  final String? loadId;
   final String? reference;
   final String? notes;
 
@@ -91,6 +93,7 @@ final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
         amount,
         method,
         paymentDate,
+        loadId,
         reference,
         notes,
       ];
@@ -171,4 +174,13 @@ final class _JobWorkInvoicePaymentsUpdated extends JobWorkInvoiceEvent {
 
   @override
   List<Object?> get props => [payments];
+}
+
+final class _JobWorkInvoiceLoadsUpdated extends JobWorkInvoiceEvent {
+  const _JobWorkInvoiceLoadsUpdated(this.loads);
+
+  final List<JobWorkLoad> loads;
+
+  @override
+  List<Object?> get props => [loads];
 }

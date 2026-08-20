@@ -441,6 +441,8 @@ void setupDependencies() {
       paymentRepository: getIt<PaymentRepository>(),
       ledgerService: getIt<CustomerLedgerService>(),
       scannerService: getIt<PaymentDueScannerService>(),
+      loadRepository: getIt<JobWorkLoadRepository>(),
+      jobWorkRepository: getIt<JobWorkRepository>(),
     ),
   );
   getIt.registerFactory<SalesOrderListBloc>(

@@ -4,12 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/job_work/job_work_invoice_bloc.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/payment_repository.dart';
+import '../../../domain/entities/job_work_load.dart';
 import '../../../domain/entities/payment.dart';
 import '../../../domain/enums/invoice_enums.dart';
+import '../../../domain/enums/job_work_enums.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
@@ -36,6 +39,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
 
   PaymentMethod _method = PaymentMethod.cash;
   DateTime _paymentDate = DateTime.now();
+  String? _selectedLoadId;
   bool _populated = false;
   Payment? _editingPayment;
   bool _deletedPayment = false;
@@ -57,6 +61,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
     if (!mounted || payment == null) return;
     setState(() {
       _editingPayment = payment;
+      _selectedLoadId = payment.loadId;
       _amountController.text = ThousandsTextInputFormatter.format(payment.amount);
       _method = payment.method;
       _paymentDate = payment.paymentDate;
@@ -74,10 +79,35 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
     super.dispose();
   }
 
-  void _populate(double dueAmount) {
+  void _populate(double dueAmount, JobWorkInvoiceState state) {
     if (_populated || _isEditing) return;
-    _populated = true;
-    _amountController.text = ThousandsTextInputFormatter.format(dueAmount);
+    final invoice = state.invoice;
+    if (invoice == null) return;
+
+    final isGrand = invoice.loadId == null || invoice.loadId!.trim().isEmpty;
+    if (isGrand) {
+      final billable = state.loads
+          .where((l) => !l.isVirtual && l.status != JobWorkStatus.cancelled)
+          .toList()
+        ..sort((a, b) => a.loadSequence.compareTo(b.loadSequence));
+
+      if (_selectedLoadId == null && billable.isNotEmpty) {
+        final firstUnpaid = billable.where((l) {
+          final fin = state.perLoadFinance[l.id];
+          final due = fin?.due ?? l.balanceDue;
+          return due > 0.005;
+        }).firstOrNull;
+
+        final target = firstUnpaid ?? billable.first;
+        _selectedLoadId = target.id;
+        final targetDue = state.perLoadFinance[target.id]?.due ?? target.balanceDue;
+        _amountController.text = ThousandsTextInputFormatter.format(targetDue);
+        _populated = true;
+      }
+    } else {
+      _populated = true;
+      _amountController.text = ThousandsTextInputFormatter.format(dueAmount);
+    }
   }
 
   Future<void> _pickDate() async {
@@ -126,6 +156,17 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         ThousandsTextInputFormatter.tryParseDouble(_amountController.text) ?? 0;
     if (amount <= 0) return;
 
+    final invoice = context.read<JobWorkInvoiceBloc>().state.invoice;
+    final isGrandInvoice =
+        invoice?.loadId == null || invoice!.loadId!.trim().isEmpty;
+
+    if (isGrandInvoice && (_selectedLoadId == null || _selectedLoadId!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a target load first.')),
+      );
+      return;
+    }
+
     setState(() => _submitting = true);
 
     final reference = _referenceController.text.trim().isEmpty
@@ -156,6 +197,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         amount: amount,
         method: _method,
         paymentDate: _paymentDate,
+        loadId: isGrandInvoice ? _selectedLoadId : invoice?.loadId,
         reference: reference,
         notes: notes,
       ),
@@ -168,7 +210,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
       listener: (context, state) {
         if (state.status == JobWorkInvoiceStatus.loaded &&
             state.invoice != null) {
-          _populate(state.invoice!.dueAmount);
+          _populate(state.invoice!.dueAmount, state);
         }
         if (state.status == JobWorkInvoiceStatus.paymentRecorded) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -218,12 +260,38 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
           );
         }
 
-        _populate(invoice.dueAmount);
+        final isGrandInvoice =
+            invoice.loadId == null || invoice.loadId!.trim().isEmpty;
+        final billableLoads = state.loads
+            .where((l) => !l.isVirtual && l.status != JobWorkStatus.cancelled)
+            .toList()
+          ..sort((a, b) => a.loadSequence.compareTo(b.loadSequence));
+
+        _populate(invoice.dueAmount, state);
         final isSaving =
             state.status == JobWorkInvoiceStatus.saving || _submitting;
-        final maxAmount = _isEditing
-            ? invoice.dueAmount + (_editingPayment?.amount ?? 0)
-            : invoice.dueAmount;
+
+        final double maxAmount;
+        if (isGrandInvoice) {
+          if (_selectedLoadId != null) {
+            final selectedFin = state.perLoadFinance[_selectedLoadId];
+            final targetLoad =
+                billableLoads.where((l) => l.id == _selectedLoadId).firstOrNull;
+            final loadDue = selectedFin?.due ?? targetLoad?.balanceDue ?? 0.0;
+            maxAmount = _isEditing
+                ? loadDue + (_editingPayment?.amount ?? 0)
+                : loadDue;
+          } else {
+            maxAmount = invoice.dueAmount;
+          }
+        } else {
+          maxAmount = _isEditing
+              ? invoice.dueAmount + (_editingPayment?.amount ?? 0)
+              : invoice.dueAmount;
+        }
+
+        final canSubmit = !isSaving &&
+            (!isGrandInvoice || _selectedLoadId != null);
 
         return Scaffold(
           appBar: AppBar(
@@ -258,6 +326,145 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                   icon: Icons.payments_outlined,
                   child: AppFormSectionBody(
                     children: [
+                      if (isGrandInvoice) ...[
+                        DropdownButtonFormField<String>(
+                          value: _selectedLoadId,
+                          isExpanded: true,
+                          itemHeight: null,
+                          style: AppFormFields.valueStyle(context),
+                          decoration: AppFormFields.decoration(
+                            context,
+                            label: 'Target Child Load',
+                            hint: billableLoads.isEmpty
+                                ? 'No loads found'
+                                : 'Select load to allocate payment',
+                          ),
+                          selectedItemBuilder: (context) {
+                            return billableLoads.map((load) {
+                              final fin = state.perLoadFinance[load.id] ??
+                                  (
+                                    charges: load.finalCuttingCharges,
+                                    paid: load.advanceReceived,
+                                    due: load.balanceDue,
+                                    credit: 0.0,
+                                  );
+                              final label = load.loadNumber.isNotEmpty
+                                  ? load.loadNumber
+                                  : 'Load #${load.loadSequence}';
+                              return Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '$label · Due: ${Formatters.currencyPkrWhole(fin.due)}',
+                                  style: AppFormFields.valueStyle(context),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList();
+                          },
+                          items: billableLoads.map((load) {
+                            final fin = state.perLoadFinance[load.id] ??
+                                (
+                                  charges: load.finalCuttingCharges,
+                                  paid: load.advanceReceived,
+                                  due: load.balanceDue,
+                                  credit: 0.0,
+                                );
+                            final isPaid = fin.due <= 0.005;
+                            final label = load.loadNumber.isNotEmpty
+                                ? load.loadNumber
+                                : 'Load #${load.loadSequence}';
+                            final details = isPaid
+                                ? 'Paid Up (${Formatters.currencyPkrWhole(fin.charges)})'
+                                : 'Total: ${Formatters.currencyPkrWhole(fin.charges)} · Paid: ${Formatters.currencyPkrWhole(fin.paid)} · Due: ${Formatters.currencyPkrWhole(fin.due)}';
+
+                            return DropdownMenuItem<String>(
+                              value: load.id,
+                              enabled: !isPaid || _isEditing,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        label,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: isPaid && !_isEditing
+                                              ? Theme.of(context).disabledColor
+                                              : null,
+                                        ),
+                                      ),
+                                      if (isPaid)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 1,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.success
+                                                .withValues(alpha: 0.15),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: const Text(
+                                            'Paid Up',
+                                            style: TextStyle(
+                                              color: AppColors.success,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  Text(
+                                    details,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isPaid && !_isEditing
+                                          ? Theme.of(context).disabledColor
+                                          : (fin.due > 0
+                                              ? AppColors.warning
+                                              : AppColors.success),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: isSaving
+                              ? null
+                              : (val) {
+                                  if (val != null) {
+                                    setState(() {
+                                      _selectedLoadId = val;
+                                      final fin = state.perLoadFinance[val];
+                                      final target = billableLoads
+                                          .where((l) => l.id == val)
+                                          .firstOrNull;
+                                      final due = fin?.due ??
+                                          target?.balanceDue ??
+                                          0.0;
+                                      _amountController.text =
+                                          ThousandsTextInputFormatter.format(
+                                              due);
+                                    });
+                                  }
+                                },
+                          validator: (val) {
+                            if (isGrandInvoice &&
+                                (val == null || val.isEmpty)) {
+                              return 'Please select a load to allocate payment';
+                            }
+                            return null;
+                          },
+                        ),
+                        AppFormFields.gap,
+                      ],
                       TextFormField(
                         controller: _amountController,
                         keyboardType: const TextInputType.numberWithOptions(
@@ -276,10 +483,14 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                         ),
                         validator: (value) {
                           final amount =
-                              ThousandsTextInputFormatter.tryParseDouble(value) ??
+                              ThousandsTextInputFormatter.tryParseDouble(
+                                      value) ??
                                   0;
                           if (amount <= 0) return 'Enter a valid amount';
-                          if (amount > maxAmount) {
+                          if (isGrandInvoice && _selectedLoadId == null) {
+                            return 'Please select a target load first';
+                          }
+                          if (amount > maxAmount + 0.005) {
                             return 'Cannot exceed ${Formatters.currencyPkr(maxAmount)}';
                           }
                           return null;
@@ -350,7 +561,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
           bottomNavigationBar: AppFormBottomBar(
             label: _isEditing ? AppStrings.saveChanges : AppStrings.savePayment,
             isLoading: isSaving,
-            onPressed: isSaving ? null : _submit,
+            onPressed: canSubmit ? _submit : null,
           ),
         );
       },

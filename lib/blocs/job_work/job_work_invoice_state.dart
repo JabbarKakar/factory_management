@@ -17,6 +17,8 @@ class JobWorkInvoiceState extends Equatable {
     this.status = JobWorkInvoiceStatus.initial,
     this.invoice,
     this.payments = const [],
+    this.loads = const [],
+    this.perLoadFinance = const {},
     this.jobWorkId,
     this.loadId,
     this.errorMessage,
@@ -25,6 +27,9 @@ class JobWorkInvoiceState extends Equatable {
   final JobWorkInvoiceStatus status;
   final JobWorkInvoice? invoice;
   final List<Payment> payments;
+  final List<JobWorkLoad> loads;
+  final Map<String, ({double charges, double paid, double due, double credit})>
+      perLoadFinance;
   final String? jobWorkId;
   final String? loadId;
   final String? errorMessage;
@@ -33,6 +38,9 @@ class JobWorkInvoiceState extends Equatable {
     JobWorkInvoiceStatus? status,
     JobWorkInvoice? invoice,
     List<Payment>? payments,
+    List<JobWorkLoad>? loads,
+    Map<String, ({double charges, double paid, double due, double credit})>?
+        perLoadFinance,
     String? jobWorkId,
     String? loadId,
     bool clearLoadId = false,
@@ -42,6 +50,8 @@ class JobWorkInvoiceState extends Equatable {
       status: status ?? this.status,
       invoice: invoice ?? this.invoice,
       payments: payments ?? this.payments,
+      loads: loads ?? this.loads,
+      perLoadFinance: perLoadFinance ?? this.perLoadFinance,
       jobWorkId: jobWorkId ?? this.jobWorkId,
       loadId: clearLoadId ? null : (loadId ?? this.loadId),
       errorMessage: errorMessage,
@@ -53,6 +63,8 @@ class JobWorkInvoiceState extends Equatable {
         status,
         invoice,
         payments,
+        loads,
+        perLoadFinance,
         jobWorkId,
         loadId,
         errorMessage,

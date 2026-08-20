@@ -1,11 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/utils/formatters.dart';
 import '../../domain/entities/job_work_invoice.dart';
+import '../../domain/entities/job_work_load.dart';
+import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../models/job_work_invoice_model.dart';
+import '../models/job_work_load_model.dart';
+import '../models/job_work_order_model.dart';
 import '../models/payment_model.dart';
 import '../models/sales_invoice_model.dart';
 import '../services/customer_ledger_service.dart';
@@ -720,6 +725,7 @@ class PaymentRepository {
     required double amount,
     required PaymentMethod method,
     required DateTime paymentDate,
+    String? loadId,
     String? idempotencyKey,
     String? reference,
     String? notes,
@@ -746,6 +752,49 @@ class PaymentRepository {
 
       if (invoice.dueAmount <= 0.005) {
         throw StateError('This invoice is already fully paid.');
+      }
+
+      // Determine target loadId (prefer explicit loadId, fallback to invoice.loadId)
+      final effectiveLoadId = (loadId != null && loadId.trim().isNotEmpty)
+          ? loadId.trim()
+          : (invoice.loadId != null && invoice.loadId!.trim().isNotEmpty)
+              ? invoice.loadId!.trim()
+              : null;
+
+      DocumentSnapshot<Map<String, dynamic>>? targetLoadSnapshot;
+      DocumentReference<Map<String, dynamic>>? loadDocRef;
+      JobWorkLoad? targetLoad;
+
+      if (effectiveLoadId != null) {
+        loadDocRef = _jobWorkLoadRepository.loadDoc(effectiveLoadId);
+        targetLoadSnapshot = await transaction.get(loadDocRef);
+        if (targetLoadSnapshot.exists && targetLoadSnapshot.data() != null) {
+          targetLoad = JobWorkLoadModel.fromFirestore(
+            targetLoadSnapshot.id,
+            targetLoadSnapshot.data()!,
+          ).toEntity();
+
+          if (targetLoad.balanceDue <= 0.005) {
+            throw StateError('The selected load is already fully paid.');
+          }
+
+          if (amount > targetLoad.balanceDue + 0.005) {
+            throw StateError(
+              'Payment amount (${Formatters.currencyPkr(amount)}) exceeds the selected load\'s remaining balance (${Formatters.currencyPkr(targetLoad.balanceDue)}).',
+            );
+          }
+        }
+      }
+
+      // 3. READ PARENT JOB WORK ORDER (must occur before any writes in a transaction)
+      final orderDocRef = _jobWorkRepository.jobWorkDoc(invoice.jobWorkId);
+      final orderSnapshot = await transaction.get(orderDocRef);
+      JobWorkOrder? order;
+      if (orderSnapshot.exists && orderSnapshot.data() != null) {
+        order = JobWorkOrderModel.fromFirestore(
+          orderSnapshot.id,
+          orderSnapshot.data()!,
+        ).toEntity();
       }
 
       final appliedAmount =
@@ -779,9 +828,11 @@ class PaymentRepository {
         reference: reference,
         notes: notes,
         orderId: invoice.jobWorkId,
-        loadId: invoice.loadId,
+        loadId: effectiveLoadId,
         createdAt: DateTime.now(),
       );
+
+      // --- ALL READS COMPLETE: PERFORM WRITES ---
 
       transaction.set(
         paymentDocRef,
@@ -794,6 +845,47 @@ class PaymentRepository {
         'status': newStatus.firestoreValue,
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // Atomically update target child load if present
+      if (targetLoad != null && loadDocRef != null) {
+        final loadNewDue = double.parse(
+          (targetLoad.balanceDue - appliedAmount)
+              .clamp(0, targetLoad.finalCuttingCharges)
+              .toStringAsFixed(2),
+        );
+        final loadUpdates = <String, dynamic>{
+          'pricing.balanceDue': loadNewDue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        final financeStatus = JobWorkContainerSyncHelper.financeStatusForLoad(
+          load: targetLoad,
+          dueAmount: loadNewDue,
+        );
+        if (financeStatus != null) {
+          loadUpdates['status'] = financeStatus.firestoreValue;
+        }
+        transaction.update(loadDocRef, loadUpdates);
+      }
+
+      // Atomically update parent Job Work Order
+      if (order != null) {
+        final orderNewDue = double.parse(
+          (order.balanceDue - appliedAmount)
+              .clamp(0, double.infinity)
+              .toStringAsFixed(2),
+        );
+        final orderUpdates = <String, dynamic>{
+          'pricing.balanceDue': orderNewDue,
+          'balanceDue': orderNewDue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+        if (orderNewDue <= 0.005 &&
+            order.status != JobWorkStatus.paid &&
+            !order.status.isCollectionStatus) {
+          orderUpdates['status'] = JobWorkStatus.paid.firestoreValue;
+        }
+        transaction.update(orderDocRef, orderUpdates);
+      }
 
       return newPayment;
     });

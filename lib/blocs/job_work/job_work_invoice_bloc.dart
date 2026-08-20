@@ -13,6 +13,7 @@ import '../../data/services/customer_ledger_service.dart';
 import '../../data/services/job_work_container_sync_helper.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../domain/entities/job_work_invoice.dart';
+import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/enums/invoice_enums.dart';
 
@@ -26,10 +27,14 @@ class JobWorkInvoiceBloc
     required PaymentRepository paymentRepository,
     required CustomerLedgerService ledgerService,
     required PaymentDueScannerService scannerService,
+    JobWorkLoadRepository? loadRepository,
+    JobWorkRepository? jobWorkRepository,
   })  : _invoiceRepository = invoiceRepository,
         _paymentRepository = paymentRepository,
         _ledgerService = ledgerService,
         _scannerService = scannerService,
+        _loadRepository = loadRepository ?? getIt<JobWorkLoadRepository>(),
+        _jobWorkRepository = jobWorkRepository ?? getIt<JobWorkRepository>(),
         super(const JobWorkInvoiceState()) {
     on<JobWorkInvoiceLoadByJobWork>(_onLoadByJobWork);
     on<JobWorkInvoiceLoadByLoad>(_onLoadByLoad);
@@ -42,15 +47,19 @@ class JobWorkInvoiceBloc
     on<JobWorkInvoiceUpdateRequested>(_onUpdateRequested);
     on<_JobWorkInvoiceStreamUpdated>(_onInvoiceStreamUpdated);
     on<_JobWorkInvoicePaymentsUpdated>(_onPaymentsStreamUpdated);
+    on<_JobWorkInvoiceLoadsUpdated>(_onLoadsUpdated);
   }
 
   final JobWorkInvoiceRepository _invoiceRepository;
   final PaymentRepository _paymentRepository;
   final CustomerLedgerService _ledgerService;
   final PaymentDueScannerService _scannerService;
+  final JobWorkLoadRepository _loadRepository;
+  final JobWorkRepository _jobWorkRepository;
   StreamSubscription<JobWorkInvoice?>? _invoiceSubscription;
   StreamSubscription<List<Payment>>? _paymentsSubscription;
   StreamSubscription<List<JobWorkInvoice>>? _allInvoicesSubscription;
+  StreamSubscription<List<JobWorkLoad>>? _loadsSubscription;
   final Map<String, StreamSubscription<List<Payment>>> _paymentSubsByInvoice = {};
   final Map<String, List<Payment>> _paymentsByInvoiceId = {};
   String? _watchedInvoiceId;
@@ -262,6 +271,7 @@ class JobWorkInvoiceBloc
         amount: event.amount,
         method: event.method,
         paymentDate: event.paymentDate,
+        loadId: event.loadId,
         reference: event.reference,
         notes: event.notes,
       );
@@ -277,11 +287,16 @@ class JobWorkInvoiceBloc
       }
       await _startWatching(invoice, emit, paymentRecorded: true);
     } catch (e) {
+      final message = switch (e) {
+        StateError err => err.message,
+        PaymentException err => err.message,
+        Exception err => err.toString().replaceFirst('Exception: ', ''),
+        _ => 'Could not record payment.',
+      };
       emit(
         state.copyWith(
           status: JobWorkInvoiceStatus.failure,
-          errorMessage:
-              e is StateError ? e.message : 'Could not record payment.',
+          errorMessage: message,
         ),
       );
     }
@@ -408,6 +423,7 @@ class JobWorkInvoiceBloc
     );
     if (state.loadId == null || state.loadId!.isEmpty) {
       _ensurePaymentsWatchForJobWork(invoice.factoryId, invoice.jobWorkId);
+      _ensureLoadsWatchForJobWork(invoice.factoryId, invoice.jobWorkId);
     } else {
       _ensurePaymentsWatch(invoice);
     }
@@ -417,22 +433,112 @@ class JobWorkInvoiceBloc
         : JobWorkInvoiceStatus.loaded;
 
     final effectiveInvoice = await _getEffectiveInvoice(invoice);
+    final isGrandInvoice =
+        effectiveInvoice.loadId == null || effectiveInvoice.loadId!.trim().isEmpty;
+
+    List<JobWorkLoad> loads = state.loads;
+    Map<String, ({double charges, double paid, double due, double credit})> perLoadFinance = state.perLoadFinance;
+
+    if (isGrandInvoice) {
+      loads = await _loadRepository.fetchLoadsForJobWork(
+        factoryId: effectiveInvoice.factoryId,
+        jobWorkId: effectiveInvoice.jobWorkId,
+      );
+      final order = await _jobWorkRepository.getJobWorkOrder(effectiveInvoice.jobWorkId);
+      if (order != null) {
+        final allInvoices = await _invoiceRepository.getInvoicesByJobWorkId(
+          factoryId: effectiveInvoice.factoryId,
+          jobWorkId: effectiveInvoice.jobWorkId,
+        );
+        perLoadFinance = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+          order: order,
+          loads: loads,
+          invoices: allInvoices,
+          payments: state.payments,
+        );
+      }
+    }
 
     emit(
       state.copyWith(
         status: newStatus,
         invoice: effectiveInvoice,
+        loads: loads,
+        perLoadFinance: perLoadFinance,
         jobWorkId: effectiveInvoice.jobWorkId,
         errorMessage: null,
       ),
     );
   }
 
-  void _onPaymentsStreamUpdated(
+  Future<void> _onPaymentsStreamUpdated(
     _JobWorkInvoicePaymentsUpdated event,
     Emitter<JobWorkInvoiceState> emit,
-  ) {
-    emit(state.copyWith(payments: event.payments));
+  ) async {
+    final invoice = state.invoice;
+    if (invoice != null && state.loads.isNotEmpty) {
+      try {
+        final order =
+            await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
+        if (order != null) {
+          final allInvoices = await _invoiceRepository.getInvoicesByJobWorkId(
+            factoryId: invoice.factoryId,
+            jobWorkId: invoice.jobWorkId,
+          );
+          final financeMap =
+              JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+            order: order,
+            loads: state.loads,
+            invoices: allInvoices,
+            payments: event.payments,
+          );
+          if (!isClosed) {
+            emit(
+              state.copyWith(
+                payments: event.payments,
+                perLoadFinance: financeMap,
+              ),
+            );
+          }
+          return;
+        }
+      } catch (_) {}
+    }
+    if (!isClosed) {
+      emit(state.copyWith(payments: event.payments));
+    }
+  }
+
+  Future<void> _onLoadsUpdated(
+    _JobWorkInvoiceLoadsUpdated event,
+    Emitter<JobWorkInvoiceState> emit,
+  ) async {
+    final invoice = state.invoice;
+    if (invoice == null) {
+      emit(state.copyWith(loads: event.loads));
+      return;
+    }
+    final order = await _jobWorkRepository.getJobWorkOrder(invoice.jobWorkId);
+    if (order == null) {
+      emit(state.copyWith(loads: event.loads));
+      return;
+    }
+    final allInvoices = await _invoiceRepository.getInvoicesByJobWorkId(
+      factoryId: invoice.factoryId,
+      jobWorkId: invoice.jobWorkId,
+    );
+    final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+      order: order,
+      loads: event.loads,
+      invoices: allInvoices,
+      payments: state.payments,
+    );
+    emit(
+      state.copyWith(
+        loads: event.loads,
+        perLoadFinance: financeMap,
+      ),
+    );
   }
 
   Future<void> _startWatching(
@@ -460,9 +566,25 @@ class JobWorkInvoiceBloc
         );
     if (watchAllJobWorkPayments || state.loadId == null || state.loadId!.isEmpty) {
       _ensurePaymentsWatchForJobWork(invoice.factoryId, invoice.jobWorkId);
+      _ensureLoadsWatchForJobWork(invoice.factoryId, invoice.jobWorkId);
     } else {
       _ensurePaymentsWatch(invoice);
     }
+  }
+
+  void _ensureLoadsWatchForJobWork(String factoryId, String jobWorkId) {
+    _loadsSubscription?.cancel();
+    _loadsSubscription = _loadRepository
+        .watchLoadsForJobWork(
+          factoryId: factoryId,
+          jobWorkId: jobWorkId,
+        )
+        .listen(
+          (loads) {
+            if (!isClosed) add(_JobWorkInvoiceLoadsUpdated(loads));
+          },
+          onError: (_) {},
+        );
   }
 
   void _ensurePaymentsWatch(JobWorkInvoice invoice) {
@@ -534,12 +656,14 @@ class JobWorkInvoiceBloc
     await _invoiceSubscription?.cancel();
     await _paymentsSubscription?.cancel();
     await _allInvoicesSubscription?.cancel();
+    await _loadsSubscription?.cancel();
     for (final sub in _paymentSubsByInvoice.values) {
       await sub.cancel();
     }
     _invoiceSubscription = null;
     _paymentsSubscription = null;
     _allInvoicesSubscription = null;
+    _loadsSubscription = null;
     _paymentSubsByInvoice.clear();
     _paymentsByInvoiceId.clear();
     _watchedInvoiceId = null;
@@ -648,6 +772,29 @@ class JobWorkInvoiceBloc
       invoicePayments = list..sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
     }
 
+    List<JobWorkLoad> loads = const [];
+    Map<String, ({double charges, double paid, double due, double credit})> perLoadFinance = const {};
+
+    if (isGrandInvoice) {
+      loads = await _loadRepository.fetchLoadsForJobWork(
+        factoryId: effectiveInvoice.factoryId,
+        jobWorkId: effectiveInvoice.jobWorkId,
+      );
+      final order = await _jobWorkRepository.getJobWorkOrder(effectiveInvoice.jobWorkId);
+      if (order != null) {
+        final allInvoices = await _invoiceRepository.getInvoicesByJobWorkId(
+          factoryId: effectiveInvoice.factoryId,
+          jobWorkId: effectiveInvoice.jobWorkId,
+        );
+        perLoadFinance = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+          order: order,
+          loads: loads,
+          invoices: allInvoices,
+          payments: invoicePayments,
+        );
+      }
+    }
+
     emit(
       state.copyWith(
         status: updated
@@ -659,6 +806,8 @@ class JobWorkInvoiceBloc
                     : JobWorkInvoiceStatus.loaded,
         invoice: effectiveInvoice,
         payments: invoicePayments,
+        loads: loads,
+        perLoadFinance: perLoadFinance,
         jobWorkId: effectiveInvoice.jobWorkId,
         loadId: effectiveInvoice.loadId,
         errorMessage: null,
