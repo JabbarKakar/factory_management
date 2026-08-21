@@ -4,17 +4,21 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/entities/expense.dart';
+import '../../../domain/enums/expense_enums.dart';
 import 'expense_category_chip.dart';
+import 'record_expense_payment_dialog.dart';
 
 class ExpenseListTile extends StatelessWidget {
   const ExpenseListTile({
     required this.expense,
     required this.onTap,
+    this.onPaymentRecorded,
     super.key,
   });
 
   final Expense expense;
   final VoidCallback onTap;
+  final VoidCallback? onPaymentRecorded;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +27,13 @@ class ExpenseListTile extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final outline =
         theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.45);
-    const accent = AppColors.warning;
+
+    final statusColor = switch (expense.paymentStatus) {
+      ExpensePaymentStatus.paid => AppColors.success,
+      ExpensePaymentStatus.partiallyPaid => AppColors.warning,
+      ExpensePaymentStatus.unpaid => theme.colorScheme.error,
+    };
+
     const cardShape = BorderRadius.only(
       topRight: Radius.circular(14),
       bottomRight: Radius.circular(14),
@@ -47,7 +57,7 @@ class ExpenseListTile extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(width: 3, color: accent),
+                  Container(width: 3, color: statusColor),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
@@ -73,7 +83,7 @@ class ExpenseListTile extends StatelessWidget {
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 12,
-                                  color: accent,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                             ],
@@ -87,6 +97,10 @@ class ExpenseListTile extends StatelessWidget {
                               ExpenseCategoryChip(
                                 category: expense.category,
                                 compact: true,
+                              ),
+                              _StatusBadge(
+                                status: expense.paymentStatus,
+                                color: statusColor,
                               ),
                               _MetaChip(
                                 icon: Icons.calendar_today_outlined,
@@ -104,21 +118,69 @@ class ExpenseListTile extends StatelessWidget {
                           Row(
                             children: [
                               Icon(
-                                Icons.payments_outlined,
+                                Icons.receipt_outlined,
                                 size: 14,
                                 color: muted,
                               ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  '${expense.expenseNumber} · ${expense.paymentMethod.label}',
+                                  expense.effectiveDueAmount > 0.005
+                                      ? '${expense.expenseNumber} · Paid: ${Formatters.currencyPkr(expense.paidAmount)} · Due: ${Formatters.currencyPkr(expense.effectiveDueAmount)}'
+                                      : '${expense.expenseNumber} · ${expense.paymentMethod.label}',
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    color: muted,
+                                    color: expense.effectiveDueAmount > 0.005
+                                        ? statusColor
+                                        : muted,
+                                    fontWeight:
+                                        expense.effectiveDueAmount > 0.005
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
                                     fontSize: 11,
                                     height: 1.3,
                                   ),
                                 ),
                               ),
+                              if (expense.effectiveDueAmount > 0.005)
+                                InkWell(
+                                  onTap: () {
+                                    RecordExpensePaymentDialog.show(
+                                      context,
+                                      expense: expense,
+                                      onPaymentRecorded: onPaymentRecorded,
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primaryContainer,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.payments_outlined,
+                                          size: 12,
+                                          color: theme.colorScheme.onPrimaryContainer,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Pay',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: theme.colorScheme.onPrimaryContainer,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ],
@@ -137,6 +199,36 @@ class ExpenseListTile extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({
+    required this.status,
+    required this.color,
+  });
+
+  final ExpensePaymentStatus status;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        status.label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
         ),
       ),
     );

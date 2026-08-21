@@ -1,5 +1,7 @@
 import 'package:factory_management/data/services/export/customer_statement_excel_exporter.dart';
 import 'package:factory_management/data/services/export/customer_statement_pdf_exporter.dart';
+import 'package:factory_management/data/services/export/supplier_statement_excel_exporter.dart';
+import 'package:factory_management/data/services/export/supplier_statement_pdf_exporter.dart';
 import 'package:factory_management/data/services/export/invoice_excel_exporter.dart';
 import 'package:factory_management/data/services/export/expense_summary_excel_exporter.dart';
 import 'package:factory_management/data/services/export/expense_summary_pdf_exporter.dart';
@@ -9,12 +11,15 @@ import 'package:factory_management/domain/entities/expense.dart';
 import 'package:factory_management/domain/entities/job_work_collection.dart';
 import 'package:factory_management/domain/entities/job_work_invoice.dart';
 import 'package:factory_management/domain/entities/sales_invoice.dart';
+import 'package:factory_management/domain/entities/supplier.dart';
+import 'package:factory_management/domain/entities/supplier_statement.dart';
 import 'package:factory_management/domain/enums/expense_enums.dart';
 import 'package:factory_management/domain/enums/job_work_collection_enums.dart';
 import 'package:factory_management/domain/enums/invoice_enums.dart';
 import 'package:factory_management/domain/entities/customer.dart';
 import 'package:factory_management/domain/entities/customer_statement.dart';
 import 'package:factory_management/domain/enums/customer_enums.dart';
+import 'package:factory_management/domain/enums/supplier_enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -148,6 +153,88 @@ void main() {
       largeStockRate: 85.0,
     );
 
+    expect(bytes, isNotEmpty);
+    expect(bytes.length, greaterThan(100));
+  });
+
+  test('supplier statement excel encodes non-empty bytes', () {
+    final supplier = Supplier(
+      id: 'sup-1',
+      supplierNumber: 'SUP-2026-0001',
+      factoryId: 'factory-1',
+      name: 'Test Supplier',
+      supplierType: SupplierType.marbleBlockSlab,
+      phone: '03001234567',
+      paymentTerms: PaymentTerms.days30,
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    final supplierStatement = SupplierStatement(
+      supplier: supplier,
+      fromDate: DateTime(2026, 1, 1),
+      toDate: DateTime(2026, 1, 31),
+      openingBalance: 10000,
+      lines: [
+        SupplierStatementLine(
+          date: DateTime(2026, 1, 10),
+          description: 'Marble block purchase',
+          reference: 'STK-IN-2026-0001',
+          debit: 50000,
+          credit: 0,
+          quantity: 2,
+          unit: 'Tons',
+          unitPrice: 25000,
+        ),
+        SupplierStatementLine(
+          date: DateTime(2026, 1, 20),
+          description: 'Payment via Bank',
+          reference: 'EXP-2026-0001',
+          debit: 0,
+          credit: 30000,
+        ),
+      ],
+      closingBalance: 30000,
+    );
+
+    final bytes = SupplierStatementExcelExporter().build(supplierStatement);
+    expect(bytes, isNotEmpty);
+    expect(bytes.length, greaterThan(100));
+  });
+
+  test('supplier statement pdf saves bytes', () async {
+    final supplier = Supplier(
+      id: 'sup-1',
+      supplierNumber: 'SUP-2026-0001',
+      factoryId: 'factory-1',
+      name: 'Test Supplier',
+      supplierType: SupplierType.marbleBlockSlab,
+      phone: '03001234567',
+      paymentTerms: PaymentTerms.days30,
+      createdAt: DateTime(2026, 1, 1),
+    );
+
+    final supplierStatement = SupplierStatement(
+      supplier: supplier,
+      fromDate: DateTime(2026, 1, 1),
+      toDate: DateTime(2026, 1, 31),
+      openingBalance: 10000,
+      lines: [
+        SupplierStatementLine(
+          date: DateTime(2026, 1, 10),
+          description: 'Marble block purchase',
+          reference: 'STK-IN-2026-0001',
+          debit: 50000,
+          credit: 0,
+          quantity: 2,
+          unit: 'Tons',
+          unitPrice: 25000,
+        ),
+      ],
+      closingBalance: 60000,
+    );
+
+    final doc = await SupplierStatementPdfExporter().build(statement: supplierStatement);
+    final bytes = await doc.save();
     expect(bytes, isNotEmpty);
     expect(bytes.length, greaterThan(100));
   });

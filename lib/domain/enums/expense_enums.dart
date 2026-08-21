@@ -49,6 +49,37 @@ enum ExpenseCategory {
   }
 }
 
+enum ExpensePaymentStatus {
+  unpaid,
+  partiallyPaid,
+  paid;
+
+  String get label => switch (this) {
+        ExpensePaymentStatus.unpaid => 'Unpaid',
+        ExpensePaymentStatus.partiallyPaid => 'Partially Paid',
+        ExpensePaymentStatus.paid => 'Paid',
+      };
+
+  String get firestoreValue => name;
+
+  static ExpensePaymentStatus fromString(String? value) {
+    if (value == null) return ExpensePaymentStatus.paid;
+    return ExpensePaymentStatus.values.firstWhere(
+      (e) => e.name == value,
+      orElse: () => ExpensePaymentStatus.paid,
+    );
+  }
+
+  static ExpensePaymentStatus fromAmounts({
+    required double totalAmount,
+    required double paidAmount,
+  }) {
+    if (paidAmount <= 0.005) return ExpensePaymentStatus.unpaid;
+    if (paidAmount + 0.005 >= totalAmount) return ExpensePaymentStatus.paid;
+    return ExpensePaymentStatus.partiallyPaid;
+  }
+}
+
 enum ExpenseListPeriodFilter {
   thisMonth,
   allTime;

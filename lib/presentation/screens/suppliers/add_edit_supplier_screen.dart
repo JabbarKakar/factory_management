@@ -37,6 +37,7 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
   final _addressController = TextEditingController();
   final _cnicNtnController = TextEditingController();
   final _materialsController = TextEditingController();
+  final _openingBalanceController = TextEditingController();
   final _notesController = TextEditingController();
 
   bool _populated = false;
@@ -53,6 +54,7 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
     _addressController.dispose();
     _cnicNtnController.dispose();
     _materialsController.dispose();
+    _openingBalanceController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -71,11 +73,18 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
     _addressController.text = supplier.address ?? '';
     _cnicNtnController.text = supplier.cnicNtn ?? '';
     _materialsController.text = supplier.materialsSupplied ?? '';
+    if (supplier.openingBalance != 0) {
+      _openingBalanceController.text =
+          supplier.openingBalance.toStringAsFixed(supplier.openingBalance % 1 == 0 ? 0 : 2);
+    }
     _notesController.text = supplier.notes ?? '';
   }
 
   Supplier? _buildSupplier(Supplier? existing) {
     if (existing == null) return null;
+
+    final openingBal =
+        double.tryParse(_openingBalanceController.text.trim()) ?? 0.0;
 
     return existing.copyWith(
       name: _nameController.text.trim(),
@@ -100,6 +109,7 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
       materialsSupplied: _materialsController.text.trim().isEmpty
           ? null
           : _materialsController.text.trim(),
+      openingBalance: openingBal,
       notes: _notesController.text.trim().isEmpty
           ? null
           : _notesController.text.trim(),
@@ -300,6 +310,19 @@ class _AddEditSupplierScreenState extends State<AddEditSupplierScreen> {
                                   setState(() => _paymentTerms = value);
                                 }
                               },
+                      ),
+                      AppFormFields.gap,
+                      TextFormField(
+                        controller: _openingBalanceController,
+                        style: AppFormFields.valueStyle(context),
+                        decoration: AppFormFields.decoration(
+                          context,
+                          label: '${AppStrings.openingBalance} (PKR, optional)',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        enabled: !isSaving,
                       ),
                     ],
                   ),

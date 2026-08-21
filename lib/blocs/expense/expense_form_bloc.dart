@@ -16,6 +16,7 @@ class ExpenseFormBloc extends Bloc<ExpenseFormEvent, ExpenseFormState> {
     on<ExpenseFormInitialized>(_onInitialized);
     on<ExpenseFormLoadRequested>(_onLoadRequested);
     on<ExpenseFormSubmitted>(_onSubmitted);
+    on<ExpensePaymentSubmitted>(_onPaymentSubmitted);
     on<ExpenseFormDeleteRequested>(_onDeleteRequested);
   }
 
@@ -74,7 +75,15 @@ class ExpenseFormBloc extends Bloc<ExpenseFormEvent, ExpenseFormState> {
     emit(state.copyWith(status: ExpenseFormStatus.saving));
     try {
       if (event.expense.id.isEmpty) {
-        final created = await _repository.createExpense(event.expense);
+        final created = await _repository.createExpense(
+          event.expense,
+          isPaidNow: event.isPaidNow,
+          initialPaidAmount: event.initialPaidAmount,
+          paymentMethod: event.paymentMethod,
+          paymentDate: event.paymentDate,
+          paymentReference: event.paymentReference,
+          paymentNotes: event.paymentNotes,
+        );
         emit(
           state.copyWith(
             status: ExpenseFormStatus.saved,
@@ -90,11 +99,48 @@ class ExpenseFormBloc extends Bloc<ExpenseFormEvent, ExpenseFormState> {
           ),
         );
       }
-    } catch (_) {
+    } catch (e) {
       emit(
         state.copyWith(
           status: ExpenseFormStatus.failure,
-          errorMessage: 'Could not save expense.',
+          errorMessage: e
+              .toString()
+              .replaceFirst('Exception: ', '')
+              .replaceFirst('Bad state: ', ''),
+        ),
+      );
+    }
+  }
+
+  Future<void> _onPaymentSubmitted(
+    ExpensePaymentSubmitted event,
+    Emitter<ExpenseFormState> emit,
+  ) async {
+    emit(state.copyWith(status: ExpenseFormStatus.saving));
+    try {
+      await _repository.recordExpensePayment(
+        expenseId: event.expenseId,
+        amount: event.amount,
+        method: event.method,
+        paymentDate: event.paymentDate,
+        reference: event.reference,
+        notes: event.notes,
+      );
+      final updated = await _repository.getExpense(event.expenseId);
+      emit(
+        state.copyWith(
+          status: ExpenseFormStatus.paymentSaved,
+          expense: updated,
+        ),
+      );
+    } catch (e) {
+      emit(
+        state.copyWith(
+          status: ExpenseFormStatus.failure,
+          errorMessage: e
+              .toString()
+              .replaceFirst('Exception: ', '')
+              .replaceFirst('Bad state: ', ''),
         ),
       );
     }
@@ -128,6 +174,9 @@ class ExpenseFormBloc extends Bloc<ExpenseFormEvent, ExpenseFormState> {
       description: '',
       amount: 0,
       paymentMethod: PaymentMethod.cash,
+      paidAmount: 0.0,
+      dueAmount: 0.0,
+      paymentStatus: ExpensePaymentStatus.unpaid,
       createdAt: DateTime.now(),
     );
   }

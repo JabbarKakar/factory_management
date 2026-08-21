@@ -8,8 +8,10 @@ import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/repositories/expense_repository.dart';
 import '../../../domain/entities/expense.dart';
+import '../../../domain/enums/expense_enums.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/auth_context.dart';
+import '../expenses/record_expense_payment_dialog.dart';
 import '../job_work/job_work_detail_section.dart';
 
 class SupplierPurchasesSection extends StatefulWidget {
@@ -163,20 +165,29 @@ class _PurchaseRow extends StatelessWidget {
     final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     final dateLabel = DateFormat.yMMMd().format(expense.expenseDate);
 
+    final statusColor = switch (expense.paymentStatus) {
+      ExpensePaymentStatus.paid => AppColors.success,
+      ExpensePaymentStatus.partiallyPaid => AppColors.warning,
+      ExpensePaymentStatus.unpaid => Theme.of(context).colorScheme.error,
+    };
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => context.push(RoutePaths.expenseEdit(expense.id)),
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.shopping_cart_outlined,
-                size: 16,
-                color: AppColors.primary,
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 16,
+                  color: statusColor,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -193,26 +204,90 @@ class _PurchaseRow extends StatelessWidget {
                             height: 1.25,
                           ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${expense.category.label} · $dateLabel',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: muted,
-                            fontSize: 10,
-                            height: 1.2,
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1.5,
                           ),
+                          decoration: BoxDecoration(
+                            color: statusColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            expense.paymentStatus.label,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: statusColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${expense.category.label} · $dateLabel',
+                            style:
+                                Theme.of(context).textTheme.labelSmall?.copyWith(
+                                      color: muted,
+                                      fontSize: 10,
+                                      height: 1.2,
+                                    ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                Formatters.currencyPkr(expense.amount),
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12,
-                      color: AppColors.primary,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    Formatters.currencyPkr(expense.amount),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                  ),
+                  if (expense.effectiveDueAmount > 0.005) ...[
+                    const SizedBox(height: 2),
+                    InkWell(
+                      onTap: () {
+                        RecordExpensePaymentDialog.show(
+                          context,
+                          expense: expense,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Pay',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer,
+                          ),
+                        ),
+                      ),
                     ),
+                  ],
+                ],
               ),
             ],
           ),

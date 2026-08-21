@@ -15,6 +15,9 @@ class ExpenseModel {
     required this.amount,
     required this.paymentMethod,
     required this.createdAt,
+    this.paidAmount = 0.0,
+    this.dueAmount,
+    this.paymentStatus = ExpensePaymentStatus.paid,
     this.payeeName,
     this.supplierId,
     this.billNumber,
@@ -30,6 +33,9 @@ class ExpenseModel {
   final String description;
   final double amount;
   final PaymentMethod paymentMethod;
+  final double paidAmount;
+  final double? dueAmount;
+  final ExpensePaymentStatus paymentStatus;
   final String? payeeName;
   final String? supplierId;
   final String? billNumber;
@@ -38,6 +44,27 @@ class ExpenseModel {
   final DateTime? updatedAt;
 
   factory ExpenseModel.fromFirestore(String id, Map<String, dynamic> data) {
+    final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+
+    // Check if new decoupled payment fields exist
+    final double paidAmount;
+    final double dueAmount;
+    final ExpensePaymentStatus paymentStatus;
+
+    if (data.containsKey('paidAmount') || data.containsKey('paymentStatus')) {
+      paidAmount = (data['paidAmount'] as num?)?.toDouble() ?? 0.0;
+      dueAmount = (data['dueAmount'] as num?)?.toDouble() ??
+          (amount - paidAmount).clamp(0.0, double.infinity);
+      paymentStatus = ExpensePaymentStatus.fromString(
+        data['paymentStatus'] as String?,
+      );
+    } else {
+      // Legacy document backward compatibility
+      paidAmount = amount;
+      dueAmount = 0.0;
+      paymentStatus = ExpensePaymentStatus.paid;
+    }
+
     return ExpenseModel(
       id: id,
       expenseNumber: data['expenseNumber'] as String? ?? '',
@@ -46,9 +73,12 @@ class ExpenseModel {
           (data['expenseDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       category: ExpenseCategory.fromString(data['category'] as String?),
       description: data['description'] as String? ?? '',
-      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      amount: amount,
       paymentMethod:
           PaymentMethod.fromString(data['paymentMethod'] as String?),
+      paidAmount: paidAmount,
+      dueAmount: dueAmount,
+      paymentStatus: paymentStatus,
       payeeName: data['payeeName'] as String?,
       supplierId: data['supplierId'] as String?,
       billNumber: data['billNumber'] as String?,
@@ -59,6 +89,9 @@ class ExpenseModel {
   }
 
   Map<String, dynamic> toFirestore({bool isCreate = false}) {
+    final effectiveDue =
+        dueAmount ?? (amount - paidAmount).clamp(0.0, double.infinity);
+
     return {
       'expenseNumber': expenseNumber,
       'factoryId': factoryId,
@@ -67,6 +100,9 @@ class ExpenseModel {
       'description': description,
       'amount': amount,
       'paymentMethod': paymentMethod.firestoreValue,
+      'paidAmount': paidAmount,
+      'dueAmount': effectiveDue,
+      'paymentStatus': paymentStatus.firestoreValue,
       if (payeeName != null && payeeName!.isNotEmpty) 'payeeName': payeeName,
       if (supplierId != null && supplierId!.isNotEmpty) 'supplierId': supplierId,
       if (billNumber != null && billNumber!.isNotEmpty) 'billNumber': billNumber,
@@ -85,6 +121,9 @@ class ExpenseModel {
         description: description,
         amount: amount,
         paymentMethod: paymentMethod,
+        paidAmount: paidAmount,
+        dueAmount: dueAmount,
+        paymentStatus: paymentStatus,
         payeeName: payeeName,
         supplierId: supplierId,
         billNumber: billNumber,
@@ -102,6 +141,9 @@ class ExpenseModel {
         description: expense.description,
         amount: expense.amount,
         paymentMethod: expense.paymentMethod,
+        paidAmount: expense.paidAmount,
+        dueAmount: expense.effectiveDueAmount,
+        paymentStatus: expense.paymentStatus,
         payeeName: expense.payeeName,
         supplierId: expense.supplierId,
         billNumber: expense.billNumber,

@@ -192,6 +192,8 @@ abstract final class RoutePaths {
   static String supplierDetail(String id) => '/suppliers/$id';
 
   static String supplierEdit(String id) => '/suppliers/$id/edit';
+
+  static String supplierStatement(String id) => '/suppliers/statement/$id';
   static const String rawMaterials = '/raw-materials';
 
   static String rawMaterialsList({RawMaterialListFilter? filter}) {

@@ -14,6 +14,9 @@ class Expense extends Equatable {
     required this.amount,
     required this.paymentMethod,
     required this.createdAt,
+    this.paidAmount = 0.0,
+    this.dueAmount,
+    this.paymentStatus = ExpensePaymentStatus.paid,
     this.payeeName,
     this.supplierId,
     this.billNumber,
@@ -29,12 +32,32 @@ class Expense extends Equatable {
   final String description;
   final double amount;
   final PaymentMethod paymentMethod;
+  final double paidAmount;
+  final double? dueAmount;
+  final ExpensePaymentStatus paymentStatus;
   final String? payeeName;
   final String? supplierId;
   final String? billNumber;
   final String? notes;
   final DateTime createdAt;
   final DateTime? updatedAt;
+
+  double get totalAmount => amount;
+
+  double get effectiveDueAmount =>
+      dueAmount ?? (amount - paidAmount).clamp(0.0, double.infinity);
+
+  bool get isFullyPaid =>
+      paymentStatus == ExpensePaymentStatus.paid || effectiveDueAmount <= 0.005;
+
+  bool get isUnpaid =>
+      paymentStatus == ExpensePaymentStatus.unpaid || paidAmount <= 0.005;
+
+  bool get isPartiallyPaid =>
+      paymentStatus == ExpensePaymentStatus.partiallyPaid ||
+      (paidAmount > 0.005 && effectiveDueAmount > 0.005);
+
+  bool get isPaidInstantly => paidAmount >= amount && amount > 0;
 
   Expense copyWith({
     String? id,
@@ -45,6 +68,9 @@ class Expense extends Equatable {
     String? description,
     double? amount,
     PaymentMethod? paymentMethod,
+    double? paidAmount,
+    double? dueAmount,
+    ExpensePaymentStatus? paymentStatus,
     String? payeeName,
     String? supplierId,
     String? billNumber,
@@ -52,6 +78,8 @@ class Expense extends Equatable {
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
+    final newAmount = amount ?? this.amount;
+    final newPaid = paidAmount ?? this.paidAmount;
     return Expense(
       id: id ?? this.id,
       expenseNumber: expenseNumber ?? this.expenseNumber,
@@ -59,8 +87,15 @@ class Expense extends Equatable {
       expenseDate: expenseDate ?? this.expenseDate,
       category: category ?? this.category,
       description: description ?? this.description,
-      amount: amount ?? this.amount,
+      amount: newAmount,
       paymentMethod: paymentMethod ?? this.paymentMethod,
+      paidAmount: newPaid,
+      dueAmount: dueAmount ?? (newAmount - newPaid).clamp(0.0, double.infinity),
+      paymentStatus: paymentStatus ??
+          ExpensePaymentStatus.fromAmounts(
+            totalAmount: newAmount,
+            paidAmount: newPaid,
+          ),
       payeeName: payeeName ?? this.payeeName,
       supplierId: supplierId ?? this.supplierId,
       billNumber: billNumber ?? this.billNumber,
@@ -80,6 +115,9 @@ class Expense extends Equatable {
         description,
         amount,
         paymentMethod,
+        paidAmount,
+        dueAmount,
+        paymentStatus,
         payeeName,
         supplierId,
         billNumber,

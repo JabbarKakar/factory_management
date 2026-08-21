@@ -66,6 +66,13 @@ class SupplierDetailScreen extends StatelessWidget {
               ],
             ),
             actions: [
+              IconButton(
+                onPressed: () => context.push(
+                  RoutePaths.supplierStatement(supplier.id),
+                ),
+                icon: const Icon(Icons.receipt_long_outlined),
+                tooltip: AppStrings.supplierStatement,
+              ),
               if (context.userCanEdit(AppModule.suppliers))
                 IconButton(
                   onPressed: () => context.push(
@@ -90,6 +97,9 @@ class SupplierDetailScreen extends StatelessWidget {
                   ),
                 ),
                 onStockIn: () => _showMaterialPicker(context, supplier),
+                onViewStatement: () => context.push(
+                  RoutePaths.supplierStatement(supplier.id),
+                ),
               ),
               SupplierPurchasesSection(supplierId: supplier.id),
               JobWorkDetailSection(

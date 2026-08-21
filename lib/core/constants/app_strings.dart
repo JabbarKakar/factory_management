@@ -919,6 +919,18 @@ abstract final class AppStrings {
   static const String recordPurchase = 'Record Purchase';
   static const String viewAllPurchases = 'View all purchases';
   static const String showLessPurchases = 'Show less';
+  static const String supplierStatement = 'Supplier Statement / Invoice';
+  static const String supplierStatementSubtitle =
+      'Itemized purchase history, payments, and balance';
+  static const String supplierInvoice = 'Supplier Invoice';
+  static const String selectSupplierForStatement =
+      'Select supplier for statement';
+  static const String totalHistoryPaid = 'Total Paid';
+  static const String remainingPayable = 'Remaining Balance Due';
+  static const String itemPurchases = 'Item Purchases';
+  static const String purchaseAndPayments = 'Purchases & Payments';
+  static const String noSupplierActivity =
+      'No purchases or payments recorded in this period';
 
   // Raw materials (Sprint 13)
   static const String rawMaterials = 'Raw Materials';

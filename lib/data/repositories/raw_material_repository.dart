@@ -67,6 +67,22 @@ class RawMaterialRepository {
         });
   }
 
+  Future<List<StockTransaction>> getTransactions(String factoryId) async {
+    final snapshot = await _transactionsCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .get();
+    final transactions = snapshot.docs
+        .map((doc) => StockTransactionModel.fromFirestore(
+              doc.id,
+              doc.data(),
+            ).toEntity())
+        .toList();
+    transactions.sort(
+      (a, b) => b.transactionDate.compareTo(a.transactionDate),
+    );
+    return transactions;
+  }
+
   Future<RawMaterial?> getMaterialByType({
     required String factoryId,
     required RawMaterialType materialType,

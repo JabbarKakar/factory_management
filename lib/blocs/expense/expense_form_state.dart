@@ -6,6 +6,7 @@ enum ExpenseFormStatus {
   ready,
   saving,
   saved,
+  paymentSaved,
   deleted,
   failure,
 }

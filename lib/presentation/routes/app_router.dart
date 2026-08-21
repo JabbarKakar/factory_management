@@ -135,6 +135,7 @@ import '../screens/production/production_batch_detail_screen.dart';
 import '../screens/production/production_batches_screen.dart';
 import '../screens/suppliers/add_edit_supplier_screen.dart';
 import '../screens/suppliers/supplier_detail_screen.dart';
+import '../screens/suppliers/supplier_statement_screen.dart';
 import '../screens/suppliers/suppliers_screen.dart';
 import '../screens/access_denied_screen.dart';
 import '../screens/account_disabled_screen.dart';
@@ -482,6 +483,17 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                   return bloc;
                 },
                 child: const AddEditSupplierScreen(),
+              );
+            },
+          ),
+          GoRoute(
+            path: 'statement/:supplierId',
+            parentNavigatorKey: rootNavigatorKey,
+            pageBuilder: (context, state) {
+              final supplierId = state.pathParameters['supplierId']!;
+              return MaterialPage<void>(
+                key: state.pageKey,
+                child: SupplierStatementScreen(supplierId: supplierId),
               );
             },
           ),

@@ -13,6 +13,10 @@ class Supplier extends Equatable {
     required this.phone,
     required this.paymentTerms,
     required this.createdAt,
+    this.openingBalance = 0,
+    this.balance = 0,
+    this.totalAmountPaid = 0,
+    this.totalBalanceDue = 0,
     this.contactPersonName,
     this.phoneSecondary,
     this.city,
@@ -37,6 +41,10 @@ class Supplier extends Equatable {
   final PaymentTerms paymentTerms;
   final String? materialsSupplied;
   final String? notes;
+  final double openingBalance;
+  final double balance;
+  final double totalAmountPaid;
+  final double totalBalanceDue;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -44,6 +52,12 @@ class Supplier extends Equatable {
     final value = city?.trim();
     if (value != null && value.isNotEmpty) return value;
     return '—';
+  }
+
+  CustomerBalanceStatus get balanceStatus {
+    if (balance < 0) return CustomerBalanceStatus.inCredit;
+    if (balance <= 0) return CustomerBalanceStatus.paidUp;
+    return CustomerBalanceStatus.outstanding;
   }
 
   Supplier copyWith({
@@ -61,6 +75,10 @@ class Supplier extends Equatable {
     PaymentTerms? paymentTerms,
     String? materialsSupplied,
     String? notes,
+    double? openingBalance,
+    double? balance,
+    double? totalAmountPaid,
+    double? totalBalanceDue,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -79,6 +97,10 @@ class Supplier extends Equatable {
       paymentTerms: paymentTerms ?? this.paymentTerms,
       materialsSupplied: materialsSupplied ?? this.materialsSupplied,
       notes: notes ?? this.notes,
+      openingBalance: openingBalance ?? this.openingBalance,
+      balance: balance ?? this.balance,
+      totalAmountPaid: totalAmountPaid ?? this.totalAmountPaid,
+      totalBalanceDue: totalBalanceDue ?? this.totalBalanceDue,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -100,6 +122,10 @@ class Supplier extends Equatable {
         paymentTerms,
         materialsSupplied,
         notes,
+        openingBalance,
+        balance,
+        totalAmountPaid,
+        totalBalanceDue,
         createdAt,
         updatedAt,
       ];

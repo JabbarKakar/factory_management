@@ -14,6 +14,10 @@ class SupplierModel {
     required this.phone,
     required this.paymentTerms,
     required this.createdAt,
+    this.openingBalance = 0,
+    this.balance = 0,
+    this.totalAmountPaid = 0,
+    this.totalBalanceDue = 0,
     this.contactPersonName,
     this.phoneSecondary,
     this.city,
@@ -38,6 +42,10 @@ class SupplierModel {
   final PaymentTerms paymentTerms;
   final String? materialsSupplied;
   final String? notes;
+  final double openingBalance;
+  final double balance;
+  final double totalAmountPaid;
+  final double totalBalanceDue;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -57,6 +65,10 @@ class SupplierModel {
       paymentTerms: PaymentTerms.fromString(data['paymentTerms'] as String?),
       materialsSupplied: data['materialsSupplied'] as String?,
       notes: data['notes'] as String?,
+      openingBalance: (data['openingBalance'] as num?)?.toDouble() ?? 0.0,
+      balance: (data['balance'] as num?)?.toDouble() ?? 0.0,
+      totalAmountPaid: (data['totalAmountPaid'] as num?)?.toDouble() ?? 0.0,
+      totalBalanceDue: (data['totalBalanceDue'] as num?)?.toDouble() ?? 0.0,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -80,6 +92,10 @@ class SupplierModel {
       if (materialsSupplied != null && materialsSupplied!.isNotEmpty)
         'materialsSupplied': materialsSupplied,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      'openingBalance': openingBalance,
+      'balance': balance,
+      'totalAmountPaid': totalAmountPaid,
+      'totalBalanceDue': totalBalanceDue,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -100,6 +116,10 @@ class SupplierModel {
         paymentTerms: paymentTerms,
         materialsSupplied: materialsSupplied,
         notes: notes,
+        openingBalance: openingBalance,
+        balance: balance,
+        totalAmountPaid: totalAmountPaid,
+        totalBalanceDue: totalBalanceDue,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
@@ -119,6 +139,10 @@ class SupplierModel {
         paymentTerms: supplier.paymentTerms,
         materialsSupplied: supplier.materialsSupplied,
         notes: supplier.notes,
+        openingBalance: supplier.openingBalance,
+        balance: supplier.balance,
+        totalAmountPaid: supplier.totalAmountPaid,
+        totalBalanceDue: supplier.totalBalanceDue,
         createdAt: supplier.createdAt,
         updatedAt: supplier.updatedAt,
       );

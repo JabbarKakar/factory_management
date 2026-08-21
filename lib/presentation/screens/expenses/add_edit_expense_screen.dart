@@ -4,19 +4,21 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/expense/expense_form_bloc.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
-import '../../utils/auth_context.dart';
 import '../../../core/utils/validators.dart';
 import '../../../data/repositories/supplier_repository.dart';
 import '../../../domain/entities/expense.dart';
 import '../../../domain/entities/supplier.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../../domain/enums/expense_enums.dart';
-import '../../utils/user_permissions_context.dart';
 import '../../../domain/enums/invoice_enums.dart';
+import '../../utils/auth_context.dart';
+import '../../utils/user_permissions_context.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
+import '../../widgets/expenses/record_expense_payment_dialog.dart';
 import '../../widgets/forms/app_form_fields.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
 
@@ -40,14 +42,18 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
 
   DateTime _expenseDate = DateTime.now();
+  DateTime _paymentDate = DateTime.now();
   ExpenseCategory _category = ExpenseCategory.miscellaneous;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   String? _supplierId;
+  bool _isPaidNow = false;
 
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
+  final _paidAmountController = TextEditingController();
   final _payeeController = TextEditingController();
   final _billNumberController = TextEditingController();
+  final _paymentReferenceController = TextEditingController();
   final _notesController = TextEditingController();
 
   bool _populated = false;
@@ -72,8 +78,10 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
   void dispose() {
     _descriptionController.dispose();
     _amountController.dispose();
+    _paidAmountController.dispose();
     _payeeController.dispose();
     _billNumberController.dispose();
+    _paymentReferenceController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -86,14 +94,17 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     _category = expense.category;
     _paymentMethod = expense.paymentMethod;
     _supplierId = expense.supplierId;
+    _isPaidNow = expense.paidAmount > 0;
     _descriptionController.text = expense.description;
     _amountController.text = ThousandsTextInputFormatter.format(expense.amount);
+    _paidAmountController.text =
+        ThousandsTextInputFormatter.format(expense.paidAmount);
     _payeeController.text = expense.payeeName ?? '';
     _billNumberController.text = expense.billNumber ?? '';
     _notesController.text = expense.notes ?? '';
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickExpenseDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _expenseDate,
@@ -103,23 +114,65 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     if (picked != null) setState(() => _expenseDate = picked);
   }
 
+  Future<void> _pickPaymentDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _paymentDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) setState(() => _paymentDate = picked);
+  }
+
   void _submit(BuildContext context, Expense? existing) {
     if (!_formKey.currentState!.validate()) return;
 
     final factoryId = readFactoryId(context);
-    if (factoryId == null) return;
+    if (factoryId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Session error: Factory ID not found. Please log in again.'),
+        ),
+      );
+      return;
+    }
 
-    final amount =
+    final totalAmount =
         ThousandsTextInputFormatter.tryParseDouble(_amountController.text) ?? 0;
+    if (totalAmount <= 0) return;
+
+    double? initialPaid;
+    if (_isPaidNow) {
+      initialPaid = ThousandsTextInputFormatter.tryParseDouble(
+            _paidAmountController.text,
+          ) ??
+          totalAmount;
+    }
+
+    final expenseId = widget.expenseId ?? existing?.id ?? '';
     final expense = Expense(
-      id: existing?.id ?? '',
+      id: expenseId,
       expenseNumber: existing?.expenseNumber ?? '',
       factoryId: factoryId,
       expenseDate: _expenseDate,
       category: _category,
       description: _descriptionController.text.trim(),
-      amount: amount,
+      amount: totalAmount,
       paymentMethod: _paymentMethod,
+      paidAmount: _isEditing
+          ? (existing?.paidAmount ?? 0.0)
+          : (_isPaidNow ? (initialPaid ?? totalAmount) : 0.0),
+      dueAmount: _isEditing
+          ? existing?.dueAmount
+          : (_isPaidNow ? (totalAmount - (initialPaid ?? totalAmount)) : totalAmount),
+      paymentStatus: _isEditing
+          ? (existing?.paymentStatus ?? ExpensePaymentStatus.unpaid)
+          : (_isPaidNow
+              ? ExpensePaymentStatus.fromAmounts(
+                  totalAmount: totalAmount,
+                  paidAmount: initialPaid ?? totalAmount,
+                )
+              : ExpensePaymentStatus.unpaid),
       payeeName: _payeeController.text.trim().isEmpty
           ? null
           : _payeeController.text.trim(),
@@ -134,7 +187,18 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
       updatedAt: existing?.updatedAt,
     );
 
-    context.read<ExpenseFormBloc>().add(ExpenseFormSubmitted(expense));
+    context.read<ExpenseFormBloc>().add(
+          ExpenseFormSubmitted(
+            expense,
+            isPaidNow: _isPaidNow,
+            initialPaidAmount: initialPaid,
+            paymentMethod: _paymentMethod,
+            paymentDate: _paymentDate,
+            paymentReference: _paymentReferenceController.text.trim().isEmpty
+                ? null
+                : _paymentReferenceController.text.trim(),
+          ),
+        );
   }
 
   Future<void> _confirmDelete(BuildContext context, String expenseId) async {
@@ -146,7 +210,9 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
       destructive: true,
     );
     if (confirmed == true && context.mounted) {
-      context.read<ExpenseFormBloc>().add(ExpenseFormDeleteRequested(expenseId));
+      context.read<ExpenseFormBloc>().add(
+            ExpenseFormDeleteRequested(expenseId),
+          );
     }
   }
 
@@ -156,7 +222,8 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
     final description = _descriptionController.text.trim();
     if (description.isNotEmpty) return description;
 
-    final amount = ThousandsTextInputFormatter.tryParseDouble(_amountController.text);
+    final amount =
+        ThousandsTextInputFormatter.tryParseDouble(_amountController.text);
     if (amount != null && amount > 0) {
       return '₨ ${amount.toStringAsFixed(0)}';
     }
@@ -184,6 +251,14 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
             ),
           );
           context.pop(true);
+        }
+        if (state.status == ExpenseFormStatus.paymentSaved) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Payment recorded successfully.'),
+              backgroundColor: AppColors.success,
+            ),
+          );
         }
         if (state.status == ExpenseFormStatus.deleted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -245,6 +320,74 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
             child: ListView(
               padding: const EdgeInsets.only(top: 12, bottom: 24),
               children: [
+                // Outstanding Payment Banner (if editing an unpaid/partial purchase)
+                if (_isEditing && expense != null && expense.effectiveDueAmount > 0.005)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.error.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.pending_actions_outlined,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Unsettled Liability',
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: Theme.of(context).colorScheme.error,
+                                      ),
+                                ),
+                                Text(
+                                  'Paid: ${Formatters.currencyPkr(expense.paidAmount)} · Due: ${Formatters.currencyPkr(expense.effectiveDueAmount)}',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          FilledButton.icon(
+                            onPressed: () {
+                              RecordExpensePaymentDialog.show(
+                                context,
+                                expense: expense,
+                                onPaymentRecorded: () {
+                                  context.read<ExpenseFormBloc>().add(
+                                        ExpenseFormLoadRequested(expense.id),
+                                      );
+                                },
+                              );
+                            },
+                            icon: const Icon(Icons.payments_outlined, size: 14),
+                            label: const Text('Record Payment', style: TextStyle(fontSize: 11)),
+                            style: FilledButton.styleFrom(
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
                 JobWorkDetailSection(
                   title: AppStrings.expenseDetails,
                   icon: Icons.receipt_outlined,
@@ -253,7 +396,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                       AppFormDateField(
                         label: AppStrings.expenseDate,
                         value: DateFormat.yMMMd().format(_expenseDate),
-                        onTap: isSaving ? null : _pickDate,
+                        onTap: isSaving ? null : _pickExpenseDate,
                       ),
                       AppFormFields.gap,
                       DropdownButtonFormField<ExpenseCategory>(
@@ -302,7 +445,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                         style: AppFormFields.valueStyle(context),
                         decoration: AppFormFields.decoration(
                           context,
-                          label: AppStrings.amountPkr,
+                          label: 'Total Bill / Amount (PKR, Required)',
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
@@ -315,48 +458,177 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                         ],
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Amount is required';
+                            return 'Total amount is strictly required';
                           }
                           final amount =
                               ThousandsTextInputFormatter.tryParseDouble(value);
                           if (amount == null || amount <= 0) {
-                            return 'Enter a valid amount';
+                            return 'Enter a valid positive amount';
                           }
                           return null;
                         },
+                        onChanged: (val) {
+                          if (_isPaidNow &&
+                              !_isEditing &&
+                              _paidAmountController.text.isEmpty) {
+                            _paidAmountController.text = val;
+                          }
+                        },
                         enabled: !isSaving,
-                      ),
-                      AppFormFields.gap,
-                      DropdownButtonFormField<PaymentMethod>(
-                        key: ValueKey(_paymentMethod),
-                        initialValue: _paymentMethod,
-                        style: AppFormFields.valueStyle(context),
-                        decoration: AppFormFields.decoration(
-                          context,
-                          label: AppStrings.paymentMethod,
-                        ),
-                        items: PaymentMethod.values
-                            .map(
-                              (method) => DropdownMenuItem(
-                                value: method,
-                                child: Text(
-                                  method.label,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: isSaving
-                            ? null
-                            : (value) {
-                                if (value != null) {
-                                  setState(() => _paymentMethod = value);
-                                }
-                              },
                       ),
                     ],
                   ),
                 ),
+
+                // Payment Settlement Mode Section (when creating new expense)
+                if (!_isEditing)
+                  JobWorkDetailSection(
+                    title: 'Payment Settlement',
+                    icon: Icons.account_balance_wallet_outlined,
+                    child: AppFormSectionBody(
+                      children: [
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text(
+                            'Mark as Paid Now / Pay Immediately',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          subtitle: Text(
+                            _isPaidNow
+                                ? 'Payment is recorded immediately upon creation'
+                                : 'Default: Saved as unpaid liability (pay later from purchase view)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          value: _isPaidNow,
+                          onChanged: isSaving
+                              ? null
+                              : (val) {
+                                  setState(() {
+                                    _isPaidNow = val;
+                                    if (val &&
+                                        _paidAmountController.text.isEmpty &&
+                                        _amountController.text.isNotEmpty) {
+                                      _paidAmountController.text =
+                                          _amountController.text;
+                                    }
+                                  });
+                                },
+                        ),
+                        if (_isPaidNow) ...[
+                          AppFormFields.gap,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _paidAmountController,
+                                  style: AppFormFields.valueStyle(context),
+                                  decoration: AppFormFields.decoration(
+                                    context,
+                                    label: 'Paid Amount (PKR)',
+                                    hint: 'Defaults to full amount',
+                                  ),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                                  inputFormatters: [
+                                    ThousandsTextInputFormatter(
+                                      allowDecimal: true,
+                                      decimalDigits: 2,
+                                    ),
+                                  ],
+                                  validator: (value) {
+                                    if (!_isPaidNow) return null;
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Enter paid amount';
+                                    }
+                                    final paid =
+                                        ThousandsTextInputFormatter.tryParseDouble(
+                                      value,
+                                    );
+                                    if (paid == null || paid <= 0) {
+                                      return 'Must be greater than 0';
+                                    }
+                                    final total =
+                                        ThousandsTextInputFormatter.tryParseDouble(
+                                      _amountController.text,
+                                    );
+                                    if (total != null && paid > total + 0.005) {
+                                      return 'Cannot exceed total bill';
+                                    }
+                                    return null;
+                                  },
+                                  enabled: !isSaving,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: DropdownButtonFormField<PaymentMethod>(
+                                  key: ValueKey(_paymentMethod),
+                                  initialValue: _paymentMethod,
+                                  style: AppFormFields.valueStyle(context),
+                                  decoration: AppFormFields.decoration(
+                                    context,
+                                    label: AppStrings.paymentMethod,
+                                  ),
+                                  items: PaymentMethod.values
+                                      .map(
+                                        (method) => DropdownMenuItem(
+                                          value: method,
+                                          child: Text(
+                                            method.label,
+                                            style: const TextStyle(fontSize: 13),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: isSaving
+                                      ? null
+                                      : (value) {
+                                          if (value != null) {
+                                            setState(() => _paymentMethod = value);
+                                          }
+                                        },
+                                ),
+                              ),
+                            ],
+                          ),
+                          AppFormFields.gap,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: AppFormDateField(
+                                  label: 'Payment Date',
+                                  value:
+                                      DateFormat.yMMMd().format(_paymentDate),
+                                  onTap: isSaving ? null : _pickPaymentDate,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _paymentReferenceController,
+                                  style: AppFormFields.valueStyle(context),
+                                  decoration: AppFormFields.decoration(
+                                    context,
+                                    label: 'Reference / Trx (opt)',
+                                  ),
+                                  enabled: !isSaving,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
                 JobWorkDetailSection(
                   title: AppStrings.optionalDetails,
                   icon: Icons.notes_outlined,
@@ -458,7 +730,7 @@ class _AddEditExpenseScreenState extends State<AddEditExpenseScreen> {
                 AppFormSubmitBar(
                   label: _isEditing
                       ? AppStrings.saveExpense
-                      : AppStrings.addExpense,
+                      : (_isPaidNow ? 'Save & Record Payment' : 'Save Purchase (Unpaid)'),
                   isLoading: isSaving,
                   onPressed: () => _submit(context, expense),
                 ),
