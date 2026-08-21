@@ -4,10 +4,16 @@ import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/utils/formatters.dart';
+import '../../../core/utils/job_work_collection_slip_totals.dart';
 import '../../../data/repositories/factory_repository.dart';
 import '../../../data/repositories/job_work_collection_repository.dart';
+import '../../../data/repositories/job_work_load_repository.dart';
+import '../../../data/repositories/job_work_repository.dart';
 import '../../../data/services/export/job_work_collection_slip_pdf_exporter.dart';
 import '../../../domain/entities/job_work_collection.dart';
+import '../../../domain/entities/job_work_load.dart';
+import '../../../domain/entities/job_work_order.dart';
 import '../../../domain/enums/app_module_enums.dart';
 import '../../utils/export_actions.dart';
 import '../../utils/export_factory_name.dart';
@@ -25,22 +31,54 @@ class JobWorkCollectionSlipScreen extends StatefulWidget {
       _JobWorkCollectionSlipScreenState();
 }
 
+class _SlipViewData {
+  const _SlipViewData({
+    required this.collection,
+    this.load,
+    this.order,
+  });
+
+  final JobWorkCollection collection;
+  final JobWorkLoad? load;
+  final JobWorkOrder? order;
+}
+
 class _JobWorkCollectionSlipScreenState
     extends State<JobWorkCollectionSlipScreen> {
-  late final Future<JobWorkCollection?> _future;
+  late final Future<_SlipViewData?> _future;
 
   @override
   void initState() {
     super.initState();
-    _future =
-        getIt<JobWorkCollectionRepository>().getCollection(widget.collectionId);
+    _future = _loadSlip();
+  }
+
+  Future<_SlipViewData?> _loadSlip() async {
+    final collection = await getIt<JobWorkCollectionRepository>()
+        .getCollection(widget.collectionId);
+    if (collection == null) return null;
+
+    JobWorkLoad? load;
+    JobWorkOrder? order;
+    final loadId = collection.loadId;
+    if (loadId != null &&
+        loadId.isNotEmpty &&
+        getIt.isRegistered<JobWorkLoadRepository>()) {
+      load = await getIt<JobWorkLoadRepository>().getLoad(loadId);
+    }
+    if (collection.jobWorkOrderId.isNotEmpty &&
+        getIt.isRegistered<JobWorkRepository>()) {
+      order = await getIt<JobWorkRepository>()
+          .getJobWorkOrder(collection.jobWorkOrderId);
+    }
+    return _SlipViewData(collection: collection, load: load, order: order);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return FutureBuilder<JobWorkCollection?>(
+    return FutureBuilder<_SlipViewData?>(
       future: _future,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
@@ -50,13 +88,20 @@ class _JobWorkCollectionSlipScreenState
           );
         }
 
-        final collection = snapshot.data;
-        if (collection == null) {
+        final data = snapshot.data;
+        if (data == null) {
           return Scaffold(
             appBar: AppBar(title: const Text(AppStrings.collectionSlip)),
             body: const Center(child: Text(AppStrings.collectionNotFound)),
           );
         }
+
+        final collection = data.collection;
+        final totals = JobWorkCollectionSlipTotals.fromCollection(
+          collection: collection,
+          load: data.load,
+          order: data.order,
+        );
 
         final canExport = context.userCanExport(AppModule.jobWork);
 
@@ -297,17 +342,33 @@ class _JobWorkCollectionSlipScreenState
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _SlipItemsTable(collection: collection),
+                      _SlipItemsTable(totals: totals),
                       const SizedBox(height: 12),
                       _SlipRow(
-                        label: AppStrings.totalPieces,
-                        value: '${collection.totalPieces}',
+                        label: AppStrings.smallTotalFeet,
+                        value: totals.smallSqFt.toStringAsFixed(2),
                         isBold: true,
                       ),
                       _SlipRow(
-                        label: AppStrings.totalSquareFeet,
-                        value: collection.totalSquareFeet.toStringAsFixed(2),
+                        label: AppStrings.largeTotalFeet,
+                        value: totals.largeSqFt.toStringAsFixed(2),
+                        isBold: true,
+                      ),
+                      _SlipRow(
+                        label: AppStrings.smallTotalAmount,
+                        value: Formatters.currencyPkr(totals.smallAmount),
+                        isBold: true,
+                      ),
+                      _SlipRow(
+                        label: AppStrings.largeTotalAmount,
+                        value: Formatters.currencyPkr(totals.largeAmount),
+                        isBold: true,
+                      ),
+                      _SlipRow(
+                        label: AppStrings.grandTotalAmount,
+                        value: Formatters.currencyPkr(totals.grandAmount),
                         isBold: true,
                       ),
                     ],
@@ -446,8 +507,8 @@ class _SlipRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 145,
+          Flexible(
+            flex: 5,
             child: Text(
               label,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -459,8 +520,10 @@ class _SlipRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
+            flex: 4,
             child: Text(
               value,
+              textAlign: TextAlign.right,
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
                 fontSize: 13,
@@ -474,29 +537,83 @@ class _SlipRow extends StatelessWidget {
 }
 
 class _SlipItemsTable extends StatelessWidget {
-  const _SlipItemsTable({required this.collection});
+  const _SlipItemsTable({required this.totals});
 
-  final JobWorkCollection collection;
+  final JobWorkCollectionSlipTotals totals;
 
   @override
   Widget build(BuildContext context) {
-    final headerStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-        );
-    final cellStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
-          fontSize: 12,
-        );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (totals.smallItems.isNotEmpty) ...[
+          _SlipStockGroupTable(
+            title: AppStrings.smallStock,
+            items: totals.smallItems,
+          ),
+          if (totals.largeItems.isNotEmpty) const SizedBox(height: 12),
+        ],
+        if (totals.largeItems.isNotEmpty)
+          _SlipStockGroupTable(
+            title: AppStrings.largeStock,
+            items: totals.largeItems,
+          ),
+        if (totals.smallItems.isEmpty && totals.largeItems.isEmpty)
+          _SlipStockGroupTable(
+            title: AppStrings.itemsCollected,
+            items: const [],
+          ),
+      ],
+    );
+  }
+}
+
+class _SlipStockGroupTable extends StatelessWidget {
+  const _SlipStockGroupTable({
+    required this.title,
+    required this.items,
+  });
+
+  final String title;
+  final List<JobWorkCollectionLineItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final headerStyle = theme.textTheme.labelSmall?.copyWith(
+      fontWeight: FontWeight.w700,
+      fontSize: 11,
+    );
+    final cellStyle = theme.textTheme.bodySmall?.copyWith(
+      fontSize: 12,
+    );
 
     return DecoratedBox(
       decoration: BoxDecoration(
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.25),
+          color: theme.colorScheme.outline.withValues(alpha: 0.25),
         ),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.55),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(7),
+              ),
+            ),
+            child: Text(
+              title,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
@@ -523,34 +640,45 @@ class _SlipItemsTable extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
-          for (final item in collection.lineItems) ...[
+          if (items.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(item.displayLabel, style: cellStyle),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${item.pieces}',
-                      style: cellStyle,
-                      textAlign: TextAlign.center,
+              child: Text(AppStrings.noStockProductionYet, style: cellStyle),
+            )
+          else
+            for (var i = 0; i < items.length; i++) ...[
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        items[i].displayLabel,
+                        style: cellStyle,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      item.squareFeet.toStringAsFixed(2),
-                      style: cellStyle,
-                      textAlign: TextAlign.center,
+                    Expanded(
+                      child: Text(
+                        '${items[i].pieces}',
+                        style: cellStyle,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: Text(
+                        items[i].squareFeet.toStringAsFixed(2),
+                        style: cellStyle,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Divider(height: 1),
-          ],
+              if (i != items.length - 1) const Divider(height: 1),
+            ],
         ],
       ),
     );

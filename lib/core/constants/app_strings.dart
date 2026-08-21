@@ -354,6 +354,11 @@ abstract final class AppStrings {
   static const String viewCollectionSlip = 'View Slip';
   static const String slipNumber = 'Slip #';
   static const String itemsCollected = 'Items Collected';
+  static const String smallTotalFeet = 'Small total feet';
+  static const String largeTotalFeet = 'Large total feet';
+  static const String smallTotalAmount = 'Small total amount';
+  static const String largeTotalAmount = 'Large total amount';
+  static const String grandTotalAmount = 'Grand total amount';
   static const String collectionNotFound = 'Collection not found';
   static const String factorySignature = 'Factory Signature';
   static const String receiverDetails = 'Receiver Details';

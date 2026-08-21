@@ -663,6 +663,7 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                 if (state.invoice != null)
                   JobWorkInvoicePaymentHistorySection(
                     payments: state.payments,
+                    collapsible: true,
                   ),
               ],
               JobWorkDetailSection(
@@ -785,6 +786,10 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
                 JobWorkDetailSection(
                   title: AppStrings.collectionHistory,
                   icon: Icons.history_outlined,
+                  collapsible: true,
+                  subtitle:
+                      '${loadCollections.length} · ${loadCollections.fold<int>(0, (sum, item) => sum + item.totalPieces)} pcs · '
+                      '${loadCollections.fold<double>(0, (sum, item) => sum + item.totalSquareFeet).toStringAsFixed(2)} sq. ft',
                   child: Column(
                     children: [
                       for (final collection in loadCollections)

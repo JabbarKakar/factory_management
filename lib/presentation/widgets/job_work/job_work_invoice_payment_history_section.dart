@@ -15,6 +15,8 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.subtitleForPayment,
+    this.collapsible = false,
+    this.initiallyExpanded = false,
     super.key,
   });
 
@@ -25,6 +27,8 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
 
   /// Optional secondary line (e.g. which Order / Load the payment belongs to).
   final String? Function(Payment payment)? subtitleForPayment;
+  final bool collapsible;
+  final bool initiallyExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -32,10 +36,17 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
     final muted = theme.colorScheme.onSurfaceVariant;
     final totalPaid =
         payments.fold<double>(0, (sum, payment) => sum + payment.amount);
+    final collapsedSubtitle = payments.isEmpty
+        ? AppStrings.noPaymentsYet
+        : '${Formatters.currencyPkr(totalPaid)} · '
+            '${payments.length} ${AppStrings.paymentsRecorded}';
 
     return JobWorkDetailSection(
       title: AppStrings.paymentHistory,
       icon: Icons.payments_outlined,
+      collapsible: collapsible && payments.isNotEmpty,
+      initiallyExpanded: initiallyExpanded,
+      subtitle: collapsible && payments.isNotEmpty ? collapsedSubtitle : null,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         child: payments.isEmpty
@@ -50,44 +61,46 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              AppStrings.amountPaid,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: muted,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                  if (!collapsible) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                AppStrings.amountPaid,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: muted,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              Formatters.currencyPkr(totalPaid),
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                                color: AppColors.success,
-                                height: 1.15,
+                              const SizedBox(height: 3),
+                              Text(
+                                Formatters.currencyPkr(totalPaid),
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                  color: AppColors.success,
+                                  height: 1.15,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      Text(
-                        '${payments.length} ${AppStrings.paymentsRecorded}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: muted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                        Text(
+                          '${payments.length} ${AppStrings.paymentsRecorded}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: muted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   for (var i = 0; i < payments.length; i++) ...[
                     _PaymentRow(
                       payment: payments[i],
