@@ -14,8 +14,12 @@ import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
+import '../../data/services/job_work_container_sync_helper.dart';
+import '../../data/services/sales_container_sync_helper.dart';
 import '../../domain/enums/dashboard_finance_period.dart';
 import '../../domain/enums/invoice_enums.dart';
+import '../../domain/enums/job_work_enums.dart';
+import '../../domain/enums/sales_enums.dart';
 import 'dashboard_job_work_metrics.dart';
 import 'dashboard_sales_sqft_metrics.dart';
 
@@ -309,7 +313,11 @@ abstract final class DashboardCommandCenterBuilder {
     );
 
     final outstanding = _outstandingReceivables(
+      jobWorkOrders: jobWorkOrders,
+      jobWorkLoads: jobWorkLoads,
       jobWorkInvoices: jobWorkInvoices,
+      payments: payments,
+      salesOrders: salesOrders,
       salesInvoices: salesInvoices,
     );
 
@@ -344,6 +352,9 @@ abstract final class DashboardCommandCenterBuilder {
       previousExpenses: previousExpenses,
       outstanding: outstanding.amount,
       outstandingCount: outstanding.count,
+      salesOutstanding: outstanding.salesDue,
+      jobWorkOutstanding: outstanding.jobWorkDue,
+      totalCollected: outstanding.paid,
       collectedInPeriod: income,
       incomeSparkline: incomeSpark,
       expenseSparkline: expenseSpark,
@@ -390,25 +401,87 @@ abstract final class DashboardCommandCenterBuilder {
         .fold<double>(0, (sum, e) => sum + e.amount);
   }
 
-  static ({double amount, int count}) _outstandingReceivables({
+  static ({
+    double amount,
+    int count,
+    double paid,
+    double salesDue,
+    double jobWorkDue,
+  }) _outstandingReceivables({
+    required List<JobWorkOrder> jobWorkOrders,
+    required List<JobWorkLoad> jobWorkLoads,
     required List<JobWorkInvoice> jobWorkInvoices,
+    required List<Payment> payments,
+    required List<SalesOrder> salesOrders,
     required List<SalesInvoice> salesInvoices,
   }) {
-    var amount = 0.0;
+    var jobWorkDue = 0.0;
+    var jobWorkPaid = 0.0;
+    var salesDue = 0.0;
+    var salesPaid = 0.0;
     var count = 0;
-    for (final invoice in jobWorkInvoices) {
-      if (invoice.status == InvoiceStatus.cancelled) continue;
-      if (invoice.dueAmount <= 0) continue;
-      amount += invoice.dueAmount;
-      count++;
+
+    for (final order in jobWorkOrders) {
+      if (order.status == JobWorkStatus.cancelled) continue;
+      final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+        order: order,
+        loads: jobWorkLoads,
+        invoices: jobWorkInvoices
+            .where((invoice) => invoice.jobWorkId == order.id)
+            .toList(),
+        payments: payments,
+      );
+      jobWorkDue += finance.due;
+      jobWorkPaid += finance.paid;
+      if (finance.due > 0) count++;
     }
-    for (final invoice in salesInvoices) {
-      if (invoice.status == InvoiceStatus.cancelled) continue;
-      if (invoice.dueAmount <= 0) continue;
-      amount += invoice.dueAmount;
-      count++;
+
+    final ordersByAgreement = <String, List<SalesOrder>>{};
+    for (final order in salesOrders) {
+      if (order.status == SalesOrderStatus.cancelled) continue;
+      final agreementId = order.agreementId?.trim() ?? '';
+      final key = agreementId.isEmpty ? order.id : agreementId;
+      ordersByAgreement.putIfAbsent(key, () => []).add(order);
     }
-    return (amount: amount, count: count);
+
+    for (final entry in ordersByAgreement.entries) {
+      var groupDue = 0.0;
+      var groupPaid = 0.0;
+      for (final order in entry.value) {
+        SalesInvoice? invoice = salesInvoices
+            .where(
+              (item) =>
+                  item.status != InvoiceStatus.cancelled &&
+                  !item.isGrandInvoice &&
+                  item.salesOrderId.trim() == order.id,
+            )
+            .firstOrNull;
+        final linkedId = order.invoiceId?.trim();
+        if (linkedId != null && linkedId.isNotEmpty) {
+          final linked = salesInvoices
+              .where((item) => item.id == linkedId)
+              .firstOrNull;
+          if (linked != null) invoice = linked;
+        }
+        final finance = SalesContainerSyncHelper.financeForOrder(
+          order: order,
+          invoice: invoice,
+        );
+        groupDue += finance.due;
+        groupPaid += finance.paid;
+      }
+      salesDue += groupDue;
+      salesPaid += groupPaid;
+      if (groupDue > 0) count++;
+    }
+
+    return (
+      amount: salesDue + jobWorkDue,
+      count: count,
+      paid: salesPaid + jobWorkPaid,
+      salesDue: salesDue,
+      jobWorkDue: jobWorkDue,
+    );
   }
 
   static double _wasteYieldSqFtInRange({

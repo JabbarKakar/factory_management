@@ -52,6 +52,9 @@ class DashboardCommandCenter extends Equatable {
     required this.previousExpenses,
     required this.outstanding,
     required this.outstandingCount,
+    this.salesOutstanding = 0,
+    this.jobWorkOutstanding = 0,
+    this.totalCollected = 0,
     required this.collectedInPeriod,
     required this.incomeSparkline,
     required this.expenseSparkline,
@@ -81,6 +84,9 @@ class DashboardCommandCenter extends Equatable {
     previousExpenses: 0,
     outstanding: 0,
     outstandingCount: 0,
+    salesOutstanding: 0,
+    jobWorkOutstanding: 0,
+    totalCollected: 0,
     collectedInPeriod: 0,
     incomeSparkline: [],
     expenseSparkline: [],
@@ -109,6 +115,9 @@ class DashboardCommandCenter extends Equatable {
   final double previousExpenses;
   final double outstanding;
   final int outstandingCount;
+  final double salesOutstanding;
+  final double jobWorkOutstanding;
+  final double totalCollected;
   final double collectedInPeriod;
   final List<double> incomeSparkline;
   final List<double> expenseSparkline;
@@ -152,10 +161,12 @@ class DashboardCommandCenter extends Equatable {
       income > 0 ? (expenses / income) * 100 : null;
 
   /// Paid vs pending collection efficiency (0–1).
+  /// Uses all-time collected vs outstanding so it matches Sales / Job Work lists.
   double get collectionRatio {
-    final total = collectedInPeriod + outstanding;
+    final collected = totalCollected > 0 ? totalCollected : collectedInPeriod;
+    final total = collected + outstanding;
     if (total <= 0) return 0;
-    return (collectedInPeriod / total).clamp(0.0, 1.0);
+    return (collected / total).clamp(0.0, 1.0);
   }
 
   @override
@@ -167,6 +178,9 @@ class DashboardCommandCenter extends Equatable {
         previousExpenses,
         outstanding,
         outstandingCount,
+        salesOutstanding,
+        jobWorkOutstanding,
+        totalCollected,
         collectedInPeriod,
         incomeSparkline,
         expenseSparkline,

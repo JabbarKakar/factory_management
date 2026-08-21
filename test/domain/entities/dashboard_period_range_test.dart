@@ -2,6 +2,8 @@ import 'package:factory_management/core/utils/dashboard_command_center_builder.d
 import 'package:factory_management/domain/entities/dashboard_cashflow_metrics.dart';
 import 'package:factory_management/domain/entities/delivery.dart';
 import 'package:factory_management/domain/entities/payment.dart';
+import 'package:factory_management/domain/entities/sales_order.dart';
+import 'package:factory_management/domain/enums/customer_enums.dart';
 import 'package:factory_management/domain/enums/dashboard_finance_period.dart';
 import 'package:factory_management/domain/enums/delivery_enums.dart';
 import 'package:factory_management/domain/enums/invoice_enums.dart';
@@ -131,6 +133,51 @@ void main() {
       expect(cc.saleDispatchMetrics.largeSqFt, 450);
       expect(cc.saleDispatchMetrics.smallPieces, 20);
       expect(cc.saleDispatchMetrics.smallSqFt, 200);
+    });
+  });
+
+  group('DashboardCommandCenterBuilder receivables', () {
+    test('includes uninvoiced sales order balance due like the Sales list', () {
+      final today = DateTime(2026, 8, 21);
+      final order = SalesOrder(
+        id: 'so-1',
+        orderNumber: 'SO-1',
+        factoryId: 'f1',
+        customerId: 'c1',
+        customerName: 'Hussain',
+        status: SalesOrderStatus.ready,
+        orderDate: today,
+        orderSource: SalesOrderSource.walkIn,
+        lineItems: const [],
+        subtotal: 16680000,
+        orderDiscount: 0,
+        tax: 0,
+        grandTotal: 16680000,
+        paymentTerms: PaymentTerms.cash,
+        advanceReceived: 1590000,
+        balanceDue: 16680000,
+        createdAt: today,
+        agreementId: 'sa-1',
+      );
+
+      final cc = DashboardCommandCenterBuilder.build(
+        period: DashboardFinancePeriod.daily,
+        now: today,
+        payments: const [],
+        expenses: const [],
+        jobWorkOrders: const [],
+        jobWorkLoads: const [],
+        jobWorkInvoices: const [],
+        salesInvoices: const [],
+        salesOrders: [order],
+        deliveries: const [],
+        activeJobWorks: 0,
+      );
+
+      expect(cc.salesOutstanding, 16680000);
+      expect(cc.jobWorkOutstanding, 0);
+      expect(cc.outstanding, 16680000);
+      expect(cc.outstandingCount, 1);
     });
   });
 }

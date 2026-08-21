@@ -153,7 +153,7 @@ class _OpsAlertStrip extends StatelessWidget {
         final wide = constraints.maxWidth >= 700;
         if (wide) {
           return SizedBox(
-            height: 92,
+            height: 96,
             child: Row(
               children: [
                 for (var i = 0; i < cards.length; i++) ...[
@@ -172,7 +172,7 @@ class _OpsAlertStrip extends StatelessWidget {
             crossAxisCount: 2,
             mainAxisSpacing: 8,
             crossAxisSpacing: 8,
-            mainAxisExtent: 92,
+            mainAxisExtent: 96,
           ),
           itemBuilder: (context, i) => _AlertTile(data: cards[i]),
         );
@@ -274,9 +274,10 @@ class _AlertTileState extends State<_AlertTile>
             ],
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
@@ -290,23 +291,33 @@ class _AlertTileState extends State<_AlertTile>
                       ),
                   ],
                 ),
-                const Spacer(),
-                Text(data.label, style: DashboardFxStyle.label(context)),
-                const SizedBox(height: 2),
-                Text(
-                  data.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DashboardFxStyle.value(context).copyWith(
-                    color: data.color,
-                    fontSize: 16,
-                  ),
-                ),
-                Text(
-                  data.caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DashboardFxStyle.caption(context),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      data.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DashboardFxStyle.label(context),
+                    ),
+                    Text(
+                      data.value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DashboardFxStyle.value(context).copyWith(
+                        color: data.color,
+                        fontSize: 15,
+                        height: 1.15,
+                      ),
+                    ),
+                    Text(
+                      data.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DashboardFxStyle.caption(context),
+                    ),
+                  ],
                 ),
               ],
             ),

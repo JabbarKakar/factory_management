@@ -779,19 +779,15 @@ class _KpiRow extends StatelessWidget {
         sparkline: const [],
         area: true,
         caption: commandCenter.outstandingCount > 0
-            ? '${commandCenter.outstandingCount} open'
+            ? 'Sales ${Formatters.currencyCompact(commandCenter.salesOutstanding)} · JW ${Formatters.currencyCompact(commandCenter.jobWorkOutstanding)}'
             : 'Clear',
         badge: commandCenter.outstanding > 0 ? 'URGENT' : null,
         onTap: () {
-          final outstanding = commandCenter.outstanding;
-          final trendPoints = [
-            FinancialTrendPoint(label: '0-30 Days', value: outstanding * 0.45),
-            FinancialTrendPoint(
-                label: '31-60 Days', value: outstanding * 0.30),
-            FinancialTrendPoint(
-                label: '61-90 Days', value: outstanding * 0.15),
-            FinancialTrendPoint(label: '90+ Days', value: outstanding * 0.10),
-          ];
+          final salesDue = commandCenter.salesOutstanding;
+          final jwDue = commandCenter.jobWorkOutstanding;
+          final total = commandCenter.outstanding;
+          final salesPct = total > 0 ? (salesDue / total) * 100 : 0.0;
+          final jwPct = total > 0 ? (jwDue / total) * 100 : 0.0;
 
           FinancialDetailDialog.show(
             context,
@@ -799,40 +795,30 @@ class _KpiRow extends StatelessWidget {
             preciseAmount: commandCenter.outstanding,
             accentColor: const Color(0xFFF59E0B),
             metricType: FinancialMetricType.receivables,
-            trendPoints: trendPoints,
-            caption: '${commandCenter.outstandingCount} Open Invoices',
+            trendPoints: [
+              FinancialTrendPoint(label: 'Sales', value: salesDue),
+              FinancialTrendPoint(label: 'Job Work', value: jwDue),
+            ],
+            caption:
+                '${commandCenter.outstandingCount} open · matches Sales & Job Work pending',
             badgeText: commandCenter.outstanding > 0 ? 'URGENT' : null,
             breakdownItems: [
               FinancialBreakdownItem(
-                label: 'Current (0-30 Days)',
-                amount: outstanding * 0.45,
-                percentage: '45%',
-                icon: Icons.check_circle_outline_rounded,
-                color: const Color(0xFF22C55E),
+                label: 'Sales Pending',
+                amount: salesDue,
+                percentage: '${salesPct.toStringAsFixed(0)}%',
+                icon: Icons.shopping_bag_outlined,
+                color: const Color(0xFF3B82F6),
               ),
               FinancialBreakdownItem(
-                label: 'Overdue (31-60 Days)',
-                amount: outstanding * 0.30,
-                percentage: '30%',
-                icon: Icons.access_time_rounded,
-                color: const Color(0xFFF59E0B),
-              ),
-              FinancialBreakdownItem(
-                label: 'Critical (61-90 Days)',
-                amount: outstanding * 0.15,
-                percentage: '15%',
-                icon: Icons.warning_amber_rounded,
-                color: const Color(0xFFF97316),
-              ),
-              FinancialBreakdownItem(
-                label: 'High Risk (90+ Days)',
-                amount: outstanding * 0.10,
-                percentage: '10%',
-                icon: Icons.error_outline_rounded,
-                color: const Color(0xFFEF4444),
+                label: 'Job Work Pending',
+                amount: jwDue,
+                percentage: '${jwPct.toStringAsFixed(0)}%',
+                icon: Icons.content_cut_outlined,
+                color: const Color(0xFFFDD343),
               ),
             ],
-            onViewReport: () => context.go(RoutePaths.customers),
+            onViewReport: () => context.go(RoutePaths.sales),
           );
         },
       ),
@@ -1247,7 +1233,7 @@ class _ChartsGridState extends State<_ChartsGrid> {
       glowColor: primaryColor,
       child: _CollectionGauge(
         ratio: cc.collectionRatio,
-        collected: cc.collectedInPeriod,
+        collected: cc.totalCollected > 0 ? cc.totalCollected : cc.collectedInPeriod,
         pending: cc.outstanding,
       ),
     );

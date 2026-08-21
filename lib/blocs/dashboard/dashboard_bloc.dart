@@ -229,7 +229,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         );
 
     _jobWorkInvoicesSub = _jobWorkInvoiceRepository
-        .watchOpenInvoicesForFactory(event.factoryId)
+        .watchInvoicesForFactory(event.factoryId)
         .listen(
           (invoices) {
             _jobWorkInvoices = invoices;
@@ -240,7 +240,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         );
 
     _salesInvoicesSub = _salesInvoiceRepository
-        .watchOpenInvoicesForFactory(event.factoryId)
+        .watchInvoicesForFactory(event.factoryId)
         .listen(
           (invoices) {
             _salesInvoices = invoices;
