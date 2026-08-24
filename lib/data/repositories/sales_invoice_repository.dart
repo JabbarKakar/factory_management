@@ -5,11 +5,13 @@ import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/sales_agreement_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/sales_invoice_model.dart';
 import '../services/sales_container_sync_helper.dart';
+import '../services/sequence_number_service.dart';
 import 'invoice_exception.dart';
 import 'sales_agreement_repository.dart';
 import 'sales_order_repository.dart';
@@ -19,14 +21,18 @@ class SalesInvoiceRepository {
     FirebaseFirestore? firestore,
     required SalesOrderRepository salesOrderRepository,
     SalesAgreementRepository? salesAgreementRepository,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _salesOrderRepository = salesOrderRepository,
         _salesAgreementRepository = salesAgreementRepository ??
-            SalesAgreementRepository(firestore: firestore);
+            SalesAgreementRepository(firestore: firestore),
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final SalesOrderRepository _salesOrderRepository;
   final SalesAgreementRepository _salesAgreementRepository;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection => _collection;
@@ -689,11 +695,10 @@ class SalesInvoiceRepository {
         .toList();
   }
 
-  Future<String> _generateInvoiceNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _collection.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'INV-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateInvoiceNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.salesInvoice,
+    );
   }
 }

@@ -4,21 +4,27 @@ import 'package:uuid/uuid.dart';
 import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/raw_material.dart';
 import '../../domain/entities/stock_transaction.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/raw_material_enums.dart';
 import '../models/raw_material_model.dart';
 import '../models/stock_transaction_model.dart';
 import '../services/raw_material_stock_service.dart';
+import '../services/sequence_number_service.dart';
 import '../services/stock_correction_helper.dart';
 
 class RawMaterialRepository {
   RawMaterialRepository({
     FirebaseFirestore? firestore,
     RawMaterialStockService? stockService,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _stockService = stockService ?? RawMaterialStockService();
+        _stockService = stockService ?? RawMaterialStockService(),
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final RawMaterialStockService _stockService;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _materialsCollection =>
@@ -404,19 +410,10 @@ class RawMaterialRepository {
   Future<String> _generateTransactionNumber({
     required String factoryId,
     required StockMovementType movementType,
-  }) async {
-    final year = DateTime.now().year;
-    final prefix = switch (movementType) {
-      StockMovementType.stockIn => 'STK-IN',
-      StockMovementType.stockOut => 'STK-OUT',
-      StockMovementType.adjustmentIn => 'STK-ADJ-IN',
-      StockMovementType.adjustmentOut => 'STK-ADJ-OUT',
-    };
-    final snapshot = await _transactionsCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .where('movementType', isEqualTo: movementType.firestoreValue)
-        .get();
-    final count = snapshot.docs.length + 1;
-    return '$prefix-$year-${count.toString().padLeft(4, '0')}';
+  }) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: movementType.documentSequence,
+    );
   }
 }

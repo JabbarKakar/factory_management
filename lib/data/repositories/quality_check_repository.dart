@@ -5,9 +5,11 @@ import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/production_batch.dart';
 import '../../domain/entities/quality_check.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/quality_enums.dart';
 import '../models/quality_check_model.dart';
+import '../services/sequence_number_service.dart';
 import 'job_work_repository.dart';
 import 'production_repository.dart';
 
@@ -25,14 +27,18 @@ class QualityCheckRepository {
     FirebaseFirestore? firestore,
     ProductionRepository? productionRepository,
     JobWorkRepository? jobWorkRepository,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _productionRepository =
             productionRepository ?? ProductionRepository(),
-        _jobWorkRepository = jobWorkRepository ?? JobWorkRepository();
+        _jobWorkRepository = jobWorkRepository ?? JobWorkRepository(),
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final ProductionRepository _productionRepository;
   final JobWorkRepository _jobWorkRepository;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
@@ -182,11 +188,10 @@ class QualityCheckRepository {
     return output != null && output.isRecorded;
   }
 
-  Future<String> _generateQcNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _collection.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'QC-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateQcNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.qualityCheck,
+    );
   }
 }

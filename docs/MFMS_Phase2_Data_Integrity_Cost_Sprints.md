@@ -110,14 +110,14 @@ order ≈ **19 writes for one payment** against a 20,000/day ceiling.
 
 ## 5. Sprint overview
 
-| Sprint | Theme | Fixes | Est. | Risk |
-|--------|-------|-------|------|------|
-| **S36** | Emulator default + read/write instrumentation | Foundation | 2 days | Low |
-| **S37** | Sequence counters | D2 | 3 days | Medium |
-| **S38** | Stock atomicity via increments | D1 | 4 days | **High** (data migration) |
-| **S39** | Dashboard windowing | D3 | 4 days | Medium |
-| **S40** | Ledger scoping + write de-amplification | D4 | 3 days | Medium |
-| **S41** | Monthly rollups for "All Time" *(optional)* | D3 durable fix | 3 days | Medium |
+| Sprint | Theme | Fixes | Est. | Risk | Status |
+|--------|-------|-------|------|------|--------|
+| **S36** | Emulator default + read/write instrumentation | Foundation | 2 days | Low | Code done; baseline not yet recorded |
+| **S37** | Sequence counters | D2 | 3 days | Medium | **Done** |
+| **S38** | Stock atomicity via increments | D1 | 4 days | **High** (data migration) | Next |
+| **S39** | Dashboard windowing | D3 | 4 days | Medium | |
+| **S40** | Ledger scoping + write de-amplification | D4 | 3 days | Medium | |
+| **S41** | Monthly rollups for "All Time" *(optional)* | D3 durable fix | 3 days | Medium | |
 
 **Order matters.** S36 first — it stops dev work from burning quota and gives the
 measurement baseline every later sprint is judged against. S38 carries the
@@ -280,7 +280,7 @@ Debug builds cannot touch production. Read counts are observable on-device.
 
 ---
 
-## 7. Sprint S37 — Sequence counters
+## 7. Sprint S37 — Sequence counters — **DONE**
 
 **Goal:** unique, monotonic document numbers at O(1) cost.
 
@@ -307,13 +307,70 @@ counters/{factoryId}__{sequenceKey}
 | 37.6 | Rules | `counters/{id}` readable/writable only by same-factory authenticated users; `value` may only increase | Rules test: decrement rejected |
 | 37.7 | Tests | Unit: format, rollover, monotonicity. Integration: 20 parallel allocations yield 20 distinct numbers | All pass |
 
+### What shipped, and where it differs from the plan
+
+**Seeding is on-demand, not startup-only (37.2).** A startup-only migration leaves
+a race: a user who creates a job-work order before the migration finishes gets
+`JW-2026-0001` on top of an existing series. So `allocate()` seeds itself — if the
+counter document is absent it scans that one collection, sets the counter to the
+highest number already issued, and retries. `SequenceSeedMigration` still runs at
+login, but it is now only a pre-warm: correctness no longer depends on it having
+run. The scan happens at most once per sequence per factory, because the first
+allocation creates the counter.
+
+**21 sequences, 17 generator functions.** The plan said "16 call sites". The real
+count is 17 `_generate*Number` functions mapping to 21 counters, because
+`stockTransactions` and `inventoryTransactions` each hold several series
+distinguished by `movementType`. Two of those functions share one counter:
+`production_repository._generateStockOutNumber` and
+`raw_material_repository._generateTransactionNumber(stockOut)` both write the
+`STK-OUT` series, so they must not have separate counters.
+
+**Sequence metadata lives on the enum.** `DocumentSequence` carries the prefix,
+the collection, the field holding the number, and the optional `movementType`
+filter. The seed scan is driven off that, so adding a sequence is one enum entry
+rather than an entry plus a migration table.
+
+**No index changes were needed.** The seed scan filters on `factoryId` plus
+`movementType`, both equality — Firestore serves that by merging single-field
+indexes, so `firestore.indexes.json` is untouched.
+
+**Rules enforce forward-only (37.6).** Within a year a counter update must
+strictly increase `value`; a new year may reset it. `SequenceNumberService.seed`
+also refuses to move a counter backwards client-side, so a stale seed run cannot
+rewind a live series.
+
+**Removed the expense fallback (37.5).** `expense_repository` used to catch any
+failure and mint `EXP-<year>-<millis>`, which collides with the real series.
+Allocation failures now propagate as `SequenceNumberException`, which carries
+`isRetryable` and an offline-specific message.
+
+**Not migrated: `SalesAgreementRepository.nextOrderSequence`.** It is `max + 1`
+over one agreement's orders, not `count + 1` over a collection — bounded in cost
+and not a document number, so it is out of scope here. It is still racy under
+concurrent order creation on the same agreement; worth a per-agreement counter
+later if duplicate `orderSequence` values ever show up.
+
 ### Deliverables
 
+- `lib/domain/enums/document_sequence.dart` (new) — the 21-sequence registry
 - `lib/data/services/sequence_number_service.dart` (new)
-- `lib/data/services/sequence_seed_migration.dart` (new)
-- 16 repository files (modified)
-- `firestore.rules`, `firestore.indexes.json` (modified)
+- `lib/data/services/sequence_seed_migration.dart` (new) — login pre-warm
+- 15 repository files (modified), `injection.dart`, `app.dart`
+- `firestore.rules` (modified); `firestore.indexes.json` unchanged
+- `test/domain/enums/document_sequence_test.dart` (new)
 - `test/data/services/sequence_number_service_test.dart` (new)
+- `test/data/services/sequence_seed_migration_test.dart` (new)
+- `fake_cloud_firestore` added as a dev dependency
+
+35 new tests, 261 total, all passing. `flutter analyze` unchanged from before the
+sprint (107 pre-existing infos/warnings, none in the new files).
+
+**Concurrency is not covered by the unit tests.** `fake_cloud_firestore` runs
+transaction bodies without isolation — twenty concurrent `allocate()` calls all
+read the same snapshot and every one is handed `0001`. The uniqueness guarantee
+comes from real Firestore transaction retries, so it has to be verified with the
+emulator or two devices (steps 2 and 3 below).
 
 ### How to test on device
 
@@ -330,11 +387,15 @@ counters/{factoryId}__{sequenceKey}
 4. **Read cost:** note reads in the overlay before and after creating a job-work
    order. Before ≈ size of 4 collections; after should be ~8 reads regardless of
    history size. Record both in §12.
-5. **Seed correctness:** run the migration against the imported emulator dataset,
-   then create one document of each type and confirm no number collides with an
-   existing one.
+5. **Seed correctness:** against a dataset that already has documents, create one
+   document of each type and confirm no number collides with an existing one.
+   Seeding is automatic — check the `counters` collection in the Emulator UI and
+   confirm each `value` is at or above the highest number already in use.
 6. **Year rollover:** set the device clock to 1 Jan next year, create an invoice,
    confirm `-0001` and that last year's numbers are untouched. Reset the clock.
+7. **Offline behaviour:** turn on airplane mode and try to create an expense. It
+   must fail with "Cannot create a new EXP number while offline", *not* succeed
+   with a timestamp-derived number. Reconnect and confirm the create works.
 
 ### Exit
 
@@ -592,13 +653,17 @@ Run in this order. **S37 and S38 both migrate live data — back up first.**
 1. Export production Firestore:
    `gcloud firestore export gs://<bucket>/pre-phase2`
 2. Deploy rules + indexes: `firebase deploy --only firestore:rules,firestore:indexes`
-3. Run the S37 sequence seed migration; verify counters ≥ current max per key.
-4. Release the S37 build; confirm new document numbers continue the sequence.
-5. Run the S38 stock backfill; verify with the reconciliation screen that
+   — the `counters` rules must be live *before* the S37 build ships, or every
+   document create fails with `permission-denied`.
+3. Release the S37 build. Counters seed themselves from existing numbers on first
+   use, so there is no migration step to run; confirm new document numbers
+   continue the sequence and spot-check `counters` against the highest number in
+   each collection.
+4. Run the S38 stock backfill; verify with the reconciliation screen that
    `averageCost` and `stockValue` are unchanged for every material.
-6. Release the S38 build; watch for negative-stock rejections in logs.
-7. Release S39 and S40 (no data migration).
-8. Observe Console usage for 7 days against the free-tier ceiling.
+5. Release the S38 build; watch for negative-stock rejections in logs.
+6. Release S39 and S40 (no data migration).
+7. Observe Console usage for 7 days against the free-tier ceiling.
 
 ---
 

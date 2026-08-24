@@ -99,6 +99,8 @@ import '../../data/services/factory_display_service.dart';
 import '../../data/services/finished_goods_stock_service.dart';
 import '../../data/services/pl_report_service.dart';
 import '../../data/services/raw_material_stock_service.dart';
+import '../../data/services/sequence_number_service.dart';
+import '../../data/services/sequence_seed_migration.dart';
 import '../../data/services/job_work_cleanup_service.dart';
 import '../../data/services/notification_engine_service.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
@@ -323,6 +325,14 @@ void setupDependencies() {
     () => SalesAgreementBackfillService(
       salesOrderRepository: getIt<SalesOrderRepository>(),
       salesAgreementRepository: getIt<SalesAgreementRepository>(),
+    ),
+  );
+  getIt.registerLazySingleton<SequenceNumberService>(
+    SequenceNumberService.new,
+  );
+  getIt.registerLazySingleton<SequenceSeedMigration>(
+    () => SequenceSeedMigration(
+      sequenceNumberService: getIt<SequenceNumberService>(),
     ),
   );
 

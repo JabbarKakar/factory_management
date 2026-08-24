@@ -9,6 +9,7 @@ import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/enums/customer_enums.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../../domain/enums/job_work_load_enums.dart';
@@ -18,6 +19,7 @@ import '../models/payment_model.dart';
 import '../services/job_work_container_sync_helper.dart';
 import '../services/job_work_load_production_helper.dart';
 import '../services/job_work_load_resolver.dart';
+import '../services/sequence_number_service.dart';
 import 'job_work_repository.dart';
 
 class JobWorkLoadException implements Exception {
@@ -33,12 +35,16 @@ class JobWorkLoadRepository {
   JobWorkLoadRepository({
     FirebaseFirestore? firestore,
     JobWorkRepository? jobWorkRepository,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _jobWorkRepository =
-            jobWorkRepository ?? JobWorkRepository(firestore: firestore);
+            jobWorkRepository ?? JobWorkRepository(firestore: firestore),
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final JobWorkRepository _jobWorkRepository;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _loads =>
@@ -969,12 +975,11 @@ class JobWorkLoadRepository {
     }
   }
 
-  Future<String> _generateLoadNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _loads.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'JWL-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateLoadNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.jobWorkLoad,
+    );
   }
 
   /// Resolve loads for UI/read paths (persisted or virtual).

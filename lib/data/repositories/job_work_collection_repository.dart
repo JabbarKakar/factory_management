@@ -5,10 +5,12 @@ import '../../core/utils/stock_output_calculator.dart';
 import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_load.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/job_work_collection_enums.dart';
 import '../models/job_work_collection_model.dart';
 import '../services/job_work_collection_quantity_helper.dart';
 import '../services/job_work_collection_status_helper.dart';
+import '../services/sequence_number_service.dart';
 import 'job_work_load_repository.dart';
 import 'job_work_repository.dart';
 
@@ -26,6 +28,7 @@ class JobWorkCollectionRepository {
     FirebaseFirestore? firestore,
     JobWorkRepository? jobWorkRepository,
     JobWorkLoadRepository? loadRepository,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _jobWorkRepository =
             jobWorkRepository ?? JobWorkRepository(firestore: firestore),
@@ -33,11 +36,14 @@ class JobWorkCollectionRepository {
             JobWorkLoadRepository(
               firestore: firestore,
               jobWorkRepository: jobWorkRepository,
-            );
+            ),
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final JobWorkRepository _jobWorkRepository;
   final JobWorkLoadRepository _loadRepository;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
@@ -333,12 +339,11 @@ class JobWorkCollectionRepository {
     }
   }
 
-  Future<String> _generateCollectionNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _collection.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'JC-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateCollectionNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.jobWorkCollection,
+    );
   }
 
   static String? _cleanString(String? val) {

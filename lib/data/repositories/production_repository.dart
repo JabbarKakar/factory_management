@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/production_batch.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
 import '../models/production_batch_model.dart';
@@ -11,6 +12,7 @@ import '../models/stock_transaction_model.dart';
 import '../repositories/finished_goods_repository.dart';
 import '../services/finished_goods_stock_service.dart';
 import '../services/raw_material_stock_service.dart';
+import '../services/sequence_number_service.dart';
 
 class ProductionBatchException implements Exception {
   const ProductionBatchException(this.message);
@@ -26,13 +28,17 @@ class ProductionRepository {
     FirebaseFirestore? firestore,
     RawMaterialStockService? stockService,
     FinishedGoodsRepository? finishedGoodsRepository,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _stockService = stockService ?? RawMaterialStockService(),
-        _finishedGoodsRepository = finishedGoodsRepository;
+        _finishedGoodsRepository = finishedGoodsRepository,
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final RawMaterialStockService _stockService;
   final FinishedGoodsRepository? _finishedGoodsRepository;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _batchesCollection =>
@@ -359,22 +365,17 @@ class ProductionRepository {
     return updatedBatch;
   }
 
-  Future<String> _generateBatchNumber({required String factoryId}) async {
-    final year = DateTime.now().year;
-    final snapshot = await _batchesCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .get();
-    final count = snapshot.docs.length + 1;
-    return 'PRD-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateBatchNumber({required String factoryId}) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.productionBatch,
+    );
   }
 
-  Future<String> _generateStockOutNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot = await _transactionsCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .where('movementType', isEqualTo: StockMovementType.stockOut.firestoreValue)
-        .get();
-    final count = snapshot.docs.length + 1;
-    return 'STK-OUT-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateStockOutNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: StockMovementType.stockOut.documentSequence,
+    );
   }
 }

@@ -4,16 +4,23 @@ import 'package:uuid/uuid.dart';
 import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_payment.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/expense_enums.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../models/expense_model.dart';
 import '../models/expense_payment_model.dart';
+import '../services/sequence_number_service.dart';
 
 class ExpenseRepository {
-  ExpenseRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  ExpenseRepository({
+    FirebaseFirestore? firestore,
+    SequenceNumberService? sequenceNumberService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection =>
@@ -298,17 +305,13 @@ class ExpenseRepository {
     return payments;
   }
 
-  Future<String> _generateExpenseNumber(String factoryId) async {
-    try {
-      final year = DateTime.now().year;
-      final snapshot =
-          await collection.where('factoryId', isEqualTo: factoryId).get();
-      final count = snapshot.docs.length + 1;
-      return 'EXP-$year-${count.toString().padLeft(4, '0')}';
-    } catch (_) {
-      final year = DateTime.now().year;
-      final millis = DateTime.now().millisecondsSinceEpoch % 10000;
-      return 'EXP-$year-${millis.toString().padLeft(4, '0')}';
-    }
+  /// Failures propagate on purpose. The previous timestamp-based fallback hid
+  /// outages by minting `EXP-<year>-<millis>`, which collides with the real
+  /// series and produces duplicate expense numbers.
+  Future<String> _generateExpenseNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.expense,
+    );
   }
 }

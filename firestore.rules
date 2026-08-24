@@ -138,6 +138,14 @@ service cloud.firestore {
       return signedIn() && isActiveUser() && !isViewer() && sameFactoryIncoming();
     }
 
+    function validCounterWrite(counterId) {
+      return canWriteFactoryDoc()
+        && counterId == myFactory() + '__' + request.resource.data.sequenceKey
+        && request.resource.data.value is int
+        && request.resource.data.value > 0
+        && request.resource.data.year is int;
+    }
+
     // Read-only visibility of customer/sales/financial docs. Supervisor is
     // included so the Customers, Sales, and Dashboard views work; write access
     // to these collections stays restricted via canWriteFinancial().
@@ -444,6 +452,26 @@ service cloud.firestore {
       allow read: if canReadFactoryDoc() && canReadOperations();
       allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'supervisor', 'jobWorkClerk'];
       allow delete: if isOwner() && sameFactoryExisting();
+    }
+
+    // S37: document-number counters, one doc per factory per sequence.
+    // Not gated per sequence — that would duplicate every create rule in this
+    // file. Reserving a number is harmless on its own: the document it names
+    // still has to pass its own collection's rules.
+    match /counters/{counterId} {
+      allow read: if canReadFactoryDoc();
+      allow create: if validCounterWrite(counterId);
+      // Within a year the value may only rise, so a stale client cannot rewind
+      // the series and start re-issuing numbers. Moving to a later year is the
+      // one case where a lower value is legitimate.
+      allow update: if validCounterWrite(counterId)
+        && request.resource.data.sequenceKey == resource.data.sequenceKey
+        && (
+          request.resource.data.year > resource.data.year
+            || (request.resource.data.year == resource.data.year
+                && request.resource.data.value > resource.data.value)
+        );
+      allow delete: if false;
     }
 
     match /{document=**} {

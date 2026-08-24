@@ -7,11 +7,13 @@ import '../../domain/entities/customer.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/customer_enums.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/customer_model.dart';
 import '../models/payment_model.dart';
 import '../models/sales_order_model.dart';
+import '../services/sequence_number_service.dart';
 import 'sales_agreement_repository.dart';
 
 import '../../core/utils/firestore_paginator.dart';
@@ -21,12 +23,16 @@ class SalesOrderRepository {
   SalesOrderRepository({
     FirebaseFirestore? firestore,
     SalesAgreementRepository? salesAgreementRepository,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _salesAgreementRepository = salesAgreementRepository ??
-            SalesAgreementRepository(firestore: firestore);
+            SalesAgreementRepository(firestore: firestore),
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final SalesAgreementRepository _salesAgreementRepository;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _ordersCollection =>
@@ -499,11 +505,10 @@ class SalesOrderRepository {
     };
   }
 
-  Future<String> _generateOrderNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _ordersCollection.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'ORD-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateOrderNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.salesOrder,
+    );
   }
 }

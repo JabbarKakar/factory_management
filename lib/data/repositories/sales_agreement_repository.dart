@@ -4,18 +4,25 @@ import 'package:uuid/uuid.dart';
 import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/sales_agreement.dart';
 import '../../domain/entities/sales_order.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/sales_agreement_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/sales_agreement_model.dart';
 import '../models/sales_invoice_model.dart';
 import '../models/sales_order_model.dart';
 import '../services/sales_container_sync_helper.dart';
+import '../services/sequence_number_service.dart';
 
 class SalesAgreementRepository {
-  SalesAgreementRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  SalesAgreementRepository({
+    FirebaseFirestore? firestore,
+    SequenceNumberService? sequenceNumberService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _agreements =>
@@ -148,12 +155,11 @@ class SalesAgreementRepository {
     return maxSequence + 1;
   }
 
-  Future<String> generateAgreementNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _agreements.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'SA-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> generateAgreementNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.salesAgreement,
+    );
   }
 
   /// Idempotent: link a legacy order to a 1:1 Agreement when missing.

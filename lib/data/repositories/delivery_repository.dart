@@ -6,9 +6,11 @@ import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/delivery_enums.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../models/delivery_model.dart';
 import '../services/delivery_quantity_helper.dart';
 import '../services/sales_order_dispatch_status_helper.dart';
+import '../services/sequence_number_service.dart';
 import 'sales_order_repository.dart';
 
 import '../../core/utils/firestore_paginator.dart';
@@ -27,12 +29,16 @@ class DeliveryRepository {
   DeliveryRepository({
     FirebaseFirestore? firestore,
     SalesOrderRepository? salesOrderRepository,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _salesOrderRepository =
-            salesOrderRepository ?? SalesOrderRepository(firestore: firestore);
+            salesOrderRepository ?? SalesOrderRepository(firestore: firestore),
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final SalesOrderRepository _salesOrderRepository;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
@@ -497,11 +503,10 @@ class DeliveryRepository {
     await _salesOrderRepository.updateDispatchStatus(salesOrderId, targetStatus);
   }
 
-  Future<String> _generateDeliveryNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _collection.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'DEL-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateDeliveryNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.delivery,
+    );
   }
 }

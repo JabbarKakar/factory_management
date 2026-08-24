@@ -4,8 +4,10 @@ import 'package:uuid/uuid.dart';
 import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/maintenance_log.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../models/equipment_model.dart';
 import '../models/maintenance_log_model.dart';
+import '../services/sequence_number_service.dart';
 
 class EquipmentException implements Exception {
   const EquipmentException(this.message);
@@ -17,10 +19,15 @@ class EquipmentException implements Exception {
 }
 
 class EquipmentRepository {
-  EquipmentRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  EquipmentRepository({
+    FirebaseFirestore? firestore,
+    SequenceNumberService? sequenceNumberService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _equipmentCollection =>
@@ -150,11 +157,10 @@ class EquipmentRepository {
     return MaintenanceLogModel.fromFirestore(id, createdDoc.data()!).toEntity();
   }
 
-  Future<String> _generateEquipmentNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _equipmentCollection.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'EQP-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateEquipmentNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.equipment,
+    );
   }
 }

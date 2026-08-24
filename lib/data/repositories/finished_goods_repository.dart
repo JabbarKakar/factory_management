@@ -5,21 +5,27 @@ import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/finished_good.dart';
 import '../../domain/entities/inventory_transaction.dart';
 import '../../domain/entities/production_batch.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/inventory_enums.dart';
 import '../models/finished_good_model.dart';
 import '../models/inventory_transaction_model.dart';
 import '../services/finished_goods_stock_service.dart';
+import '../services/sequence_number_service.dart';
 import '../services/stock_correction_helper.dart';
 
 class FinishedGoodsRepository {
   FinishedGoodsRepository({
     FirebaseFirestore? firestore,
     FinishedGoodsStockService? stockService,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _stockService = stockService ?? FinishedGoodsStockService();
+        _stockService = stockService ?? FinishedGoodsStockService(),
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final FinishedGoodsStockService _stockService;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _goodsCollection =>
@@ -173,12 +179,6 @@ class FinishedGoodsRepository {
         receipts.where((receipt) => receipt.quantity > 0).toList();
     if (activeReceipts.isEmpty) return;
 
-    final baseCount = await _transactionCount(
-      factoryId: batch.factoryId,
-      movementType: InventoryMovementType.productionIn,
-    );
-    var transactionOffset = 0;
-
     for (final receipt in activeReceipts) {
 
       final skuKey = buildFinishedGoodSkuKey(
@@ -221,11 +221,10 @@ class FinishedGoodsRepository {
       );
 
       final transactionId = _uuid.v4();
-      final transactionNumber = _formatTransactionNumber(
+      final transactionNumber = await _generateTransactionNumber(
+        factoryId: batch.factoryId,
         movementType: InventoryMovementType.productionIn,
-        sequence: baseCount + transactionOffset,
       );
-      transactionOffset++;
 
       final transaction = InventoryTransaction(
         id: transactionId,
@@ -417,38 +416,10 @@ class FinishedGoodsRepository {
   Future<String> _generateTransactionNumber({
     required String factoryId,
     required InventoryMovementType movementType,
-  }) async {
-    final sequence = await _transactionCount(
-      factoryId: factoryId,
-      movementType: movementType,
-    );
-    return _formatTransactionNumber(
-      movementType: movementType,
-      sequence: sequence,
-    );
-  }
-
-  Future<int> _transactionCount({
-    required String factoryId,
-    required InventoryMovementType movementType,
-  }) async {
-    final snapshot = await _transactionsCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .where('movementType', isEqualTo: movementType.firestoreValue)
-        .get();
-    return snapshot.docs.length + 1;
-  }
-
-  String _formatTransactionNumber({
-    required InventoryMovementType movementType,
-    required int sequence,
   }) {
-    final year = DateTime.now().year;
-    final prefix = switch (movementType) {
-      InventoryMovementType.productionIn => 'INV-IN',
-      InventoryMovementType.adjustmentIn => 'INV-ADJ-IN',
-      InventoryMovementType.adjustmentOut => 'INV-ADJ-OUT',
-    };
-    return '$prefix-$year-${sequence.toString().padLeft(4, '0')}';
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: movementType.documentSequence,
+    );
   }
 }

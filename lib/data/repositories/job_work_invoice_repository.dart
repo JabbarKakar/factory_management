@@ -10,6 +10,8 @@ import '../../domain/enums/job_work_enums.dart';
 import '../models/job_work_invoice_model.dart';
 import '../services/job_work_container_sync_helper.dart';
 import 'invoice_exception.dart';
+import '../../domain/enums/document_sequence.dart';
+import '../services/sequence_number_service.dart';
 import 'job_work_load_repository.dart';
 import 'job_work_repository.dart';
 
@@ -18,13 +20,17 @@ class JobWorkInvoiceRepository {
     FirebaseFirestore? firestore,
     required JobWorkRepository jobWorkRepository,
     required JobWorkLoadRepository loadRepository,
+    SequenceNumberService? sequenceNumberService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _jobWorkRepository = jobWorkRepository,
-        _loadRepository = loadRepository;
+        _loadRepository = loadRepository,
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final JobWorkRepository _jobWorkRepository;
   final JobWorkLoadRepository _loadRepository;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection => _collection;
@@ -830,11 +836,10 @@ class JobWorkInvoiceRepository {
     await _collection.doc(invoiceId).update(updates);
   }
 
-  Future<String> _generateInvoiceNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await _collection.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'JWI-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateInvoiceNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.jobWorkInvoice,
+    );
   }
 }

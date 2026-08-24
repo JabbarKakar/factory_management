@@ -3,13 +3,20 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/employee.dart';
+import '../../domain/enums/document_sequence.dart';
 import '../models/employee_model.dart';
+import '../services/sequence_number_service.dart';
 
 class EmployeeRepository {
-  EmployeeRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  EmployeeRepository({
+    FirebaseFirestore? firestore,
+    SequenceNumberService? sequenceNumberService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _sequenceNumberService =
+            sequenceNumberService ?? SequenceNumberService(firestore: firestore);
 
   final FirebaseFirestore _firestore;
+  final SequenceNumberService _sequenceNumberService;
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection =>
@@ -65,11 +72,10 @@ class EmployeeRepository {
     await collection.doc(id).delete();
   }
 
-  Future<String> _generateEmployeeNumber(String factoryId) async {
-    final year = DateTime.now().year;
-    final snapshot =
-        await collection.where('factoryId', isEqualTo: factoryId).get();
-    final count = snapshot.docs.length + 1;
-    return 'EMP-$year-${count.toString().padLeft(4, '0')}';
+  Future<String> _generateEmployeeNumber(String factoryId) {
+    return _sequenceNumberService.allocate(
+      factoryId: factoryId,
+      sequence: DocumentSequence.employee,
+    );
   }
 }
