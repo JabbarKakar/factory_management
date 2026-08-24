@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/utils/stock_output_calculator.dart';
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/delivery_enums.dart';
@@ -35,7 +36,7 @@ class DeliveryRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('deliveries');
+      trackedCollection(_firestore, 'deliveries');
 
   Future<PaginatedResult<Delivery>> fetchDeliveriesPage({
     required String factoryId,

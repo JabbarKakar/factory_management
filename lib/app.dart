@@ -13,6 +13,7 @@ import 'data/services/job_work_cleanup_service.dart';
 import 'data/services/job_work_loads_backfill_service.dart';
 import 'data/services/sales_agreement_backfill_service.dart';
 import 'presentation/routes/app_router.dart';
+import 'presentation/widgets/debug/firestore_metrics_overlay.dart';
 
 class FactoryManagementApp extends StatefulWidget {
   const FactoryManagementApp({super.key});
@@ -96,6 +97,9 @@ class _FactoryManagementAppState extends State<FactoryManagementApp> {
             themeMode: themeMode,
             debugShowCheckedModeBanner: false,
             routerConfig: _router,
+            builder: (context, child) => FirestoreMetricsOverlay(
+              child: child ?? const SizedBox.shrink(),
+            ),
           );
         },
       ),

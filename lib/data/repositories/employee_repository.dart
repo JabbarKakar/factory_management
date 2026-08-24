@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/employee.dart';
 import '../models/employee_model.dart';
 
@@ -12,7 +13,7 @@ class EmployeeRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection =>
-      _firestore.collection('employees');
+      trackedCollection(_firestore, 'employees');
 
   Stream<List<Employee>> watchEmployees(String factoryId) {
     return collection.where('factoryId', isEqualTo: factoryId).snapshots().map(

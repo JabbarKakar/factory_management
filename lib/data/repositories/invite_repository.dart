@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/team_invite.dart';
 import '../../domain/enums/factory_role_enums.dart';
 import '../../domain/enums/invite_enums.dart';
@@ -12,7 +13,7 @@ class InviteRepository {
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('invites');
+      trackedCollection(_firestore, 'invites');
 
   Future<TeamInvite?> getInvite(String inviteId) async {
     final doc = await _collection.doc(inviteId).get();

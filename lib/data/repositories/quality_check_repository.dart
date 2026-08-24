@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/production_batch.dart';
 import '../../domain/entities/quality_check.dart';
@@ -35,7 +36,7 @@ class QualityCheckRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('qualityChecks');
+      trackedCollection(_firestore, 'qualityChecks');
 
   Stream<List<QualityCheck>> watchQualityChecks(String factoryId) {
     return _collection.where('factoryId', isEqualTo: factoryId).snapshots().map(

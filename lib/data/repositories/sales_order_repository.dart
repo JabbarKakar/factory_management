@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/events/entity_reactive_event_bus.dart';
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/sales_order.dart';
@@ -29,13 +30,13 @@ class SalesOrderRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _ordersCollection =>
-      _firestore.collection('salesOrders');
+      trackedCollection(_firestore, 'salesOrders');
 
   DocumentReference<Map<String, dynamic>> salesOrderDoc(String id) =>
       _ordersCollection.doc(id);
 
   CollectionReference<Map<String, dynamic>> get _customerCollection =>
-      _firestore.collection('customers');
+      trackedCollection(_firestore, 'customers');
 
   Future<PaginatedResult<SalesOrder>> fetchSalesOrdersPage({
     required String factoryId,

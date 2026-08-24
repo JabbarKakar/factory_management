@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -29,7 +30,7 @@ class JobWorkInvoiceRepository {
   CollectionReference<Map<String, dynamic>> get collection => _collection;
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('jobWorkInvoices');
+      trackedCollection(_firestore, 'jobWorkInvoices');
 
   Future<JobWorkInvoice?> getInvoice(String id) async {
     try {

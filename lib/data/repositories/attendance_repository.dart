@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../core/utils/date_keys.dart';
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/attendance_record.dart';
 import '../../domain/enums/labour_enums.dart';
 import '../models/attendance_record_model.dart';
@@ -12,7 +13,7 @@ class AttendanceRepository {
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get collection =>
-      _firestore.collection('attendanceRecords');
+      trackedCollection(_firestore, 'attendanceRecords');
 
   String _docId({
     required String factoryId,

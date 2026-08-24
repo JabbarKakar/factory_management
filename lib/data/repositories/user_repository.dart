@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/enums/factory_role_enums.dart';
 import '../../domain/enums/user_enums.dart';
@@ -12,7 +13,7 @@ class UserRepository {
   final FirebaseFirestore _firestore;
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('users');
+      trackedCollection(_firestore, 'users');
 
   Stream<AppUser?> watchUser(String userId, {String? authPhotoUrl}) {
     return _collection.doc(userId).snapshots().map((doc) {

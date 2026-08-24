@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/production_batch.dart';
 import '../../domain/enums/production_enums.dart';
 import '../../domain/enums/raw_material_enums.dart';
@@ -35,13 +36,13 @@ class ProductionRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _batchesCollection =>
-      _firestore.collection('productionBatches');
+      trackedCollection(_firestore, 'productionBatches');
 
   CollectionReference<Map<String, dynamic>> get _materialsCollection =>
-      _firestore.collection('rawMaterials');
+      trackedCollection(_firestore, 'rawMaterials');
 
   CollectionReference<Map<String, dynamic>> get _transactionsCollection =>
-      _firestore.collection('stockTransactions');
+      trackedCollection(_firestore, 'stockTransactions');
 
   Stream<List<ProductionBatch>> watchBatches(String factoryId) {
     return _batchesCollection

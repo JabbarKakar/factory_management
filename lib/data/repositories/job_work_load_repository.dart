@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/job_work_charges_calculator.dart';
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
@@ -41,7 +42,7 @@ class JobWorkLoadRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _loads =>
-      _firestore.collection('jobWorkLoads');
+      trackedCollection(_firestore, 'jobWorkLoads');
 
   DocumentReference<Map<String, dynamic>> loadDoc(String id) => _loads.doc(id);
 
@@ -64,13 +65,13 @@ class JobWorkLoadRepository {
   }
 
   CollectionReference<Map<String, dynamic>> get _jobWorkOrders =>
-      _firestore.collection('jobWorkOrders');
+      trackedCollection(_firestore, 'jobWorkOrders');
 
   CollectionReference<Map<String, dynamic>> get _invoices =>
-      _firestore.collection('jobWorkInvoices');
+      trackedCollection(_firestore, 'jobWorkInvoices');
 
   CollectionReference<Map<String, dynamic>> get _collections =>
-      _firestore.collection('jobWorkCollections');
+      trackedCollection(_firestore, 'jobWorkCollections');
 
   Stream<List<JobWorkLoad>> watchLoads(String factoryId) {
     return _loads.where('factoryId', isEqualTo: factoryId).snapshots().map(

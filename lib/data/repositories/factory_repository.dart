@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/bank_account.dart';
 import '../../domain/entities/factory_profile.dart';
 import '../../domain/enums/business_profile_enums.dart';
@@ -20,7 +21,7 @@ class FactoryRepository {
   final FirebaseStorage _storage;
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('factories');
+      trackedCollection(_firestore, 'factories');
 
   Future<FactoryProfile?> getFactory(String factoryId) async {
     final doc = await _collection.doc(factoryId).get();

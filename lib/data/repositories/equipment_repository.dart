@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/maintenance_log.dart';
 import '../models/equipment_model.dart';
@@ -23,10 +24,10 @@ class EquipmentRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _equipmentCollection =>
-      _firestore.collection('equipment');
+      trackedCollection(_firestore, 'equipment');
 
   CollectionReference<Map<String, dynamic>> get _maintenanceCollection =>
-      _firestore.collection('maintenanceLogs');
+      trackedCollection(_firestore, 'maintenanceLogs');
 
   Stream<List<Equipment>> watchEquipment(String factoryId) {
     return _equipmentCollection

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/sales_agreement.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/sales_agreement_enums.dart';
@@ -18,13 +19,13 @@ class SalesAgreementRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _agreements =>
-      _firestore.collection('salesAgreements');
+      trackedCollection(_firestore, 'salesAgreements');
 
   CollectionReference<Map<String, dynamic>> get _orders =>
-      _firestore.collection('salesOrders');
+      trackedCollection(_firestore, 'salesOrders');
 
   CollectionReference<Map<String, dynamic>> get _invoices =>
-      _firestore.collection('salesInvoices');
+      trackedCollection(_firestore, 'salesInvoices');
 
   DocumentReference<Map<String, dynamic>> agreementDoc(String id) =>
       _agreements.doc(id);

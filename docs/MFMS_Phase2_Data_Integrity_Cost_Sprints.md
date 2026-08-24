@@ -144,29 +144,135 @@ migration risk, so it lands after S37 has proven the migration pattern.
 
 - `lib/core/config/firebase_emulator_config.dart` (modified)
 - `lib/core/observability/firestore_metrics.dart` (new)
+- `lib/core/observability/tracked_firestore.dart` (new)
 - `lib/presentation/widgets/debug/firestore_metrics_overlay.dart` (new)
-- `tool/seed_emulator.dart` (new)
+- `lib/app.dart` (overlay wired via `MaterialApp.builder`)
+- 24 repository files (collection getters routed through `trackedCollection`)
+- `bin/seed_data.dart` (modified — `--emulator` support)
+- `test/core/observability/firestore_metrics_test.dart` (new)
 - Baseline table in §12
+
+### 6.1 Delivery notes
+
+**Status: delivered.** `flutter analyze` reports no new issues; 226 tests pass
+(213 existing + 13 new).
+
+**Fixed after first run — overlay crashed on launch.** The overlay is installed
+through `MaterialApp.builder`, which places it *above* the Navigator, so the
+subtree has **no `Overlay` ancestor**. Two widgets needed replacing:
+
+| Widget | Symptom | Replacement |
+|--------|---------|-------------|
+| `Draggable` | `No Overlay widget found` on build | `GestureDetector.onPanUpdate` with bounds clamping |
+| `Tooltip` (reset / collapse icons) | `No Overlay widget found` when expanding, then two misleading `RenderFlex overflowed` errors caused by the substituted `ErrorWidget` | `Semantics(button: true, label: ...)` |
+
+The overflow errors were symptoms, not separate bugs — worth remembering when
+reading a stack of layout errors after one build failure.
+`test/presentation/widgets/debug/firestore_metrics_overlay_test.dart` now mounts
+the overlay through `MaterialApp.builder` exactly as `app.dart` does, so any
+future Overlay-dependent widget fails in CI rather than on device.
+
+**How read tracking works.** `trackedCollection(firestore, name)` returns a
+`TrackedCollectionReference` in debug builds and the raw reference in release,
+so there is no production overhead. Because `TrackedQuery.where()` /
+`.orderBy()` / `.limit()` re-wrap, tracking survives the whole chain and only
+the collection getters needed changing — 24 files instead of ~450 call sites.
+
+Counting mirrors Firestore billing: a `get()` bills `docs.length`, and a
+`snapshots()` listener bills every document in its first snapshot then only
+`docChanges.length` on later snapshots.
+
+**Two SDK constraints worth knowing.**
+
+1. `Query` and `CollectionReference` are annotated `@sealed`, so the wrapper
+   carries a file-level `ignore: subtype_of_sealed_class` (the same approach
+   `fake_cloud_firestore` uses). A `cloud_firestore` upgrade that adds a member
+   will break this one file at compile time — a loud, contained failure.
+2. `Transaction.set` and `WriteBatch.set` type-check their argument against the
+   SDK's private reference classes and throw on a wrapper. So
+   `TrackedCollectionReference.doc()` deliberately returns the **real**
+   `DocumentReference`. Batches and transactions are therefore untouched and
+   safe.
+
+**Known tracking gaps** (all deliberate, none affect the quota diagnosis):
+
+| Surface | Tracked? | Why |
+|---------|----------|-----|
+| Query reads via repository collection getters | **Yes** | Covers all 17 dashboard listeners and every `watch*`/`fetch*` |
+| Single-document reads (`.doc(id).get()` / `.snapshots()`) | No | `doc()` must return a real reference; these are 1 document each |
+| Writes inside `WriteBatch` / `runTransaction` | No | Real references bypass the wrapper; count from the Emulator UI or add explicit `recordWrites` on the paths under test |
+| `add()` on a tracked collection | **Yes** | Counted as one write |
+| Inline multi-line `_firestore.collection('x').where(...)` chains | No | ~20 sites in `job_work_*`, `customer_repository`, `payment_repository`; S40 converts these while fixing D4 |
+| `auth_repository` | No | Document-level only, negligible volume |
+
+Because `syncCustomerBalance` goes through `watchSalesOrders` and `watchLoads`,
+the D4 amplifier **is** measurable today.
+
+**Emulator default.** Debug builds now use the emulator suite automatically.
+Opt back into production with `--dart-define=USE_PROD_FIREBASE=true`; the legacy
+`USE_FIREBASE_EMULATORS=true` flag still works. Release builds always use
+production, and the startup log states which target is active.
+
+**Seeder.** `bin/seed_data.dart` gained `--emulator` and `--emulator-host`
+instead of a new script. `_parseArgs` also had to be fixed — it silently dropped
+bare flags, so `--emulator` would have been ignored.
 
 ### How to test on device
 
-1. Start emulators on the PC:
+1. Start the emulators on the PC:
    ```
    firebase emulators:start --import=./.emulator-data --export-on-exit
    ```
-2. Find your PC's LAN IP (`ipconfig` → IPv4 of your Wi-Fi adapter), then run on a
-   physical phone on the same Wi-Fi:
+2. Seed a working dataset into the emulator:
+   ```
+   dart run bin/seed_data.dart --emulator
+   ```
+   For a physical device, the seeder still runs on the PC, so `localhost` is
+   correct here. Confirm the banner prints `Target : EMULATOR (localhost)`.
+3. Run the app. On the **Android emulator** no flags are needed — debug builds
+   now default to the emulator suite on `10.0.2.2`:
+   ```
+   flutter run
+   ```
+   On a **physical device** (phone or tablet), neither default host works.
+   Prefer adb port reversal — it tunnels over the USB connection already used
+   by `flutter run`, so there is no IP to look up and no firewall to open:
+   ```
+   adb reverse tcp:8080 tcp:8080
+   adb reverse tcp:9099 tcp:9099
+   adb reverse tcp:5001 tcp:5001
+   flutter run --dart-define=EMULATOR_HOST=localhost
+   ```
+   Re-run the `adb reverse` commands after unplugging the device or restarting
+   adb; they do not survive a disconnect.
+
+   As a fallback, use the PC's LAN IP with both devices on the same Wi-Fi
+   (`ipconfig` → IPv4) and allow inbound traffic on those ports in Windows
+   Firewall:
    ```
    flutter run --dart-define=EMULATOR_HOST=192.168.1.10
    ```
-3. Confirm the console prints `Firebase emulators: host=... (auth:9099, firestore:8080, functions:5001)`.
-4. Open `http://localhost:4000` on the PC — your phone's writes should appear in
-   the Emulator UI, **not** in the Firebase Console.
-5. **Quota proof:** open Firebase Console → Firestore → Usage, note the read
-   count, do 10 minutes of app work on the device, refresh. The count must be
-   unchanged.
-6. Verify the metrics overlay: cold-start the app, open the dashboard, and record
-   the read count for the baseline table.
+4. Confirm the console prints
+   `Firebase emulators: host=... (auth:9099, firestore:8080, functions:5001)`.
+   If it prints `using PRODUCTION project` instead, stop — something is
+   overriding the default.
+5. Open `http://localhost:4000` on the PC. Your device's writes must appear in
+   the Emulator UI and **not** in the Firebase Console.
+6. **Quota proof:** open Firebase Console → Firestore → Usage and note the read
+   count. Do 10 minutes of app work on the device, including several hot
+   restarts, then refresh. The count must be unchanged.
+7. **Verify the overlay:** a black `R … W … L …` pill appears at the top-left
+   (drag to reposition, tap to expand the per-collection breakdown, refresh icon
+   to reset). Cold-start the app, tap reset, open the dashboard, and record the
+   numbers in §12.
+8. **Sanity-check the instrumentation itself:** with the dashboard open, expect
+   ~17 listener attaches (`L`) across the collections listed in D3. If `L` is
+   far lower, a repository is bypassing `trackedCollection`.
+9. **Regression check:** confirm production is still reachable when asked for:
+   ```
+   flutter run --dart-define=USE_PROD_FIREBASE=true
+   ```
+   Log in with a real account, confirm data loads, then go back to the emulator.
 
 ### Exit
 

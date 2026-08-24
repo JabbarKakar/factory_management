@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_payment.dart';
 import '../../domain/enums/expense_enums.dart';
@@ -16,10 +17,10 @@ class ExpenseRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection =>
-      _firestore.collection('expenses');
+      trackedCollection(_firestore, 'expenses');
 
   CollectionReference<Map<String, dynamic>> get paymentsCollection =>
-      _firestore.collection('expense_payments');
+      trackedCollection(_firestore, 'expense_payments');
 
   Stream<List<Expense>> watchExpenses(String factoryId) {
     return collection.where('factoryId', isEqualTo: factoryId).snapshots().map(

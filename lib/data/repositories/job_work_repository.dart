@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/job_work_charges_calculator.dart';
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
@@ -25,13 +26,13 @@ class JobWorkRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _jobWorkCollection =>
-      _firestore.collection('jobWorkOrders');
+      trackedCollection(_firestore, 'jobWorkOrders');
 
   DocumentReference<Map<String, dynamic>> jobWorkDoc(String id) =>
       _jobWorkCollection.doc(id);
 
   CollectionReference<Map<String, dynamic>> get _customerCollection =>
-      _firestore.collection('customers');
+      trackedCollection(_firestore, 'customers');
 
   Future<PaginatedResult<JobWorkOrder>> fetchJobWorkOrdersPage({
     required String factoryId,

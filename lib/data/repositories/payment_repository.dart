@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/utils/formatters.dart';
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -71,7 +72,7 @@ class PaymentRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('payments');
+      trackedCollection(_firestore, 'payments');
 
   Future<List<Payment>> getPaymentsForCustomer({
     required String factoryId,

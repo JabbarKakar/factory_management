@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/payment_reminder.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/reminder_enums.dart';
@@ -14,7 +15,7 @@ class PaymentReminderRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get collection =>
-      _firestore.collection('paymentReminders');
+      trackedCollection(_firestore, 'paymentReminders');
 
   Future<PaymentReminder> logReminder({
     required String factoryId,

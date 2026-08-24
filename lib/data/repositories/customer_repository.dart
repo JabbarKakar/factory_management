@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/firestore_paginator.dart';
 import '../models/paginated_result.dart';
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/customer.dart';
 import '../models/customer_model.dart';
 
@@ -15,7 +16,7 @@ class CustomerRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('customers');
+      trackedCollection(_firestore, 'customers');
 
   Future<PaginatedResult<Customer>> fetchCustomersPage({
     required String factoryId,

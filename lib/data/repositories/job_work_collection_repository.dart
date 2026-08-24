@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/utils/stock_output_calculator.dart';
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/enums/job_work_collection_enums.dart';
@@ -40,7 +41,7 @@ class JobWorkCollectionRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('jobWorkCollections');
+      trackedCollection(_firestore, 'jobWorkCollections');
 
   Stream<List<JobWorkCollection>> watchCollections(String factoryId) {
     return _collection.where('factoryId', isEqualTo: factoryId).snapshots().map(

@@ -15,8 +15,24 @@ import 'dart:math';
 ///   --job-works-count=<n>       Number of job work docs to insert (default: 50)
 ///   --project-id=<id>           Firebase Project ID (default: factory-management-8307e)
 ///   --api-key=<key>             Firebase Web API Key
+///   --emulator                  Seed the local emulator suite instead of production
+///   --emulator-host=<host>      Emulator host (default: localhost)
+///
+/// Seeding the emulator (does not consume the production quota):
+///   firebase emulators:start --import=./.emulator-data --export-on-exit
+///   dart run bin/seed_data.dart --emulator
+// Overridden to the emulator REST endpoints when `--emulator` is passed.
+var _authBase = 'https://identitytoolkit.googleapis.com/v1';
+var _firestoreBase = 'https://firestore.googleapis.com/v1';
+
 void main(List<String> args) async {
   final options = _parseArgs(args);
+  final useEmulator = options.containsKey('emulator');
+  final emulatorHost = options['emulator-host'] ?? 'localhost';
+  if (useEmulator) {
+    _authBase = 'http://$emulatorHost:9099/identitytoolkit.googleapis.com/v1';
+    _firestoreBase = 'http://$emulatorHost:8080/v1';
+  }
   final email = options['email'] ?? 'admin@factory.com';
   final password = options['password'] ?? 'Password123!';
   final factoryId = options['factory-id'] ?? 'factory_seed_001';
@@ -28,6 +44,7 @@ void main(List<String> args) async {
   print('====================================================');
   print('          FACTORY MANAGEMENT DATA SEEDER            ');
   print('====================================================');
+  print('Target             : ${useEmulator ? 'EMULATOR ($emulatorHost)' : 'PRODUCTION'}');
   print('Target Project ID  : $projectId');
   print('Factory ID         : $factoryId');
   print('Auth User          : $email');
@@ -98,6 +115,8 @@ Map<String, String> _parseArgs(List<String> args) {
       final parts = arg.substring(2).split('=');
       if (parts.length == 2) {
         map[parts[0]] = parts[1];
+      } else if (parts.length == 1) {
+        map[parts[0]] = 'true';
       }
     }
   }
@@ -111,7 +130,7 @@ Future<Map<String, String>> _authenticate(
   String password,
 ) async {
   var url = Uri.parse(
-    'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$apiKey',
+    '$_authBase/accounts:signInWithPassword?key=$apiKey',
   );
   var req = await client.postUrl(url);
   req.headers.contentType = ContentType.json;
@@ -132,7 +151,7 @@ Future<Map<String, String>> _authenticate(
   }
 
   url = Uri.parse(
-    'https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$apiKey',
+    '$_authBase/accounts:signUp?key=$apiKey',
   );
   req = await client.postUrl(url);
   req.headers.contentType = ContentType.json;
@@ -163,7 +182,7 @@ Future<void> _ensureFactoryExists(
   String ownerUid,
 ) async {
   final url = Uri.parse(
-    'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/factories/$factoryId',
+    '$_firestoreBase/projects/$projectId/databases/(default)/documents/factories/$factoryId',
   );
   final req = await client.patchUrl(url);
   req.headers.set('Authorization', 'Bearer $idToken');
@@ -194,7 +213,7 @@ Future<void> _ensureUserProfileExists(
   String factoryId,
 ) async {
   final url = Uri.parse(
-    'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/users/$uid',
+    '$_firestoreBase/projects/$projectId/databases/(default)/documents/users/$uid',
   );
   final req = await client.patchUrl(url);
   req.headers.set('Authorization', 'Bearer $idToken');
@@ -337,7 +356,7 @@ Future<List<_CustomerData>> _seedCustomers(
     };
 
     final url = Uri.parse(
-      'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/customers/$custId',
+      '$_firestoreBase/projects/$projectId/databases/(default)/documents/customers/$custId',
     );
     final req = await client.patchUrl(url);
     req.headers.set('Authorization', 'Bearer $idToken');
@@ -518,7 +537,7 @@ Future<void> _seedJobWorkOrders(
     };
 
     final url = Uri.parse(
-      'https://firestore.googleapis.com/v1/projects/$projectId/databases/(default)/documents/jobWorkOrders/$jwId',
+      '$_firestoreBase/projects/$projectId/databases/(default)/documents/jobWorkOrders/$jwId',
     );
     final req = await client.patchUrl(url);
     req.headers.set('Authorization', 'Bearer $idToken');

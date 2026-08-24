@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/finished_good.dart';
 import '../../domain/entities/inventory_transaction.dart';
 import '../../domain/entities/production_batch.dart';
@@ -22,10 +23,10 @@ class FinishedGoodsRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _goodsCollection =>
-      _firestore.collection('finishedGoods');
+      trackedCollection(_firestore, 'finishedGoods');
 
   CollectionReference<Map<String, dynamic>> get _transactionsCollection =>
-      _firestore.collection('inventoryTransactions');
+      trackedCollection(_firestore, 'inventoryTransactions');
 
   Stream<List<FinishedGood>> watchFinishedGoods(String factoryId) {
     return _goodsCollection

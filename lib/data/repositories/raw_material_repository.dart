@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/raw_material.dart';
 import '../../domain/entities/stock_transaction.dart';
 import '../../domain/enums/raw_material_enums.dart';
@@ -21,10 +22,10 @@ class RawMaterialRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _materialsCollection =>
-      _firestore.collection('rawMaterials');
+      trackedCollection(_firestore, 'rawMaterials');
 
   CollectionReference<Map<String, dynamic>> get _transactionsCollection =>
-      _firestore.collection('stockTransactions');
+      trackedCollection(_firestore, 'stockTransactions');
 
   Stream<List<RawMaterial>> watchMaterials(String factoryId) {
     return _materialsCollection

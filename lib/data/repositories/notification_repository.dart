@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/observability/tracked_firestore.dart';
 import '../../domain/entities/app_notification.dart';
 import '../models/notification_model.dart';
 
@@ -12,7 +13,7 @@ class NotificationRepository {
   final _uuid = const Uuid();
 
   CollectionReference<Map<String, dynamic>> get _collection =>
-      _firestore.collection('notifications');
+      trackedCollection(_firestore, 'notifications');
 
   Stream<List<AppNotification>> watchNotifications(String factoryId) {
     return _collection
