@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/firebase_emulator_config.dart';
 import '../../../core/observability/firestore_metrics.dart';
 
 /// Debug-only heads-up display of Firestore document reads and writes.
@@ -62,6 +63,7 @@ class _FirestoreMetricsOverlayState extends State<FirestoreMetricsOverlay> {
     return _Surface(
       onTap: () => setState(() => _expanded = true),
       child: Text(
+        '${FirebaseEmulatorConfig.enabled ? 'EMU' : 'PROD'}  '
         'R ${_compact(metrics.totalServerReads)}  '
         'W ${_compact(metrics.totalWrites)}  '
         'L ${metrics.totalListenerAttaches}',
@@ -110,6 +112,19 @@ class _FirestoreMetricsOverlayState extends State<FirestoreMetricsOverlay> {
                   onTap: () => setState(() => _expanded = false),
                 ),
               ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              FirebaseEmulatorConfig.enabled
+                  ? 'backend LOCAL EMULATORS — not production'
+                  : 'backend PRODUCTION — reads and writes are billed',
+              style: TextStyle(
+                color: FirebaseEmulatorConfig.enabled
+                    ? const Color(0xFFFFB74D)
+                    : const Color(0xFF81C784),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 6),
             Text(

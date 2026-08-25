@@ -13,6 +13,7 @@ import 'data/services/job_work_cleanup_service.dart';
 import 'data/services/job_work_loads_backfill_service.dart';
 import 'data/services/sales_agreement_backfill_service.dart';
 import 'data/services/sequence_seed_migration.dart';
+import 'data/services/stock_backfill_migration.dart';
 import 'presentation/routes/app_router.dart';
 import 'presentation/widgets/debug/firestore_metrics_overlay.dart';
 
@@ -51,6 +52,9 @@ class _FactoryManagementAppState extends State<FactoryManagementApp> {
           .runIfNeeded(state.user.factoryId)
           .ignore();
       getIt<SequenceSeedMigration>()
+          .runIfNeeded(state.user.factoryId)
+          .ignore();
+      getIt<StockBackfillMigration>()
           .runIfNeeded(state.user.factoryId)
           .ignore();
       getIt<NotificationEngineService>()

@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/services/write_failure_message.dart';
 import '../../data/repositories/raw_material_repository.dart';
 import '../../data/services/raw_material_stock_service.dart';
 import '../../domain/enums/raw_material_enums.dart';
@@ -65,11 +66,14 @@ class RawMaterialAdjustmentBloc
           errorMessage: error.message,
         ),
       );
-    } catch (_) {
+    } catch (error) {
       emit(
         state.copyWith(
           status: RawMaterialAdjustmentStatus.failure,
-          errorMessage: 'Could not record adjustment.',
+          errorMessage: writeFailureMessage(
+            error,
+            fallback: 'Could not record adjustment.',
+          ),
         ),
       );
     }

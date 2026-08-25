@@ -12,6 +12,7 @@ import '../models/inventory_transaction_model.dart';
 import '../services/finished_goods_stock_service.dart';
 import '../services/sequence_number_service.dart';
 import '../services/stock_correction_helper.dart';
+import '../services/stock_movement_payload.dart';
 
 class FinishedGoodsRepository {
   FinishedGoodsRepository({
@@ -93,6 +94,16 @@ class FinishedGoodsRepository {
     required String factoryId,
     required String skuKey,
   }) async {
+    final model = await _findBySkuKey(factoryId: factoryId, skuKey: skuKey);
+    return model?.toEntity();
+  }
+
+  /// Same lookup as [getBySkuKey], but keeps the model so write paths can see
+  /// whether the document already stores its totals.
+  Future<FinishedGoodModel?> _findBySkuKey({
+    required String factoryId,
+    required String skuKey,
+  }) async {
     final snapshot = await _goodsCollection
         .where('factoryId', isEqualTo: factoryId)
         .where('skuKey', isEqualTo: skuKey)
@@ -101,7 +112,7 @@ class FinishedGoodsRepository {
 
     if (snapshot.docs.isEmpty) return null;
     final doc = snapshot.docs.first;
-    return FinishedGoodModel.fromFirestore(doc.id, doc.data()).toEntity();
+    return FinishedGoodModel.fromFirestore(doc.id, doc.data());
   }
 
   Future<InventoryTransaction?> getTransaction(String id) async {
@@ -133,11 +144,12 @@ class FinishedGoodsRepository {
         continue;
       }
 
-      final good = FinishedGoodModel.fromFirestore(
+      final goodModel = FinishedGoodModel.fromFirestore(
         goodDoc.id,
         goodDoc.data()!,
-      ).toEntity();
-      final newQuantity = good.currentQuantity - transaction.quantity;
+      );
+      final good = goodModel.toEntity();
+      final newQuantity = good.totalQuantity - transaction.quantity;
       if (newQuantity < -0.001) {
         throw FinishedGoodsStockException(
           'Cannot update batch: ${good.displaySubtitle} stock was already used '
@@ -145,16 +157,29 @@ class FinishedGoodsRepository {
         );
       }
 
-      if (newQuantity <= 0.001) {
-        writeBatch.delete(goodDoc.reference);
-      } else {
-        writeBatch.update(
-          goodDoc.reference,
-          FinishedGoodModel.fromEntity(
-            good.copyWith(currentQuantity: newQuantity),
-          ).toFirestore(),
-        );
-      }
+      // Back the receipt out at the cost it came in at, so the SKU's running
+      // average returns to what it was before this batch.
+      final reversedValue = transaction.totalCost ??
+          transaction.quantity * (transaction.unitCost ?? 0);
+      final projectedValue = good.totalValue - reversedValue;
+
+      // The SKU document is decremented rather than deleted when it empties: a
+      // delete based on this read would discard stock another device received in
+      // the meantime, and an empty SKU is already a normal state elsewhere.
+      writeBatch.set(
+        goodDoc.reference,
+        buildStockMovementPayload(
+          mirror: StockQuantityMirror.finishedGood,
+          quantityDelta: -transaction.quantity,
+          valueDelta: -reversedValue,
+          projectedQuantity: newQuantity,
+          projectedUnitCost: newQuantity > 0.001
+              ? projectedValue / newQuantity
+              : good.averageCost,
+          replaceTotals: !goodModel.hasStoredTotals,
+        ),
+        SetOptions(merge: true),
+      );
 
       writeBatch.delete(doc.reference);
     }
@@ -189,36 +214,13 @@ class FinishedGoodsRepository {
         thickness: batch.thickness,
       );
 
-      final existing = await getBySkuKey(
+      final existingModel = await _findBySkuKey(
         factoryId: batch.factoryId,
         skuKey: skuKey,
       );
+      final existing = existingModel?.toEntity();
 
       final itemId = existing?.id ?? _uuid.v4();
-      final newQuantity = (existing?.currentQuantity ?? 0) + receipt.quantity;
-      final newAverageCost = _stockService.calculateWeightedAverageCost(
-        currentQuantity: existing?.currentQuantity ?? 0,
-        currentAverageCost: existing?.averageCost ?? 0,
-        incomingQuantity: receipt.quantity,
-        incomingUnitCost: unitCostPerSqFt,
-      );
-
-      final item = FinishedGood(
-        id: itemId,
-        factoryId: batch.factoryId,
-        skuKey: skuKey,
-        productType: batch.productType,
-        marbleVariety: batch.marbleVariety,
-        size: batch.size,
-        thickness: batch.thickness,
-        grade: receipt.grade,
-        currentQuantity: newQuantity,
-        reorderLevel: existing?.reorderLevel ?? 0,
-        averageCost: newAverageCost,
-        location: existing?.location,
-        lastReceiptDate: batch.productionDate,
-        createdAt: existing?.createdAt ?? DateTime.now(),
-      );
 
       final transactionId = _uuid.v4();
       final transactionNumber = await _generateTransactionNumber(
@@ -243,8 +245,33 @@ class FinishedGoodsRepository {
 
       writeBatch.set(
         _goodsCollection.doc(itemId),
-        FinishedGoodModel.fromEntity(item).toFirestore(isCreate: existing == null),
-        SetOptions(merge: existing != null),
+        buildStockMovementPayload(
+          mirror: StockQuantityMirror.finishedGood,
+          quantityDelta: receipt.quantity,
+          valueDelta: unitCostPerSqFt * receipt.quantity,
+          projectedQuantity: (existing?.totalQuantity ?? 0) + receipt.quantity,
+          projectedUnitCost: _stockService.calculateWeightedAverageCost(
+            currentQuantity: existing?.currentQuantity ?? 0,
+            currentAverageCost: existing?.averageCost ?? 0,
+            incomingQuantity: receipt.quantity,
+            incomingUnitCost: unitCostPerSqFt,
+          ),
+          identity: {
+            'factoryId': batch.factoryId,
+            'skuKey': skuKey,
+            'productType': batch.productType.firestoreValue,
+            'marbleVariety': batch.marbleVariety,
+            'grade': receipt.grade.firestoreValue,
+            if (batch.size != null && batch.size!.isNotEmpty)
+              'size': batch.size,
+            if (batch.thickness != null && batch.thickness!.isNotEmpty)
+              'thickness': batch.thickness,
+          },
+          lastReceiptDate: batch.productionDate,
+          isCreate: existing == null,
+          replaceTotals: existingModel?.hasStoredTotals == false,
+        ),
+        SetOptions(merge: true),
       );
       writeBatch.set(
         _transactionsCollection.doc(transactionId),
@@ -302,8 +329,8 @@ class FinishedGoodsRepository {
       throw const FinishedGoodsStockException('Stock item not found.');
     }
 
-    final existing =
-        FinishedGoodModel.fromFirestore(doc.id, doc.data()!).toEntity();
+    final existingModel = FinishedGoodModel.fromFirestore(doc.id, doc.data()!);
+    final existing = existingModel.toEntity();
 
     if (movementType == InventoryMovementType.adjustmentOut) {
       _stockService.validateStockOut(
@@ -312,15 +339,13 @@ class FinishedGoodsRepository {
       );
     }
 
-    final delta = movementType == InventoryMovementType.adjustmentIn
-        ? quantity
-        : -quantity;
-    final newQuantity = existing.currentQuantity + delta;
+    final isAdjustmentIn = movementType == InventoryMovementType.adjustmentIn;
+    final quantityDelta = isAdjustmentIn ? quantity : -quantity;
 
     final double effectiveUnitCost;
-    double newAverageCost = existing.averageCost;
+    double projectedUnitCost = existing.averageCost;
 
-    if (movementType == InventoryMovementType.adjustmentIn) {
+    if (isAdjustmentIn) {
       if (existing.currentQuantity <= 0 && unitCost == null) {
         throw const FinishedGoodsStockException(
           'Unit cost is required when adding stock to an empty SKU.',
@@ -328,7 +353,7 @@ class FinishedGoodsRepository {
       }
 
       effectiveUnitCost = unitCost ?? existing.averageCost;
-      newAverageCost = _stockService.calculateWeightedAverageCost(
+      projectedUnitCost = _stockService.calculateWeightedAverageCost(
         currentQuantity: existing.currentQuantity,
         currentAverageCost: existing.averageCost,
         incomingQuantity: quantity,
@@ -338,13 +363,7 @@ class FinishedGoodsRepository {
       effectiveUnitCost = existing.averageCost;
     }
 
-    final item = existing.copyWith(
-      currentQuantity: newQuantity,
-      averageCost: newAverageCost,
-      lastReceiptDate: movementType == InventoryMovementType.adjustmentIn
-          ? transactionDate
-          : existing.lastReceiptDate,
-    );
+    final valueDelta = quantity * effectiveUnitCost * (isAdjustmentIn ? 1 : -1);
 
     final transactionId = _uuid.v4();
     final transactionNumber = await _generateTransactionNumber(
@@ -368,9 +387,18 @@ class FinishedGoodsRepository {
     );
 
     final writeBatch = _firestore.batch();
-    writeBatch.update(
+    writeBatch.set(
       _goodsCollection.doc(finishedGoodId),
-      FinishedGoodModel.fromEntity(item).toFirestore(),
+      buildStockMovementPayload(
+        mirror: StockQuantityMirror.finishedGood,
+        quantityDelta: quantityDelta,
+        valueDelta: valueDelta,
+        projectedQuantity: existing.totalQuantity + quantityDelta,
+        projectedUnitCost: projectedUnitCost,
+        lastReceiptDate: isAdjustmentIn ? transactionDate : null,
+        replaceTotals: !existingModel.hasStoredTotals,
+      ),
+      SetOptions(merge: true),
     );
     writeBatch.set(
       _transactionsCollection.doc(transactionId),

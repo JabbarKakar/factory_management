@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/services/write_failure_message.dart';
 import '../../data/repositories/raw_material_repository.dart';
 import '../../data/services/raw_material_stock_service.dart';
 import '../../domain/enums/raw_material_enums.dart';
@@ -75,11 +76,14 @@ class StockMovementBloc extends Bloc<StockMovementEvent, StockMovementState> {
           errorMessage: error.message,
         ),
       );
-    } catch (_) {
+    } catch (error) {
       emit(
         state.copyWith(
           status: StockMovementStatus.failure,
-          errorMessage: 'Could not record stock movement.',
+          errorMessage: writeFailureMessage(
+            error,
+            fallback: 'Could not record stock movement.',
+          ),
         ),
       );
     }

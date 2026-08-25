@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -253,6 +254,22 @@ class MoreScreen extends StatelessWidget {
               subtitle: AppStrings.teamManagementSubtitle,
               onTap: () => context.push(RoutePaths.team),
             ),
+        ],
+      );
+    }
+
+    if (kDebugMode) {
+      addSection(
+        title: 'Diagnostics',
+        icon: Icons.bug_report_outlined,
+        items: [
+          _MoreMenuItem(
+            icon: Icons.balance_outlined,
+            color: AppColors.dueSoon,
+            title: 'Stock reconciliation',
+            subtitle: 'Compare stock levels against their movement history',
+            onTap: () => context.push(RoutePaths.stockReconciliation),
+          ),
         ],
       );
     }

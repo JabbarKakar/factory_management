@@ -73,6 +73,7 @@ import '../screens/customers/add_edit_customer_screen.dart';
 import '../screens/customers/customer_detail_screen.dart';
 import '../screens/customers/customers_screen.dart';
 import '../screens/dashboard/dashboard_screen.dart';
+import '../screens/debug/stock_reconciliation_screen.dart';
 import '../screens/job_work/add_edit_job_work_screen.dart';
 import '../screens/job_work/add_job_work_load_screen.dart';
 import '../screens/job_work/collect_material_screen.dart';
@@ -327,6 +328,11 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             child: const FactorySettingsScreen(),
           );
         },
+      ),
+      GoRoute(
+        path: RoutePaths.stockReconciliation,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) => const StockReconciliationScreen(),
       ),
       GoRoute(
         path: RoutePaths.businessCard,

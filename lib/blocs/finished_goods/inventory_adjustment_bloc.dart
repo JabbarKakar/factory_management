@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import '../../data/services/write_failure_message.dart';
 import '../../data/repositories/finished_goods_repository.dart';
 import '../../data/services/finished_goods_stock_service.dart';
 import '../../domain/enums/inventory_enums.dart';
@@ -68,11 +69,14 @@ class InventoryAdjustmentBloc
           errorMessage: error.message,
         ),
       );
-    } catch (_) {
+    } catch (error) {
       emit(
         state.copyWith(
           status: InventoryAdjustmentStatus.failure,
-          errorMessage: 'Could not record adjustment.',
+          errorMessage: writeFailureMessage(
+            error,
+            fallback: 'Could not record adjustment.',
+          ),
         ),
       );
     }

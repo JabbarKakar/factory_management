@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../core/config/firebase_emulator_config.dart';
 import '../../core/observability/tracked_firestore.dart';
 import '../../domain/enums/document_sequence.dart';
 
@@ -209,6 +210,15 @@ class SequenceNumberService {
       'failed-precondition',
     };
     if (offlineCodes.contains(error.code)) {
+      if (FirebaseEmulatorConfig.enabled) {
+        return SequenceNumberException(
+          'Cannot reach the local Firebase emulators, so a new '
+          '${sequence.prefix} number cannot be reserved. This debug build does '
+          'not talk to production. Stop the app and relaunch with '
+          '--dart-define=USE_PROD_FIREBASE=true.',
+          isRetryable: true,
+        );
+      }
       return SequenceNumberException(
         'Cannot create a new ${sequence.prefix} number while offline. '
         'Reconnect and try again.',

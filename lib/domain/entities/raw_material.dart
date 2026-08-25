@@ -2,44 +2,95 @@ import 'package:equatable/equatable.dart';
 
 import '../enums/raw_material_enums.dart';
 
+/// A raw material's stock position.
+///
+/// [totalQuantity] and [totalValue] are the source of truth; [currentStock] and
+/// [averageCost] are derived from them. That split is what lets stock movements
+/// be written as two `FieldValue.increment` transforms with no read, so
+/// concurrent movements cannot lose each other and offline recording still
+/// works (S38).
 class RawMaterial extends Equatable {
   const RawMaterial({
     required this.id,
     required this.factoryId,
     required this.materialType,
-    required this.currentStock,
+    required this.totalQuantity,
+    required this.totalValue,
     required this.reorderLevel,
-    required this.averageCost,
     required this.createdAt,
+    this.lastUnitCost = 0,
     this.lastReceiptDate,
     this.updatedAt,
   });
 
+  /// Builds from the pre-S38 shape, where quantity and unit cost were stored
+  /// and value was implied.
+  factory RawMaterial.fromLegacy({
+    required String id,
+    required String factoryId,
+    required RawMaterialType materialType,
+    required double currentStock,
+    required double averageCost,
+    required double reorderLevel,
+    required DateTime createdAt,
+    DateTime? lastReceiptDate,
+    DateTime? updatedAt,
+  }) {
+    return RawMaterial(
+      id: id,
+      factoryId: factoryId,
+      materialType: materialType,
+      totalQuantity: currentStock,
+      totalValue: currentStock * averageCost,
+      lastUnitCost: averageCost,
+      reorderLevel: reorderLevel,
+      createdAt: createdAt,
+      lastReceiptDate: lastReceiptDate,
+      updatedAt: updatedAt,
+    );
+  }
+
   final String id;
   final String factoryId;
   final RawMaterialType materialType;
-  final double currentStock;
+
+  /// Quantity on hand, in [unit].
+  final double totalQuantity;
+
+  /// Σ (quantity × unit cost) of what is on hand.
+  final double totalValue;
+
+  /// Cost basis kept for when stock reaches zero, so an empty material still
+  /// remembers what it last cost. Without it, [averageCost] would read 0 and
+  /// an adjustment-in would lose its default unit cost.
+  final double lastUnitCost;
+
   final double reorderLevel;
-  final double averageCost;
   final DateTime? lastReceiptDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
   StockUnit get unit => materialType.unit;
 
-  bool get isLowStock => reorderLevel > 0 && currentStock <= reorderLevel;
+  double get currentStock => totalQuantity;
 
-  double get stockValue => currentStock * averageCost;
+  double get averageCost =>
+      totalQuantity > 0 ? totalValue / totalQuantity : lastUnitCost;
 
-  bool get hasStock => currentStock > 0;
+  double get stockValue => totalQuantity > 0 ? totalValue : 0;
+
+  bool get isLowStock => reorderLevel > 0 && totalQuantity <= reorderLevel;
+
+  bool get hasStock => totalQuantity > 0;
 
   RawMaterial copyWith({
     String? id,
     String? factoryId,
     RawMaterialType? materialType,
-    double? currentStock,
+    double? totalQuantity,
+    double? totalValue,
+    double? lastUnitCost,
     double? reorderLevel,
-    double? averageCost,
     DateTime? lastReceiptDate,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -48,9 +99,10 @@ class RawMaterial extends Equatable {
       id: id ?? this.id,
       factoryId: factoryId ?? this.factoryId,
       materialType: materialType ?? this.materialType,
-      currentStock: currentStock ?? this.currentStock,
+      totalQuantity: totalQuantity ?? this.totalQuantity,
+      totalValue: totalValue ?? this.totalValue,
+      lastUnitCost: lastUnitCost ?? this.lastUnitCost,
       reorderLevel: reorderLevel ?? this.reorderLevel,
-      averageCost: averageCost ?? this.averageCost,
       lastReceiptDate: lastReceiptDate ?? this.lastReceiptDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -65,9 +117,9 @@ class RawMaterial extends Equatable {
       id: '',
       factoryId: factoryId,
       materialType: materialType,
-      currentStock: 0,
+      totalQuantity: 0,
+      totalValue: 0,
       reorderLevel: 0,
-      averageCost: 0,
       createdAt: DateTime.now(),
     );
   }
@@ -77,9 +129,10 @@ class RawMaterial extends Equatable {
         id,
         factoryId,
         materialType,
-        currentStock,
+        totalQuantity,
+        totalValue,
+        lastUnitCost,
         reorderLevel,
-        averageCost,
         lastReceiptDate,
         createdAt,
         updatedAt,

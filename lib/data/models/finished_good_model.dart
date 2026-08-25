@@ -12,10 +12,12 @@ class FinishedGoodModel {
     required this.productType,
     required this.marbleVariety,
     required this.grade,
-    required this.currentQuantity,
+    required this.totalQuantity,
+    required this.totalValue,
     required this.reorderLevel,
-    required this.averageCost,
     required this.createdAt,
+    this.lastUnitCost = 0,
+    this.hasStoredTotals = true,
     this.size,
     this.thickness,
     this.location,
@@ -31,15 +33,31 @@ class FinishedGoodModel {
   final String? size;
   final String? thickness;
   final FinishedGoodGrade grade;
-  final double currentQuantity;
+  final double totalQuantity;
+  final double totalValue;
+  final double lastUnitCost;
+
+  /// False when the document still only has the pre-S38 fields. See
+  /// [RawMaterialModel.hasStoredTotals].
+  final bool hasStoredTotals;
+
   final double reorderLevel;
-  final double averageCost;
   final String? location;
   final DateTime? lastReceiptDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
+  double get averageCost =>
+      totalQuantity > 0 ? totalValue / totalQuantity : lastUnitCost;
+
   factory FinishedGoodModel.fromFirestore(String id, Map<String, dynamic> data) {
+    // See RawMaterialModel.fromFirestore: pre-S38 documents only carry
+    // currentQuantity/averageCost, so the totals are derived when absent.
+    final legacyQuantity = (data['currentQuantity'] as num?)?.toDouble() ?? 0;
+    final legacyUnitCost = (data['averageCost'] as num?)?.toDouble() ?? 0;
+    final storedQuantity = (data['totalQuantity'] as num?)?.toDouble();
+    final storedValue = (data['totalValue'] as num?)?.toDouble();
+
     return FinishedGoodModel(
       id: id,
       factoryId: data['factoryId'] as String? ?? 'default',
@@ -50,9 +68,11 @@ class FinishedGoodModel {
       size: data['size'] as String?,
       thickness: data['thickness'] as String?,
       grade: FinishedGoodGrade.fromString(data['grade'] as String?),
-      currentQuantity: (data['currentQuantity'] as num?)?.toDouble() ?? 0,
+      totalQuantity: storedQuantity ?? legacyQuantity,
+      totalValue: storedValue ?? legacyQuantity * legacyUnitCost,
+      lastUnitCost: legacyUnitCost,
+      hasStoredTotals: storedQuantity != null && storedValue != null,
       reorderLevel: (data['reorderLevel'] as num?)?.toDouble() ?? 0,
-      averageCost: (data['averageCost'] as num?)?.toDouble() ?? 0,
       location: data['location'] as String?,
       lastReceiptDate:
           (data['lastReceiptDate'] as Timestamp?)?.toDate(),
@@ -70,9 +90,12 @@ class FinishedGoodModel {
       if (size != null && size!.isNotEmpty) 'size': size,
       if (thickness != null && thickness!.isNotEmpty) 'thickness': thickness,
       'grade': grade.firestoreValue,
-      'currentQuantity': currentQuantity,
-      'reorderLevel': reorderLevel,
+      'totalQuantity': totalQuantity,
+      'totalValue': totalValue,
+      // Legacy mirrors — see RawMaterialModel.toFirestore.
+      'currentQuantity': totalQuantity,
       'averageCost': averageCost,
+      'reorderLevel': reorderLevel,
       if (location != null && location!.isNotEmpty) 'location': location,
       if (lastReceiptDate != null)
         'lastReceiptDate': Timestamp.fromDate(lastReceiptDate!),
@@ -90,9 +113,10 @@ class FinishedGoodModel {
         size: size,
         thickness: thickness,
         grade: grade,
-        currentQuantity: currentQuantity,
+        totalQuantity: totalQuantity,
+        totalValue: totalValue,
+        lastUnitCost: lastUnitCost,
         reorderLevel: reorderLevel,
-        averageCost: averageCost,
         location: location,
         lastReceiptDate: lastReceiptDate,
         createdAt: createdAt,
@@ -108,9 +132,10 @@ class FinishedGoodModel {
         size: item.size,
         thickness: item.thickness,
         grade: item.grade,
-        currentQuantity: item.currentQuantity,
+        totalQuantity: item.totalQuantity,
+        totalValue: item.totalValue,
+        lastUnitCost: item.lastUnitCost,
         reorderLevel: item.reorderLevel,
-        averageCost: item.averageCost,
         location: item.location,
         lastReceiptDate: item.lastReceiptDate,
         createdAt: item.createdAt,

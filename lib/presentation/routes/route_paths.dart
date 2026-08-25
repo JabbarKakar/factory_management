@@ -16,6 +16,9 @@ abstract final class RoutePaths {
   static const String onboarding = '/onboarding';
   static const String factorySettings = '/settings/factory';
   static const String businessCard = '/settings/business-card';
+
+  /// Debug-only diagnostics, surfaced from More in debug builds.
+  static const String stockReconciliation = '/debug/stock-reconciliation';
   static String acceptInviteWithId(String inviteId) =>
       '$acceptInvite?id=$inviteId';
   static const String dashboard = '/dashboard';

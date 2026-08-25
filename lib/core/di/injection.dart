@@ -101,6 +101,7 @@ import '../../data/services/pl_report_service.dart';
 import '../../data/services/raw_material_stock_service.dart';
 import '../../data/services/sequence_number_service.dart';
 import '../../data/services/sequence_seed_migration.dart';
+import '../../data/services/stock_backfill_migration.dart';
 import '../../data/services/job_work_cleanup_service.dart';
 import '../../data/services/notification_engine_service.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
@@ -334,6 +335,9 @@ void setupDependencies() {
     () => SequenceSeedMigration(
       sequenceNumberService: getIt<SequenceNumberService>(),
     ),
+  );
+  getIt.registerLazySingleton<StockBackfillMigration>(
+    StockBackfillMigration.new,
   );
 
   getIt.registerFactory<AuthBloc>(

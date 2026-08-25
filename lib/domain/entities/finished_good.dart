@@ -3,6 +3,11 @@ import 'package:equatable/equatable.dart';
 import '../enums/inventory_enums.dart';
 import '../enums/production_enums.dart';
 
+/// A finished-goods SKU's stock position.
+///
+/// As with `RawMaterial`, [totalQuantity] and [totalValue] are authoritative and
+/// [currentQuantity] / [averageCost] are derived, so movements can be written as
+/// `FieldValue.increment` transforms (S38).
 class FinishedGood extends Equatable {
   const FinishedGood({
     required this.id,
@@ -11,16 +16,55 @@ class FinishedGood extends Equatable {
     required this.productType,
     required this.marbleVariety,
     required this.grade,
-    required this.currentQuantity,
+    required this.totalQuantity,
+    required this.totalValue,
     required this.reorderLevel,
-    required this.averageCost,
     required this.createdAt,
+    this.lastUnitCost = 0,
     this.size,
     this.thickness,
     this.location,
     this.lastReceiptDate,
     this.updatedAt,
   });
+
+  /// Builds from the pre-S38 shape, where quantity and unit cost were stored.
+  factory FinishedGood.fromLegacy({
+    required String id,
+    required String factoryId,
+    required String skuKey,
+    required ProductionProductType productType,
+    required String marbleVariety,
+    required FinishedGoodGrade grade,
+    required double currentQuantity,
+    required double averageCost,
+    required double reorderLevel,
+    required DateTime createdAt,
+    String? size,
+    String? thickness,
+    String? location,
+    DateTime? lastReceiptDate,
+    DateTime? updatedAt,
+  }) {
+    return FinishedGood(
+      id: id,
+      factoryId: factoryId,
+      skuKey: skuKey,
+      productType: productType,
+      marbleVariety: marbleVariety,
+      grade: grade,
+      totalQuantity: currentQuantity,
+      totalValue: currentQuantity * averageCost,
+      lastUnitCost: averageCost,
+      reorderLevel: reorderLevel,
+      createdAt: createdAt,
+      size: size,
+      thickness: thickness,
+      location: location,
+      lastReceiptDate: lastReceiptDate,
+      updatedAt: updatedAt,
+    );
+  }
 
   final String id;
   final String factoryId;
@@ -30,19 +74,32 @@ class FinishedGood extends Equatable {
   final String? size;
   final String? thickness;
   final FinishedGoodGrade grade;
-  final double currentQuantity;
+
+  /// Quantity on hand, in square feet.
+  final double totalQuantity;
+
+  /// Σ (quantity × unit cost) of what is on hand.
+  final double totalValue;
+
+  /// Cost basis kept for when stock reaches zero. See `RawMaterial.lastUnitCost`.
+  final double lastUnitCost;
+
   final double reorderLevel;
-  final double averageCost;
   final String? location;
   final DateTime? lastReceiptDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  bool get isLowStock => reorderLevel > 0 && currentQuantity <= reorderLevel;
+  double get currentQuantity => totalQuantity;
 
-  bool get hasStock => currentQuantity > 0;
+  double get averageCost =>
+      totalQuantity > 0 ? totalValue / totalQuantity : lastUnitCost;
 
-  double get stockValue => currentQuantity * averageCost;
+  double get stockValue => totalQuantity > 0 ? totalValue : 0;
+
+  bool get isLowStock => reorderLevel > 0 && totalQuantity <= reorderLevel;
+
+  bool get hasStock => totalQuantity > 0;
 
   String get displaySubtitle {
     final parts = <String>[
@@ -63,9 +120,10 @@ class FinishedGood extends Equatable {
     String? size,
     String? thickness,
     FinishedGoodGrade? grade,
-    double? currentQuantity,
+    double? totalQuantity,
+    double? totalValue,
+    double? lastUnitCost,
     double? reorderLevel,
-    double? averageCost,
     String? location,
     DateTime? lastReceiptDate,
     DateTime? createdAt,
@@ -80,9 +138,10 @@ class FinishedGood extends Equatable {
       size: size ?? this.size,
       thickness: thickness ?? this.thickness,
       grade: grade ?? this.grade,
-      currentQuantity: currentQuantity ?? this.currentQuantity,
+      totalQuantity: totalQuantity ?? this.totalQuantity,
+      totalValue: totalValue ?? this.totalValue,
+      lastUnitCost: lastUnitCost ?? this.lastUnitCost,
       reorderLevel: reorderLevel ?? this.reorderLevel,
-      averageCost: averageCost ?? this.averageCost,
       location: location ?? this.location,
       lastReceiptDate: lastReceiptDate ?? this.lastReceiptDate,
       createdAt: createdAt ?? this.createdAt,
@@ -100,9 +159,10 @@ class FinishedGood extends Equatable {
         size,
         thickness,
         grade,
-        currentQuantity,
+        totalQuantity,
+        totalValue,
+        lastUnitCost,
         reorderLevel,
-        averageCost,
         location,
         lastReceiptDate,
         createdAt,

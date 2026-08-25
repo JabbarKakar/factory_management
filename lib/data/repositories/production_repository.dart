@@ -13,6 +13,7 @@ import '../repositories/finished_goods_repository.dart';
 import '../services/finished_goods_stock_service.dart';
 import '../services/raw_material_stock_service.dart';
 import '../services/sequence_number_service.dart';
+import '../services/stock_movement_payload.dart';
 
 class ProductionBatchException implements Exception {
   const ProductionBatchException(this.message);
@@ -131,10 +132,11 @@ class ProductionRepository {
     }
 
     final materialDoc = materialSnapshot.docs.first;
-    final material = RawMaterialModel.fromFirestore(
+    final materialModel = RawMaterialModel.fromFirestore(
       materialDoc.id,
       materialDoc.data(),
-    ).toEntity();
+    );
+    final material = materialModel.toEntity();
 
     _stockService.validateStockOut(
       currentStock: material.currentStock,
@@ -146,9 +148,6 @@ class ProductionRepository {
     final transactionId = _uuid.v4();
     final transactionNumber = await _generateStockOutNumber(factoryId);
     final materialCost = material.averageCost * materialConsumed;
-    final updatedMaterial = material.copyWith(
-      currentStock: material.currentStock - materialConsumed,
-    );
 
     final batch = ProductionBatch(
       id: batchId,
@@ -190,9 +189,17 @@ class ProductionRepository {
     );
 
     final writeBatch = _firestore.batch();
-    writeBatch.update(
+    writeBatch.set(
       _materialsCollection.doc(material.id),
-      RawMaterialModel.fromEntity(updatedMaterial).toFirestore(),
+      buildStockMovementPayload(
+        mirror: StockQuantityMirror.rawMaterial,
+        quantityDelta: -materialConsumed,
+        valueDelta: -materialCost,
+        projectedQuantity: material.totalQuantity - materialConsumed,
+        projectedUnitCost: material.averageCost,
+        replaceTotals: !materialModel.hasStoredTotals,
+      ),
+      SetOptions(merge: true),
     );
     writeBatch.set(
       _transactionsCollection.doc(transactionId),
@@ -272,10 +279,11 @@ class ProductionRepository {
       throw const ProductionBatchException('Raw material record not found.');
     }
 
-    final material = RawMaterialModel.fromFirestore(
+    final materialModel = RawMaterialModel.fromFirestore(
       materialDoc.id,
       materialDoc.data()!,
-    ).toEntity();
+    );
+    final material = materialModel.toEntity();
 
     final materialDelta = materialConsumed - existing.materialConsumed;
     if (materialDelta > 0) {
@@ -285,9 +293,6 @@ class ProductionRepository {
       );
     }
 
-    final updatedMaterial = material.copyWith(
-      currentStock: material.currentStock - materialDelta,
-    );
     final materialCost = material.averageCost * materialConsumed;
 
     final updatedBatch = ProductionBatch(
@@ -319,9 +324,17 @@ class ProductionRepository {
 
     final writeBatch = _firestore.batch();
 
-    writeBatch.update(
+    writeBatch.set(
       _materialsCollection.doc(material.id),
-      RawMaterialModel.fromEntity(updatedMaterial).toFirestore(),
+      buildStockMovementPayload(
+        mirror: StockQuantityMirror.rawMaterial,
+        quantityDelta: -materialDelta,
+        valueDelta: -(materialDelta * material.averageCost),
+        projectedQuantity: material.totalQuantity - materialDelta,
+        projectedUnitCost: material.averageCost,
+        replaceTotals: !materialModel.hasStoredTotals,
+      ),
+      SetOptions(merge: true),
     );
 
     if (existing.stockTransactionId != null &&

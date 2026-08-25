@@ -30,6 +30,8 @@ enum InventoryMovementType {
 
   String get firestoreValue => name;
 
+  bool get isInbound => this != InventoryMovementType.adjustmentOut;
+
   String get label => switch (this) {
         InventoryMovementType.productionIn => 'Production Receipt',
         InventoryMovementType.adjustmentIn => 'Stock Added',

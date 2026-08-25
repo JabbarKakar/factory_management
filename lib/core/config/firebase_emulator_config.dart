@@ -12,28 +12,29 @@ import 'package:flutter/foundation.dart';
 /// Opt out of the emulators in a debug build (to test against the real project):
 /// `flutter run --dart-define=USE_PROD_FIREBASE=true`
 ///
-/// Host resolution by target:
+/// The host is always `localhost`. Desktop builds and the iOS simulator share
+/// the host's network stack, so it works directly. **Android needs one command
+/// first**, on a physical device *and* on the Android emulator:
 ///
-/// - **Android emulator** — `10.0.2.2` (the default) maps to the host machine.
-/// - **Desktop / iOS simulator** — `localhost` (the default) shares the host
-///   network stack.
-/// - **Physical Android device** — neither default works. Prefer adb port
-///   reversal, which tunnels over the existing USB connection and avoids Wi-Fi
-///   and firewall problems entirely:
+/// ```
+/// adb reverse tcp:8080 tcp:8080
+/// adb reverse tcp:9099 tcp:9099
+/// adb reverse tcp:5001 tcp:5001
+/// ```
 ///
-///   ```
-///   adb reverse tcp:8080 tcp:8080
-///   adb reverse tcp:9099 tcp:9099
-///   adb reverse tcp:5001 tcp:5001
-///   flutter run --dart-define=EMULATOR_HOST=localhost
-///   ```
+/// That tunnels the three ports over the existing USB/adb connection, which
+/// avoids Wi-Fi and firewall problems entirely. The tunnels are cleared when the
+/// device is unplugged, so re-run them after reconnecting.
 ///
-///   Alternatively, pass the PC's LAN IP with both devices on the same Wi-Fi
-///   (`ipconfig` → IPv4) and allow inbound traffic on those ports:
-///   `flutter run --dart-define=EMULATOR_HOST=192.168.1.10`
+/// Android used to default to `10.0.2.2`, the emulator's alias for the host
+/// machine. That is unreachable from a physical device and surfaced as
+/// `Failed to connect to /10.0.2.2:9099`, so it is no longer used: a physical
+/// device cannot be told apart from the emulator without an extra platform
+/// dependency, and `localhost` plus adb reversal works for both.
 ///
-/// A physical Android device cannot be distinguished from the emulator without
-/// an extra platform dependency, so it requires the explicit override above.
+/// To go over Wi-Fi instead, pass the PC's LAN IP (`ipconfig` → IPv4) and allow
+/// inbound traffic on those ports:
+/// `flutter run --dart-define=EMULATOR_HOST=192.168.1.10`
 abstract final class FirebaseEmulatorConfig {
   /// Forces production Firebase in a debug build.
   static const bool _useProduction = bool.fromEnvironment('USE_PROD_FIREBASE');
@@ -47,16 +48,11 @@ abstract final class FirebaseEmulatorConfig {
 
   /// Host that reaches the developer machine from the current target.
   ///
-  /// The Android emulator maps the host machine to `10.0.2.2`. Desktop builds
-  /// and the iOS simulator share the host's network stack, so `localhost` is
-  /// correct there — using `10.0.2.2` makes Firestore silently fall back to the
-  /// local cache instead of connecting.
-  static String get host {
-    if (_hostOverride.isNotEmpty) return _hostOverride;
-    return defaultTargetPlatform == TargetPlatform.android
-        ? '10.0.2.2'
-        : 'localhost';
-  }
+  /// On Android this relies on `adb reverse` (see the class comment); without
+  /// the tunnels Auth fails outright and Firestore silently serves the local
+  /// cache instead of connecting.
+  static String get host =>
+      _hostOverride.isNotEmpty ? _hostOverride : 'localhost';
 
   static const String functionsRegion = 'us-central1';
 
@@ -68,10 +64,13 @@ abstract final class FirebaseEmulatorConfig {
   ///
   /// Web is excluded because `firebase_options` uses a different host mapping
   /// there and the emulator suite is not part of the web debug workflow.
+  ///
+  /// `USE_PROD_FIREBASE=true` always wins, including over the legacy
+  /// `USE_FIREBASE_EMULATORS` flag.
   static bool get enabled {
     if (kIsWeb) return false;
-    if (_legacyOptIn) return true;
     if (_useProduction) return false;
+    if (_legacyOptIn) return true;
     return kDebugMode;
   }
 
@@ -86,8 +85,19 @@ abstract final class FirebaseEmulatorConfig {
       return;
     }
 
-    FirebaseFirestore.instance.useFirestoreEmulator(host, firestorePort);
-    await FirebaseAuth.instance.useAuthEmulator(host, authPort);
+    // automaticHostMapping must stay off: the Android SDK otherwise rewrites
+    // localhost → 10.0.2.2, which is unreachable from a physical device and
+    // surfaces as WatchStream/WriteStream UNAVAILABLE.
+    FirebaseFirestore.instance.useFirestoreEmulator(
+      host,
+      firestorePort,
+      automaticHostMapping: false,
+    );
+    await FirebaseAuth.instance.useAuthEmulator(
+      host,
+      authPort,
+      automaticHostMapping: false,
+    );
     FirebaseFunctions.instanceFor(region: functionsRegion)
         .useFunctionsEmulator(host, functionsPort);
 

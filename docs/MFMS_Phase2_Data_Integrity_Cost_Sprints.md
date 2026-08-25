@@ -114,8 +114,8 @@ order ≈ **19 writes for one payment** against a 20,000/day ceiling.
 |--------|-------|-------|------|------|--------|
 | **S36** | Emulator default + read/write instrumentation | Foundation | 2 days | Low | Code done; baseline not yet recorded |
 | **S37** | Sequence counters | D2 | 3 days | Medium | **Done** |
-| **S38** | Stock atomicity via increments | D1 | 4 days | **High** (data migration) | Next |
-| **S39** | Dashboard windowing | D3 | 4 days | Medium | |
+| **S38** | Stock atomicity via increments | D1 | 4 days | **High** (data migration) | **Done** |
+| **S39** | Dashboard windowing | D3 | 4 days | Medium | Next |
 | **S40** | Ledger scoping + write de-amplification | D4 | 3 days | Medium | |
 | **S41** | Monthly rollups for "All Time" *(optional)* | D3 durable fix | 3 days | Medium | |
 
@@ -404,7 +404,7 @@ flat.
 
 ---
 
-## 8. Sprint S38 — Stock atomicity
+## 8. Sprint S38 — Stock atomicity — **DONE**
 
 **Goal:** concurrent stock movements cannot lose an update, **without losing
 offline recording**.
@@ -431,53 +431,107 @@ increment(totalValue,    +quantity * unitCost)
 
 ### Tasks
 
-| # | Task | Description | Acceptance criteria |
-|---|------|-------------|---------------------|
-| 38.1 | Entity + model update | Add `totalQuantity`/`totalValue` to `RawMaterial`, `FinishedGood`; make `averageCost`, `stockValue`, `isLowStock` derived getters | `flutter analyze` clean; existing UI unchanged |
-| 38.2 | Backfill migration | For every material/good, set `totalQuantity = currentStock`, `totalValue = currentStock * averageCost` | Post-migration `averageCost` matches pre-migration for every document |
-| 38.3 | `recordStockIn` / `recordStockOut` | Replace read-compute-batch with `increment` + transaction doc in one `WriteBatch` | No `getMaterialByType` call before the write |
-| 38.4 | Finished goods receipt & adjustment | Same conversion for `finished_goods_repository.dart:191`, `:300` | Per-SKU increments, no pre-read |
-| 38.5 | Production batch path | `production_repository.dart:132`, `:273` — material consumption and the delta on update become increments | Batch create touches 5 collections with no stale reads |
-| 38.6 | Negative-stock guard | Client pre-check kept for UX; authoritative guard added in `firestore.rules` comparing incoming vs existing | Rules test: write driving `totalQuantity` below 0 rejected |
-| 38.7 | Reconciliation report | Debug screen comparing `totalQuantity` against the sum of `stockTransactions` per material | Any drift is visible and attributable |
-| 38.8 | Tests | Unit: derived average cost, negative guard. Integration: 10 parallel stock-ins land exactly | All pass |
+| # | Task | Description | Status |
+|---|------|-------------|--------|
+| 38.1 | Entity + model update | `totalQuantity`/`totalValue` added to `RawMaterial` and `FinishedGood`; `currentStock`/`currentQuantity`, `averageCost`, `stockValue`, `isLowStock` are now getters | Done — `flutter analyze` clean, UI untouched because every call site reads through the getters |
+| 38.2 | Backfill migration | `StockBackfillMigration` fills `totalQuantity = currentStock`, `totalValue = currentStock × averageCost` for both collections | Done — runs once per factory per install from `app.dart`, idempotent, does not stamp `updatedAt` |
+| 38.3 | `recordStockIn` / `recordStockOut` | Both write `increment` transforms plus the movement row in one `WriteBatch` | Done — see deviation 1 below: the locating read is kept on purpose |
+| 38.4 | Finished goods receipt & adjustment | `receiveFromProductionBatch`, `recordAdjustment` and `reverseProductionBatchReceipts` all move per-SKU by increment | Done |
+| 38.5 | Production batch path | `createBatch` and `updateBatch` consume material by increment; the update moves only the delta | Done |
+| 38.6 | Negative-stock guard | Client pre-check kept for the error message; `nonNegativeStock()` added to `firestore.rules` for both collections | Done — needs the emulator check in step 5 below |
+| 38.7 | Reconciliation report | Debug screen recomputing every position from its movement history | Done — More → Diagnostics, debug builds only |
+| 38.8 | Tests | Derived cost, increment payloads, movement paths, backfill, reconciliation | Done — 35 new tests, suite at 296 passing |
 
 ### Deliverables
 
 - `lib/domain/entities/raw_material.dart`, `finished_good.dart` (modified)
 - `lib/data/models/raw_material_model.dart`, `finished_good_model.dart` (modified)
-- `raw_material_repository.dart`, `finished_goods_repository.dart`, `production_repository.dart` (modified)
+- `lib/data/services/stock_movement_payload.dart` (new — the shared increment payload)
 - `lib/data/services/stock_backfill_migration.dart` (new)
+- `lib/data/services/stock_reconciliation_service.dart` (new)
+- `raw_material_repository.dart`, `finished_goods_repository.dart`, `production_repository.dart` (modified)
 - `lib/presentation/screens/debug/stock_reconciliation_screen.dart` (new)
-- `firestore.rules` (modified)
-- `test/data/repositories/stock_atomicity_test.dart` (new)
+- `lib/domain/enums/inventory_enums.dart` (modified — `InventoryMovementType.isInbound`)
+- `firestore.rules`, `app_router.dart`, `route_paths.dart`, `more_screen.dart`, `injection.dart`, `app.dart` (modified)
+- `test/data/repositories/stock_atomicity_test.dart`,
+  `test/data/services/stock_backfill_migration_test.dart`,
+  `test/data/services/stock_reconciliation_service_test.dart` (new)
+
+### As built — where this differs from the plan
+
+1. **The locating read stayed.** 38.3 asked for no `getMaterialByType` before the
+   write. It is still there, because a stock document's ID is a UUID and the query
+   on `factoryId + materialType` is the only way to find it. That read no longer
+   computes anything: the new level comes from the server applying the deltas, so
+   two overlapping movements still both land. The read now earns its keep three
+   other ways — it gives the cost basis for a weighted average, it powers the
+   "only 80 tons in stock" message instead of a bare `permission-denied`, and it
+   reveals whether the document has been migrated yet. It costs one read per
+   movement, and stock movements were never the quota problem.
+2. **Movement writes seed their own totals.** `increment` reads an absent
+   `totalQuantity` as 0, so a receipt against a document that predates S38 would
+   have *wiped* the existing stock. Rather than making the backfill a hard
+   prerequisite, the model reports `hasStoredTotals` and that one write falls back
+   to literal totals (`replaceTotals`). Every write after it increments. The
+   backfill is therefore an optimisation, exactly as the S37 counter seeding is.
+3. **`currentStock`/`currentQuantity`/`averageCost` are still written**, as
+   best-effort mirrors, so an older build or a raw export still reads a sensible
+   position. They are computed on the client and can lag when writes overlap —
+   which is the whole reason nothing reads them as truth any more.
+4. **Reversing a production receipt no longer deletes an emptied SKU.** A delete
+   decided from a stale read would discard stock another device received in the
+   meantime. The SKU is decremented to zero instead, which the finished-goods list
+   already handles — an adjustment-out to zero has always left the document in
+   place.
+5. **The rule guards quantity, not value.** Value can legitimately drift slightly
+   negative when a movement issues at a stale average, and rejecting that would
+   block a valid stock-out. Quantity carries a 0.001 tolerance so consuming a
+   position down to exactly zero is not tripped up by floating-point residue.
+6. **Not closed: two devices creating the same position at once.** If a material
+   or SKU does not exist yet and two devices record against it simultaneously,
+   each mints its own UUID and the stock splits across two documents. Closing it
+   needs deterministic document IDs, which means migrating existing IDs and every
+   reference to them — more migration risk than this sprint should carry. The
+   reconciliation screen makes it visible if it ever happens.
 
 ### How to test on device
 
-1. **Reproduce the bug first, on the emulator.** Two phones, same material.
-   Phone A records stock-in of 50 tons, Phone B records 30 tons — tap Save
-   simultaneously. Before the fix: final stock is 130 or 150, not 180, while
-   **both** `stockTransactions` rows exist. Screenshot this; it is the proof the
-   fix is needed.
-2. **Verify the fix.** Repeat step 1 after the change. Final `totalQuantity` must
-   be exactly 180, and `averageCost` must equal
-   `(50×costA + 30×costB) / 80`. Check in the Emulator UI.
-3. **Offline recording (this is the point of A1).** Put the phone in airplane
-   mode, record a stock-in, confirm the UI updates immediately from the local
-   cache. Re-enable network and confirm the value lands on the server. This must
-   pass — if it fails, the increment approach was not applied correctly.
-4. **Offline concurrency.** Phone A offline records +50; Phone B online records
-   +30; bring A back online. Final must be +80, not +50 or +30. This is the case
-   `runTransaction` cannot handle and is the main reason for A1.
-5. **Negative stock.** Try to record stock-out larger than available. Expect a
-   clear client error; then verify via a direct Emulator UI write attempt that the
-   rule also rejects it server-side.
-6. **Migration safety.** Export the emulator dataset, run the backfill, and use
-   the reconciliation screen to confirm every material's `averageCost` and
-   `stockValue` are unchanged. **Do not run against production until this passes.**
-7. **Production batch.** Create a batch consuming raw material and producing
-   graded slabs; confirm raw stock down, finished goods up, and both transaction
-   rows written, with the P&L material cost unchanged.
+**Deploy the rules first.** The new `nonNegativeStock()` guard has to be live or
+step 5 proves nothing:
+
+```
+firebase deploy --only firestore:rules
+```
+
+1. **Migration safety — do this before anything else.** Note a few materials'
+   stock and unit cost, then log in (the backfill runs at login) and open
+   **More → Diagnostics → Stock reconciliation**. Every position's unit cost and
+   value must be unchanged, and the summary should report 0 drifting positions.
+   Positions marked "opening balance" are seeded stock with no movement history —
+   expected, not a fault. **Do not go further until this passes.**
+2. **Offline recording (this is the point of A1).** Airplane mode on, record a
+   stock-in, confirm the list updates straight away from the local cache. Turn the
+   network back on and confirm the same value lands on the server. If this fails,
+   the increment path was not applied.
+3. **Offline concurrency — the case `runTransaction` cannot handle.** Phone A
+   offline records +50 on a material; Phone B online records +30 on the same one;
+   bring A back online. Final must be +80. Before this sprint it would have been
+   +50 or +30, with both `stockTransactions` rows still on file.
+4. **Simultaneous online writes.** Two phones, same material, Save at the same
+   moment: +50 at cost A and +30 at cost B. `totalQuantity` must be exactly 80 and
+   the displayed unit cost exactly `(50×costA + 30×costB) / 80`.
+5. **Negative stock, both layers.** Record a stock-out larger than what is on
+   hand: expect the clear client message. Then, in the Firestore console, try to
+   set a material's `totalQuantity` to a negative number — the rule must reject
+   it. This second half also confirms the rule sees the value an `increment`
+   resolves to; if a legitimate stock-out starts failing with `permission-denied`,
+   that assumption is wrong and the guard needs rethinking.
+6. **Production batch.** Create a batch that consumes raw material and produces
+   graded slabs. Raw stock down, finished goods up, both movement rows written, and
+   the P&L material cost unchanged. Then edit the batch's output and confirm the
+   reconciliation screen still shows no drift.
+7. **Read cost.** With the overlay from S36, a stock-in should be 1 read (locating
+   the material) plus the counter allocation, and 2 writes. Record it in §12.
 
 ### Exit
 

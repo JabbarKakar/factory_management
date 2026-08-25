@@ -138,6 +138,19 @@ service cloud.firestore {
       return signedIn() && isActiveUser() && !isViewer() && sameFactoryIncoming();
     }
 
+    // Authoritative floor on stock levels. `increment` transforms are resolved
+    // before rules run, so request.resource.data holds the value the write would
+    // actually land on — a stock-out larger than what is on hand is rejected here
+    // even if the client skipped its own check. The tolerance absorbs floating
+    // point residue from consuming a position down to exactly zero.
+    // Only quantity is guarded: value can drift slightly negative when a write
+    // issues at a stale average, and blocking that would reject a legitimate
+    // movement.
+    function nonNegativeStock() {
+      return !('totalQuantity' in request.resource.data)
+        || request.resource.data.totalQuantity >= -0.001;
+    }
+
     function validCounterWrite(counterId) {
       return canWriteFactoryDoc()
         && counterId == myFactory() + '__' + request.resource.data.sequenceKey
@@ -388,7 +401,7 @@ service cloud.firestore {
 
     match /rawMaterials/{materialId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'storeKeeper'] && nonNegativeStock();
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
@@ -406,7 +419,7 @@ service cloud.firestore {
 
     match /finishedGoods/{finishedGoodId} {
       allow read: if canReadFactoryDoc() && canReadOperations();
-      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'storeKeeper'];
+      allow create, update: if canWriteFactoryDoc() && effectiveRole() in ['owner', 'factoryManager', 'storeKeeper'] && nonNegativeStock();
       allow delete: if isOwner() && sameFactoryExisting();
     }
 
