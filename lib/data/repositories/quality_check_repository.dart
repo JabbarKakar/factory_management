@@ -124,12 +124,12 @@ class QualityCheckRepository {
   Future<List<ProductionBatch>> fetchEligibleProductionBatches(
     String factoryId,
   ) async {
-    final batches = await _productionRepository.watchBatches(factoryId).first;
+    final batches = await _productionRepository.getBatches(factoryId);
     return batches.where((batch) => batch.totalOutputSqFt > 0).toList();
   }
 
   Future<List<JobWorkOrder>> fetchEligibleJobWorkOrders(String factoryId) async {
-    final orders = await _jobWorkRepository.watchJobWorkOrders(factoryId).first;
+    final orders = await _jobWorkRepository.getJobWorkOrders(factoryId);
     return orders.where(_isJobWorkQcEligible).toList();
   }
 

@@ -514,28 +514,59 @@ class JobWorkRepository {
 
   /// Non-cancelled job work orders for a customer (newest first).
   ///
-  /// Scoped by [factoryId] first so the query satisfies Firestore rules
-  /// (`resource.data.factoryId == myFactory()`), then filtered by customer.
+  /// Query is `factoryId` + `customerId` so a single-customer sync does not
+  /// download the rest of the factory.
   Stream<List<JobWorkOrder>> watchOrdersForCustomer({
     required String factoryId,
     required String customerId,
   }) {
-    return watchJobWorkOrders(factoryId).map((orders) {
-      return orders
-          .where(
-            (order) =>
-                order.customerId == customerId &&
-                order.status != JobWorkStatus.cancelled,
-          )
+    return _ordersForCustomerQuery(
+      factoryId: factoryId,
+      customerId: customerId,
+    ).snapshots().map((snapshot) {
+      final orders = snapshot.docs
+          .map((doc) => JobWorkOrderModel.fromFirestore(doc.id, doc.data()))
+          .map((model) => model.toEntity())
+          .where((order) => order.status != JobWorkStatus.cancelled)
           .toList();
+      orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return orders;
     });
+  }
+
+  Future<List<JobWorkOrder>> getOrdersForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
+    final snapshot = await _ordersForCustomerQuery(
+      factoryId: factoryId,
+      customerId: customerId,
+    ).get();
+    final orders = snapshot.docs
+        .map((doc) => JobWorkOrderModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return orders;
+  }
+
+  Query<Map<String, dynamic>> _ordersForCustomerQuery({
+    required String factoryId,
+    required String customerId,
+  }) {
+    return _jobWorkCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('customerId', isEqualTo: customerId);
   }
 
   Future<int> countOrdersForCustomer({
     required String factoryId,
     required String customerId,
   }) async {
-    final orders = await getJobWorkOrders(factoryId);
+    final orders = await getOrdersForCustomer(
+      factoryId: factoryId,
+      customerId: customerId,
+    );
     return orders.where((order) => order.customerId == customerId).length;
   }
 

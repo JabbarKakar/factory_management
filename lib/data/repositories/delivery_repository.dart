@@ -148,9 +148,7 @@ class DeliveryRepository {
   }
 
   Future<List<SalesOrder>> fetchDeliveryEligibleOrders(String factoryId) async {
-    final orders = await _salesOrderRepository
-        .watchSalesOrders(factoryId)
-        .first;
+    final orders = await _salesOrderRepository.getSalesOrders(factoryId);
 
     return orders
         .where(

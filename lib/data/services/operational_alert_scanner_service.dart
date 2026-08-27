@@ -53,20 +53,17 @@ class OperationalAlertScannerService {
   final NotificationRepository _notificationRepository;
 
   Future<int> scan(String factoryId) async {
-    final materials =
-        await _rawMaterialRepository.watchMaterials(factoryId).first;
+    final materials = await _rawMaterialRepository.getMaterials(factoryId);
     final finishedGoods =
-        await _finishedGoodsRepository.watchFinishedGoods(factoryId).first;
+        await _finishedGoodsRepository.getFinishedGoods(factoryId);
     final equipment =
-        await _equipmentRepository.watchEquipment(factoryId).first;
-    final deliveries =
-        await _deliveryRepository.watchDeliveries(factoryId).first;
+        await _equipmentRepository.getEquipmentList(factoryId);
+    final deliveries = await _deliveryRepository.getDeliveries(factoryId);
     final jobWorkOrders =
-        await _jobWorkRepository.watchJobWorkOrders(factoryId).first;
-    final jobWorkLoads =
-        await _jobWorkLoadRepository.watchLoads(factoryId).first;
+        await _jobWorkRepository.getJobWorkOrders(factoryId);
+    final jobWorkLoads = await _jobWorkLoadRepository.getLoads(factoryId);
     final jobWorkCollections =
-        await _jobWorkCollectionRepository.watchCollections(factoryId).first;
+        await _jobWorkCollectionRepository.getCollections(factoryId);
 
     var created = 0;
     final today = DateTime.now();

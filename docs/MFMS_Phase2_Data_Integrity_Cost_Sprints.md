@@ -116,7 +116,7 @@ order ≈ **19 writes for one payment** against a 20,000/day ceiling.
 | **S37** | Sequence counters | D2 | 3 days | Medium | **Done** |
 | **S38** | Stock atomicity via increments | D1 | 4 days | **High** (data migration) | **Done** |
 | **S39** | Dashboard windowing | D3 | 4 days | Medium | **Done** |
-| **S40** | Ledger scoping + write de-amplification | D4 | 3 days | Medium | |
+| **S40** | Ledger scoping + write de-amplification | D4 | 3 days | Medium | **Done** |
 | **S41** | Monthly rollups for "All Time" *(optional)* | D3 durable fix | 3 days | Medium | |
 
 **Order matters.** S36 first — it stops dev work from burning quota and gives the
@@ -659,8 +659,36 @@ the same documents three times per payment.
 ### Deliverables
 
 - `lib/data/services/customer_ledger_service.dart` (modified)
-- `payment_repository.dart`, `job_work_load_repository.dart` (modified)
-- `firestore.indexes.json` (modified)
+- `payment_repository.dart`, `job_work_load_repository.dart`,
+  `job_work_repository.dart`, `sales_order_repository.dart` (modified)
+- `quality_check_repository.dart`, `delivery_repository.dart`,
+  `operational_alert_scanner_service.dart`, `finished_goods_repository.dart`
+  (modified — `snapshots().first` → `.get()`)
+- `test/data/services/customer_ledger_service_test.dart` (new)
+- `test/data/repositories/payment_write_deamplification_test.dart` (new)
+
+### As built — where this differs from the plan
+
+1. **Indexes were already there.** `salesOrders`, `jobWorkOrders`, and
+   `jobWorkLoads` already had `factoryId + customerId` composites from earlier
+   sprints. `firestore.indexes.json` did not need new entries.
+2. **Happy-path JW payment still refreshes the container.**
+   `_syncInvoiceFromPayments(..., repair: false)` skips rewriting the invoice,
+   load, and order that the transaction already wrote, then calls
+   `refreshContainerFromLoads` (now no-op when values match) and the ledger
+   sync. Delete/edit payment still uses the full repair path.
+3. **Sales payment still updates the order/agreement on first apply.** The
+   transaction only writes the invoice; order finance and grand-invoice rollup
+   still run. Invoice and order rows are not rewritten when paid/due/status
+   (and order advance/balance/status) already match — including the repair
+   path (`updatePayment` / `deletePayment`).
+4. **Ledger skip-write.** `syncCustomerBalance` does not touch the customer
+   document when balance, paid, due, and next due date are unchanged.
+5. **`snapshots().first` audit** also converted QC eligible lists, delivery
+   eligible orders, and the operational-alert scanner to one-shot `.get()`.
+6. **Repair-path skip-write.** `updatePayment` / `deletePayment` still
+   recompute from payment docs, but skip invoice, load, and order writes when
+   paid/due/status already match.
 
 ### How to test on device
 

@@ -59,6 +59,27 @@ class FinishedGoodsRepository {
         });
   }
 
+  Future<List<FinishedGood>> getFinishedGoods(String factoryId) async {
+    final snapshot =
+        await _goodsCollection.where('factoryId', isEqualTo: factoryId).get();
+    final items = snapshot.docs
+        .map(
+          (doc) => FinishedGoodModel.fromFirestore(
+            doc.id,
+            doc.data(),
+          ).toEntity(),
+        )
+        .toList();
+    items.sort((a, b) {
+      final product = a.productType.label.compareTo(b.productType.label);
+      if (product != 0) return product;
+      final variety = a.marbleVariety.compareTo(b.marbleVariety);
+      if (variety != 0) return variety;
+      return a.grade.index.compareTo(b.grade.index);
+    });
+    return items;
+  }
+
   Stream<FinishedGood?> watchFinishedGood(String id) {
     return _goodsCollection.doc(id).snapshots().map((doc) {
       if (!doc.exists || doc.data() == null) return null;

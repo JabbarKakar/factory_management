@@ -407,23 +407,45 @@ class SalesOrderRepository {
     await _salesAgreementRepository.syncAgreementContainer(id);
   }
 
+  Future<List<SalesOrder>> getSalesOrdersForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
+    final snapshot = await _ordersCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('customerId', isEqualTo: customerId)
+        .get();
+    final orders = snapshot.docs
+        .map((doc) => SalesOrderModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return orders;
+  }
+
   /// Live count of non-cancelled sales orders for a customer.
   ///
-  /// Scoped by [factoryId] first so the query satisfies Firestore rules
-  /// (`resource.data.factoryId == myFactory()`), then filtered by customer.
+  /// Query is `factoryId` + `customerId` so a customer screen does not
+  /// download the rest of the factory.
   Stream<int> watchActiveOrderCountForCustomer({
     required String factoryId,
     required String customerId,
   }) {
-    return watchSalesOrders(factoryId).map(
-      (orders) => orders
-          .where(
-            (order) =>
-                order.customerId == customerId &&
-                order.status != SalesOrderStatus.cancelled,
-          )
-          .length,
-    );
+    return _ordersCollection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('customerId', isEqualTo: customerId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => SalesOrderModel.fromFirestore(doc.id, doc.data()))
+              .map((model) => model.toEntity())
+              .where(
+                (order) =>
+                    order.customerId == customerId &&
+                    order.status != SalesOrderStatus.cancelled,
+              )
+              .length,
+        );
   }
 
   Future<void> deleteOrdersForCustomer({

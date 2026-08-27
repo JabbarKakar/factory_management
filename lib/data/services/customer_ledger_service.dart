@@ -6,6 +6,7 @@ import '../../data/repositories/job_work_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
+import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/payment.dart';
@@ -53,7 +54,10 @@ class CustomerLedgerService {
 
     final salesOrderRepo = _salesOrderRepository;
     final List<SalesOrder> salesOrders = salesOrderRepo != null
-        ? await salesOrderRepo.watchSalesOrders(factoryId).first
+        ? await salesOrderRepo.getSalesOrdersForCustomer(
+            factoryId: factoryId,
+            customerId: customerId,
+          )
         : const [];
     final salesInvoices =
         await _salesInvoiceRepository.getInvoicesForCustomer(
@@ -63,16 +67,17 @@ class CustomerLedgerService {
 
     final jobWorkRepo = _jobWorkRepository;
     final List<JobWorkOrder> jobWorkOrders = jobWorkRepo != null
-        ? await jobWorkRepo
-            .watchOrdersForCustomer(
-              factoryId: factoryId,
-              customerId: customerId,
-            )
-            .first
+        ? await jobWorkRepo.getOrdersForCustomer(
+            factoryId: factoryId,
+            customerId: customerId,
+          )
         : const [];
     final jobWorkLoadRepo = _jobWorkLoadRepository;
     final List<JobWorkLoad> jobWorkLoads = jobWorkLoadRepo != null
-        ? await jobWorkLoadRepo.watchLoads(factoryId).first
+        ? await jobWorkLoadRepo.getLoadsForCustomer(
+            factoryId: factoryId,
+            customerId: customerId,
+          )
         : const [];
     final jobWorkInvoices =
         await _jobWorkInvoiceRepository.getInvoicesForCustomer(
@@ -102,6 +107,16 @@ class CustomerLedgerService {
         ? -summary.unallocatedCredit
         : summary.totalDue;
 
+    if (_ledgerUnchanged(
+      customer: customer,
+      balance: customerBalance,
+      totalPaid: summary.totalPaid,
+      totalDue: summary.totalDue,
+      nextDueDate: summary.nextDueDate,
+    )) {
+      return;
+    }
+
     await _customerRepository.updateCustomer(
       customer.copyWith(
         balance: customerBalance,
@@ -110,5 +125,26 @@ class CustomerLedgerService {
         nextDueDate: summary.nextDueDate,
       ),
     );
+  }
+
+  static bool _ledgerUnchanged({
+    required Customer customer,
+    required double balance,
+    required double totalPaid,
+    required double totalDue,
+    DateTime? nextDueDate,
+  }) {
+    bool sameDay(DateTime? a, DateTime? b) {
+      if (a == null && b == null) return true;
+      if (a == null || b == null) return false;
+      return a.year == b.year && a.month == b.month && a.day == b.day;
+    }
+
+    bool sameMoney(double a, double b) => (a - b).abs() < 0.005;
+
+    return sameMoney(customer.balance, balance) &&
+        sameMoney(customer.totalAmountPaid, totalPaid) &&
+        sameMoney(customer.totalBalanceDue, totalDue) &&
+        sameDay(customer.nextDueDate, nextDueDate);
   }
 }

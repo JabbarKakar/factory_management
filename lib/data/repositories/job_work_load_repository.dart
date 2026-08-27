@@ -118,6 +118,26 @@ class JobWorkLoadRepository {
     );
   }
 
+  Future<List<JobWorkLoad>> getLoadsForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
+    final snapshot = await _loads
+        .where('factoryId', isEqualTo: factoryId)
+        .where('customerId', isEqualTo: customerId)
+        .get();
+    final loads = snapshot.docs
+        .map((doc) => JobWorkLoadModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    loads.sort((a, b) {
+      final jobCompare = a.jobWorkId.compareTo(b.jobWorkId);
+      if (jobCompare != 0) return jobCompare;
+      return a.loadSequence.compareTo(b.loadSequence);
+    });
+    return loads;
+  }
+
   Stream<List<JobWorkLoad>> watchLoadsForJobWork({
     required String factoryId,
     required String jobWorkId,
@@ -750,14 +770,23 @@ class JobWorkLoadRepository {
           });
         }
 
-        await _invoices.doc(doc.id).update({
-          'total': total,
-          'paid': paid,
-          'due': due,
-          'status': status.firestoreValue,
-          'items': lineItems,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        final currentTotal = (doc.data()['total'] as num?)?.toDouble() ?? 0;
+        final currentPaid = (doc.data()['paid'] as num?)?.toDouble() ?? 0;
+        final currentDue = (doc.data()['due'] as num?)?.toDouble() ?? 0;
+        final currentStatus = doc.data()['status'] as String?;
+        if (!_sameMoney(currentTotal, total) ||
+            !_sameMoney(currentPaid, paid) ||
+            !_sameMoney(currentDue, due) ||
+            currentStatus != status.firestoreValue) {
+          await _invoices.doc(doc.id).update({
+            'total': total,
+            'paid': paid,
+            'due': due,
+            'status': status.firestoreValue,
+            'items': lineItems,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
       }
     }
 
@@ -848,11 +877,13 @@ class JobWorkLoadRepository {
         // Never reset advanceReceived: the original advance is immutable once
         // recorded and the payment ledger (queried by loadId) is the source of
         // truth for paid amounts.
-        final loadUpdates = <String, dynamic>{
-          'pricing.balanceDue': remaining,
-          'updatedAt': FieldValue.serverTimestamp(),
-        };
-        await loadDoc(load.id).update(loadUpdates);
+        if (!_sameMoney(load.balanceDue, remaining)) {
+          final loadUpdates = <String, dynamic>{
+            'pricing.balanceDue': remaining,
+            'updatedAt': FieldValue.serverTimestamp(),
+          };
+          await loadDoc(load.id).update(loadUpdates);
+        }
 
         lineItemsMaps.add({
           'description':
@@ -877,14 +908,22 @@ class JobWorkLoadRepository {
         dueDate: (grandInvoiceDoc.data()['dueDate'] as Timestamp?)?.toDate(),
       );
 
-      await _invoices.doc(grandInvoiceDoc.id).update({
-        'total': newTotal,
-        'paid': newPaid,
-        'due': newDue,
-        'status': status.firestoreValue,
-        'items': lineItemsMaps,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      final grandData = grandInvoiceDoc.data();
+      final grandAlreadySynced =
+          _sameMoney((grandData['total'] as num?)?.toDouble() ?? 0, newTotal) &&
+              _sameMoney((grandData['paid'] as num?)?.toDouble() ?? 0, newPaid) &&
+              _sameMoney((grandData['due'] as num?)?.toDouble() ?? 0, newDue) &&
+              (grandData['status'] as String?) == status.firestoreValue;
+      if (!grandAlreadySynced) {
+        await _invoices.doc(grandInvoiceDoc.id).update({
+          'total': newTotal,
+          'paid': newPaid,
+          'due': newDue,
+          'status': status.firestoreValue,
+          'items': lineItemsMaps,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       finalCuttingCharges = newTotal;
       advanceReceived = JobWorkContainerSyncHelper.rollupAdvanceReceived(
@@ -907,6 +946,25 @@ class JobWorkLoadRepository {
       );
     }
 
+    final summaryStatus = JobWorkSummaryStatus.fromLoadStatuses(
+      loads.map((load) => load.status),
+    );
+    final containerStatus = JobWorkContainerSyncHelper.resolveContainerStatus(
+      order: order,
+      loads: loads,
+    );
+    if (order.schemaVersion == JobWorkSchemaVersion.loadsAuthoritative &&
+        order.defaultLoadId == defaultLoadId &&
+        order.loadCount == loads.length &&
+        order.activeLoadCount == activeCount &&
+        order.summaryStatus == summaryStatus &&
+        order.status == containerStatus &&
+        _sameMoney(order.finalCuttingCharges, finalCuttingCharges) &&
+        _sameMoney(order.advanceReceived, advanceReceived) &&
+        _sameMoney(order.balanceDue, balanceDue)) {
+      return;
+    }
+
     final batch = _firestore.batch();
     _applyJobWorkMigratedUpdate(
       batch: batch,
@@ -914,13 +972,8 @@ class JobWorkLoadRepository {
       defaultLoadId: defaultLoadId,
       loadCount: loads.length,
       activeLoadCount: activeCount,
-      summaryStatus: JobWorkSummaryStatus.fromLoadStatuses(
-        loads.map((load) => load.status),
-      ),
-      containerStatus: JobWorkContainerSyncHelper.resolveContainerStatus(
-        order: order,
-        loads: loads,
-      ),
+      summaryStatus: summaryStatus,
+      containerStatus: containerStatus,
       finalCuttingCharges: finalCuttingCharges,
       advanceReceived: advanceReceived,
       balanceDue: balanceDue,
@@ -1015,3 +1068,5 @@ class JobWorkLoadRepository {
     return JobWorkLoadResolver.resolveLoads(order, loads);
   }
 }
+
+bool _sameMoney(num a, num b) => (a - b).abs() < 0.005;

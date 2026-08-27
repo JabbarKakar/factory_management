@@ -360,10 +360,17 @@ class PaymentRepository {
   Future<void> _syncInvoiceFromPayments({
     required String invoiceId,
     required InvoiceType invoiceType,
+    bool repair = true,
   }) async {
     if (invoiceType == InvoiceType.jobWork) {
       final invoice = await _jobWorkInvoiceRepository.getInvoice(invoiceId);
       if (invoice == null) return;
+
+      if (!repair) {
+        await _jobWorkLoadRepository.refreshContainerFromLoads(invoice.jobWorkId);
+        await _ledgerService?.syncCustomerBalance(invoice.customerId);
+        return;
+      }
 
       final payments = await getPaymentsForInvoice(
         factoryId: invoice.factoryId,
@@ -399,13 +406,20 @@ class PaymentRepository {
         dueDate: invoice.dueDate,
       );
 
-      await _jobWorkInvoiceRepository.collection.doc(invoiceId).update({
-        'total': effectiveTotal,
-        'paid': paidAmount,
-        'due': dueAmount,
-        'status': status.firestoreValue,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      final invoiceAlreadySynced =
+          _sameMoney(invoice.totalAmount, effectiveTotal) &&
+              _sameMoney(invoice.paidAmount, paidAmount) &&
+              _sameMoney(invoice.dueAmount, dueAmount.toDouble()) &&
+              invoice.status == status;
+      if (!invoiceAlreadySynced) {
+        await _jobWorkInvoiceRepository.collection.doc(invoiceId).update({
+          'total': effectiveTotal,
+          'paid': paidAmount,
+          'due': dueAmount,
+          'status': status.firestoreValue,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       // Sync Grand Invoice for the Job Work container if one exists.
       await _jobWorkInvoiceRepository.syncGrandInvoice(
@@ -416,19 +430,24 @@ class PaymentRepository {
       if (loadId != null && loadId.isNotEmpty) {
         final load = await _jobWorkLoadRepository.getLoad(loadId);
         if (load != null) {
-          final loadUpdates = <String, dynamic>{
-            'pricing.balanceDue': dueAmount.toDouble(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          };
           final financeStatus =
               JobWorkContainerSyncHelper.financeStatusForLoad(
             load: load,
             dueAmount: dueAmount.toDouble(),
           );
-          if (financeStatus != null) {
-            loadUpdates['status'] = financeStatus.firestoreValue;
+          final loadAlreadySynced =
+              _sameMoney(load.balanceDue, dueAmount.toDouble()) &&
+                  (financeStatus == null || load.status == financeStatus);
+          if (!loadAlreadySynced) {
+            final loadUpdates = <String, dynamic>{
+              'pricing.balanceDue': dueAmount.toDouble(),
+              'updatedAt': FieldValue.serverTimestamp(),
+            };
+            if (financeStatus != null) {
+              loadUpdates['status'] = financeStatus.firestoreValue;
+            }
+            await _jobWorkLoadRepository.loadDoc(loadId).update(loadUpdates);
           }
-          await _jobWorkLoadRepository.loadDoc(loadId).update(loadUpdates);
           await _jobWorkLoadRepository
               .refreshContainerFromLoads(invoice.jobWorkId);
         }
@@ -441,16 +460,23 @@ class PaymentRepository {
           await _jobWorkLoadRepository
               .refreshContainerFromLoads(invoice.jobWorkId);
         } else {
-          await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
-            'pricing.balanceDue': dueAmount.toDouble(),
-            if (dueAmount <= 0 &&
-                order.status != JobWorkStatus.paid &&
-                !order.status.isCollectionStatus)
-              'status': JobWorkStatus.paid.firestoreValue,
-            if (dueAmount > 0 && order.status == JobWorkStatus.paid)
-              'status': JobWorkStatus.invoiced.firestoreValue,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+          JobWorkStatus nextStatus = order.status;
+          if (dueAmount <= 0 &&
+              order.status != JobWorkStatus.paid &&
+              !order.status.isCollectionStatus) {
+            nextStatus = JobWorkStatus.paid;
+          } else if (dueAmount > 0 && order.status == JobWorkStatus.paid) {
+            nextStatus = JobWorkStatus.invoiced;
+          }
+          if (!_sameMoney(order.balanceDue, dueAmount.toDouble()) ||
+              nextStatus != order.status) {
+            await _jobWorkRepository.jobWorkDoc(invoice.jobWorkId).update({
+              'pricing.balanceDue': dueAmount.toDouble(),
+              if (nextStatus != order.status)
+                'status': nextStatus.firestoreValue,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          }
         }
       }
 
@@ -476,12 +502,18 @@ class PaymentRepository {
       dueDate: invoice.dueDate,
     );
 
-    await _salesInvoiceRepository.collection.doc(invoiceId).update({
-      'paid': paidAmount,
-      'due': dueAmount,
-      'status': status.firestoreValue,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    final invoiceAlreadySynced =
+        _sameMoney(invoice.paidAmount, paidAmount) &&
+            _sameMoney(invoice.dueAmount, dueAmount.toDouble()) &&
+            invoice.status == status;
+    if (!invoiceAlreadySynced) {
+      await _salesInvoiceRepository.collection.doc(invoiceId).update({
+        'paid': paidAmount,
+        'due': dueAmount,
+        'status': status.firestoreValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
 
     // Order finance updates only for single-order invoices; grand has empty salesOrderId.
     final salesOrderId = invoice.salesOrderId.trim();
@@ -495,16 +527,19 @@ class PaymentRepository {
           paidAmount: paidAmount,
           dueAmount: dueAmount.toDouble(),
         );
-        final orderUpdates = <String, dynamic>{
-          'advanceReceived': finance.advanceReceived,
-          'balanceDue': finance.balanceDue,
-          'updatedAt': FieldValue.serverTimestamp(),
-          if (finance.status != null)
-            'status': finance.status!.firestoreValue,
-        };
-        await _salesOrderRepository.salesOrderDoc(salesOrderId).update(
-              orderUpdates,
-            );
+        final orderAlreadySynced =
+            _sameMoney(order.advanceReceived, finance.advanceReceived) &&
+                _sameMoney(order.balanceDue, finance.balanceDue) &&
+                (finance.status == null || order.status == finance.status);
+        if (!orderAlreadySynced) {
+          await _salesOrderRepository.salesOrderDoc(salesOrderId).update({
+            'advanceReceived': finance.advanceReceived,
+            'balanceDue': finance.balanceDue,
+            'updatedAt': FieldValue.serverTimestamp(),
+            if (finance.status != null)
+              'status': finance.status!.firestoreValue,
+          });
+        }
       }
     }
 
@@ -899,10 +934,11 @@ class PaymentRepository {
       return newPayment;
     });
 
-    // Sync Load finance + JW rollup (or legacy JW finance when no loadId).
+    // Repair path only: happy-path payment already wrote invoice+load+order.
     await _syncInvoiceFromPayments(
       invoiceId: invoiceId,
       invoiceType: InvoiceType.jobWork,
+      repair: false,
     );
 
     if (_notificationRepository != null && _scannerService != null) {
@@ -1005,10 +1041,12 @@ class PaymentRepository {
       return newPayment;
     });
 
-    // Recompute invoice + order finance + agreement rollup from payment docs.
+    // Recompute order/agreement/ledger. Invoice paid/due were written above;
+    // skip rewriting them unless the payment docs disagree (repair).
     await _syncInvoiceFromPayments(
       invoiceId: invoiceId,
       invoiceType: InvoiceType.sales,
+      repair: false,
     );
 
     if (_notificationRepository != null && _scannerService != null) {
@@ -1148,3 +1186,5 @@ class _InvoiceSnapshot {
   final String parentId;
   final InvoiceType invoiceType;
 }
+
+bool _sameMoney(num a, num b) => (a - b).abs() < 0.005;
