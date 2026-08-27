@@ -487,6 +487,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /dashboardRollups/{rollupId} {
+      allow read: if canReadFactoryDoc() && (canReadFinancial() || canReadOperations());
+      allow create, update: if canWriteFactoryDoc();
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

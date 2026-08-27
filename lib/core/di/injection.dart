@@ -54,6 +54,7 @@ import '../../blocs/sales/sales_order_list_bloc.dart';
 import '../../blocs/theme/theme_cubit.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/customer_repository.dart';
+import '../../data/repositories/dashboard_rollup_repository.dart';
 import '../../data/repositories/expense_repository.dart';
 import '../../data/repositories/factory_repository.dart';
 import '../../data/repositories/attendance_repository.dart';
@@ -106,6 +107,7 @@ import '../../data/services/job_work_cleanup_service.dart';
 import '../../data/services/notification_engine_service.dart';
 import '../../data/services/operational_alert_scanner_service.dart';
 import '../../data/services/dashboard_analytics_service.dart';
+import '../../data/services/dashboard_rollup_service.dart';
 import '../../data/services/job_work_loads_backfill_service.dart';
 import '../../data/services/payment_due_scanner_service.dart';
 import '../../data/services/payment_reminder_message_service.dart';
@@ -339,6 +341,14 @@ void setupDependencies() {
   getIt.registerLazySingleton<StockBackfillMigration>(
     StockBackfillMigration.new,
   );
+  getIt.registerLazySingleton<DashboardRollupRepository>(
+    DashboardRollupRepository.new,
+  );
+  getIt.registerLazySingleton<DashboardRollupService>(
+    () => DashboardRollupService(
+      repository: getIt<DashboardRollupRepository>(),
+    ),
+  );
 
   getIt.registerFactory<AuthBloc>(
     () => AuthBloc(authRepository: getIt<AuthRepository>()),
@@ -402,6 +412,7 @@ void setupDependencies() {
       productionRepository: getIt<ProductionRepository>(),
       scannerService: getIt<PaymentDueScannerService>(),
       analyticsService: getIt<DashboardAnalyticsService>(),
+      rollupService: getIt<DashboardRollupService>(),
     ),
   );
   getIt.registerFactory<CustomerFormBloc>(

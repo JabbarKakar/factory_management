@@ -205,22 +205,20 @@ void main() {
       );
     });
 
-    test('switching Daily to Yearly resubscribes payments with an earlier from',
-        () async {
+    test('switching Daily to Yearly keeps the short payment window', () async {
       bloc.add(const DashboardWatchStarted(_factoryId));
       await _waitUntilLoaded(bloc);
 
-      final dailyFrom = env.payments.froms.single!;
       expect(env.payments.watchCalls, 1);
+      final dailyFrom = env.payments.froms.single;
 
       bloc.add(
         const DashboardFinancePeriodChanged(DashboardFinancePeriod.yearly),
       );
       await Future<void>.delayed(const Duration(milliseconds: 80));
 
-      expect(env.payments.watchCalls, 2);
-      expect(env.payments.froms.last, isNotNull);
-      expect(env.payments.froms.last!.isBefore(dailyFrom), isTrue);
+      expect(env.payments.watchCalls, 1);
+      expect(env.payments.froms.single, dailyFrom);
     });
 
     test('switching Daily to Monthly changes the payment query window',

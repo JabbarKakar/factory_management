@@ -26,6 +26,7 @@ import '../../data/repositories/raw_material_repository.dart';
 import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/repositories/sales_order_repository.dart';
 import '../../data/services/dashboard_analytics_service.dart';
+import '../../data/services/dashboard_rollup_service.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../data/services/job_work_load_production_helper.dart';
 import '../../data/services/payment_due_scanner_service.dart';
@@ -36,6 +37,7 @@ import '../../domain/entities/dashboard_analytics.dart';
 import '../../domain/entities/dashboard_cashflow_metrics.dart';
 import '../../domain/entities/dashboard_command_center.dart';
 import '../../domain/entities/dashboard_kpis.dart';
+import '../../domain/entities/dashboard_monthly_rollup.dart';
 import '../../domain/entities/dashboard_pending_pickup.dart';
 import '../../domain/entities/dashboard_sales_sqft_metrics.dart';
 import '../../domain/entities/dashboard_stock_cut_metrics.dart';
@@ -84,6 +86,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required ProductionRepository productionRepository,
     required PaymentDueScannerService scannerService,
     required DashboardAnalyticsService analyticsService,
+    DashboardRollupService? rollupService,
   })  : _paymentRepository = paymentRepository,
         _jobWorkRepository = jobWorkRepository,
         _salesOrderRepository = salesOrderRepository,
@@ -102,6 +105,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         _productionRepository = productionRepository,
         _scannerService = scannerService,
         _analyticsService = analyticsService,
+        _rollupService = rollupService,
         super(const DashboardState()) {
     on<DashboardWatchStarted>(_onWatchStarted);
     on<DashboardWatchStopped>(_onWatchStopped);
@@ -131,6 +135,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final ProductionRepository _productionRepository;
   final PaymentDueScannerService _scannerService;
   final DashboardAnalyticsService _analyticsService;
+  final DashboardRollupService? _rollupService;
 
   StreamSubscription<List<Payment>>? _paymentsSub;
   StreamSubscription<List<JobWorkOrder>>? _jobWorkSub;
@@ -159,6 +164,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   List<Equipment> _equipment = const [];
   List<QualityCheck> _qualityChecks = const [];
   List<ProductionBatch> _productionBatches = const [];
+  List<DashboardMonthlyRollup> _rollups = const [];
 
   Timer? _recomputeDebounce;
 
@@ -491,6 +497,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         ),
         (value) => _productionBatches = value,
       ),
+      take(_loadRollups(factoryId), (value) => _rollups = value),
     ]);
 
     if (generation != _snapshotGeneration || isClosed) return;
@@ -501,9 +508,29 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     final factoryId = _watchingFactoryId ?? state.factoryId;
     if (factoryId == null || _paymentsSub == null) return;
     final window = _queryWindowFor(state);
-    if (_activeWindow != null && window.isSameAs(_activeWindow!)) return;
-    await _restartPayments(factoryId, window);
-    await _loadSnapshots(factoryId, window);
+    if (_activeWindow == null || !window.isSameAs(_activeWindow!)) {
+      await _restartPayments(factoryId, window);
+      await _loadSnapshots(factoryId, window);
+      return;
+    }
+    _rollups = await _loadRollups(factoryId);
+  }
+
+  bool get _needsRollups =>
+      state.financePeriod.usesMonthlyRollups ||
+      state.stockCutPeriod.usesMonthlyRollups ||
+      state.salesSqFtPeriod.usesMonthlyRollups;
+
+  Future<List<DashboardMonthlyRollup>> _loadRollups(String factoryId) async {
+    final service = _rollupService;
+    if (service == null || !_needsRollups) return const [];
+    final now = DateTime.now();
+    final from = DateTime(
+      now.year,
+      now.month - DashboardQueryWindow.allTimeCapMonths,
+      1,
+    );
+    return service.getRange(factoryId: factoryId, from: from, to: now);
   }
 
   Future<void> _onWatchStopped(
@@ -935,6 +962,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       deliveries: _deliveries,
       activeJobWorks: activeJobWorkCount,
       jobWorkCollections: _jobWorkCollections,
+      monthlyRollups: _rollups,
       factoryCreatedAt: earliest,
     );
 
@@ -1004,6 +1032,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required DateTime now,
     DateTime? earliestDate,
   }) {
+    if (period.usesMonthlyRollups && _rollups.isNotEmpty) {
+      return DashboardRollupService.cashflow(
+        period: period,
+        now: now,
+        rollups: _rollups,
+        earliestDate: earliestDate,
+      );
+    }
     final range = DashboardFinancePeriodRange.forPeriod(
       period,
       now,
@@ -1048,6 +1084,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required DateTime now,
     DateTime? earliestDate,
   }) {
+    if (period.usesMonthlyRollups && _rollups.isNotEmpty) {
+      return DashboardRollupService.stockCut(
+        period: period,
+        now: now,
+        rollups: _rollups,
+        earliestDate: earliestDate,
+      );
+    }
     final range = DashboardFinancePeriodRange.forPeriod(
       period,
       now,
@@ -1083,6 +1127,14 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     required DateTime now,
     DateTime? earliestDate,
   }) {
+    if (period.usesMonthlyRollups && _rollups.isNotEmpty) {
+      return DashboardRollupService.salesSqFt(
+        period: period,
+        now: now,
+        rollups: _rollups,
+        earliestDate: earliestDate,
+      );
+    }
     final range = DashboardFinancePeriodRange.forPeriod(
       period,
       now,

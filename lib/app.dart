@@ -8,6 +8,7 @@ import 'blocs/theme/theme_cubit.dart';
 import 'core/constants/app_strings.dart';
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
+import 'data/services/dashboard_rollup_service.dart';
 import 'data/services/notification_engine_service.dart';
 import 'data/services/job_work_cleanup_service.dart';
 import 'data/services/job_work_loads_backfill_service.dart';
@@ -55,6 +56,9 @@ class _FactoryManagementAppState extends State<FactoryManagementApp> {
           .runIfNeeded(state.user.factoryId)
           .ignore();
       getIt<StockBackfillMigration>()
+          .runIfNeeded(state.user.factoryId)
+          .ignore();
+      getIt<DashboardRollupService>()
           .runIfNeeded(state.user.factoryId)
           .ignore();
       getIt<NotificationEngineService>()

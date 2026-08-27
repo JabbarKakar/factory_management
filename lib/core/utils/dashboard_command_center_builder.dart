@@ -1,9 +1,11 @@
 import 'package:intl/intl.dart';
 
 import '../../core/constants/job_work_sizes.dart';
+import '../../data/services/dashboard_rollup_service.dart';
 import '../../data/services/job_work_collection_quantity_helper.dart';
 import '../../domain/entities/dashboard_cashflow_metrics.dart';
 import '../../domain/entities/dashboard_command_center.dart';
+import '../../domain/entities/dashboard_monthly_rollup.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/job_work_collection.dart';
@@ -205,6 +207,7 @@ abstract final class DashboardCommandCenterBuilder {
     required List<Delivery> deliveries,
     required int activeJobWorks,
     List<JobWorkCollection> jobWorkCollections = const [],
+    List<DashboardMonthlyRollup> monthlyRollups = const [],
     DateTime? factoryCreatedAt,
   }) {
     final earliest = findEarliestTransactionDate(
@@ -225,7 +228,11 @@ abstract final class DashboardCommandCenterBuilder {
       now,
       earliestDate: earliest,
     );
-    final buckets = _buckets(period, range.currentStart, range.currentEnd);
+    final useRollups =
+        period.usesMonthlyRollups && monthlyRollups.isNotEmpty;
+    final buckets = useRollups
+        ? _monthlyBuckets(range.currentStart, range.currentEnd, DateFormat.MMM())
+        : _buckets(period, range.currentStart, range.currentEnd);
 
     final cashflowSeries = <DashboardCashflowPoint>[];
     final salesVsJw = <DashboardRevenueComparePoint>[];
@@ -233,22 +240,47 @@ abstract final class DashboardCommandCenterBuilder {
     final expenseSpark = <double>[];
 
     for (final bucket in buckets) {
-      final income = _sumPayments(payments, bucket.start, bucket.end);
-      final expense = _sumExpenses(expenses, bucket.start, bucket.end);
+      final income = useRollups
+          ? DashboardRollupService.sumIncome(
+              monthlyRollups,
+              bucket.start,
+              bucket.end,
+            )
+          : _sumPayments(payments, bucket.start, bucket.end);
+      final expense = useRollups
+          ? DashboardRollupService.sumExpenses(
+              monthlyRollups,
+              bucket.start,
+              bucket.end,
+            )
+          : _sumExpenses(expenses, bucket.start, bucket.end);
       var sales = 0.0;
       var jw = 0.0;
-      for (final payment in payments) {
-        if (!DashboardFinancePeriodRange.contains(
-          payment.paymentDate,
+      if (useRollups) {
+        sales = DashboardRollupService.sumIncomeSales(
+          monthlyRollups,
           bucket.start,
           bucket.end,
-        )) {
-          continue;
-        }
-        if (payment.invoiceType == InvoiceType.sales) {
-          sales += payment.amount;
-        } else {
-          jw += payment.amount;
+        );
+        jw = DashboardRollupService.sumIncomeJobWork(
+          monthlyRollups,
+          bucket.start,
+          bucket.end,
+        );
+      } else {
+        for (final payment in payments) {
+          if (!DashboardFinancePeriodRange.contains(
+            payment.paymentDate,
+            bucket.start,
+            bucket.end,
+          )) {
+            continue;
+          }
+          if (payment.invoiceType == InvoiceType.sales) {
+            sales += payment.amount;
+          } else {
+            jw += payment.amount;
+          }
         }
       }
 
@@ -272,33 +304,73 @@ abstract final class DashboardCommandCenterBuilder {
       expenseSpark.add(expense);
     }
 
-    final income = _sumPayments(
-      payments,
-      range.currentStart,
-      range.currentEnd,
-    );
-    final expenseTotal = _sumExpenses(
-      expenses,
-      range.currentStart,
-      range.currentEnd,
-    );
-    final previousIncome = _sumPayments(
-      payments,
-      range.previousStart,
-      range.previousEnd,
-    );
-    final previousExpenses = _sumExpenses(
-      expenses,
-      range.previousStart,
-      range.previousEnd,
-    );
+    final income = useRollups
+        ? DashboardRollupService.sumIncome(
+            monthlyRollups,
+            range.currentStart,
+            range.currentEnd,
+          )
+        : _sumPayments(
+            payments,
+            range.currentStart,
+            range.currentEnd,
+          );
+    final expenseTotal = useRollups
+        ? DashboardRollupService.sumExpenses(
+            monthlyRollups,
+            range.currentStart,
+            range.currentEnd,
+          )
+        : _sumExpenses(
+            expenses,
+            range.currentStart,
+            range.currentEnd,
+          );
+    final previousIncome = useRollups
+        ? DashboardRollupService.sumIncome(
+            monthlyRollups,
+            range.previousStart,
+            range.previousEnd,
+          )
+        : _sumPayments(
+            payments,
+            range.previousStart,
+            range.previousEnd,
+          );
+    final previousExpenses = useRollups
+        ? DashboardRollupService.sumExpenses(
+            monthlyRollups,
+            range.previousStart,
+            range.previousEnd,
+          )
+        : _sumExpenses(
+            expenses,
+            range.previousStart,
+            range.previousEnd,
+          );
 
-    final stock = DashboardJobWorkMetrics.factoryStockCutInRange(
-      orders: jobWorkOrders,
-      loads: jobWorkLoads,
-      start: range.currentStart,
-      end: range.currentEnd,
-    );
+    final DashboardStockCutTotals stock;
+    if (useRollups) {
+      final rolled = DashboardRollupService.stockCut(
+        period: period,
+        now: now,
+        rollups: monthlyRollups,
+        earliestDate: earliest,
+      );
+      stock = DashboardStockCutTotals(
+        smallSqFt: rolled.smallSqFt,
+        largeSqFt: rolled.largeSqFt,
+        smallAmount: rolled.smallAmount,
+        largeAmount: rolled.largeAmount,
+      );
+    } else {
+      stock = DashboardJobWorkMetrics.factoryStockCutInRange(
+        orders: jobWorkOrders,
+        loads: jobWorkLoads,
+        start: range.currentStart,
+        end: range.currentEnd,
+      );
+    }
     final waste = _wasteYieldSqFtInRange(
       orders: jobWorkOrders,
       loads: jobWorkLoads,
@@ -306,11 +378,26 @@ abstract final class DashboardCommandCenterBuilder {
       end: range.currentEnd,
     );
 
-    final salesSqFt = DashboardSalesSqFtHelper.factorySalesSqFtInRange(
-      orders: salesOrders,
-      start: range.currentStart,
-      end: range.currentEnd,
-    );
+    final salesSqFt = useRollups
+        ? () {
+            final rolled = DashboardRollupService.salesSqFt(
+              period: period,
+              now: now,
+              rollups: monthlyRollups,
+              earliestDate: earliest,
+            );
+            return (
+              smallSqFt: rolled.smallSqFt,
+              largeSqFt: rolled.largeSqFt,
+              smallAmount: rolled.smallAmount,
+              largeAmount: rolled.largeAmount,
+            );
+          }()
+        : DashboardSalesSqFtHelper.factorySalesSqFtInRange(
+            orders: salesOrders,
+            start: range.currentStart,
+            end: range.currentEnd,
+          );
 
     final outstanding = _outstandingReceivables(
       jobWorkOrders: jobWorkOrders,

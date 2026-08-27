@@ -14,6 +14,7 @@ import '../../domain/enums/sales_enums.dart';
 import '../models/customer_model.dart';
 import '../models/payment_model.dart';
 import '../models/sales_order_model.dart';
+import '../services/dashboard_rollup_service.dart';
 import '../services/sequence_number_service.dart';
 import 'sales_agreement_repository.dart';
 
@@ -289,10 +290,35 @@ class SalesOrderRepository {
     }
     final finalCreated = (await getSalesOrder(id)) ?? created;
     EntityReactiveEventBus.instance.notifyCreated<SalesOrder>(finalCreated);
+    await applyDashboardRollup(
+      (service) => service.applySalesOrder(order: finalCreated),
+    );
+    if (withTotals.advanceReceived > 0) {
+      await applyDashboardRollup(
+        (service) => service.applyPayment(
+          payment: Payment(
+            id: '',
+            factoryId: finalCreated.factoryId,
+            customerId: finalCreated.customerId,
+            customerName: finalCreated.customerName,
+            invoiceId: '',
+            invoiceType: InvoiceType.sales,
+            invoiceNumber: finalCreated.orderNumber,
+            amount: withTotals.advanceReceived,
+            method: PaymentMethod.cash,
+            paymentDate: finalCreated.orderDate,
+            createdAt: finalCreated.createdAt,
+            isAdvance: true,
+            orderId: finalCreated.id,
+          ),
+        ),
+      );
+    }
     return finalCreated;
   }
 
   Future<void> updateSalesOrder(SalesOrder order) async {
+    final previous = await getSalesOrder(order.id);
     var updated = _recomputeTotals(order);
     if (updated.status == SalesOrderStatus.received) {
       updated = updated.copyWith(
@@ -306,6 +332,9 @@ class SalesOrderRepository {
     await _ordersCollection.doc(order.id).update(model.toFirestore());
     await _syncAgreementIfLinked(updated.agreementId);
     EntityReactiveEventBus.instance.notifyUpdated<SalesOrder>(updated);
+    await applyDashboardRollup(
+      (service) => service.applySalesOrder(order: updated, previous: previous),
+    );
   }
 
   Future<void> advanceSalesOrderStatus(String id, SalesOrderStatus status) async {
@@ -396,8 +425,10 @@ class SalesOrderRepository {
 
     await batch.commit();
     await _syncAgreementIfLinked(order.agreementId);
-    EntityReactiveEventBus.instance.notifyUpdated<SalesOrder>(
-      order.copyWith(status: SalesOrderStatus.cancelled),
+    final cancelled = order.copyWith(status: SalesOrderStatus.cancelled);
+    EntityReactiveEventBus.instance.notifyUpdated<SalesOrder>(cancelled);
+    await applyDashboardRollup(
+      (service) => service.applySalesOrder(order: cancelled, previous: order),
     );
   }
 

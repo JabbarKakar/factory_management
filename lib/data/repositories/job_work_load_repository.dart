@@ -17,6 +17,7 @@ import '../../domain/enums/job_work_load_enums.dart';
 import '../models/job_work_invoice_model.dart';
 import '../models/job_work_load_model.dart';
 import '../models/payment_model.dart';
+import '../services/dashboard_rollup_service.dart';
 import '../services/job_work_container_sync_helper.dart';
 import '../services/job_work_load_production_helper.dart';
 import '../services/job_work_load_resolver.dart';
@@ -339,7 +340,30 @@ class JobWorkLoadRepository {
       loadNumber: loadNumber,
     );
 
-    return (await getLoad(loadId)) ?? load;
+    final created = (await getLoad(loadId)) ?? load;
+    if (load.advanceReceived > 0) {
+      await applyDashboardRollup(
+        (service) => service.applyPayment(
+          payment: Payment(
+            id: '',
+            factoryId: load.factoryId,
+            customerId: load.customerId,
+            customerName: load.customerName,
+            invoiceId: '',
+            invoiceType: InvoiceType.jobWork,
+            invoiceNumber: load.loadNumber,
+            amount: load.advanceReceived,
+            method: PaymentMethod.cash,
+            paymentDate: load.receivedDate,
+            createdAt: load.createdAt,
+            isAdvance: true,
+            orderId: load.jobWorkId,
+            loadId: load.id,
+          ),
+        ),
+      );
+    }
+    return created;
   }
 
   /// Creates a new Load under an existing Job Work (Add Load).
@@ -436,6 +460,28 @@ class JobWorkLoadRepository {
     await batch.commit();
     final created = (await getLoad(id)) ?? load;
     EntityReactiveEventBus.instance.notifyCreated<JobWorkLoad>(created);
+    if (load.advanceReceived > 0) {
+      await applyDashboardRollup(
+        (service) => service.applyPayment(
+          payment: Payment(
+            id: '',
+            factoryId: load.factoryId,
+            customerId: load.customerId,
+            customerName: load.customerName,
+            invoiceId: '',
+            invoiceType: InvoiceType.jobWork,
+            invoiceNumber: load.loadNumber,
+            amount: load.advanceReceived,
+            method: PaymentMethod.cash,
+            paymentDate: load.receivedDate,
+            createdAt: load.createdAt,
+            isAdvance: true,
+            orderId: load.jobWorkId,
+            loadId: load.id,
+          ),
+        ),
+      );
+    }
     return created;
   }
 
@@ -448,10 +494,18 @@ class JobWorkLoadRepository {
     if (order == null) {
       throw const JobWorkLoadException('Job work order not found.');
     }
+    final previous = await getLoad(load.id);
 
     await _loads.doc(load.id).update(
           JobWorkLoadModel.fromEntity(load).toFirestore(),
         );
+
+    await applyDashboardRollup(
+      (service) => service.applyStockCutForLoad(
+        current: load,
+        previous: previous,
+      ),
+    );
 
     final existing = await fetchLoadsForJobWork(
       factoryId: order.factoryId,

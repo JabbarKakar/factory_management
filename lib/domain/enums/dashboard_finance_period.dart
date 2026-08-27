@@ -7,6 +7,12 @@ enum DashboardFinancePeriod {
   yearly,
   allTime;
 
+  /// Long periods are served from monthly rollups (S41), not raw history.
+  bool get usesMonthlyRollups =>
+      this == DashboardFinancePeriod.sixMonths ||
+      this == DashboardFinancePeriod.yearly ||
+      this == DashboardFinancePeriod.allTime;
+
   String get label => switch (this) {
         DashboardFinancePeriod.daily => 'Daily',
         DashboardFinancePeriod.weekly => 'Weekly',

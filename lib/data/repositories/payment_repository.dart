@@ -16,6 +16,7 @@ import '../models/job_work_order_model.dart';
 import '../models/payment_model.dart';
 import '../models/sales_invoice_model.dart';
 import '../services/customer_ledger_service.dart';
+import '../services/dashboard_rollup_service.dart';
 import '../services/job_work_container_sync_helper.dart';
 import '../services/payment_due_scanner_service.dart';
 import '../services/sales_container_sync_helper.dart';
@@ -266,6 +267,9 @@ class PaymentRepository {
     }
 
     await _collection.doc(paymentId).update(updates);
+    await applyDashboardRollup(
+      (service) => service.applyPayment(payment: updated, previous: existing),
+    );
     await _syncInvoiceFromPayments(
       invoiceId: existing.invoiceId,
       invoiceType: existing.invoiceType,
@@ -325,6 +329,9 @@ class PaymentRepository {
     await _syncInvoiceFromPayments(
       invoiceId: existing.invoiceId,
       invoiceType: existing.invoiceType,
+    );
+    await applyDashboardRollup(
+      (service) => service.applyPayment(payment: existing, deleted: true),
     );
   }
 
@@ -956,6 +963,9 @@ class PaymentRepository {
       }
     }
 
+    await applyDashboardRollup(
+      (service) => service.applyPayment(payment: payment),
+    );
     return payment;
   }
 
@@ -1064,6 +1074,9 @@ class PaymentRepository {
       }
     }
 
+    await applyDashboardRollup(
+      (service) => service.applyPayment(payment: payment),
+    );
     return payment;
   }
 
@@ -1110,6 +1123,9 @@ class PaymentRepository {
           PaymentModel.fromEntity(payment).toFirestore(isCreate: true),
         );
 
+    await applyDashboardRollup(
+      (service) => service.applyPayment(payment: payment),
+    );
     return payment;
   }
 

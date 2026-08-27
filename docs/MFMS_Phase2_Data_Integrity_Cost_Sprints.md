@@ -117,7 +117,7 @@ order ≈ **19 writes for one payment** against a 20,000/day ceiling.
 | **S38** | Stock atomicity via increments | D1 | 4 days | **High** (data migration) | **Done** |
 | **S39** | Dashboard windowing | D3 | 4 days | Medium | **Done** |
 | **S40** | Ledger scoping + write de-amplification | D4 | 3 days | Medium | **Done** |
-| **S41** | Monthly rollups for "All Time" *(optional)* | D3 durable fix | 3 days | Medium | |
+| **S41** | Monthly rollups for "All Time" *(optional)* | D3 durable fix | 3 days | Medium | **Done** |
 
 **Order matters.** S36 first — it stops dev work from burning quota and gives the
 measurement baseline every later sprint is judged against. S38 carries the
@@ -753,6 +753,43 @@ dashboardRollups/{factoryId}__{yyyy-MM}
    50,000 documents — seed both and compare.
 4. Run the drift detector after a day of mixed activity; expect zero drift.
 
+### Deliverables
+
+- `lib/domain/entities/dashboard_monthly_rollup.dart` (new)
+- `lib/data/models/dashboard_monthly_rollup_model.dart` (new)
+- `lib/data/repositories/dashboard_rollup_repository.dart` (new)
+- `lib/data/services/dashboard_rollup_service.dart` (new)
+- `payment_repository.dart`, `expense_repository.dart`,
+  `job_work_load_repository.dart`, `sales_order_repository.dart` (increment hooks)
+- `dashboard_bloc.dart`, `dashboard_query_window.dart`,
+  `dashboard_command_center_builder.dart`, `dashboard_finance_period.dart`
+- `firestore.rules`, `app.dart`, `injection.dart`
+- `test/data/services/dashboard_rollup_service_test.dart` (new)
+
+### As built — where this differs from the plan
+
+1. **Field names follow the dashboard, not the sketch.** Docs are `income`,
+   `incomeSales`, `incomeJobWork`, `expenses`, plus stock-cut and sales sq ft
+   splits. `outstanding` is a point-in-time receivable, not a monthly flow, so
+   it stays on live invoices. `dispatchedSqFt` is not rolled up in this pass.
+2. **Six months / yearly / All Time are calendar-month aligned.** A 179-day
+   "6 Months" window includes every overlapping month's full total. Daily /
+   weekly / monthly still use the S39 windowed raw queries.
+3. **Raw query window no longer widens for long periods.** Payments and
+   expenses stay on the 30-day / month floor; long-period KPIs and charts read
+   ~24 `dashboardRollups` documents by id (no new composite index).
+4. **Backfill runs once per factory at login**, same pattern as S38, then
+   payment / expense / load-output / sales-order writes `FieldValue.increment`
+   the current month. `detectDrift(factoryId, month)` recomputes that month
+   from raw docs for comparison.
+5. **Rollup writes never fail a business write.** `applyDashboardRollup`
+   swallows errors so a rules miss cannot block recording a payment.
+
+### Exit
+
+Long dashboard periods read a bounded set of monthly rollups; Daily remains
+on windowed raw data.
+
 ---
 
 ## 12. Measurement log
@@ -789,7 +826,9 @@ Run in this order. **S37 and S38 both migrate live data — back up first.**
    `averageCost` and `stockValue` are unchanged for every material.
 5. Release the S38 build; watch for negative-stock rejections in logs.
 6. Release S39 and S40 (no data migration).
-7. Observe Console usage for 7 days against the free-tier ceiling.
+7. Release S41: deploy rules (`dashboardRollups`), then ship the build.
+   Backfill runs once at login; All Time then reads ~24 rollup docs.
+8. Observe Console usage for 7 days against the free-tier ceiling.
 
 ---
 

@@ -10,6 +10,7 @@ import '../../domain/enums/expense_enums.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../models/expense_model.dart';
 import '../models/expense_payment_model.dart';
+import '../services/dashboard_rollup_service.dart';
 import '../services/sequence_number_service.dart';
 
 class ExpenseRepository {
@@ -111,11 +112,15 @@ class ExpenseRepository {
       );
 
       await collection.doc(id).set(model.toFirestore(isCreate: true));
+      final createdEntity = model.toEntity();
+      await applyDashboardRollup(
+        (service) => service.applyExpense(expense: createdEntity),
+      );
       try {
         final created = await getExpense(id);
-        return created ?? model.toEntity();
+        return created ?? createdEntity;
       } catch (_) {
-        return model.toEntity();
+        return createdEntity;
       }
     }
 
@@ -165,20 +170,29 @@ class ExpenseRepository {
     }
 
     await batch.commit();
+    final createdEntity = expenseModel.toEntity();
+    await applyDashboardRollup(
+      (service) => service.applyExpense(expense: createdEntity),
+    );
     try {
       final created = await getExpense(id);
-      return created ?? expenseModel.toEntity();
+      return created ?? createdEntity;
     } catch (_) {
-      return expenseModel.toEntity();
+      return createdEntity;
     }
   }
 
   Future<void> updateExpense(Expense expense) async {
+    final previous = await getExpense(expense.id);
     final model = ExpenseModel.fromEntity(expense);
     await collection.doc(expense.id).update(model.toFirestore());
+    await applyDashboardRollup(
+      (service) => service.applyExpense(expense: expense, previous: previous),
+    );
   }
 
   Future<void> deleteExpense(String id) async {
+    final previous = await getExpense(id);
     final batch = _firestore.batch();
     batch.delete(collection.doc(id));
 
@@ -191,6 +205,11 @@ class ExpenseRepository {
     }
 
     await batch.commit();
+    if (previous != null) {
+      await applyDashboardRollup(
+        (service) => service.applyExpense(expense: previous, deleted: true),
+      );
+    }
   }
 
   Future<ExpensePayment> recordExpensePayment({

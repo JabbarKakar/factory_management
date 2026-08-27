@@ -30,29 +30,25 @@ void main() {
       expect(window.from, DateTime(2026, 7, 1));
     });
 
-    test('Yearly query window is the rolling two-year comparison span', () {
-      final window = DashboardQueryWindow.forDashboard(
+    test('Yearly and All Time do not widen the raw query (S41 rollups)', () {
+      final yearly = DashboardQueryWindow.forDashboard(
         financePeriod: DashboardFinancePeriod.yearly,
         stockCutPeriod: DashboardFinancePeriod.yearly,
         salesSqFtPeriod: DashboardFinancePeriod.yearly,
         now: now,
       );
-
-      expect(window.from, DateTime(2024, 8, 1));
-    });
-
-    test('All Time query window is the 24-month cap even without earliestDate', () {
-      final window = DashboardQueryWindow.forDashboard(
+      final allTime = DashboardQueryWindow.forDashboard(
         financePeriod: DashboardFinancePeriod.allTime,
         stockCutPeriod: DashboardFinancePeriod.allTime,
         salesSqFtPeriod: DashboardFinancePeriod.allTime,
         now: now,
       );
 
-      expect(window.from, DateTime(2024, 8, 1));
+      expect(yearly.from, DateTime(2026, 7, 18));
+      expect(allTime.from, DateTime(2026, 7, 18));
     });
 
-    test('widest of the three independent periods wins', () {
+    test('long stock-cut period does not widen payments or expenses', () {
       final window = DashboardQueryWindow.forDashboard(
         financePeriod: DashboardFinancePeriod.daily,
         stockCutPeriod: DashboardFinancePeriod.yearly,
@@ -60,7 +56,7 @@ void main() {
         now: now,
       );
 
-      expect(window.from, DateTime(2024, 8, 1));
+      expect(window.from, DateTime(2026, 7, 1));
     });
   });
 

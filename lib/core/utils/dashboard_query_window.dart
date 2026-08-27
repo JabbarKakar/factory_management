@@ -32,14 +32,8 @@ class DashboardQueryWindow {
     if (monthStart.isBefore(earliest)) earliest = monthStart;
 
     for (final period in [financePeriod, stockCutPeriod, salesSqFtPeriod]) {
-      // All Time's in-memory range shrinks to ~6 months when earliestDate is
-      // unknown. The query must still fetch the 24-month cap or older history
-      // never reaches the client.
-      if (period == DashboardFinancePeriod.allTime) {
-        final capStart = DateTime(today.year, today.month - allTimeCapMonths, 1);
-        if (capStart.isBefore(earliest)) earliest = capStart;
-        continue;
-      }
+      // Six months / yearly / All Time read `dashboardRollups` (S41).
+      if (period.usesMonthlyRollups) continue;
       final range = DashboardFinancePeriodRange.forPeriod(period, today);
       if (range.previousStart.isBefore(earliest)) {
         earliest = range.previousStart;
