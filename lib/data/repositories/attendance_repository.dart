@@ -27,12 +27,7 @@ class AttendanceRepository {
     required String factoryId,
     required DateTime date,
   }) {
-    final dateKey = DateKeys.fromDate(date);
-    return collection
-        .where('factoryId', isEqualTo: factoryId)
-        .where('dateKey', isEqualTo: dateKey)
-        .snapshots()
-        .map(
+    return _forDateQuery(factoryId: factoryId, date: date).snapshots().map(
       (snapshot) {
         return snapshot.docs
             .map(
@@ -42,6 +37,28 @@ class AttendanceRepository {
             .toList();
       },
     );
+  }
+
+  Future<List<AttendanceRecord>> getForDate({
+    required String factoryId,
+    required DateTime date,
+  }) async {
+    final snapshot =
+        await _forDateQuery(factoryId: factoryId, date: date).get();
+    return snapshot.docs
+        .map((doc) => AttendanceRecordModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+  }
+
+  Query<Map<String, dynamic>> _forDateQuery({
+    required String factoryId,
+    required DateTime date,
+  }) {
+    final dateKey = DateKeys.fromDate(date);
+    return collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('dateKey', isEqualTo: dateKey);
   }
 
   Stream<List<AttendanceRecord>> watchForEmployee({

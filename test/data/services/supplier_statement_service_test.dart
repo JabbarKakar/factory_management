@@ -29,11 +29,20 @@ class _FakeExpenseRepository implements ExpenseRepository {
   List<ExpensePayment> payments = [];
 
   @override
-  Stream<List<Expense>> watchExpenses(String factoryId) =>
+  Stream<List<Expense>> watchExpenses(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) =>
       Stream.value(expenses);
 
   @override
-  Future<List<Expense>> getExpenses(String factoryId) async => expenses;
+  Future<List<Expense>> getExpenses(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) async =>
+      expenses;
 
   @override
   Stream<List<ExpensePayment>> watchExpensePaymentsForFactory(String factoryId) =>

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_order.dart';
@@ -178,11 +179,14 @@ class SalesInvoiceRepository {
         .toList();
   }
 
-  Stream<List<SalesInvoice>> watchInvoicesForFactory(String factoryId) {
-    return _collection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map((snapshot) {
+  Stream<List<SalesInvoice>> watchInvoicesForFactory(
+    String factoryId, {
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _collection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
+    ).snapshots().map((snapshot) {
           final invoices = snapshot.docs
               .map((doc) =>
                   SalesInvoiceModel.fromFirestore(doc.id, doc.data()))

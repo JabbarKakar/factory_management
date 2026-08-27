@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/job_work_charges_calculator.dart';
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
@@ -79,11 +80,14 @@ class JobWorkRepository {
     );
   }
 
-  Stream<List<JobWorkOrder>> watchJobWorkOrders(String factoryId) {
-    return _jobWorkCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map((snapshot) {
+  Stream<List<JobWorkOrder>> watchJobWorkOrders(
+    String factoryId, {
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _jobWorkCollection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
+    ).snapshots().map((snapshot) {
           final orders = snapshot.docs
               .map((doc) => JobWorkOrderModel.fromFirestore(doc.id, doc.data()))
               .map((model) => model.toEntity())

@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/job_work_charges_calculator.dart';
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/job_work_output.dart';
@@ -80,7 +81,7 @@ class JobWorkLoadRepository {
       trackedCollection(_firestore, 'jobWorkCollections');
 
   Stream<List<JobWorkLoad>> watchLoads(String factoryId) {
-    return _loads.where('factoryId', isEqualTo: factoryId).snapshots().map(
+    return _loadsQuery(factoryId).snapshots().map(
       (snapshot) {
         final loads = snapshot.docs
             .map((doc) => JobWorkLoadModel.fromFirestore(doc.id, doc.data()))
@@ -93,6 +94,27 @@ class JobWorkLoadRepository {
         });
         return loads;
       },
+    );
+  }
+
+  Future<List<JobWorkLoad>> getLoads(String factoryId, {int? limit}) async {
+    final snapshot = await _loadsQuery(factoryId, limit: limit).get();
+    final loads = snapshot.docs
+        .map((doc) => JobWorkLoadModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    loads.sort((a, b) {
+      final jobCompare = a.jobWorkId.compareTo(b.jobWorkId);
+      if (jobCompare != 0) return jobCompare;
+      return a.loadSequence.compareTo(b.loadSequence);
+    });
+    return loads;
+  }
+
+  Query<Map<String, dynamic>> _loadsQuery(String factoryId, {int? limit}) {
+    return constrainFactoryQuery(
+      _loads.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
     );
   }
 

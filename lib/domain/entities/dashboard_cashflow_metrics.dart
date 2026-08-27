@@ -148,20 +148,33 @@ class DashboardFinancePeriodRange {
         );
 
       case DashboardFinancePeriod.allTime:
-        // Scoped to earliest actual creation or transaction date.
-        // Enforce a minimum window of 5 months prior so line charts always have at least 6 buckets to draw curves.
-        final minStart = today.subtract(const Duration(days: 150));
-        final effectiveEarliest = (earliestDate != null && !earliestDate.isAfter(today))
-            ? dateOnly(earliestDate)
-            : null;
+        // Rolling 24-month cap so All Time cannot scan unbounded history (S39).
+        // A factory younger than 6 months still gets a 6-month chart window.
+        final minStart = DateTime(
+          today.subtract(const Duration(days: 150)).year,
+          today.subtract(const Duration(days: 150)).month,
+          1,
+        );
+        final capStart = DateTime(today.year, today.month - 24, 1);
+        final effectiveEarliest =
+            (earliestDate != null && !earliestDate.isAfter(today))
+                ? dateOnly(earliestDate)
+                : null;
         DateTime currentStart;
         if (effectiveEarliest != null) {
-          final earliestStart = DateTime(effectiveEarliest.year, effectiveEarliest.month, 1);
-          currentStart = earliestStart.isAfter(minStart)
-              ? DateTime(minStart.year, minStart.month, 1)
-              : earliestStart;
+          final earliestStart = DateTime(
+            effectiveEarliest.year,
+            effectiveEarliest.month,
+            1,
+          );
+          currentStart = earliestStart.isAfter(capStart)
+              ? earliestStart
+              : capStart;
+          if (currentStart.isAfter(minStart)) {
+            currentStart = minStart;
+          }
         } else {
-          currentStart = DateTime(minStart.year, minStart.month, 1);
+          currentStart = minStart.isAfter(capStart) ? minStart : capStart;
         }
         final previousEnd = currentStart.subtract(const Duration(days: 1));
         return DashboardFinancePeriodRange(

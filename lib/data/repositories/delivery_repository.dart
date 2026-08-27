@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/utils/stock_output_calculator.dart';
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/delivery.dart';
 import '../../domain/entities/sales_order.dart';
 import '../../domain/enums/delivery_enums.dart';
@@ -68,7 +69,7 @@ class DeliveryRepository {
   }
 
   Stream<List<Delivery>> watchDeliveries(String factoryId) {
-    return _collection.where('factoryId', isEqualTo: factoryId).snapshots().map(
+    return _deliveriesQuery(factoryId).snapshots().map(
       (snapshot) {
         final deliveries = snapshot.docs
             .map((doc) => DeliveryModel.fromFirestore(doc.id, doc.data()))
@@ -77,6 +78,23 @@ class DeliveryRepository {
         deliveries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         return deliveries;
       },
+    );
+  }
+
+  Future<List<Delivery>> getDeliveries(String factoryId, {int? limit}) async {
+    final snapshot = await _deliveriesQuery(factoryId, limit: limit).get();
+    final deliveries = snapshot.docs
+        .map((doc) => DeliveryModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    deliveries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return deliveries;
+  }
+
+  Query<Map<String, dynamic>> _deliveriesQuery(String factoryId, {int? limit}) {
+    return constrainFactoryQuery(
+      _collection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
     );
   }
 

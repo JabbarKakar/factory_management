@@ -115,7 +115,7 @@ order ≈ **19 writes for one payment** against a 20,000/day ceiling.
 | **S36** | Emulator default + read/write instrumentation | Foundation | 2 days | Low | Code done; baseline not yet recorded |
 | **S37** | Sequence counters | D2 | 3 days | Medium | **Done** |
 | **S38** | Stock atomicity via increments | D1 | 4 days | **High** (data migration) | **Done** |
-| **S39** | Dashboard windowing | D3 | 4 days | Medium | Next |
+| **S39** | Dashboard windowing | D3 | 4 days | Medium | **Done** |
 | **S40** | Ledger scoping + write de-amplification | D4 | 3 days | Medium | |
 | **S41** | Monthly rollups for "All Time" *(optional)* | D3 durable fix | 3 days | Medium | |
 
@@ -560,12 +560,56 @@ history. This is the sprint that fixes the quota.
 
 ### Deliverables
 
-- `lib/blocs/dashboard/dashboard_bloc.dart`, `dashboard_event.dart` (modified)
-- ~12 repository files: windowed `watch*`/`fetch*` overloads
-- `firestore.indexes.json` (modified)
-- `test/blocs/dashboard/dashboard_windowing_test.dart` (new)
+- `lib/blocs/dashboard/dashboard_bloc.dart` (modified)
+- `lib/core/utils/dashboard_query_window.dart`,
+  `lib/core/utils/firestore_query_constraints.dart` (new)
+- ~16 repository files: windowed `watch*` / one-shot `get*`
+- `firestore.indexes.json`, `dashboard_finance_period.dart`,
+  `dashboard_cashflow_metrics.dart` (modified)
+- `test/blocs/dashboard/dashboard_windowing_test.dart`,
+  `test/core/utils/dashboard_query_window_test.dart` (new)
+
+### As built — where this differs from the plan
+
+1. **`from` only, not `{from, to}`.** The upper bound is "now"; adding `to`
+   would need another composite index and would not shrink the quota. Period
+   maths (`contains(date, start, end)`) still runs in memory on the already
+   windowed result, because the query window is the *widest* of cashflow /
+   stock-cut / sales sq ft plus a 30-day floor.
+2. **Period lives on bloc state, not on `DashboardWatchStarted`.** Changing a
+   period chip calls `_restartPayments` with the new `from`. Daily → Monthly
+   (and Daily → Yearly) open a new payment query; Daily → Weekly often does
+   not, because both fit inside the 30-day floor.
+3. **Operational collections are limited, not date-windowed.** Active /
+   overdue KPIs need current orders, invoices, customers, deliveries, loads,
+   and collections. Those six live listeners (`payments`, JW orders, sales
+   orders, customers, JW invoices, sales invoices) plus snapshot `.get()` for
+   the rest are all `limit()`-capped. Date windows apply to payments,
+   expenses, and production batches only.
+4. **Daily still loads ~30 days.** Month KPIs and the 30-day sparkline are
+   wrong if Daily only fetches today. The quota win is still "not the whole
+   factory history".
+5. **All Time query window is the 24-month cap, not the 6-month chart
+   minimum.** `forPeriod(allTime)` without `earliestDate` shrinks to ~6
+   months for the chart; the Firestore query uses `today.month - 24` so older
+   history can still reach the client. The chip label is **Last 24 mo**.
+6. **Payments are stored as `date`, not `paymentDate`.** The windowed query
+   and its composite index use `date`. Filtering on `paymentDate` would have
+   returned zero documents.
+7. **Re-entry vs pull-to-refresh.** IndexedStack keeps `DashboardBloc` alive,
+   so tab switches do not re-attach listeners. A second `DashboardWatchStarted`
+   (pull-to-refresh) reuses the six live streams and only re-runs snapshot
+   `.get()` calls.
 
 ### How to test on device
+
+**Deploy the indexes first** or Daily/windowed queries fail with
+`failed-precondition`:
+
+```
+firebase deploy --only firestore:indexes
+```
+
 
 1. **Baseline.** With the metrics overlay open, cold-start the app and open the
    dashboard on the seeded dataset. Record total reads and the per-collection

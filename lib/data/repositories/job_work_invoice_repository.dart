@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -247,11 +248,14 @@ class JobWorkInvoiceRepository {
     return invoices;
   }
 
-  Stream<List<JobWorkInvoice>> watchInvoicesForFactory(String factoryId) {
-    return _collection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map((snapshot) {
+  Stream<List<JobWorkInvoice>> watchInvoicesForFactory(
+    String factoryId, {
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _collection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
+    ).snapshots().map((snapshot) {
           final invoices = snapshot.docs
               .map((doc) =>
                   JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()))

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/raw_material.dart';
 import '../../domain/entities/stock_transaction.dart';
 import '../../domain/enums/document_sequence.dart';
@@ -35,10 +36,7 @@ class RawMaterialRepository {
       trackedCollection(_firestore, 'stockTransactions');
 
   Stream<List<RawMaterial>> watchMaterials(String factoryId) {
-    return _materialsCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map((snapshot) {
+    return _materialsQuery(factoryId).snapshots().map((snapshot) {
           final materials = snapshot.docs
               .map((doc) =>
                   RawMaterialModel.fromFirestore(doc.id, doc.data()).toEntity())
@@ -48,6 +46,25 @@ class RawMaterialRepository {
           );
           return materials;
         });
+  }
+
+  Future<List<RawMaterial>> getMaterials(String factoryId, {int? limit}) async {
+    final snapshot = await _materialsQuery(factoryId, limit: limit).get();
+    final materials = snapshot.docs
+        .map((doc) =>
+            RawMaterialModel.fromFirestore(doc.id, doc.data()).toEntity())
+        .toList();
+    materials.sort(
+      (a, b) => a.materialType.label.compareTo(b.materialType.label),
+    );
+    return materials;
+  }
+
+  Query<Map<String, dynamic>> _materialsQuery(String factoryId, {int? limit}) {
+    return constrainFactoryQuery(
+      _materialsCollection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
+    );
   }
 
   Stream<RawMaterial?> watchMaterial(String id) {

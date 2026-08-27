@@ -25,7 +25,7 @@ void main() {
       expect(range.previousStart, DateTime(2024, 8, 1));
     });
 
-    test('allTime uses earliestDate when provided', () {
+    test('allTime caps at a rolling 24 months even if history is older', () {
       final earliest = DateTime(2024, 4, 10);
       final range = DashboardFinancePeriodRange.forPeriod(
         DashboardFinancePeriod.allTime,
@@ -33,7 +33,7 @@ void main() {
         earliestDate: earliest,
       );
 
-      expect(range.currentStart, DateTime(2024, 4, 1));
+      expect(range.currentStart, DateTime(2024, 8, 1));
       expect(range.currentEnd, DateTime(2026, 8, 17));
     });
 

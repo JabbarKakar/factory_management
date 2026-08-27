@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/entities/payment.dart';
 import '../../domain/entities/sales_order.dart';
@@ -67,11 +68,14 @@ class SalesOrderRepository {
     );
   }
 
-  Stream<List<SalesOrder>> watchSalesOrders(String factoryId) {
-    return _ordersCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map((snapshot) {
+  Stream<List<SalesOrder>> watchSalesOrders(
+    String factoryId, {
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _ordersCollection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
+    ).snapshots().map((snapshot) {
           final orders = snapshot.docs
               .map((doc) => SalesOrderModel.fromFirestore(doc.id, doc.data()))
               .map((model) => model.toEntity())

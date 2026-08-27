@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/production_batch.dart';
 import '../../domain/enums/document_sequence.dart';
 import '../../domain/enums/production_enums.dart';
@@ -51,24 +52,59 @@ class ProductionRepository {
   CollectionReference<Map<String, dynamic>> get _transactionsCollection =>
       trackedCollection(_firestore, 'stockTransactions');
 
-  Stream<List<ProductionBatch>> watchBatches(String factoryId) {
-    return _batchesCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map((snapshot) {
-          final batches = snapshot.docs
-              .map(
-                (doc) => ProductionBatchModel.fromFirestore(
-                  doc.id,
-                  doc.data(),
-                ).toEntity(),
-              )
-              .toList();
-          batches.sort(
-            (a, b) => b.productionDate.compareTo(a.productionDate),
-          );
-          return batches;
-        });
+  Stream<List<ProductionBatch>> watchBatches(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) {
+    return _batchesQuery(factoryId, from: from, limit: limit).snapshots().map(
+          (snapshot) {
+            final batches = snapshot.docs
+                .map(
+                  (doc) => ProductionBatchModel.fromFirestore(
+                    doc.id,
+                    doc.data(),
+                  ).toEntity(),
+                )
+                .toList();
+            batches.sort(
+              (a, b) => b.productionDate.compareTo(a.productionDate),
+            );
+            return batches;
+          },
+        );
+  }
+
+  Future<List<ProductionBatch>> getBatches(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) async {
+    final snapshot =
+        await _batchesQuery(factoryId, from: from, limit: limit).get();
+    final batches = snapshot.docs
+        .map(
+          (doc) => ProductionBatchModel.fromFirestore(
+            doc.id,
+            doc.data(),
+          ).toEntity(),
+        )
+        .toList();
+    batches.sort((a, b) => b.productionDate.compareTo(a.productionDate));
+    return batches;
+  }
+
+  Query<Map<String, dynamic>> _batchesQuery(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _batchesCollection.where('factoryId', isEqualTo: factoryId),
+      dateField: from == null ? null : 'productionDate',
+      from: from,
+      limit: limit,
+    );
   }
 
   Stream<ProductionBatch?> watchBatch(String id) {

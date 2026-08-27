@@ -13,7 +13,7 @@ enum DashboardFinancePeriod {
         DashboardFinancePeriod.monthly => 'Monthly',
         DashboardFinancePeriod.sixMonths => '6 Months',
         DashboardFinancePeriod.yearly => 'Yearly',
-        DashboardFinancePeriod.allTime => 'All Time',
+        DashboardFinancePeriod.allTime => 'Last 24 mo',
       };
 
   /// Short comparison label for trend captions.
@@ -23,6 +23,6 @@ enum DashboardFinancePeriod {
         DashboardFinancePeriod.monthly => 'vs last month',
         DashboardFinancePeriod.sixMonths => 'vs prior 6 mo',
         DashboardFinancePeriod.yearly => 'vs last year',
-        DashboardFinancePeriod.allTime => 'all time',
+        DashboardFinancePeriod.allTime => 'vs prior 24 mo',
       };
 }

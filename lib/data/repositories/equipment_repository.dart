@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/equipment.dart';
 import '../../domain/entities/maintenance_log.dart';
 import '../../domain/enums/document_sequence.dart';
@@ -37,10 +38,7 @@ class EquipmentRepository {
       trackedCollection(_firestore, 'maintenanceLogs');
 
   Stream<List<Equipment>> watchEquipment(String factoryId) {
-    return _equipmentCollection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map(
+    return _equipmentQuery(factoryId).snapshots().map(
       (snapshot) {
         final items = snapshot.docs
             .map((doc) => EquipmentModel.fromFirestore(doc.id, doc.data()))
@@ -49,6 +47,23 @@ class EquipmentRepository {
         items.sort((a, b) => a.name.compareTo(b.name));
         return items;
       },
+    );
+  }
+
+  Future<List<Equipment>> getEquipmentList(String factoryId, {int? limit}) async {
+    final snapshot = await _equipmentQuery(factoryId, limit: limit).get();
+    final items = snapshot.docs
+        .map((doc) => EquipmentModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    items.sort((a, b) => a.name.compareTo(b.name));
+    return items;
+  }
+
+  Query<Map<String, dynamic>> _equipmentQuery(String factoryId, {int? limit}) {
+    return constrainFactoryQuery(
+      _equipmentCollection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
     );
   }
 

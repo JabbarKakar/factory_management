@@ -5,6 +5,7 @@ import '../../core/events/entity_reactive_event_bus.dart';
 import '../../core/utils/firestore_paginator.dart';
 import '../models/paginated_result.dart';
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/customer.dart';
 import '../models/customer_model.dart';
 
@@ -43,11 +44,14 @@ class CustomerRepository {
     );
   }
 
-  Stream<List<Customer>> watchCustomers(String factoryId) {
-    return _collection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map((snapshot) {
+  Stream<List<Customer>> watchCustomers(
+    String factoryId, {
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _collection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
+    ).snapshots().map((snapshot) {
           final customers = snapshot.docs
               .map((doc) => CustomerModel.fromFirestore(doc.id, doc.data()))
               .map((model) => model.toEntity())

@@ -224,6 +224,30 @@
         { "fieldPath": "factoryId", "order": "ASCENDING" },
         { "fieldPath": "dateKey", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "expenses",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "expenseDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "productionBatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "productionDate", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

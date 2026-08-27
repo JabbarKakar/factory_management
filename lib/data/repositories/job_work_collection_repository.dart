@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/utils/stock_output_calculator.dart';
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/job_work_collection.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/enums/document_sequence.dart';
@@ -50,7 +51,7 @@ class JobWorkCollectionRepository {
       trackedCollection(_firestore, 'jobWorkCollections');
 
   Stream<List<JobWorkCollection>> watchCollections(String factoryId) {
-    return _collection.where('factoryId', isEqualTo: factoryId).snapshots().map(
+    return _collectionsQuery(factoryId).snapshots().map(
       (snapshot) {
         final collections = snapshot.docs
             .map(
@@ -61,6 +62,31 @@ class JobWorkCollectionRepository {
         collections.sort((a, b) => b.collectedAt.compareTo(a.collectedAt));
         return collections;
       },
+    );
+  }
+
+  Future<List<JobWorkCollection>> getCollections(
+    String factoryId, {
+    int? limit,
+  }) async {
+    final snapshot = await _collectionsQuery(factoryId, limit: limit).get();
+    final collections = snapshot.docs
+        .map(
+          (doc) => JobWorkCollectionModel.fromFirestore(doc.id, doc.data()),
+        )
+        .map((model) => model.toEntity())
+        .toList();
+    collections.sort((a, b) => b.collectedAt.compareTo(a.collectedAt));
+    return collections;
+  }
+
+  Query<Map<String, dynamic>> _collectionsQuery(
+    String factoryId, {
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _collection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
     );
   }
 

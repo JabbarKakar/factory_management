@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/employee.dart';
 import '../../domain/enums/document_sequence.dart';
 import '../models/employee_model.dart';
@@ -23,7 +24,7 @@ class EmployeeRepository {
       trackedCollection(_firestore, 'employees');
 
   Stream<List<Employee>> watchEmployees(String factoryId) {
-    return collection.where('factoryId', isEqualTo: factoryId).snapshots().map(
+    return _employeeQuery(factoryId).snapshots().map(
       (snapshot) {
         final employees = snapshot.docs
             .map((doc) => EmployeeModel.fromFirestore(doc.id, doc.data()))
@@ -32,6 +33,23 @@ class EmployeeRepository {
         employees.sort((a, b) => a.fullName.compareTo(b.fullName));
         return employees;
       },
+    );
+  }
+
+  Future<List<Employee>> getEmployees(String factoryId, {int? limit}) async {
+    final snapshot = await _employeeQuery(factoryId, limit: limit).get();
+    final employees = snapshot.docs
+        .map((doc) => EmployeeModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    employees.sort((a, b) => a.fullName.compareTo(b.fullName));
+    return employees;
+  }
+
+  Query<Map<String, dynamic>> _employeeQuery(String factoryId, {int? limit}) {
+    return constrainFactoryQuery(
+      collection.where('factoryId', isEqualTo: factoryId),
+      limit: limit,
     );
   }
 

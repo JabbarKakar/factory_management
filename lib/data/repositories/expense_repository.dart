@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/entities/expense_payment.dart';
 import '../../domain/enums/document_sequence.dart';
@@ -29,8 +30,12 @@ class ExpenseRepository {
   CollectionReference<Map<String, dynamic>> get paymentsCollection =>
       trackedCollection(_firestore, 'expense_payments');
 
-  Stream<List<Expense>> watchExpenses(String factoryId) {
-    return collection.where('factoryId', isEqualTo: factoryId).snapshots().map(
+  Stream<List<Expense>> watchExpenses(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) {
+    return _expenseQuery(factoryId, from: from, limit: limit).snapshots().map(
       (snapshot) {
         final expenses = snapshot.docs
             .map((doc) => ExpenseModel.fromFirestore(doc.id, doc.data()))
@@ -39,6 +44,34 @@ class ExpenseRepository {
         expenses.sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
         return expenses;
       },
+    );
+  }
+
+  Future<List<Expense>> getExpenses(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) async {
+    final snapshot =
+        await _expenseQuery(factoryId, from: from, limit: limit).get();
+    final expenses = snapshot.docs
+        .map((doc) => ExpenseModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    expenses.sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
+    return expenses;
+  }
+
+  Query<Map<String, dynamic>> _expenseQuery(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      collection.where('factoryId', isEqualTo: factoryId),
+      dateField: from == null ? null : 'expenseDate',
+      from: from,
+      limit: limit,
     );
   }
 
@@ -280,16 +313,6 @@ class ExpenseRepository {
           payments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
           return payments;
         });
-  }
-
-  Future<List<Expense>> getExpenses(String factoryId) async {
-    final snapshot =
-        await collection.where('factoryId', isEqualTo: factoryId).get();
-    final expenses = snapshot.docs
-        .map((doc) => ExpenseModel.fromFirestore(doc.id, doc.data()).toEntity())
-        .toList();
-    expenses.sort((a, b) => b.expenseDate.compareTo(a.expenseDate));
-    return expenses;
   }
 
   Future<List<ExpensePayment>> getExpensePaymentsForFactory(

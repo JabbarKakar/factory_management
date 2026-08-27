@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/job_work_order.dart';
 import '../../domain/entities/production_batch.dart';
 import '../../domain/entities/quality_check.dart';
@@ -45,7 +46,7 @@ class QualityCheckRepository {
       trackedCollection(_firestore, 'qualityChecks');
 
   Stream<List<QualityCheck>> watchQualityChecks(String factoryId) {
-    return _collection.where('factoryId', isEqualTo: factoryId).snapshots().map(
+    return _qualityQuery(factoryId).snapshots().map(
       (snapshot) {
         final checks = snapshot.docs
             .map((doc) => QualityCheckModel.fromFirestore(doc.id, doc.data()))
@@ -54,6 +55,34 @@ class QualityCheckRepository {
         checks.sort((a, b) => b.inspectionDate.compareTo(a.inspectionDate));
         return checks;
       },
+    );
+  }
+
+  Future<List<QualityCheck>> getQualityChecks(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) async {
+    final snapshot =
+        await _qualityQuery(factoryId, from: from, limit: limit).get();
+    final checks = snapshot.docs
+        .map((doc) => QualityCheckModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    checks.sort((a, b) => b.inspectionDate.compareTo(a.inspectionDate));
+    return checks;
+  }
+
+  Query<Map<String, dynamic>> _qualityQuery(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _collection.where('factoryId', isEqualTo: factoryId),
+      dateField: from == null ? null : 'inspectionDate',
+      from: from,
+      limit: limit,
     );
   }
 

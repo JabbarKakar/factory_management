@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/utils/formatters.dart';
 import '../../core/observability/tracked_firestore.dart';
+import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -107,11 +108,18 @@ class PaymentRepository {
         });
   }
 
-  Stream<List<Payment>> watchPaymentsForFactory(String factoryId) {
-    return _collection
-        .where('factoryId', isEqualTo: factoryId)
-        .snapshots()
-        .map((snapshot) {
+  Stream<List<Payment>> watchPaymentsForFactory(
+    String factoryId, {
+    DateTime? from,
+    int? limit,
+  }) {
+    return constrainFactoryQuery(
+      _collection.where('factoryId', isEqualTo: factoryId),
+      // PaymentModel persists the instant as `date`, not `paymentDate`.
+      dateField: from == null ? null : 'date',
+      from: from,
+      limit: limit,
+    ).snapshots().map((snapshot) {
           final payments = snapshot.docs
               .map((doc) =>
                   PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())

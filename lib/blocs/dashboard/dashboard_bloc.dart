@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../core/utils/date_keys.dart';
 import '../../core/utils/dashboard_command_center_builder.dart';
 import '../../core/utils/dashboard_job_work_metrics.dart';
+import '../../core/utils/dashboard_query_window.dart';
 import '../../core/utils/dashboard_sales_sqft_metrics.dart';
 import '../../data/repositories/attendance_repository.dart';
 import '../../data/repositories/customer_repository.dart';
@@ -137,16 +138,10 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   StreamSubscription<List<Customer>>? _customersSub;
   StreamSubscription<List<JobWorkInvoice>>? _jobWorkInvoicesSub;
   StreamSubscription<List<SalesInvoice>>? _salesInvoicesSub;
-  StreamSubscription<List<Expense>>? _expensesSub;
-  StreamSubscription<List<RawMaterial>>? _rawMaterialsSub;
-  StreamSubscription<List<Employee>>? _employeesSub;
-  StreamSubscription<List<AttendanceRecord>>? _attendanceSub;
-  StreamSubscription<List<Delivery>>? _deliveriesSub;
-  StreamSubscription<List<JobWorkCollection>>? _jobWorkCollectionsSub;
-  StreamSubscription<List<JobWorkLoad>>? _jobWorkLoadsSub;
-  StreamSubscription<List<Equipment>>? _equipmentSub;
-  StreamSubscription<List<QualityCheck>>? _qualityChecksSub;
-  StreamSubscription<List<ProductionBatch>>? _productionBatchesSub;
+
+  String? _watchingFactoryId;
+  DashboardQueryWindow? _activeWindow;
+  int _snapshotGeneration = 0;
 
   List<Payment> _payments = const [];
   List<JobWorkOrder> _orders = const [];
@@ -167,10 +162,23 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
 
   Timer? _recomputeDebounce;
 
-  void _handleStreamError(String streamName, void Function() reset) {
+  void _logDashboardError(String name, Object error, [StackTrace? stackTrace]) {
     if (kDebugMode) {
-      debugPrint('Dashboard stream failed ($streamName); continuing with empty data.');
+      debugPrint('Dashboard $name failed: $error');
     }
+  }
+
+  void _handleStreamError(
+    String streamName,
+    void Function() reset, {
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    _logDashboardError(
+      'stream ($streamName)',
+      error ?? 'unknown error',
+      stackTrace,
+    );
     reset();
     add(const _DashboardDataUpdated());
   }
@@ -179,6 +187,18 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
     DashboardWatchStarted event,
     Emitter<DashboardState> emit,
   ) async {
+    final window = _queryWindowFor(state);
+    final alreadyLive =
+        _watchingFactoryId == event.factoryId && _paymentsSub != null;
+
+    if (alreadyLive) {
+      if (_activeWindow == null || !window.isSameAs(_activeWindow!)) {
+        await _restartPayments(event.factoryId, window);
+      }
+      await _loadSnapshots(event.factoryId, window);
+      return;
+    }
+
     emit(
       state.copyWith(
         status: DashboardStatus.loading,
@@ -187,171 +207,303 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       ),
     );
     await _cancelSubscriptions();
+    _watchingFactoryId = event.factoryId;
+    _startLiveListeners(event.factoryId, window);
+    await _loadSnapshots(event.factoryId, window);
+  }
 
-    _paymentsSub = _paymentRepository
-        .watchPaymentsForFactory(event.factoryId)
-        .listen(
-          (payments) {
-            _payments = payments;
-            add(const _DashboardDataUpdated());
-          },
-          onError: (_) => _handleStreamError('payments', () => _payments = const []),
-        );
+  DashboardQueryWindow _queryWindowFor(DashboardState current) {
+    return DashboardQueryWindow.forDashboard(
+      financePeriod: current.financePeriod,
+      stockCutPeriod: current.stockCutPeriod,
+      salesSqFtPeriod: current.salesSqFtPeriod,
+    );
+  }
+
+  void _startLiveListeners(String factoryId, DashboardQueryWindow window) {
+    _activeWindow = window;
+
+    _subscribePayments(factoryId, window);
 
     _jobWorkSub = _jobWorkRepository
-        .watchJobWorkOrders(event.factoryId)
+        .watchJobWorkOrders(
+          factoryId,
+          limit: DashboardQueryWindow.operationalLimit,
+        )
         .listen(
           (orders) {
             _orders = orders;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => _handleStreamError('jobWork', () => _orders = const []),
+          onError: (Object error, StackTrace stackTrace) =>
+              _handleStreamError(
+            'jobWork',
+            () => _orders = const [],
+            error: error,
+            stackTrace: stackTrace,
+          ),
         );
 
     _salesSub = _salesOrderRepository
-        .watchSalesOrders(event.factoryId)
+        .watchSalesOrders(
+          factoryId,
+          limit: DashboardQueryWindow.operationalLimit,
+        )
         .listen(
           (orders) {
             _salesOrders = orders;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => _handleStreamError('salesOrders', () => _salesOrders = const []),
+          onError: (Object error, StackTrace stackTrace) =>
+              _handleStreamError(
+            'salesOrders',
+            () => _salesOrders = const [],
+            error: error,
+            stackTrace: stackTrace,
+          ),
         );
 
     _customersSub = _customerRepository
-        .watchCustomers(event.factoryId)
+        .watchCustomers(
+          factoryId,
+          limit: DashboardQueryWindow.catalogLimit,
+        )
         .listen(
           (customers) {
             _customers = customers;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => _handleStreamError('customers', () => _customers = const []),
+          onError: (Object error, StackTrace stackTrace) =>
+              _handleStreamError(
+            'customers',
+            () => _customers = const [],
+            error: error,
+            stackTrace: stackTrace,
+          ),
         );
 
     _jobWorkInvoicesSub = _jobWorkInvoiceRepository
-        .watchInvoicesForFactory(event.factoryId)
+        .watchInvoicesForFactory(
+          factoryId,
+          limit: DashboardQueryWindow.operationalLimit,
+        )
         .listen(
           (invoices) {
             _jobWorkInvoices = invoices;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) =>
-              _handleStreamError('jobWorkInvoices', () => _jobWorkInvoices = const []),
+          onError: (Object error, StackTrace stackTrace) =>
+              _handleStreamError(
+            'jobWorkInvoices',
+            () => _jobWorkInvoices = const [],
+            error: error,
+            stackTrace: stackTrace,
+          ),
         );
 
     _salesInvoicesSub = _salesInvoiceRepository
-        .watchInvoicesForFactory(event.factoryId)
+        .watchInvoicesForFactory(
+          factoryId,
+          limit: DashboardQueryWindow.operationalLimit,
+        )
         .listen(
           (invoices) {
             _salesInvoices = invoices;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) =>
-              _handleStreamError('salesInvoices', () => _salesInvoices = const []),
-        );
-
-    _expensesSub = _expenseRepository
-        .watchExpenses(event.factoryId)
-        .listen(
-          (expenses) {
-            _expenses = expenses;
-            add(const _DashboardDataUpdated());
-          },
-          onError: (_) => _handleStreamError('expenses', () => _expenses = const []),
-        );
-
-    _rawMaterialsSub = _rawMaterialRepository
-        .watchMaterials(event.factoryId)
-        .listen(
-          (materials) {
-            _rawMaterials = materials;
-            add(const _DashboardDataUpdated());
-          },
-          onError: (_) =>
-              _handleStreamError('rawMaterials', () => _rawMaterials = const []),
-        );
-
-    _employeesSub = _employeeRepository.watchEmployees(event.factoryId).listen(
-          (employees) {
-            _employees = employees;
-            add(const _DashboardDataUpdated());
-          },
-          onError: (_) => _handleStreamError('employees', () => _employees = const []),
-        );
-
-    final today = DateKeys.dateOnly(DateTime.now());
-    _attendanceSub = _attendanceRepository
-        .watchForDate(factoryId: event.factoryId, date: today)
-        .listen(
-          (records) {
-            _attendanceToday = records;
-            add(const _DashboardDataUpdated());
-          },
-          onError: (_) =>
-              _handleStreamError('attendance', () => _attendanceToday = const []),
-        );
-
-    _deliveriesSub = _deliveryRepository
-        .watchDeliveries(event.factoryId)
-        .listen(
-          (deliveries) {
-            _deliveries = deliveries;
-            add(const _DashboardDataUpdated());
-          },
-          onError: (_) => _handleStreamError('deliveries', () => _deliveries = const []),
-        );
-
-    _jobWorkCollectionsSub = _jobWorkCollectionRepository
-        .watchCollections(event.factoryId)
-        .listen(
-          (collections) {
-            _jobWorkCollections = collections;
-            add(const _DashboardDataUpdated());
-          },
-          onError: (_) => _handleStreamError(
-            'jobWorkCollections',
-            () => _jobWorkCollections = const [],
+          onError: (Object error, StackTrace stackTrace) =>
+              _handleStreamError(
+            'salesInvoices',
+            () => _salesInvoices = const [],
+            error: error,
+            stackTrace: stackTrace,
           ),
         );
+  }
 
-    _jobWorkLoadsSub = _jobWorkLoadRepository.watchLoads(event.factoryId).listen(
-          (loads) {
-            _jobWorkLoads = loads;
+  void _subscribePayments(
+    String factoryId,
+    DashboardQueryWindow window, {
+    bool useWindow = true,
+  }) {
+    _paymentsSub = _paymentRepository
+        .watchPaymentsForFactory(
+          factoryId,
+          from: useWindow ? window.from : null,
+          limit: DashboardQueryWindow.windowedLimit,
+        )
+        .listen(
+          (payments) {
+            _payments = payments;
             add(const _DashboardDataUpdated());
           },
-          onError: (_) =>
-              _handleStreamError('jobWorkLoads', () => _jobWorkLoads = const []),
-        );
-
-    _equipmentSub = _equipmentRepository.watchEquipment(event.factoryId).listen(
-          (equipment) {
-            _equipment = equipment;
+          onError: (Object error, StackTrace stackTrace) {
+            _logDashboardError('stream (payments)', error, stackTrace);
+            if (useWindow) {
+              unawaited(_fallbackPayments(factoryId, window));
+              return;
+            }
+            _payments = const [];
             add(const _DashboardDataUpdated());
           },
-          onError: (_) => _handleStreamError('equipment', () => _equipment = const []),
         );
+  }
 
-    _qualityChecksSub =
-        _qualityCheckRepository.watchQualityChecks(event.factoryId).listen(
-              (checks) {
-                _qualityChecks = checks;
-                add(const _DashboardDataUpdated());
-              },
-              onError: (_) =>
-                  _handleStreamError('qualityChecks', () => _qualityChecks = const []),
-            );
+  Future<void> _fallbackPayments(
+    String factoryId,
+    DashboardQueryWindow window,
+  ) async {
+    await _paymentsSub?.cancel();
+    _paymentsSub = null;
+    if (isClosed) return;
+    _subscribePayments(factoryId, window, useWindow: false);
+  }
 
-    _productionBatchesSub =
-        _productionRepository.watchBatches(event.factoryId).listen(
-              (batches) {
-                _productionBatches = batches;
-                add(const _DashboardDataUpdated());
-              },
-              onError: (_) => _handleStreamError(
-                'productionBatches',
-                () => _productionBatches = const [],
-              ),
-            );
+  Future<void> _restartPayments(
+    String factoryId,
+    DashboardQueryWindow window,
+  ) async {
+    await _paymentsSub?.cancel();
+    _paymentsSub = null;
+    _activeWindow = window;
+    _subscribePayments(factoryId, window);
+  }
+
+  Future<List<T>> _withWindowFallback<T>({
+    required String name,
+    required Future<List<T>> Function() windowed,
+    required Future<List<T>> Function() unwindowed,
+  }) async {
+    try {
+      return await windowed();
+    } catch (error, stackTrace) {
+      _logDashboardError('$name windowed query', error, stackTrace);
+      try {
+        return await unwindowed();
+      } catch (fallbackError, fallbackStack) {
+        _logDashboardError('$name fallback query', fallbackError, fallbackStack);
+        return <T>[];
+      }
+    }
+  }
+
+  Future<void> _loadSnapshots(
+    String factoryId,
+    DashboardQueryWindow window,
+  ) async {
+    final generation = ++_snapshotGeneration;
+    final today = DateKeys.dateOnly(DateTime.now());
+
+    Future<void> take<T>(
+      Future<T> future,
+      void Function(T value) assign,
+    ) async {
+      try {
+        final value = await future;
+        if (generation != _snapshotGeneration || isClosed) return;
+        assign(value);
+      } catch (error, stackTrace) {
+        _logDashboardError('snapshot', error, stackTrace);
+      }
+    }
+
+    await Future.wait([
+      take(
+        _withWindowFallback(
+          name: 'expenses',
+          windowed: () => _expenseRepository.getExpenses(
+            factoryId,
+            from: window.from,
+            limit: DashboardQueryWindow.windowedLimit,
+          ),
+          unwindowed: () => _expenseRepository.getExpenses(
+            factoryId,
+            limit: DashboardQueryWindow.windowedLimit,
+          ),
+        ),
+        (value) => _expenses = value,
+      ),
+      take(
+        _rawMaterialRepository.getMaterials(
+          factoryId,
+          limit: DashboardQueryWindow.catalogLimit,
+        ),
+        (value) => _rawMaterials = value,
+      ),
+      take(
+        _employeeRepository.getEmployees(
+          factoryId,
+          limit: DashboardQueryWindow.catalogLimit,
+        ),
+        (value) => _employees = value,
+      ),
+      take(
+        _attendanceRepository.getForDate(factoryId: factoryId, date: today),
+        (value) => _attendanceToday = value,
+      ),
+      take(
+        _deliveryRepository.getDeliveries(
+          factoryId,
+          limit: DashboardQueryWindow.operationalLimit,
+        ),
+        (value) => _deliveries = value,
+      ),
+      take(
+        _jobWorkCollectionRepository.getCollections(
+          factoryId,
+          limit: DashboardQueryWindow.operationalLimit,
+        ),
+        (value) => _jobWorkCollections = value,
+      ),
+      take(
+        _jobWorkLoadRepository.getLoads(
+          factoryId,
+          limit: DashboardQueryWindow.operationalLimit,
+        ),
+        (value) => _jobWorkLoads = value,
+      ),
+      take(
+        _equipmentRepository.getEquipmentList(
+          factoryId,
+          limit: DashboardQueryWindow.catalogLimit,
+        ),
+        (value) => _equipment = value,
+      ),
+      take(
+        _qualityCheckRepository.getQualityChecks(
+          factoryId,
+          limit: DashboardQueryWindow.operationalLimit,
+        ),
+        (value) => _qualityChecks = value,
+      ),
+      take(
+        _withWindowFallback(
+          name: 'production',
+          windowed: () => _productionRepository.getBatches(
+            factoryId,
+            from: window.from,
+            limit: DashboardQueryWindow.windowedLimit,
+          ),
+          unwindowed: () => _productionRepository.getBatches(
+            factoryId,
+            limit: DashboardQueryWindow.windowedLimit,
+          ),
+        ),
+        (value) => _productionBatches = value,
+      ),
+    ]);
+
+    if (generation != _snapshotGeneration || isClosed) return;
+    add(const _DashboardDataUpdated());
+  }
+
+  Future<void> _applyPeriodWindow() async {
+    final factoryId = _watchingFactoryId ?? state.factoryId;
+    if (factoryId == null || _paymentsSub == null) return;
+    final window = _queryWindowFor(state);
+    if (_activeWindow != null && window.isSameAs(_activeWindow!)) return;
+    await _restartPayments(factoryId, window);
+    await _loadSnapshots(factoryId, window);
   }
 
   Future<void> _onWatchStopped(
@@ -368,6 +520,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     if (state.financePeriod == event.period) return;
     emit(state.copyWith(financePeriod: event.period));
+    await _applyPeriodWindow();
     add(const _DashboardRecomputeRequested());
   }
 
@@ -387,6 +540,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
         salesSqFtPeriod: event.period,
       ),
     );
+    await _applyPeriodWindow();
     add(const _DashboardRecomputeRequested());
   }
 
@@ -396,6 +550,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     if (state.stockCutPeriod == event.period) return;
     emit(state.copyWith(stockCutPeriod: event.period));
+    await _applyPeriodWindow();
     add(const _DashboardRecomputeRequested());
   }
 
@@ -405,6 +560,7 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   ) async {
     if (state.salesSqFtPeriod == event.period) return;
     emit(state.copyWith(salesSqFtPeriod: event.period));
+    await _applyPeriodWindow();
     add(const _DashboardRecomputeRequested());
   }
 
@@ -956,44 +1112,27 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   }
 
   Future<void> _cancelSubscriptions() async {
+    _snapshotGeneration++;
     await _paymentsSub?.cancel();
     await _jobWorkSub?.cancel();
     await _salesSub?.cancel();
     await _customersSub?.cancel();
     await _jobWorkInvoicesSub?.cancel();
     await _salesInvoicesSub?.cancel();
-    await _expensesSub?.cancel();
-    await _rawMaterialsSub?.cancel();
-    await _employeesSub?.cancel();
-    await _attendanceSub?.cancel();
-    await _deliveriesSub?.cancel();
-    await _jobWorkCollectionsSub?.cancel();
-    await _jobWorkLoadsSub?.cancel();
-    await _equipmentSub?.cancel();
-    await _qualityChecksSub?.cancel();
-    await _productionBatchesSub?.cancel();
     _paymentsSub = null;
     _jobWorkSub = null;
     _salesSub = null;
     _customersSub = null;
     _jobWorkInvoicesSub = null;
     _salesInvoicesSub = null;
-    _expensesSub = null;
-    _rawMaterialsSub = null;
-    _employeesSub = null;
-    _attendanceSub = null;
-    _deliveriesSub = null;
-    _jobWorkCollectionsSub = null;
-    _jobWorkLoadsSub = null;
-    _equipmentSub = null;
-    _qualityChecksSub = null;
-    _productionBatchesSub = null;
+    _watchingFactoryId = null;
+    _activeWindow = null;
   }
 
   @override
-  Future<void> close() {
+  Future<void> close() async {
     _recomputeDebounce?.cancel();
-    _cancelSubscriptions();
+    await _cancelSubscriptions();
     return super.close();
   }
 }
