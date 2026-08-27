@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 /// Per-collection Firestore usage counters.
 class CollectionMetrics {
@@ -47,6 +48,8 @@ class FirestoreMetrics {
 
   DateTime _since = DateTime.now();
   DateTime get since => _since;
+
+  bool _notifyScheduled = false;
 
   int get totalServerReads =>
       _byCollection.values.fold(0, (sum, m) => sum + m.serverReads);
@@ -122,5 +125,31 @@ class FirestoreMetrics {
         'queries=$totalQueryExecutions';
   }
 
-  void _notify() => revision.value++;
+  /// Bumps [revision] so the overlay rebuilds.
+  ///
+  /// Screens attach `snapshots()` listeners while they are still building
+  /// (`StreamBuilder` / `watch*` in `build`). Notifying immediately would call
+  /// `setState` on the overlay's [ValueListenableBuilder] during that build.
+  /// Counters still update synchronously; only the overlay rebuild is deferred
+  /// and coalesced to the end of the frame.
+  void _notify() {
+    SchedulerBinding? binding;
+    try {
+      binding = SchedulerBinding.instance;
+    } catch (_) {
+      binding = null;
+    }
+    if (binding != null &&
+        (binding.schedulerPhase == SchedulerPhase.persistentCallbacks ||
+            binding.schedulerPhase == SchedulerPhase.midFrameMicrotasks)) {
+      if (_notifyScheduled) return;
+      _notifyScheduled = true;
+      binding.addPostFrameCallback((_) {
+        _notifyScheduled = false;
+        revision.value++;
+      });
+      return;
+    }
+    revision.value++;
+  }
 }

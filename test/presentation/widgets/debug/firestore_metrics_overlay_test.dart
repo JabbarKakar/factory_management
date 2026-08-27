@@ -66,6 +66,43 @@ void main() {
       expect(find.text('No Firestore activity yet.'), findsOneWidget);
     });
 
+    testWidgets('recording a listener during build does not throw',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: const Scaffold(body: SizedBox.shrink()),
+          builder: (context, child) => FirestoreMetricsOverlay(
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              FirestoreMetrics.instance.recordListenerAttach('payments');
+              FirestoreMetrics.instance.recordReads(
+                collection: 'payments',
+                documents: 3,
+                fromCache: false,
+              );
+              return const Scaffold(body: Text('during build'));
+            },
+          ),
+          builder: (context, child) => FirestoreMetricsOverlay(
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
+      );
+
+      expect(tester.takeException(), isNull);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.textContaining('L 1'), findsOneWidget);
+      expect(find.textContaining('R 3'), findsOneWidget);
+    });
+
     testWidgets('can be dragged without throwing', (tester) async {
       await tester.pumpWidget(appWithOverlay());
 
