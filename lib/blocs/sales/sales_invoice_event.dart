@@ -46,6 +46,7 @@ final class SalesInvoicePaymentSubmitted extends SalesInvoiceEvent {
     required this.paymentDate,
     this.reference,
     this.notes,
+    this.creditToApply = 0,
   });
 
   final String invoiceId;
@@ -54,6 +55,7 @@ final class SalesInvoicePaymentSubmitted extends SalesInvoiceEvent {
   final DateTime paymentDate;
   final String? reference;
   final String? notes;
+  final double creditToApply;
 
   @override
   List<Object?> get props => [
@@ -63,6 +65,7 @@ final class SalesInvoicePaymentSubmitted extends SalesInvoiceEvent {
         paymentDate,
         reference,
         notes,
+        creditToApply,
       ];
 }
 

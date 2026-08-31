@@ -65,6 +65,7 @@ class _FakePaymentRepository implements PaymentRepository {
     String? idempotencyKey,
     String? reference,
     String? notes,
+    bool creditApplication = false,
   }) async {
     recordedInvoiceId = invoiceId;
     recordedAmount = amount;

@@ -2,6 +2,7 @@ import 'package:factory_management/data/services/customer_balance_calculator.dar
 import 'package:factory_management/domain/entities/customer.dart';
 import 'package:factory_management/domain/entities/job_work_load.dart';
 import 'package:factory_management/domain/entities/job_work_order.dart';
+import 'package:factory_management/domain/entities/payment.dart';
 import 'package:factory_management/domain/entities/sales_invoice.dart';
 import 'package:factory_management/domain/entities/sales_order.dart';
 import 'package:factory_management/domain/enums/customer_enums.dart';
@@ -235,6 +236,91 @@ void main() {
       expect(summary.totalDue, 1000);
       expect(summary.jobWorkOrderCount, 1);
       expect(summary.salesOrderCount, 1);
+    });
+
+    test('overpay cash is customer credit even when invoice applied equals charges', () {
+      final now = DateTime.now();
+      final order = JobWorkOrder(
+        id: 'jw-overpay',
+        factoryId: 'factory-1',
+        jobWorkNumber: 'JW-O',
+        customerId: 'cust-1',
+        customerName: 'Hussain',
+        status: JobWorkStatus.ready,
+        marbleVariety: 'White',
+        blockCount: 1,
+        totalTons: 1,
+        cuttingStrategy: CuttingStrategy.bridgeSaw,
+        targetProduct: TargetProduct.tiles,
+        thickness: '18mm',
+        finish: FinishType.polished,
+        pricingModel: PricingModel.perSqFt,
+        receivedDate: now,
+        agreedRate: 1,
+        finalCuttingCharges: 200000,
+        advanceReceived: 0,
+        balanceDue: 0,
+        paymentTerms: PaymentTerms.cash,
+        createdAt: now,
+      );
+      final load = JobWorkLoad(
+        id: 'load-overpay',
+        jobWorkId: 'jw-overpay',
+        jobWorkNumber: 'JW-O',
+        loadNumber: '1',
+        loadSequence: 1,
+        factoryId: 'factory-1',
+        customerId: 'cust-1',
+        customerName: 'Hussain',
+        status: JobWorkStatus.ready,
+        marbleVariety: 'White',
+        blockCount: 1,
+        totalTons: 1,
+        cuttingStrategy: CuttingStrategy.bridgeSaw,
+        targetProduct: TargetProduct.tiles,
+        thickness: '18mm',
+        finish: FinishType.polished,
+        pricingModel: PricingModel.perSqFt,
+        receivedDate: now,
+        agreedRate: 1,
+        finalCuttingCharges: 200000,
+        advanceReceived: 0,
+        balanceDue: 0,
+        paymentTerms: PaymentTerms.cash,
+        createdAt: now,
+      );
+      final payment = Payment(
+        id: 'pay-overpay',
+        factoryId: 'factory-1',
+        customerId: 'cust-1',
+        customerName: 'Hussain',
+        invoiceId: 'inv-overpay',
+        invoiceType: InvoiceType.jobWork,
+        invoiceNumber: 'INV-O',
+        amount: 300000,
+        appliedAmount: 200000,
+        method: PaymentMethod.cash,
+        paymentDate: now,
+        createdAt: now,
+        orderId: 'jw-overpay',
+        loadId: 'load-overpay',
+      );
+
+      final summary = CustomerBalanceCalculator.calculateCustomerSummary(
+        customer: testCustomer,
+        salesOrders: const [],
+        salesInvoices: const [],
+        jobWorkOrders: [order],
+        jobWorkLoads: [load],
+        jobWorkInvoices: const [],
+        payments: [payment],
+      );
+
+      expect(summary.totalRevenue, 200000);
+      expect(summary.totalPaid, 300000);
+      expect(summary.totalDue, 0);
+      expect(summary.unallocatedCredit, 100000);
+      expect(summary.balanceStatus, CustomerBalanceStatus.inCredit);
     });
   });
 }

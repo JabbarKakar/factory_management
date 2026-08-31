@@ -221,7 +221,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
           );
 
       _advancePaymentsSub = _paymentRepository
-          .watchAdvancePaymentsForOrder(
+          .watchPaymentsForOrder(
             factoryId: refreshed.factoryId,
             orderId: event.jobWorkId,
           )
@@ -282,9 +282,8 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
     );
 
     if (invoices.isEmpty) {
-      await _cancelPaymentSubscriptions();
-      // Advance payments survive — they exist independently of invoices.
-      if (_advancePayments.isNotEmpty) {
+      _ensurePaymentsWatch(invoices);
+      if (_advancePayments.isNotEmpty || _paymentsByInvoiceId.isNotEmpty) {
         _emitMergedPayments();
       } else {
         emit(state.copyWith(payments: const [], clearInvoice: true));
@@ -351,7 +350,21 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
   }
 
   void _ensurePaymentsWatch(List<JobWorkInvoice> invoices) {
+    final factoryId =
+        invoices.firstOrNull?.factoryId ?? state.order?.factoryId ?? '';
+    if (factoryId.isEmpty) return;
+
     final ids = invoices.map((invoice) => invoice.id).toSet();
+    final orderInvoiceId = state.order?.invoiceId?.trim();
+    if (orderInvoiceId != null && orderInvoiceId.isNotEmpty) {
+      ids.add(orderInvoiceId);
+    }
+    for (final load in state.loads) {
+      final loadInvoiceId = load.invoiceId?.trim();
+      if (loadInvoiceId != null && loadInvoiceId.isNotEmpty) {
+        ids.add(loadInvoiceId);
+      }
+    }
     final removed = _watchedInvoiceIds.difference(ids);
     for (final id in removed) {
       _paymentSubsByInvoice[id]?.cancel();
@@ -359,16 +372,16 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
       _paymentsByInvoiceId.remove(id);
     }
 
-    for (final invoice in invoices) {
-      if (_paymentSubsByInvoice.containsKey(invoice.id)) continue;
-      _paymentSubsByInvoice[invoice.id] = _paymentRepository
+    for (final invoiceId in ids) {
+      if (_paymentSubsByInvoice.containsKey(invoiceId)) continue;
+      _paymentSubsByInvoice[invoiceId] = _paymentRepository
           .watchPaymentsForInvoice(
-            factoryId: invoice.factoryId,
-            invoiceId: invoice.id,
+            factoryId: factoryId,
+            invoiceId: invoiceId,
           )
           .listen(
             (payments) {
-              _paymentsByInvoiceId[invoice.id] = payments;
+              _paymentsByInvoiceId[invoiceId] = payments;
               if (!isClosed) _emitMergedPayments();
             },
             onError: (_) {},
@@ -439,6 +452,7 @@ class JobWorkFormBloc extends Bloc<JobWorkFormEvent, JobWorkFormState> {
         }),
       ),
     );
+    _ensurePaymentsWatch(state.invoices);
   }
 
   List<QualityCheck> _relevantQualityChecks({Set<String>? loadIds}) {

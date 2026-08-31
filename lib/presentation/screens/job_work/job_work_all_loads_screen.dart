@@ -295,6 +295,7 @@ class _JobWorkAllLoadsScreenState extends State<JobWorkAllLoadsScreen> {
                               ? const []
                               : [state.invoice!]),
                       payments: state.payments,
+                      alreadyScoped: true,
                     );
 
               return ListView.builder(

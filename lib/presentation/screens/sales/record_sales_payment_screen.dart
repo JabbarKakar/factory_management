@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/sales/sales_invoice_bloc.dart';
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/utils/formatters.dart';
@@ -40,6 +41,10 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
   bool _populated = false;
   Payment? _editingPayment;
   bool _deletedPayment = false;
+  double _customerCredit = 0;
+  bool _applyCredit = true;
+  String? _creditCustomerKey;
+  bool _cashAdjustedForCredit = false;
 
   bool get _isEditing => widget.paymentId != null;
 
@@ -90,6 +95,43 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
     if (picked != null) setState(() => _paymentDate = picked);
   }
 
+  Future<void> _ensureCustomerCredit({
+    required String factoryId,
+    required String customerId,
+    required double dueAmount,
+  }) async {
+    if (_isEditing) return;
+    final key = '$factoryId|$customerId';
+    if (_creditCustomerKey == key) return;
+    _creditCustomerKey = key;
+    final credit =
+        await getIt<PaymentRepository>().getUnallocatedCreditForCustomer(
+      factoryId: factoryId,
+      customerId: customerId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _customerCredit = credit;
+      _applyCredit = credit > 0.005;
+    });
+    _adjustCashForCredit(dueAmount);
+  }
+
+  void _adjustCashForCredit(double dueAmount) {
+    if (_isEditing || _cashAdjustedForCredit || !_applyCredit) return;
+    if (_customerCredit <= 0.005) return;
+    final creditSlice =
+        _customerCredit < dueAmount ? _customerCredit : dueAmount;
+    final cash = (dueAmount - creditSlice).clamp(0.0, dueAmount);
+    _amountController.text = ThousandsTextInputFormatter.format(cash);
+    _cashAdjustedForCredit = true;
+  }
+
+  double _creditToApply(double dueAmount) {
+    if (_isEditing || !_applyCredit || _customerCredit <= 0.005) return 0;
+    return _customerCredit < dueAmount ? _customerCredit : dueAmount;
+  }
+
   Future<void> _deletePayment() async {
     final payment = _editingPayment;
     if (payment == null) return;
@@ -116,11 +158,30 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
     setState(() => _deletedPayment = true);
   }
 
-  void _submit() {
+  Future<void> _submit({required double dueAmount}) async {
     if (!_formKey.currentState!.validate()) return;
     final amount =
         ThousandsTextInputFormatter.tryParseDouble(_amountController.text) ?? 0;
-    if (amount <= 0) return;
+    final creditToApply = _creditToApply(dueAmount);
+    if (amount <= 0 && creditToApply <= 0.005) return;
+
+    final remainingAfterCredit =
+        (dueAmount - creditToApply).clamp(0.0, dueAmount);
+    final heldAsCredit = amount > remainingAfterCredit + 0.005
+        ? amount - remainingAfterCredit
+        : 0.0;
+    if (heldAsCredit > 0.005) {
+      final appliedCash = remainingAfterCredit;
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: AppStrings.overpayCreditTitle,
+        message:
+            '${Formatters.currencyPkr(appliedCash + creditToApply)} clears this due. '
+            '${Formatters.currencyPkr(heldAsCredit)} will be held as credit for this customer.',
+        confirmLabel: AppStrings.savePayment,
+      );
+      if (!confirmed || !mounted) return;
+    }
 
     final reference = _referenceController.text.trim().isEmpty
         ? null
@@ -152,6 +213,7 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
         paymentDate: _paymentDate,
         reference: reference,
         notes: notes,
+        creditToApply: creditToApply,
       ),
     );
   }
@@ -163,6 +225,11 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
         if (state.status == SalesInvoiceStatus.loaded &&
             state.invoice != null) {
           _populate(state.invoice!.dueAmount);
+          _ensureCustomerCredit(
+            factoryId: state.invoice!.factoryId,
+            customerId: state.invoice!.customerId,
+            dueAmount: state.invoice!.dueAmount,
+          );
         }
         if (state.status == SalesInvoiceStatus.paymentRecorded) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -212,9 +279,23 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
 
         _populate(invoice.dueAmount);
         final isSaving = state.status == SalesInvoiceStatus.saving;
-        final maxAmount = _isEditing
-            ? invoice.dueAmount + (_editingPayment?.amount ?? 0)
+        final dueForPayment = _isEditing
+            ? invoice.dueAmount + (_editingPayment?.appliedAmount ?? 0)
             : invoice.dueAmount;
+        final creditToApply = _creditToApply(dueForPayment);
+        final typedCash =
+            ThousandsTextInputFormatter.tryParseDouble(_amountController.text) ??
+                0;
+        final remainingAfterCredit =
+            (dueForPayment - creditToApply).clamp(0.0, dueForPayment);
+        final appliedCash = typedCash < remainingAfterCredit
+            ? typedCash
+            : remainingAfterCredit;
+        final heldAsCredit =
+            (typedCash - appliedCash).clamp(0.0, double.infinity);
+        final appliedToDue = creditToApply + appliedCash;
+        final canSubmit =
+            !isSaving && (typedCash > 0.005 || creditToApply > 0.005);
 
         return Scaffold(
           appBar: AppBar(
@@ -268,14 +349,52 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
                           final amount =
                               ThousandsTextInputFormatter.tryParseDouble(value) ??
                                   0;
-                          if (amount <= 0) return 'Enter a valid amount';
-                          if (amount > maxAmount) {
-                            return 'Cannot exceed ${Formatters.currencyPkr(maxAmount)}';
+                          if (amount < 0) return 'Enter a valid amount';
+                          if (amount <= 0 && creditToApply <= 0.005) {
+                            return 'Enter a valid amount';
                           }
                           return null;
                         },
                         enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
                       ),
+                      if (!_isEditing && _customerCredit > 0.005) ...[
+                        AppFormFields.gap,
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: _applyCredit,
+                          onChanged: isSaving
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _applyCredit = value ?? false;
+                                  });
+                                },
+                          title: Text(
+                            '${AppStrings.applyCustomerCredit} '
+                            '(${Formatters.currencyPkr(_customerCredit)})',
+                            style: AppFormFields.valueStyle(context),
+                          ),
+                        ),
+                      ],
+                      if (typedCash > 0.005 || creditToApply > 0.005) ...[
+                        AppFormFields.gap,
+                        Text(
+                          '${AppStrings.appliedToThisDue}: '
+                          '${Formatters.currencyPkr(appliedToDue)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (heldAsCredit > 0.005)
+                          Text(
+                            '${AppStrings.heldAsCustomerCredit}: '
+                            '${Formatters.currencyPkr(heldAsCredit)}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                      ],
                       AppFormFields.gap,
                       DropdownButtonFormField<PaymentMethod>(
                         key: ValueKey(_method),
@@ -340,7 +459,9 @@ class _RecordSalesPaymentScreenState extends State<RecordSalesPaymentScreen> {
           bottomNavigationBar: AppFormBottomBar(
             label: _isEditing ? AppStrings.saveChanges : AppStrings.savePayment,
             isLoading: isSaving,
-            onPressed: isSaving ? null : _submit,
+            onPressed: canSubmit
+                ? () => _submit(dueAmount: dueForPayment)
+                : null,
           ),
         );
       },

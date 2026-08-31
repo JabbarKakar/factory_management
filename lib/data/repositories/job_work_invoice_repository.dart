@@ -9,6 +9,7 @@ import '../../domain/entities/job_work_order.dart';
 import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/job_work_enums.dart';
 import '../models/job_work_invoice_model.dart';
+import '../models/payment_model.dart';
 import '../services/job_work_container_sync_helper.dart';
 import 'invoice_exception.dart';
 import '../../domain/enums/document_sequence.dart';
@@ -325,7 +326,10 @@ class JobWorkInvoiceRepository {
       recordedPaymentsTotal = paymentsSnap.docs
           .map((doc) => doc.data())
           .where((data) => invoiceIds.contains(data['invoiceId']))
-          .fold<double>(0, (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0));
+          .fold<double>(
+            0,
+            (sum, data) => sum + PaymentModel.appliedFromFirestore(data),
+          );
     }
 
     if (billable.isNotEmpty) {
@@ -748,7 +752,10 @@ class JobWorkInvoiceRepository {
       recordedPaymentsTotal = paymentsSnap.docs
           .map((doc) => doc.data())
           .where((data) => invoiceIds.contains(data['invoiceId']))
-          .fold<double>(0, (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0));
+          .fold<double>(
+            0,
+            (sum, data) => sum + PaymentModel.appliedFromFirestore(data),
+          );
     }
 
     final newPaidAmount = recordedPaymentsTotal > 0

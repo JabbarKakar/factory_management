@@ -89,7 +89,9 @@ class CustomerLedgerSection extends StatelessWidget {
                         final entries = <_LedgerEntry>[
                           ...jobWorkInvoices.map(_entryFromJobWorkInvoice),
                           ...salesInvoices.map(_entryFromSalesInvoice),
-                          ...payments.map(_entryFromPayment),
+                          ...payments
+                              .where((payment) => payment.amount > 0.005)
+                              .map(_entryFromPayment),
                         ]..sort((a, b) => b.date.compareTo(a.date));
 
                         final visible = entries.take(10).toList();

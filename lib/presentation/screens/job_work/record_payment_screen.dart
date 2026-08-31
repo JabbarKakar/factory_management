@@ -44,6 +44,10 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
   Payment? _editingPayment;
   bool _deletedPayment = false;
   bool _submitting = false;
+  double _customerCredit = 0;
+  bool _applyCredit = true;
+  String? _creditCustomerKey;
+  bool _cashAdjustedForCredit = false;
 
   bool get _isEditing => widget.paymentId != null;
 
@@ -120,6 +124,43 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
     if (picked != null) setState(() => _paymentDate = picked);
   }
 
+  Future<void> _ensureCustomerCredit({
+    required String factoryId,
+    required String customerId,
+    required double dueAmount,
+  }) async {
+    if (_isEditing) return;
+    final key = '$factoryId|$customerId';
+    if (_creditCustomerKey == key) return;
+    _creditCustomerKey = key;
+    final credit =
+        await getIt<PaymentRepository>().getUnallocatedCreditForCustomer(
+      factoryId: factoryId,
+      customerId: customerId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _customerCredit = credit;
+      _applyCredit = credit > 0.005;
+    });
+    _adjustCashForCredit(dueAmount);
+  }
+
+  void _adjustCashForCredit(double dueAmount) {
+    if (_isEditing || _cashAdjustedForCredit || !_applyCredit) return;
+    if (_customerCredit <= 0.005) return;
+    final creditSlice =
+        _customerCredit < dueAmount ? _customerCredit : dueAmount;
+    final cash = (dueAmount - creditSlice).clamp(0.0, dueAmount);
+    _amountController.text = ThousandsTextInputFormatter.format(cash);
+    _cashAdjustedForCredit = true;
+  }
+
+  double _creditToApply(double dueAmount) {
+    if (_isEditing || !_applyCredit || _customerCredit <= 0.005) return 0;
+    return _customerCredit < dueAmount ? _customerCredit : dueAmount;
+  }
+
   Future<void> _deletePayment() async {
     final payment = _editingPayment;
     if (payment == null || _submitting) return;
@@ -149,12 +190,13 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
     });
   }
 
-  void _submit() {
+  Future<void> _submit({required double dueAmount}) async {
     if (_submitting) return;
     if (!_formKey.currentState!.validate()) return;
     final amount =
         ThousandsTextInputFormatter.tryParseDouble(_amountController.text) ?? 0;
-    if (amount <= 0) return;
+    final creditToApply = _creditToApply(dueAmount);
+    if (amount <= 0 && creditToApply <= 0.005) return;
 
     final invoice = context.read<JobWorkInvoiceBloc>().state.invoice;
     final isGrandInvoice =
@@ -165,6 +207,24 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         const SnackBar(content: Text('Please select a target load first.')),
       );
       return;
+    }
+
+    final remainingAfterCredit =
+        (dueAmount - creditToApply).clamp(0.0, dueAmount);
+    final heldAsCredit = amount > remainingAfterCredit + 0.005
+        ? amount - remainingAfterCredit
+        : 0.0;
+    if (heldAsCredit > 0.005) {
+      final appliedCash = remainingAfterCredit;
+      final confirmed = await AppConfirmDialog.show(
+        context,
+        title: AppStrings.overpayCreditTitle,
+        message:
+            '${Formatters.currencyPkr(appliedCash + creditToApply)} clears this due. '
+            '${Formatters.currencyPkr(heldAsCredit)} will be held as credit for this customer.',
+        confirmLabel: AppStrings.savePayment,
+      );
+      if (!confirmed || !mounted) return;
     }
 
     setState(() => _submitting = true);
@@ -200,6 +260,7 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         loadId: isGrandInvoice ? _selectedLoadId : invoice?.loadId,
         reference: reference,
         notes: notes,
+        creditToApply: creditToApply,
       ),
     );
   }
@@ -211,6 +272,11 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         if (state.status == JobWorkInvoiceStatus.loaded &&
             state.invoice != null) {
           _populate(state.invoice!.dueAmount, state);
+          _ensureCustomerCredit(
+            factoryId: state.invoice!.factoryId,
+            customerId: state.invoice!.customerId,
+            dueAmount: state.invoice!.dueAmount,
+          );
         }
         if (state.status == JobWorkInvoiceStatus.paymentRecorded) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -271,27 +337,41 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
         final isSaving =
             state.status == JobWorkInvoiceStatus.saving || _submitting;
 
-        final double maxAmount;
+        final double dueForPayment;
         if (isGrandInvoice) {
           if (_selectedLoadId != null) {
             final selectedFin = state.perLoadFinance[_selectedLoadId];
             final targetLoad =
                 billableLoads.where((l) => l.id == _selectedLoadId).firstOrNull;
             final loadDue = selectedFin?.due ?? targetLoad?.balanceDue ?? 0.0;
-            maxAmount = _isEditing
-                ? loadDue + (_editingPayment?.amount ?? 0)
+            dueForPayment = _isEditing
+                ? loadDue + (_editingPayment?.appliedAmount ?? 0)
                 : loadDue;
           } else {
-            maxAmount = invoice.dueAmount;
+            dueForPayment = invoice.dueAmount;
           }
         } else {
-          maxAmount = _isEditing
-              ? invoice.dueAmount + (_editingPayment?.amount ?? 0)
+          dueForPayment = _isEditing
+              ? invoice.dueAmount + (_editingPayment?.appliedAmount ?? 0)
               : invoice.dueAmount;
         }
 
+        final creditToApply = _creditToApply(dueForPayment);
+        final typedCash =
+            ThousandsTextInputFormatter.tryParseDouble(_amountController.text) ??
+                0;
+        final remainingAfterCredit =
+            (dueForPayment - creditToApply).clamp(0.0, dueForPayment);
+        final appliedCash = typedCash < remainingAfterCredit
+            ? typedCash
+            : remainingAfterCredit;
+        final heldAsCredit =
+            (typedCash - appliedCash).clamp(0.0, double.infinity);
+        final appliedToDue = creditToApply + appliedCash;
+
         final canSubmit = !isSaving &&
-            (!isGrandInvoice || _selectedLoadId != null);
+            (!isGrandInvoice || _selectedLoadId != null) &&
+            (typedCash > 0.005 || creditToApply > 0.005);
 
         return Scaffold(
           appBar: AppBar(
@@ -449,9 +529,11 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                                       final due = fin?.due ??
                                           target?.balanceDue ??
                                           0.0;
+                                      final credit = _creditToApply(due);
                                       _amountController.text =
                                           ThousandsTextInputFormatter.format(
-                                              due);
+                                        (due - credit).clamp(0.0, due),
+                                      );
                                     });
                                   }
                                 },
@@ -486,17 +568,55 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
                               ThousandsTextInputFormatter.tryParseDouble(
                                       value) ??
                                   0;
-                          if (amount <= 0) return 'Enter a valid amount';
                           if (isGrandInvoice && _selectedLoadId == null) {
                             return 'Please select a target load first';
                           }
-                          if (amount > maxAmount + 0.005) {
-                            return 'Cannot exceed ${Formatters.currencyPkr(maxAmount)}';
+                          if (amount < 0) return 'Enter a valid amount';
+                          if (amount <= 0 && creditToApply <= 0.005) {
+                            return 'Enter a valid amount';
                           }
                           return null;
                         },
                         enabled: !isSaving,
+                        onChanged: (_) => setState(() {}),
                       ),
+                      if (!_isEditing && _customerCredit > 0.005) ...[
+                        AppFormFields.gap,
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: _applyCredit,
+                          onChanged: isSaving
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _applyCredit = value ?? false;
+                                  });
+                                },
+                          title: Text(
+                            '${AppStrings.applyCustomerCredit} '
+                            '(${Formatters.currencyPkr(_customerCredit)})',
+                            style: AppFormFields.valueStyle(context),
+                          ),
+                        ),
+                      ],
+                      if (typedCash > 0.005 || creditToApply > 0.005) ...[
+                        AppFormFields.gap,
+                        Text(
+                          '${AppStrings.appliedToThisDue}: '
+                          '${Formatters.currencyPkr(appliedToDue)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (heldAsCredit > 0.005)
+                          Text(
+                            '${AppStrings.heldAsCustomerCredit}: '
+                            '${Formatters.currencyPkr(heldAsCredit)}',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                      ],
                       AppFormFields.gap,
                       DropdownButtonFormField<PaymentMethod>(
                         key: ValueKey(_method),
@@ -561,7 +681,9 @@ class _RecordPaymentScreenState extends State<RecordPaymentScreen> {
           bottomNavigationBar: AppFormBottomBar(
             label: _isEditing ? AppStrings.saveChanges : AppStrings.savePayment,
             isLoading: isSaving,
-            onPressed: canSubmit ? _submit : null,
+            onPressed: canSubmit
+                ? () => _submit(dueAmount: dueForPayment)
+                : null,
           ),
         );
       },

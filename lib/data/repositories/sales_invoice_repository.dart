@@ -11,6 +11,7 @@ import '../../domain/enums/invoice_enums.dart';
 import '../../domain/enums/sales_agreement_enums.dart';
 import '../../domain/enums/sales_enums.dart';
 import '../models/sales_invoice_model.dart';
+import '../models/payment_model.dart';
 import '../services/sales_container_sync_helper.dart';
 import '../services/sequence_number_service.dart';
 import 'invoice_exception.dart';
@@ -583,7 +584,7 @@ class SalesInvoiceRepository {
           .fold<double>(
             0,
             (total, doc) =>
-                total + ((doc.data()['amount'] as num?)?.toDouble() ?? 0.0),
+                total + PaymentModel.appliedFromFirestore(doc.data()),
           );
       if (recorded > 0) return recorded;
     }

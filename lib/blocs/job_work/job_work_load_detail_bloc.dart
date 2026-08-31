@@ -179,7 +179,7 @@ class JobWorkLoadDetailBloc
             (invoice) => add(_JobWorkLoadDetailInvoiceUpdated(invoice)),
           );
       _advancePaymentsSub = _paymentRepository
-          .watchAdvancePaymentsForOrder(
+          .watchPaymentsForOrder(
             factoryId: order.factoryId,
             orderId: order.id,
           )

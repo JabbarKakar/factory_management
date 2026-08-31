@@ -266,15 +266,31 @@ class JobWorkInvoiceBloc
   ) async {
     emit(state.copyWith(status: JobWorkInvoiceStatus.saving));
     try {
-      await _paymentRepository.recordJobWorkPayment(
-        invoiceId: event.invoiceId,
-        amount: event.amount,
-        method: event.method,
-        paymentDate: event.paymentDate,
-        loadId: event.loadId,
-        reference: event.reference,
-        notes: event.notes,
-      );
+      if (event.creditToApply <= 0.005 && event.amount <= 0.005) {
+        throw StateError('Enter a payment amount or apply customer credit.');
+      }
+      if (event.creditToApply > 0.005) {
+        await _paymentRepository.applyCustomerCredit(
+          invoiceId: event.invoiceId,
+          invoiceType: InvoiceType.jobWork,
+          appliedAmount: event.creditToApply,
+          method: event.method,
+          paymentDate: event.paymentDate,
+          loadId: event.loadId,
+          reference: event.reference,
+        );
+      }
+      if (event.amount > 0.005) {
+        await _paymentRepository.recordJobWorkPayment(
+          invoiceId: event.invoiceId,
+          amount: event.amount,
+          method: event.method,
+          paymentDate: event.paymentDate,
+          loadId: event.loadId,
+          reference: event.reference,
+          notes: event.notes,
+        );
+      }
       final invoice = await _invoiceRepository.getInvoice(event.invoiceId);
       if (invoice == null) {
         emit(
@@ -455,6 +471,7 @@ class JobWorkInvoiceBloc
           loads: loads,
           invoices: allInvoices,
           payments: state.payments,
+          alreadyScoped: true,
         );
       }
     }
@@ -491,6 +508,7 @@ class JobWorkInvoiceBloc
             loads: state.loads,
             invoices: allInvoices,
             payments: event.payments,
+            alreadyScoped: true,
           );
           if (!isClosed) {
             emit(
@@ -532,6 +550,7 @@ class JobWorkInvoiceBloc
       loads: event.loads,
       invoices: allInvoices,
       payments: state.payments,
+      alreadyScoped: true,
     );
     emit(
       state.copyWith(
@@ -791,6 +810,7 @@ class JobWorkInvoiceBloc
           loads: loads,
           invoices: allInvoices,
           payments: invoicePayments,
+          alreadyScoped: true,
         );
       }
     }

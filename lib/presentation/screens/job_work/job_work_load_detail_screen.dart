@@ -303,6 +303,7 @@ class _JobWorkLoadDetailScreenState extends State<JobWorkLoadDetailScreen> {
           loads: state.siblingLoads,
           invoices: state.invoices,
           payments: state.payments,
+          alreadyScoped: true,
         );
         final fin = financeMap[load.id] ?? (
           charges: load.finalCuttingCharges,

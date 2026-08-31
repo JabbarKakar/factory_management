@@ -128,14 +128,29 @@ class SalesInvoiceBloc extends Bloc<SalesInvoiceEvent, SalesInvoiceState> {
   ) async {
     emit(state.copyWith(status: SalesInvoiceStatus.saving));
     try {
-      await _paymentRepository.recordSalesPayment(
-        invoiceId: event.invoiceId,
-        amount: event.amount,
-        method: event.method,
-        paymentDate: event.paymentDate,
-        reference: event.reference,
-        notes: event.notes,
-      );
+      if (event.creditToApply <= 0.005 && event.amount <= 0.005) {
+        throw StateError('Enter a payment amount or apply customer credit.');
+      }
+      if (event.creditToApply > 0.005) {
+        await _paymentRepository.applyCustomerCredit(
+          invoiceId: event.invoiceId,
+          invoiceType: InvoiceType.sales,
+          appliedAmount: event.creditToApply,
+          method: event.method,
+          paymentDate: event.paymentDate,
+          reference: event.reference,
+        );
+      }
+      if (event.amount > 0.005) {
+        await _paymentRepository.recordSalesPayment(
+          invoiceId: event.invoiceId,
+          amount: event.amount,
+          method: event.method,
+          paymentDate: event.paymentDate,
+          reference: event.reference,
+          notes: event.notes,
+        );
+      }
       final invoice = await _invoiceRepository.getInvoice(event.invoiceId);
       if (invoice == null) {
         emit(

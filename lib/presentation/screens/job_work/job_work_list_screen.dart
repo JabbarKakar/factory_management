@@ -313,6 +313,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
       loads: loads,
       invoices: state.invoicesForOrder(order.id),
       payments: state.paymentsForOrder(order.id),
+      alreadyScoped: true,
     );
 
     final persistedLoads = loads.where((load) => !load.isVirtual).toList();
@@ -342,6 +343,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
         loads: state.loadsForOrder(order.id),
         invoices: state.invoicesForOrder(order.id),
         payments: state.paymentsForOrder(order.id),
+        alreadyScoped: true,
       );
       invoiced += finance.charges;
       received += finance.paid;

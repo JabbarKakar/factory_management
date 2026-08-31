@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../domain/entities/job_work_invoice.dart';
 import '../../domain/entities/job_work_load.dart';
 import '../../domain/entities/job_work_order.dart';
@@ -83,6 +85,159 @@ abstract final class JobWorkContainerSyncHelper {
       0,
       (sum, load) => sum + load.balanceDue,
     );
+  }
+
+  /// Whether a payment belongs on this Job Work for list/detail finance.
+  ///
+  /// Migrated orders often have a payment whose `orderId` / `loadId` still
+  /// point at a legacy id, while the live invoice lives on `order.invoiceId`
+  /// or `load.invoiceId`. Those rows must still settle remaining due.
+  ///
+  /// [siblingOrderIds] are other live Job Work ids for the same customer.
+  /// A payment whose `orderId` is empty or unknown (deleted invoice / legacy
+  /// container) still belongs here when this is that customer's only JW.
+  static bool paymentBelongsToJobWork({
+    required Payment payment,
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+    required List<JobWorkInvoice> invoices,
+    Set<String> siblingOrderIds = const {},
+    bool attachDanglingCustomerPayments = false,
+  }) {
+    if (payment.status == PaymentStatus.voided) return false;
+
+    final orderId = payment.orderId?.trim() ?? '';
+    if (orderId.isNotEmpty &&
+        (orderId == order.id || orderId == order.jobWorkNumber)) {
+      return true;
+    }
+
+    final loadId = payment.loadId?.trim() ?? '';
+    if (loadId.isNotEmpty && loads.any((load) => load.id == loadId)) {
+      return true;
+    }
+
+    final invoiceId = payment.invoiceId.trim();
+    if (invoiceId.isNotEmpty) {
+      if (invoices.any((invoice) => invoice.id == invoiceId)) return true;
+      final orderInvoiceId = order.invoiceId?.trim() ?? '';
+      if (orderInvoiceId.isNotEmpty && orderInvoiceId == invoiceId) {
+        return true;
+      }
+      if (loads.any((load) => (load.invoiceId?.trim() ?? '') == invoiceId)) {
+        return true;
+      }
+    }
+
+    if (payment.customerId != order.customerId) return false;
+    if (payment.invoiceType == InvoiceType.sales) return false;
+
+    final invoiceNumber = payment.invoiceNumber.trim();
+    if (order.jobWorkNumber.isNotEmpty &&
+        invoiceNumber.contains(order.jobWorkNumber)) {
+      return true;
+    }
+    for (final load in loads) {
+      if (load.loadNumber.isNotEmpty &&
+          invoiceNumber.contains(load.loadNumber)) {
+        return true;
+      }
+    }
+    for (final invoice in invoices) {
+      if (invoice.invoiceNumber.isNotEmpty &&
+          invoiceNumber == invoice.invoiceNumber) {
+        return true;
+      }
+    }
+
+    // Empty or dangling orderId (deleted invoice) still belongs when this
+    // is the customer's only live Job Work.
+    if (!attachDanglingCustomerPayments) return false;
+    if (orderId.isNotEmpty && siblingOrderIds.contains(orderId)) {
+      return false;
+    }
+    return true;
+  }
+
+  static List<Payment> relevantPaymentsForJobWork({
+    required JobWorkOrder order,
+    required List<JobWorkLoad> loads,
+    required List<JobWorkInvoice> invoices,
+    required Iterable<Payment> payments,
+    Set<String> siblingOrderIds = const {},
+    bool alreadyScoped = false,
+    bool attachDanglingCustomerPayments = false,
+  }) {
+    final unique = <String, Payment>{};
+    for (final payment in payments) {
+      if (alreadyScoped) {
+        if (payment.status != PaymentStatus.voided) {
+          unique[payment.id] = payment;
+        }
+        continue;
+      }
+      if (paymentBelongsToJobWork(
+        payment: payment,
+        order: order,
+        loads: loads,
+        invoices: invoices,
+        siblingOrderIds: siblingOrderIds,
+        attachDanglingCustomerPayments: attachDanglingCustomerPayments,
+      )) {
+        unique[payment.id] = payment;
+      }
+    }
+    return unique.values.toList();
+  }
+
+  /// Applied cash that should settle this Job Work's charges.
+  ///
+  /// Rows with [Payment.appliedAmount] use that value. Rows that target this
+  /// Job Work but stored applied=0 (broken overpay write) contribute cash up
+  /// to leftover due. Unallocated leftover on a correct overpay is not
+  /// silently applied.
+  static double settledPaidForJobWork({
+    required double charges,
+    required Iterable<Payment> payments,
+  }) {
+    var applied = 0.0;
+    var unappliedCash = 0.0;
+    for (final payment in payments) {
+      if (payment.status == PaymentStatus.voided) continue;
+      if (payment.appliedAmount > 0.005) {
+        applied += payment.appliedAmount;
+      } else if (payment.amount > 0.005) {
+        unappliedCash += payment.amount;
+      }
+    }
+    final leftoverDue = (charges - applied).clamp(0.0, double.infinity);
+    final healed = math.min(unappliedCash, leftoverDue);
+    return applied + healed;
+  }
+
+  /// Remaining due to apply a new payment against. Uses the larger of load
+  /// vs invoice remaining when one denormalized field was incorrectly zeroed.
+  static double remainingDueForPayment({
+    required JobWorkInvoice invoice,
+    JobWorkLoad? load,
+  }) {
+    final charges = load != null && load.finalCuttingCharges > 0.005
+        ? load.finalCuttingCharges
+        : invoice.totalAmount;
+    final invoiceRemaining = invoice.dueAmount > 0.005
+        ? invoice.dueAmount
+        : (charges - invoice.paidAmount).clamp(0.0, charges).toDouble();
+    if (load == null) {
+      return invoiceRemaining.clamp(0.0, charges).toDouble();
+    }
+    final loadRemaining = load.balanceDue;
+    if (loadRemaining > 0.005 && invoiceRemaining > 0.005) {
+      return math.min(loadRemaining, invoiceRemaining).clamp(0.0, charges);
+    }
+    return math
+        .max(loadRemaining, invoiceRemaining)
+        .clamp(0.0, charges)
+        .toDouble();
   }
 
   /// Non-cancelled persisted loads used for customer-facing money rollups.
@@ -196,6 +351,9 @@ abstract final class JobWorkContainerSyncHelper {
     required List<JobWorkLoad> loads,
     required List<JobWorkInvoice> invoices,
     List<Payment> payments = const [],
+    Set<String> siblingOrderIds = const {},
+    bool alreadyScoped = false,
+    bool attachDanglingCustomerPayments = false,
   }) {
     final billable = billableLoadsForGrandInvoice(loads);
     final loadsToProcess = billable.isNotEmpty ? billable : loads;
@@ -252,17 +410,24 @@ abstract final class JobWorkContainerSyncHelper {
         .where(isContainerInvoice)
         .firstOrNull;
 
-    final invoiceIds = invoices.map((invoice) => invoice.id).toSet();
-    final relevantPayments = payments
-        .where((payment) =>
-            payment.status != PaymentStatus.voided &&
-            (payment.orderId == order.id ||
-                loadsToProcess.any((l) => l.id == payment.loadId) ||
-                invoiceIds.contains(payment.invoiceId)))
-        .toList();
+    final relevantPayments = relevantPaymentsForJobWork(
+      order: order,
+      loads: loadsToProcess,
+      invoices: invoices,
+      payments: payments,
+      siblingOrderIds: siblingOrderIds,
+      alreadyScoped: alreadyScoped,
+      attachDanglingCustomerPayments: attachDanglingCustomerPayments,
+    );
     final usePaymentLedger = relevantPayments.isNotEmpty;
-    final ledgerPaid = relevantPayments
-        .fold<double>(0, (sum, payment) => sum + payment.amount);
+    final chargesTotal = loadsToProcess.fold<double>(
+      0,
+      (sum, load) => sum + load.finalCuttingCharges,
+    );
+    final ledgerPaid = settledPaidForJobWork(
+      charges: chargesTotal,
+      payments: relevantPayments,
+    );
     final totalPaymentsRecorded = usePaymentLedger
         ? ledgerPaid
         : grandInvoice != null
@@ -294,21 +459,21 @@ abstract final class JobWorkContainerSyncHelper {
           ? null
           : extractPaidFromLineItems(invoices, load, loadIndex: i);
 
-      if (inv != null) {
-        specificPaid = usePaymentLedger
-            ? relevantPayments
-                .where((payment) => payment.invoiceId == inv.id)
-                .fold<double>(0, (sum, payment) => sum + payment.amount)
-            : inv.paidAmount;
-      } else if (usePaymentLedger) {
-        final loadPayments = relevantPayments
-            .where((payment) => payment.loadId == load.id)
-            .fold<double>(0, (sum, payment) => sum + payment.amount);
-        if (loadPayments > 0) {
-          specificPaid = loadPayments;
-        } else if (load.advanceReceived > 0) {
+      if (usePaymentLedger) {
+        final seen = <String>{};
+        for (final payment in relevantPayments) {
+          final matchesLoadInvoice =
+              inv != null && payment.invoiceId == inv.id;
+          final matchesLoad = payment.loadId == load.id;
+          if (!matchesLoadInvoice && !matchesLoad) continue;
+          if (!seen.add(payment.id)) continue;
+          specificPaid += payment.appliedAmount;
+        }
+        if (specificPaid <= 0.005 && load.advanceReceived > 0) {
           specificPaid = load.advanceReceived;
         }
+      } else if (inv != null) {
+        specificPaid = inv.paidAmount;
       } else if (load.advanceReceived > 0) {
         specificPaid = load.advanceReceived;
       } else if (lineItemPaid != null && lineItemPaid > 0) {
@@ -328,8 +493,8 @@ abstract final class JobWorkContainerSyncHelper {
       }
     }
 
-    // Step 2: Distribute remaining general payments in FIFO sequence
-    // ONLY to loads that don't already have explicit payment data.
+    // Step 2: Remaining applied cash (not already assigned to a load) settles
+    // leftover due in load sequence — including loads that already have advance.
     var generalPool = (totalPaymentsRecorded - specificPaymentsSum)
         .clamp(0.0, double.infinity)
         .toDouble();
@@ -337,20 +502,11 @@ abstract final class JobWorkContainerSyncHelper {
     for (var i = 0; i < loadsToProcess.length; i++) {
       final load = loadsToProcess[i];
 
-      // Check if this load has explicit payment data from any source
-      final inv = byLoadId[load.id];
-      final lineItemPaid = usePaymentLedger
-          ? null
-          : extractPaidFromLineItems(invoices, load, loadIndex: i);
-      final hasExplicitPayment = (load.advanceReceived > 0 ||
-          inv != null ||
-          (lineItemPaid != null && lineItemPaid > 0) ||
-          (usePaymentLedger && relevantPayments.any((p) => p.loadId == load.id)));
-
       if (result.containsKey(load.id)) {
         final existing = result[load.id]!;
-        // Only apply general pool to loads WITHOUT explicit payment data
-        if (existing.due > 0 && generalPool > 0 && !hasExplicitPayment) {
+        // Leftover applied cash (e.g. a grand-invoice overpay) still settles
+        // remaining due, even when the load already has advance / its own invoice.
+        if (existing.due > 0 && generalPool > 0) {
           final additionalPaid = generalPool >= existing.due
               ? existing.due
               : generalPool;
@@ -376,7 +532,7 @@ abstract final class JobWorkContainerSyncHelper {
         final double paid;
         final double due;
         final double credit;
-        if (generalPool > 0 && !hasExplicitPayment) {
+        if (generalPool > 0) {
           paid = generalPool >= total ? total : generalPool;
           due = (total - paid).clamp(0.0, total).toDouble();
           credit = (generalPool - total).clamp(0.0, double.infinity).toDouble();
@@ -408,6 +564,9 @@ abstract final class JobWorkContainerSyncHelper {
     required List<JobWorkInvoice> invoices,
     List<Payment> payments = const [],
     List<JobWorkLoad>? loadsToSum,
+    Set<String> siblingOrderIds = const {},
+    bool alreadyScoped = false,
+    bool attachDanglingCustomerPayments = false,
   }) {
     final orderLoads = loadsToSum ?? activeLoadsForFinance(order, loads);
     if (orderLoads.isNotEmpty) {
@@ -416,24 +575,23 @@ abstract final class JobWorkContainerSyncHelper {
         (sum, load) => sum + load.finalCuttingCharges,
       );
 
-      final invoiceIds = invoices.map((invoice) => invoice.id).toSet();
-      final uniquePayments = <String, Payment>{};
-      for (final payment in payments) {
-        if (payment.status != PaymentStatus.voided &&
-            (payment.orderId == order.id ||
-                orderLoads.any((l) => l.id == payment.loadId) ||
-                invoiceIds.contains(payment.invoiceId))) {
-          uniquePayments[payment.id] = payment;
-        }
-      }
+      final uniquePayments = relevantPaymentsForJobWork(
+        order: order,
+        loads: orderLoads,
+        invoices: invoices,
+        payments: payments,
+        siblingOrderIds: siblingOrderIds,
+        alreadyScoped: alreadyScoped,
+        attachDanglingCustomerPayments: attachDanglingCustomerPayments,
+      );
 
       final double paid;
       if (uniquePayments.isNotEmpty) {
         // Aggregate screens reconcile directly from the immutable payment
         // ledger. Per-Load allocation must never change Job Work/customer totals.
-        paid = uniquePayments.values.fold<double>(
-          0,
-          (sum, payment) => sum + payment.amount,
+        paid = settledPaidForJobWork(
+          charges: charges,
+          payments: uniquePayments,
         );
       } else {
         // Firestore streams do not arrive atomically. While the payment stream

@@ -175,11 +175,17 @@ abstract final class CustomerBalanceCalculator {
       final orderInvoices = customerJobWorkInvoices
           .where((invoice) => invoice.jobWorkId == order.id)
           .toList();
+      final siblingOrderIds = {
+        for (final other in customerJobWorkOrders)
+          if (other.id != order.id) other.id,
+      };
       final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
         order: order,
         loads: customerJobWorkLoads,
         invoices: orderInvoices,
         payments: validPayments,
+        siblingOrderIds: siblingOrderIds,
+        attachDanglingCustomerPayments: siblingOrderIds.isEmpty,
       );
 
       jobWorkRevenue += finance.charges;
@@ -214,8 +220,16 @@ abstract final class CustomerBalanceCalculator {
       }
     }
 
+    final paymentCash = validPayments.fold<double>(
+      0,
+      (sum, payment) => sum + payment.amount,
+    );
+
     final totalRevenue = double.parse((salesRevenue + jobWorkRevenue).toStringAsFixed(2));
-    final totalPaid = double.parse((salesPaid + jobWorkPaid).toStringAsFixed(2));
+    final rollupPaid = double.parse((salesPaid + jobWorkPaid).toStringAsFixed(2));
+    final totalPaid = validPayments.isNotEmpty
+        ? double.parse(paymentCash.toStringAsFixed(2))
+        : rollupPaid;
     final netCalculatedDue = double.parse(
       (customer.openingBalance + totalRevenue - totalPaid).toStringAsFixed(2),
     );

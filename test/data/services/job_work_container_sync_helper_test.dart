@@ -613,5 +613,322 @@ void main() {
       expect(financeMap['load-2']?.due, closeTo(0.0, 0.01));
       expect(financeMap['load-2']?.credit, closeTo(75105.0, 0.01));
     });
+
+    test('grand-invoice overpay with loadId settles remaining after advance', () {
+      final order = buildOrder(
+        finalCuttingCharges: 153504,
+        advanceReceived: 103504,
+      );
+      final load = buildLoad(
+        id: 'load-1',
+        sequence: 1,
+        finalCuttingCharges: 153504,
+        advanceReceived: 103504,
+        balanceDue: 50000,
+      );
+      final loadInvoice = JobWorkInvoice(
+        id: 'inv-load',
+        invoiceNumber: 'INV-L1',
+        jobWorkNumber: 'JW-2026-0001',
+        factoryId: 'factory-1',
+        jobWorkId: 'jw-1',
+        loadId: 'load-1',
+        customerId: 'customer-1',
+        customerName: 'Deen Muhammad',
+        lineItems: const [
+          InvoiceLineItem(description: 'Cutting', amount: 153504),
+        ],
+        totalAmount: 153504,
+        paidAmount: 103504,
+        dueAmount: 50000,
+        status: InvoiceStatus.partial,
+        createdAt: DateTime(2026, 8, 31),
+      );
+      final payments = [
+        Payment(
+          id: 'advance-1',
+          factoryId: 'factory-1',
+          customerId: 'customer-1',
+          customerName: 'Deen Muhammad',
+          invoiceId: 'inv-load',
+          invoiceNumber: 'INV-L1',
+          invoiceType: InvoiceType.jobWork,
+          amount: 103504,
+          appliedAmount: 103504,
+          method: PaymentMethod.cash,
+          paymentDate: DateTime(2026, 8, 1),
+          createdAt: DateTime(2026, 8, 1),
+          isAdvance: true,
+          orderId: 'jw-1',
+          loadId: 'load-1',
+        ),
+        Payment(
+          id: 'overpay-1',
+          factoryId: 'factory-1',
+          customerId: 'customer-1',
+          customerName: 'Deen Muhammad',
+          invoiceId: 'inv-grand',
+          invoiceNumber: 'INV-G',
+          invoiceType: InvoiceType.jobWork,
+          amount: 300000,
+          appliedAmount: 50000,
+          method: PaymentMethod.cash,
+          paymentDate: DateTime(2026, 8, 31),
+          createdAt: DateTime(2026, 8, 31),
+          orderId: 'jw-1',
+          loadId: 'load-1',
+        ),
+      ];
+
+      final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+        order: order,
+        loads: [load],
+        invoices: [loadInvoice],
+        payments: payments,
+      );
+      expect(financeMap['load-1']?.charges, closeTo(153504, 0.01));
+      expect(financeMap['load-1']?.paid, closeTo(153504, 0.01));
+      expect(financeMap['load-1']?.due, closeTo(0, 0.01));
+
+      final rollup = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+        order: order,
+        loads: [load],
+        invoices: [loadInvoice],
+        payments: payments,
+      );
+      expect(rollup.paid, closeTo(153504, 0.01));
+      expect(rollup.due, closeTo(0, 0.01));
+    });
+
+    test('screenshot case: 50k advance, 103504 paid, 300k overpay on order invoice', () {
+      final order = buildOrder(
+        finalCuttingCharges: 153504,
+        advanceReceived: 50000,
+        invoiceId: 'inv-order',
+      );
+      final load = buildLoad(
+        id: 'load-1',
+        sequence: 1,
+        finalCuttingCharges: 153504,
+        advanceReceived: 50000,
+        balanceDue: 50000,
+      ).copyWith(invoiceId: 'inv-load');
+      final loadInvoice = JobWorkInvoice(
+        id: 'inv-load',
+        invoiceNumber: 'INV-L1',
+        jobWorkNumber: 'JW-2026-0001',
+        factoryId: 'factory-1',
+        jobWorkId: 'jw-1',
+        loadId: 'load-1',
+        customerId: 'customer-1',
+        customerName: 'Deen Muhammad',
+        lineItems: const [
+          InvoiceLineItem(description: 'Cutting', amount: 153504),
+        ],
+        totalAmount: 153504,
+        paidAmount: 103504,
+        dueAmount: 50000,
+        status: InvoiceStatus.partial,
+        createdAt: DateTime(2026, 8, 31),
+      );
+      Payment payment({
+        required String id,
+        required String invoiceId,
+        required double amount,
+        double? appliedAmount,
+        String? orderId,
+        String? loadId,
+      }) {
+        return Payment(
+          id: id,
+          factoryId: 'factory-1',
+          customerId: 'customer-1',
+          customerName: 'Deen Muhammad',
+          invoiceId: invoiceId,
+          invoiceNumber: invoiceId == 'inv-order' ? 'INV-JW' : 'INV-L1',
+          invoiceType: InvoiceType.jobWork,
+          amount: amount,
+          appliedAmount: appliedAmount,
+          method: PaymentMethod.cash,
+          paymentDate: DateTime(2026, 8, 1),
+          createdAt: DateTime(2026, 8, 1),
+          orderId: orderId,
+          loadId: loadId,
+        );
+      }
+
+      final prior = [
+        payment(
+          id: 'advance-1',
+          invoiceId: 'inv-load',
+          amount: 50000,
+          appliedAmount: 50000,
+          orderId: 'jw-1',
+          loadId: 'load-1',
+        ),
+        payment(
+          id: 'partial-1',
+          invoiceId: 'inv-load',
+          amount: 53504,
+          appliedAmount: 53504,
+          orderId: 'jw-1',
+          loadId: 'load-1',
+        ),
+      ];
+
+      void expectSettled(List<Payment> payments) {
+        final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+          order: order,
+          loads: [load],
+          invoices: [loadInvoice],
+          payments: payments,
+        );
+        expect(financeMap['load-1']?.paid, closeTo(153504, 0.01));
+        expect(financeMap['load-1']?.due, closeTo(0, 0.01));
+
+        final rollup = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+          order: order,
+          loads: [load],
+          invoices: [loadInvoice],
+          payments: payments,
+        );
+        expect(rollup.paid, closeTo(153504, 0.01));
+        expect(rollup.due, closeTo(0, 0.01));
+      }
+
+      expectSettled([
+        ...prior,
+        payment(
+          id: 'overpay-linked',
+          invoiceId: 'inv-order',
+          amount: 300000,
+          appliedAmount: 50000,
+        ),
+      ]);
+
+      expectSettled([
+        ...prior,
+        payment(
+          id: 'overpay-unapplied',
+          invoiceId: 'inv-order',
+          amount: 300000,
+          appliedAmount: 0,
+        ),
+      ]);
+    });
+
+    test('remainingDueForPayment uses the side that still has due', () {
+      final invoice = JobWorkInvoice(
+        id: 'inv-1',
+        invoiceNumber: 'INV-1',
+        jobWorkNumber: 'JW-2026-0001',
+        factoryId: 'factory-1',
+        jobWorkId: 'jw-1',
+        loadId: 'load-1',
+        customerId: 'customer-1',
+        customerName: 'Deen Muhammad',
+        lineItems: const [
+          InvoiceLineItem(description: 'Cutting', amount: 153504),
+        ],
+        totalAmount: 153504,
+        paidAmount: 153504,
+        dueAmount: 0,
+        status: InvoiceStatus.paid,
+        createdAt: DateTime(2026, 8, 31),
+      );
+      final load = buildLoad(
+        id: 'load-1',
+        finalCuttingCharges: 153504,
+        advanceReceived: 50000,
+        balanceDue: 50000,
+      );
+      expect(
+        JobWorkContainerSyncHelper.remainingDueForPayment(
+          invoice: invoice,
+          load: load,
+        ),
+        closeTo(50000, 0.01),
+      );
+    });
+
+    test('200k advance + 800k overpay settles 726804 job and keeps credit off the job', () {
+      final order = buildOrder(
+        finalCuttingCharges: 726804,
+        advanceReceived: 200000,
+        invoiceId: '',
+      );
+      final load = buildLoad(
+        id: 'load-8',
+        sequence: 8,
+        finalCuttingCharges: 726804,
+        advanceReceived: 200000,
+        balanceDue: 526804,
+      ).copyWith(loadNumber: 'JWL-2026-0008');
+      final payments = [
+        Payment(
+          id: 'advance-200k',
+          factoryId: 'factory-1',
+          customerId: 'customer-1',
+          customerName: 'JK Test',
+          invoiceId: 'inv-load',
+          invoiceNumber: 'JWL-2026-0008',
+          invoiceType: InvoiceType.jobWork,
+          amount: 200000,
+          appliedAmount: 200000,
+          method: PaymentMethod.cash,
+          paymentDate: DateTime(2026, 8, 28),
+          createdAt: DateTime(2026, 8, 28),
+          orderId: 'jw-1',
+          loadId: 'load-8',
+          isAdvance: true,
+        ),
+        Payment(
+          id: 'overpay-800k',
+          factoryId: 'factory-1',
+          customerId: 'customer-1',
+          customerName: 'JK Test',
+          invoiceId: 'deleted-invoice',
+          invoiceNumber: '',
+          invoiceType: InvoiceType.jobWork,
+          amount: 800000,
+          appliedAmount: 526804,
+          method: PaymentMethod.cash,
+          paymentDate: DateTime(2026, 8, 31),
+          createdAt: DateTime(2026, 8, 31),
+        ),
+      ];
+
+      final dangling = JobWorkContainerSyncHelper.relevantPaymentsForJobWork(
+        order: order,
+        loads: [load],
+        invoices: const [],
+        payments: payments,
+        attachDanglingCustomerPayments: true,
+      );
+      expect(dangling.map((p) => p.id), containsAll(['advance-200k', 'overpay-800k']));
+
+      final rollup = JobWorkContainerSyncHelper.rollupInvoiceFinance(
+        order: order,
+        loads: [load],
+        invoices: const [],
+        payments: payments,
+        alreadyScoped: true,
+      );
+      expect(rollup.charges, closeTo(726804, 0.01));
+      expect(rollup.paid, closeTo(726804, 0.01));
+      expect(rollup.due, closeTo(0, 0.01));
+      expect(rollup.credit, closeTo(0, 0.01));
+      expect(Payment.unallocatedTotal(payments), closeTo(273196, 0.01));
+
+      final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+        order: order,
+        loads: [load],
+        invoices: const [],
+        payments: payments,
+        alreadyScoped: true,
+      );
+      expect(financeMap['load-8']?.paid, closeTo(726804, 0.01));
+      expect(financeMap['load-8']?.due, closeTo(0, 0.01));
+    });
   });
 }

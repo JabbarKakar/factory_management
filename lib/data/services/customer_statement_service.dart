@@ -60,7 +60,8 @@ class CustomerStatementService {
           .where((invoice) => invoice.status != InvoiceStatus.cancelled)
           .map(_txnFromSalesInvoice),
       ...payments
-          .where((payment) => payment.status != PaymentStatus.voided)
+          .where((payment) =>
+              payment.status != PaymentStatus.voided && payment.amount > 0.005)
           .map(_txnFromPayment),
     ]..sort((a, b) => a.date.compareTo(b.date));
 

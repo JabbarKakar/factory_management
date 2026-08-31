@@ -293,6 +293,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
       loads: allLoads,
       invoices: invoices,
       payments: payments,
+      alreadyScoped: true,
     );
     final byYear = <int, List<JobWorkLoad>>{};
     for (final load in loads) {
@@ -524,6 +525,7 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
               ? state.invoices
               : (hasInvoice ? [invoice] : const []),
           payments: state.payments,
+          alreadyScoped: true,
         );
         final outstandingBalance = finance.due;
         final canGenerateInvoice =
@@ -899,9 +901,10 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                     },
                   ),
                 ),
-              if (hasInvoice)
+              if (state.payments.isNotEmpty)
                 JobWorkInvoicePaymentHistorySection(
                   payments: state.payments,
+                  charges: finance.charges,
                   canCorrect: canCorrectPayments,
                   onEdit: canCorrectPayments
                       ? (payment) => _editPayment(context, payment)

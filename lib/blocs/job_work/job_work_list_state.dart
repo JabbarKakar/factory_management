@@ -66,16 +66,47 @@ class JobWorkListState extends Equatable {
   }
 
   List<JobWorkInvoice> invoicesForOrder(String jobWorkId) {
-    return invoicesByJobWorkId[jobWorkId] ?? const [];
+    final direct = invoicesByJobWorkId[jobWorkId] ?? const [];
+    final order = orders.where((item) => item.id == jobWorkId).firstOrNull;
+    final loads = loadsForOrder(jobWorkId);
+    final extraIds = <String>{
+      if (order?.invoiceId != null && order!.invoiceId!.trim().isNotEmpty)
+        order.invoiceId!.trim(),
+      for (final load in loads)
+        if (load.invoiceId != null && load.invoiceId!.trim().isNotEmpty)
+          load.invoiceId!.trim(),
+    };
+    if (extraIds.isEmpty) return direct;
+
+    final byId = <String, JobWorkInvoice>{
+      for (final invoice in invoicesByJobWorkId.values.expand((items) => items))
+        invoice.id: invoice,
+    };
+    final merged = <String, JobWorkInvoice>{
+      for (final invoice in direct) invoice.id: invoice,
+    };
+    for (final id in extraIds) {
+      final invoice = byId[id];
+      if (invoice != null) merged[invoice.id] = invoice;
+    }
+    return merged.values.toList();
   }
 
   List<Payment> paymentsForOrder(String jobWorkId) {
-    final invoiceIds = invoicesForOrder(jobWorkId)
-        .map((invoice) => invoice.id)
-        .toSet();
-    return payments
-        .where((payment) => invoiceIds.contains(payment.invoiceId))
-        .toList();
+    final order = orders.where((item) => item.id == jobWorkId).firstOrNull;
+    if (order == null) return const [];
+    final siblingOrderIds = {
+      for (final item in orders)
+        if (item.customerId == order.customerId && item.id != order.id) item.id,
+    };
+    return JobWorkContainerSyncHelper.relevantPaymentsForJobWork(
+      order: order,
+      loads: loadsForOrder(jobWorkId),
+      invoices: invoicesForOrder(jobWorkId),
+      payments: payments,
+      siblingOrderIds: siblingOrderIds,
+      attachDanglingCustomerPayments: siblingOrderIds.isEmpty,
+    );
   }
 
   JobWorkListState copyWith({

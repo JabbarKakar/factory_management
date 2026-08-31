@@ -783,7 +783,10 @@ class JobWorkLoadRepository {
             .get();
         var paid = paymentsSnap.docs
             .map((d) => d.data())
-            .fold<double>(0.0, (sum, data) => sum + ((data['amount'] as num?)?.toDouble() ?? 0.0));
+            .fold<double>(
+              0.0,
+              (sum, data) => sum + PaymentModel.appliedFromFirestore(data),
+            );
             
         // Also include advance payments for this load (not linked to any invoice).
         final advancePaymentsSnap = await _firestore
@@ -798,7 +801,7 @@ class JobWorkLoadRepository {
                 p.loadId == loadId &&
                 p.status != PaymentStatus.voided &&
                 !paymentsSnap.docs.any((existing) => existing.id == p.id))
-            .fold<double>(0.0, (sum, p) => sum + p.amount);
+            .fold<double>(0.0, (sum, p) => sum + p.appliedAmount);
         paid += advancePaid;
         
         final due = (total - paid).clamp(0.0, total).toDouble();
@@ -861,9 +864,10 @@ class JobWorkLoadRepository {
           ? billable.fold<double>(0, (sum, load) => sum + load.finalCuttingCharges)
           : order.finalCuttingCharges;
 
-      final invoiceIds = invoicesSnap.docs.map((d) => d.id).toSet();
-      var recordedPaymentsTotal = 0.0;
-      // Fetch ALL payments for this order (including advances).
+      final allInvoices = invoicesSnap.docs
+          .map((doc) =>
+              JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity())
+          .toList();
       final orderPaymentsSnap = await _firestore
           .collection('payments')
           .where('factoryId', isEqualTo: order.factoryId)
@@ -874,47 +878,53 @@ class JobWorkLoadRepository {
           .where((p) => p.status != PaymentStatus.voided)
           .toList();
 
-      // Also fetch invoice-scoped payments that might not have orderId set.
-      if (invoiceIds.isNotEmpty) {
-        final invoicePaymentsSnap = await _firestore
-            .collection('payments')
-            .where('factoryId', isEqualTo: order.factoryId)
-            .where('customerId', isEqualTo: order.customerId)
-            .get();
-        final invoicePayments = invoicePaymentsSnap.docs
-            .map((doc) => PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
-            .where((p) =>
-                p.status != PaymentStatus.voided &&
-                invoiceIds.contains(p.invoiceId))
-            .toList();
-        // Merge: deduplicate by payment ID.
-        final seen = allPaymentEntities.map((p) => p.id).toSet();
-        for (final p in invoicePayments) {
-          if (!seen.contains(p.id)) {
-            allPaymentEntities.add(p);
-            seen.add(p.id);
-          }
+      // Customer-scoped payments cover rows whose orderId is a legacy id
+      // or whose invoiceId is not in the jobWorkId invoice query.
+      final customerPaymentsSnap = await _firestore
+          .collection('payments')
+          .where('factoryId', isEqualTo: order.factoryId)
+          .where('customerId', isEqualTo: order.customerId)
+          .get();
+      final seen = allPaymentEntities.map((p) => p.id).toSet();
+      for (final doc in customerPaymentsSnap.docs) {
+        final payment =
+            PaymentModel.fromFirestore(doc.id, doc.data()).toEntity();
+        if (payment.status == PaymentStatus.voided || seen.contains(payment.id)) {
+          continue;
         }
+        if (!JobWorkContainerSyncHelper.paymentBelongsToJobWork(
+          payment: payment,
+          order: order,
+          loads: loads,
+          invoices: allInvoices,
+        )) {
+          continue;
+        }
+        allPaymentEntities.add(payment);
+        seen.add(payment.id);
       }
 
-      recordedPaymentsTotal = allPaymentEntities
-          .fold<double>(0, (sum, p) => sum + p.amount);
+      final recordedPaymentsTotal =
+          JobWorkContainerSyncHelper.settledPaidForJobWork(
+        charges: newTotal,
+        payments: allPaymentEntities,
+      );
 
-      final newPaid = recordedPaymentsTotal > 0
-          ? recordedPaymentsTotal
-          : billable.isNotEmpty
-              ? billable.fold<double>(0, (sum, load) => sum + load.advanceReceived)
-              : order.advanceReceived;
+      final fallbackPaid = billable.isNotEmpty
+          ? billable.fold<double>(0, (sum, load) => sum + load.advanceReceived)
+          : order.advanceReceived;
+      final newPaid = (recordedPaymentsTotal > 0
+              ? recordedPaymentsTotal
+              : fallbackPaid)
+          .clamp(0, newTotal)
+          .toDouble();
       final newDue = (newTotal - newPaid).clamp(0, newTotal).toDouble();
-
-      final allInvoices = invoicesSnap.docs
-          .map((doc) => JobWorkInvoiceModel.fromFirestore(doc.id, doc.data()).toEntity())
-          .toList();
       final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
         order: order,
         loads: loads,
         invoices: allInvoices,
         payments: allPaymentEntities,
+        alreadyScoped: true,
       );
 
       final lineItemsMaps = <Map<String, dynamic>>[];

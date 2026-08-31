@@ -4,13 +4,16 @@ import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/services/job_work_container_sync_helper.dart';
 import '../../../domain/entities/payment.dart';
+import '../../../domain/enums/invoice_enums.dart';
 import '../tile_options_menu.dart';
 import 'job_work_detail_section.dart';
 
 class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
   const JobWorkInvoicePaymentHistorySection({
     required this.payments,
+    this.charges,
     this.canCorrect = false,
     this.onEdit,
     this.onDelete,
@@ -21,6 +24,7 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
   });
 
   final List<Payment> payments;
+  final double? charges;
   final bool canCorrect;
   final ValueChanged<Payment>? onEdit;
   final ValueChanged<Payment>? onDelete;
@@ -34,12 +38,21 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurfaceVariant;
-    final totalPaid =
-        payments.fold<double>(0, (sum, payment) => sum + payment.amount);
-    final collapsedSubtitle = payments.isEmpty
+    final valid = payments
+        .where((payment) => payment.status != PaymentStatus.voided)
+        .toList();
+    final applied = charges != null
+        ? JobWorkContainerSyncHelper.settledPaidForJobWork(
+            charges: charges!,
+            payments: valid,
+          )
+        : valid.fold<double>(0, (sum, payment) => sum + payment.appliedAmount);
+    final credit = Payment.unallocatedTotal(valid);
+    final totalPaid = applied;
+    final collapsedSubtitle = valid.isEmpty
         ? AppStrings.noPaymentsYet
         : '${Formatters.currencyPkr(totalPaid)} · '
-            '${payments.length} ${AppStrings.paymentsRecorded}';
+            '${valid.length} ${AppStrings.paymentsRecorded}';
 
     return JobWorkDetailSection(
       title: AppStrings.paymentHistory,
@@ -89,13 +102,29 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
                             ],
                           ),
                         ),
-                        Text(
-                          '${payments.length} ${AppStrings.paymentsRecorded}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: muted,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${valid.length} ${AppStrings.paymentsRecorded}',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: muted,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (credit > 0.005) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                'Credit: ${Formatters.currencyPkr(credit)}',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: AppColors.success,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -107,7 +136,10 @@ class JobWorkInvoicePaymentHistorySection extends StatelessWidget {
                       canCorrect: canCorrect,
                       onEdit: onEdit,
                       onDelete: onDelete,
-                      subtitle: subtitleForPayment?.call(payments[i]),
+                      subtitle: _combinedPaymentSubtitle(
+                        payments[i],
+                        subtitleForPayment,
+                      ),
                     ),
                     if (i < payments.length - 1) const SizedBox(height: 8),
                   ],
@@ -218,7 +250,11 @@ class _PaymentRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Text(
-            Formatters.currencyPkr(payment.amount),
+            Formatters.currencyPkr(
+              payment.isCreditApplication
+                  ? payment.appliedAmount
+                  : payment.amount,
+            ),
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w800,
                   fontSize: 12,
@@ -231,4 +267,19 @@ class _PaymentRow extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _combinedPaymentSubtitle(
+  Payment payment,
+  String? Function(Payment payment)? extra,
+) {
+  final parts = <String>[
+    if (extra != null) extra(payment) ?? '',
+    if (payment.isCreditApplication) AppStrings.appliedCustomerCredit,
+    if (!payment.isCreditApplication && payment.unallocatedAmount > 0.005)
+      '${Formatters.currencyPkr(payment.appliedAmount)} applied · '
+          '${Formatters.currencyPkr(payment.unallocatedAmount)} credit',
+  ].where((part) => part.trim().isNotEmpty).toList();
+  if (parts.isEmpty) return null;
+  return parts.join(' · ');
 }

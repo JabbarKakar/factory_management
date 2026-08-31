@@ -13,6 +13,7 @@ class PaymentModel {
     required this.invoiceType,
     required this.invoiceNumber,
     required this.amount,
+    required this.appliedAmount,
     required this.method,
     required this.paymentDate,
     required this.createdAt,
@@ -32,6 +33,7 @@ class PaymentModel {
   final InvoiceType invoiceType;
   final String invoiceNumber;
   final double amount;
+  final double appliedAmount;
   final PaymentMethod method;
   final DateTime paymentDate;
   final String? reference;
@@ -43,6 +45,7 @@ class PaymentModel {
   final PaymentStatus status;
 
   factory PaymentModel.fromFirestore(String id, Map<String, dynamic> data) {
+    final amount = (data['amount'] as num?)?.toDouble() ?? 0;
     return PaymentModel(
       id: id,
       factoryId: data['factoryId'] as String? ?? 'default',
@@ -51,7 +54,8 @@ class PaymentModel {
       invoiceId: data['invoiceId'] as String? ?? '',
       invoiceType: InvoiceType.fromString(data['invoiceType'] as String?),
       invoiceNumber: data['invoiceNumber'] as String? ?? '',
-      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      amount: amount,
+      appliedAmount: (data['appliedAmount'] as num?)?.toDouble() ?? amount,
       method: PaymentMethod.fromString(data['method'] as String?),
       paymentDate:
           (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -65,6 +69,12 @@ class PaymentModel {
     );
   }
 
+  /// Invoice/load paid uses applied cash; missing field means the full amount.
+  static double appliedFromFirestore(Map<String, dynamic> data) {
+    final amount = (data['amount'] as num?)?.toDouble() ?? 0;
+    return (data['appliedAmount'] as num?)?.toDouble() ?? amount;
+  }
+
   factory PaymentModel.fromEntity(Payment entity) {
     return PaymentModel(
       id: entity.id,
@@ -75,6 +85,7 @@ class PaymentModel {
       invoiceType: entity.invoiceType,
       invoiceNumber: entity.invoiceNumber,
       amount: entity.amount,
+      appliedAmount: entity.appliedAmount,
       method: entity.method,
       paymentDate: entity.paymentDate,
       reference: entity.reference,
@@ -96,6 +107,7 @@ class PaymentModel {
       'invoiceType': invoiceType.firestoreValue,
       'invoiceNumber': invoiceNumber,
       'amount': amount,
+      'appliedAmount': appliedAmount,
       'method': method.firestoreValue,
       'date': Timestamp.fromDate(paymentDate),
       if (reference != null) 'reference': reference,
@@ -118,6 +130,7 @@ class PaymentModel {
       invoiceType: invoiceType,
       invoiceNumber: invoiceNumber,
       amount: amount,
+      appliedAmount: appliedAmount,
       method: method,
       paymentDate: paymentDate,
       reference: reference,

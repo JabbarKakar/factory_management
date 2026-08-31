@@ -77,6 +77,7 @@ final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
     this.loadId,
     this.reference,
     this.notes,
+    this.creditToApply = 0,
   });
 
   final String invoiceId;
@@ -86,6 +87,7 @@ final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
   final String? loadId;
   final String? reference;
   final String? notes;
+  final double creditToApply;
 
   @override
   List<Object?> get props => [
@@ -96,6 +98,7 @@ final class JobWorkInvoicePaymentSubmitted extends JobWorkInvoiceEvent {
         loadId,
         reference,
         notes,
+        creditToApply,
       ];
 }
 

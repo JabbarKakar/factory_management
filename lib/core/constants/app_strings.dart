@@ -537,6 +537,11 @@ abstract final class AppStrings {
   static const String paymentReference = 'Reference / Cheque #';
   static const String paymentNotes = 'Payment Notes';
   static const String paymentDetails = 'Payment Details';
+  static const String applyCustomerCredit = 'Apply customer credit';
+  static const String appliedToThisDue = 'Applied to this due';
+  static const String heldAsCustomerCredit = 'Held as customer credit';
+  static const String overpayCreditTitle = 'Hold extra as credit?';
+  static const String appliedCustomerCredit = 'Applied customer credit';
   static const String savePayment = 'Save Payment';
   static const String noPaymentsYet = 'No payments recorded yet';
   static const String accountLedger = 'Account Ledger';

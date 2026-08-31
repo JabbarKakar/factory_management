@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../core/utils/formatters.dart';
 import '../../core/observability/tracked_firestore.dart';
 import '../../core/utils/firestore_query_constraints.dart';
 import '../../domain/entities/job_work_invoice.dart';
@@ -163,9 +162,8 @@ class PaymentRepository {
         });
   }
 
-  /// Watch advance payments linked to a Job Work order (by orderId).
-  /// These payments have an empty invoiceId and are tagged with isAdvance.
-  Stream<List<Payment>> watchAdvancePaymentsForOrder({
+  /// Watch payments linked to a Job Work order (by orderId).
+  Stream<List<Payment>> watchPaymentsForOrder({
     required String factoryId,
     required String orderId,
   }) {
@@ -177,11 +175,22 @@ class PaymentRepository {
           final payments = snapshot.docs
               .map((doc) =>
                   PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
-              .where((p) => p.isAdvance)
+              .where((p) => p.status != PaymentStatus.voided)
               .toList();
           payments.sort((a, b) => b.paymentDate.compareTo(a.paymentDate));
           return payments;
         });
+  }
+
+  /// Watch advance payments linked to a Job Work order (by orderId).
+  /// These payments have an empty invoiceId and are tagged with isAdvance.
+  Stream<List<Payment>> watchAdvancePaymentsForOrder({
+    required String factoryId,
+    required String orderId,
+  }) {
+    return watchPaymentsForOrder(factoryId: factoryId, orderId: orderId).map(
+      (payments) => payments.where((p) => p.isAdvance).toList(),
+    );
   }
 
   Future<Payment?> getPayment(String id) async {
@@ -211,6 +220,12 @@ class PaymentRepository {
       throw const PaymentException('Payment not found.');
     }
 
+    if (existing.isCreditApplication) {
+      throw const PaymentException(
+        'Credit applications cannot be edited. Delete and re-apply the credit.',
+      );
+    }
+
     final invoice = await _getInvoiceForPayment(existing);
     if (invoice == null) {
       throw const PaymentException('Invoice not found.');
@@ -220,15 +235,28 @@ class PaymentRepository {
       factoryId: existing.factoryId,
       invoiceId: existing.invoiceId,
     );
-    final otherTotal = otherPayments
-        .where((payment) => payment.id != paymentId)
-        .fold<double>(0, (sum, payment) => sum + payment.amount);
-    if (otherTotal + amount > invoice.totalAmount + 0.01) {
-      throw PaymentException(
-        'Payment total cannot exceed invoice amount '
-        '(${invoice.totalAmount.toStringAsFixed(0)}).',
-      );
+    final others = otherPayments.where((payment) => payment.id != paymentId);
+    var appliedCap = invoice.totalAmount -
+        others.fold<double>(0, (sum, payment) => sum + payment.appliedAmount);
+    final existingLoadId = existing.loadId?.trim();
+    if (existingLoadId != null && existingLoadId.isNotEmpty) {
+      final load = await _jobWorkLoadRepository.getLoad(existingLoadId);
+      if (load != null) {
+        final othersOnLoad = others.where(
+          (payment) => payment.loadId == existingLoadId,
+        );
+        appliedCap = load.finalCuttingCharges -
+            othersOnLoad.fold<double>(
+              0,
+              (sum, payment) => sum + payment.appliedAmount,
+            );
+      }
     }
+    final newApplied = _roundMoney(
+      amount < appliedCap.clamp(0.0, double.infinity)
+          ? amount
+          : appliedCap.clamp(0.0, double.infinity).toDouble(),
+    );
 
     final updated = Payment(
       id: existing.id,
@@ -239,6 +267,7 @@ class PaymentRepository {
       invoiceType: existing.invoiceType,
       invoiceNumber: existing.invoiceNumber,
       amount: amount,
+      appliedAmount: newApplied,
       method: method,
       paymentDate: paymentDate,
       reference: reference?.trim().isEmpty ?? true ? null : reference?.trim(),
@@ -252,6 +281,7 @@ class PaymentRepository {
 
     final updates = <String, dynamic>{
       'amount': updated.amount,
+      'appliedAmount': updated.appliedAmount,
       'method': updated.method.firestoreValue,
       'date': Timestamp.fromDate(updated.paymentDate),
     };
@@ -374,7 +404,15 @@ class PaymentRepository {
       if (invoice == null) return;
 
       if (!repair) {
-        await _jobWorkLoadRepository.refreshContainerFromLoads(invoice.jobWorkId);
+        var containerId = invoice.jobWorkId;
+        final linkedLoadId = invoice.loadId?.trim();
+        if (linkedLoadId != null && linkedLoadId.isNotEmpty) {
+          final load = await _jobWorkLoadRepository.getLoad(linkedLoadId);
+          if (load != null && load.jobWorkId.trim().isNotEmpty) {
+            containerId = load.jobWorkId;
+          }
+        }
+        await _jobWorkLoadRepository.refreshContainerFromLoads(containerId);
         await _ledgerService?.syncCustomerBalance(invoice.customerId);
         return;
       }
@@ -383,8 +421,7 @@ class PaymentRepository {
         factoryId: invoice.factoryId,
         invoiceId: invoiceId,
       );
-      var paidAmount =
-          payments.fold<double>(0, (sum, payment) => sum + payment.amount);
+      var paidAmount = _appliedSum(payments);
 
       final loadId = invoice.loadId?.trim();
       if (loadId != null && loadId.isNotEmpty) {
@@ -396,7 +433,10 @@ class PaymentRepository {
         if (advanceDoc != null && advanceDoc.exists) {
           final isAlreadyCounted = payments.any((p) => p.id == advanceId);
           if (!isAlreadyCounted) {
-            paidAmount += (advanceDoc.data()?['amount'] as num?)?.toDouble() ?? 0.0;
+            final data = advanceDoc.data();
+            paidAmount += (data?['appliedAmount'] as num?)?.toDouble() ??
+                (data?['amount'] as num?)?.toDouble() ??
+                0.0;
           }
         }
       }
@@ -498,8 +538,7 @@ class PaymentRepository {
       factoryId: invoice.factoryId,
       invoiceId: invoiceId,
     );
-    final paidAmount =
-        payments.fold<double>(0, (total, payment) => total + payment.amount);
+    final paidAmount = _appliedSum(payments);
     final dueAmount =
         (invoice.totalAmount - paidAmount).clamp(0, invoice.totalAmount);
     final status = InvoiceStatus.fromAmounts(
@@ -780,9 +819,14 @@ class PaymentRepository {
     String? idempotencyKey,
     String? reference,
     String? notes,
+    bool creditApplication = false,
   }) async {
     if (amount <= 0) {
-      throw StateError('Payment amount must be greater than zero.');
+      throw StateError(
+        creditApplication
+            ? 'Credit amount must be greater than zero.'
+            : 'Payment amount must be greater than zero.',
+      );
     }
 
     final paymentId = idempotencyKey ?? _uuid.v4();
@@ -800,10 +844,6 @@ class PaymentRepository {
         invoiceSnapshot.id,
         invoiceSnapshot.data()!,
       ).toEntity();
-
-      if (invoice.dueAmount <= 0.005) {
-        throw StateError('This invoice is already fully paid.');
-      }
 
       // Determine target loadId (prefer explicit loadId, fallback to invoice.loadId)
       final effectiveLoadId = (loadId != null && loadId.trim().isNotEmpty)
@@ -824,21 +864,30 @@ class PaymentRepository {
             targetLoadSnapshot.id,
             targetLoadSnapshot.data()!,
           ).toEntity();
-
-          if (targetLoad.balanceDue <= 0.005) {
-            throw StateError('The selected load is already fully paid.');
-          }
-
-          if (amount > targetLoad.balanceDue + 0.005) {
-            throw StateError(
-              'Payment amount (${Formatters.currencyPkr(amount)}) exceeds the selected load\'s remaining balance (${Formatters.currencyPkr(targetLoad.balanceDue)}).',
-            );
-          }
         }
       }
 
+      final remainingDue = JobWorkContainerSyncHelper.remainingDueForPayment(
+        invoice: invoice,
+        load: targetLoad,
+      );
+
+      if (remainingDue <= 0.005) {
+        throw StateError(
+          targetLoad != null
+              ? 'The selected load is already fully paid.'
+              : 'This invoice is already fully paid.',
+        );
+      }
+
       // 3. READ PARENT JOB WORK ORDER (must occur before any writes in a transaction)
-      final orderDocRef = _jobWorkRepository.jobWorkDoc(invoice.jobWorkId);
+      // Prefer the load's live container id — migrated invoices may still
+      // carry a legacy jobWorkId that no longer matches the order document.
+      final parentOrderId =
+          (targetLoad != null && targetLoad.jobWorkId.trim().isNotEmpty)
+              ? targetLoad.jobWorkId
+              : invoice.jobWorkId;
+      final orderDocRef = _jobWorkRepository.jobWorkDoc(parentOrderId);
       final orderSnapshot = await transaction.get(orderDocRef);
       JobWorkOrder? order;
       if (orderSnapshot.exists && orderSnapshot.data() != null) {
@@ -849,14 +898,17 @@ class PaymentRepository {
       }
 
       final appliedAmount =
-          amount > invoice.dueAmount ? invoice.dueAmount : amount;
-      final newPaid = double.parse(
-        (invoice.paidAmount + appliedAmount).toStringAsFixed(2),
+          _roundMoney(amount < remainingDue ? amount : remainingDue);
+      final cashAmount = creditApplication ? 0.0 : amount;
+      final newPaid = _roundMoney(
+        (invoice.paidAmount + appliedAmount)
+            .clamp(0, invoice.totalAmount)
+            .toDouble(),
       );
-      final newDue = double.parse(
+      final newDue = _roundMoney(
         (invoice.totalAmount - newPaid)
             .clamp(0, invoice.totalAmount)
-            .toStringAsFixed(2),
+            .toDouble(),
       );
       final newStatus = InvoiceStatus.fromAmounts(
         dueAmount: newDue,
@@ -873,12 +925,13 @@ class PaymentRepository {
         invoiceId: invoice.id,
         invoiceType: InvoiceType.jobWork,
         invoiceNumber: invoice.invoiceNumber,
-        amount: appliedAmount,
+        amount: cashAmount,
+        appliedAmount: appliedAmount,
         method: method,
         paymentDate: paymentDate,
         reference: reference,
         notes: notes,
-        orderId: invoice.jobWorkId,
+        orderId: order?.id ?? parentOrderId,
         loadId: effectiveLoadId,
         createdAt: DateTime.now(),
       );
@@ -977,9 +1030,14 @@ class PaymentRepository {
     String? idempotencyKey,
     String? reference,
     String? notes,
+    bool creditApplication = false,
   }) async {
     if (amount <= 0) {
-      throw StateError('Payment amount must be greater than zero.');
+      throw StateError(
+        creditApplication
+            ? 'Credit amount must be greater than zero.'
+            : 'Payment amount must be greater than zero.',
+      );
     }
 
     final paymentId = idempotencyKey ?? _uuid.v4();
@@ -1003,14 +1061,17 @@ class PaymentRepository {
       }
 
       final appliedAmount =
-          amount > invoice.dueAmount ? invoice.dueAmount : amount;
-      final newPaid = double.parse(
-        (invoice.paidAmount + appliedAmount).toStringAsFixed(2),
+          _roundMoney(amount < invoice.dueAmount ? amount : invoice.dueAmount);
+      final cashAmount = creditApplication ? 0.0 : amount;
+      final newPaid = _roundMoney(
+        (invoice.paidAmount + appliedAmount)
+            .clamp(0, invoice.totalAmount)
+            .toDouble(),
       );
-      final newDue = double.parse(
+      final newDue = _roundMoney(
         (invoice.totalAmount - newPaid)
             .clamp(0, invoice.totalAmount)
-            .toStringAsFixed(2),
+            .toDouble(),
       );
       final newStatus = InvoiceStatus.fromAmounts(
         dueAmount: newDue,
@@ -1027,7 +1088,8 @@ class PaymentRepository {
         invoiceId: invoice.id,
         invoiceType: InvoiceType.sales,
         invoiceNumber: invoice.invoiceNumber,
-        amount: appliedAmount,
+        amount: cashAmount,
+        appliedAmount: appliedAmount,
         method: method,
         paymentDate: paymentDate,
         reference: reference,
@@ -1078,6 +1140,54 @@ class PaymentRepository {
       (service) => service.applyPayment(payment: payment),
     );
     return payment;
+  }
+
+  Future<double> getUnallocatedCreditForCustomer({
+    required String factoryId,
+    required String customerId,
+  }) async {
+    final payments = await getPaymentsForCustomer(
+      factoryId: factoryId,
+      customerId: customerId,
+    );
+    return Payment.unallocatedTotal(payments);
+  }
+
+  /// Allocates existing customer credit to [invoiceId] without recording new cash.
+  Future<Payment> applyCustomerCredit({
+    required String invoiceId,
+    required InvoiceType invoiceType,
+    required double appliedAmount,
+    required PaymentMethod method,
+    required DateTime paymentDate,
+    String? loadId,
+    String? reference,
+    String? notes,
+  }) async {
+    if (appliedAmount <= 0.005) {
+      throw StateError('Credit amount must be greater than zero.');
+    }
+    if (invoiceType == InvoiceType.jobWork) {
+      return recordJobWorkPayment(
+        invoiceId: invoiceId,
+        amount: appliedAmount,
+        method: method,
+        paymentDate: paymentDate,
+        loadId: loadId,
+        reference: reference,
+        notes: notes ?? 'Applied customer credit',
+        creditApplication: true,
+      );
+    }
+    return recordSalesPayment(
+      invoiceId: invoiceId,
+      amount: appliedAmount,
+      method: method,
+      paymentDate: paymentDate,
+      reference: reference,
+      notes: notes ?? 'Applied customer credit',
+      creditApplication: true,
+    );
   }
 
   Future<Payment> _createStandalonePayment({
@@ -1150,11 +1260,21 @@ class PaymentRepository {
           factoryId: invoice.factoryId,
           jobWorkId: invoice.jobWorkId,
         );
+        final paymentSnap = await _collection
+            .where('factoryId', isEqualTo: invoice.factoryId)
+            .where('customerId', isEqualTo: invoice.customerId)
+            .get();
+        final payments = paymentSnap.docs
+            .map((doc) =>
+                PaymentModel.fromFirestore(doc.id, doc.data()).toEntity())
+            .where((payment) => payment.status != PaymentStatus.voided)
+            .toList();
         final financeMap =
             JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
           order: order,
           loads: loads,
           invoices: invoices,
+          payments: payments,
         );
         final fin = financeMap[loadId];
         if (fin != null) {
@@ -1204,3 +1324,8 @@ class _InvoiceSnapshot {
 }
 
 bool _sameMoney(num a, num b) => (a - b).abs() < 0.005;
+
+double _roundMoney(double value) => double.parse(value.toStringAsFixed(2));
+
+double _appliedSum(Iterable<Payment> payments) =>
+    payments.fold<double>(0, (sum, payment) => sum + payment.appliedAmount);

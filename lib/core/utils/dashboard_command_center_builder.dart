@@ -510,6 +510,13 @@ abstract final class DashboardCommandCenterBuilder {
 
     for (final order in jobWorkOrders) {
       if (order.status == JobWorkStatus.cancelled) continue;
+      final siblingOrderIds = {
+        for (final other in jobWorkOrders)
+          if (other.id != order.id &&
+              other.customerId == order.customerId &&
+              other.status != JobWorkStatus.cancelled)
+            other.id,
+      };
       final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
         order: order,
         loads: jobWorkLoads,
@@ -517,6 +524,8 @@ abstract final class DashboardCommandCenterBuilder {
             .where((invoice) => invoice.jobWorkId == order.id)
             .toList(),
         payments: payments,
+        siblingOrderIds: siblingOrderIds,
+        attachDanglingCustomerPayments: siblingOrderIds.isEmpty,
       );
       jobWorkDue += finance.due;
       jobWorkPaid += finance.paid;

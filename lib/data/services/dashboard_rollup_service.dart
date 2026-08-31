@@ -690,6 +690,7 @@ class DashboardRollupService {
   }
 
   bool _countsTowardIncome(Payment payment) {
+    if (payment.amount.abs() < 0.005) return false;
     return payment.status == PaymentStatus.completed ||
         payment.status == PaymentStatus.partiallyApplied;
   }
