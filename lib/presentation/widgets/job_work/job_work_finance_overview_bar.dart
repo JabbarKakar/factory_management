@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../dialogs/app_dialog.dart';
@@ -25,173 +26,22 @@ class JobWorkFinanceOverviewBar extends StatelessWidget {
   static const Color _cardBgLight = Color(0xFFF0F2F5);
   static const Color _invoiced = Color(0xFFFDD343);
   static const Color _invoicedLight = Color(0xFFB45309);
-  static const Color _received = Color(0xFF22C55E);
-  static const Color _pending = Color(0xFFEF4444);
+  static const Color _received = AppColors.success;
+  static const Color _pending = AppColors.error;
 
   Future<void> _showDetails(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final invoicedColor = isDark ? _invoiced : _invoicedLight;
-    final outline =
-        theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.45);
-    final panelBg = isDark
-        ? const Color(0xFF1B2230)
-        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
-
     return AppDialog.show(
       context,
-      child: Builder(
-        builder: (dialogContext) {
-          return Dialog(
-            backgroundColor: theme.colorScheme.surface,
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: outline),
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 360),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                theme.colorScheme.primary
-                                    .withValues(alpha: 0.22),
-                                theme.colorScheme.primary
-                                    .withValues(alpha: 0.08),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: theme.colorScheme.primary
-                                  .withValues(alpha: 0.28),
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.account_balance_wallet_outlined,
-                            size: 20,
-                            color: theme.colorScheme.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                AppStrings.financeOverviewTitle,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 16,
-                                  height: 1.2,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                AppStrings.financeOverviewSubtitle,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontSize: 11.5,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 18),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: panelBg,
-                        borderRadius: BorderRadius.circular(14),
-                        border:
-                            Border.all(color: outline.withValues(alpha: 0.55)),
-                      ),
-                      child: Column(
-                        children: [
-                          _DetailRow(
-                            icon: Icons.receipt_long_outlined,
-                            label: AppStrings.totalInvoiced,
-                            value: Formatters.currencyPkr(invoiced),
-                            color: invoicedColor,
-                          ),
-                          Divider(
-                            height: 1,
-                            indent: 14,
-                            endIndent: 14,
-                            color: outline.withValues(alpha: 0.45),
-                          ),
-                          _DetailRow(
-                            icon: Icons.payments_outlined,
-                            label: AppStrings.totalReceived,
-                            value: Formatters.currencyPkr(received),
-                            color: _received,
-                          ),
-                          Divider(
-                            height: 1,
-                            indent: 14,
-                            endIndent: 14,
-                            color: outline.withValues(alpha: 0.45),
-                          ),
-                          _DetailRow(
-                            icon: Icons.pending_actions_outlined,
-                            label: AppStrings.totalPending,
-                            value: Formatters.currencyPkr(pending),
-                            color: _pending,
-                          ),
-                          if (_hasCredit) ...[
-                            Divider(
-                              height: 1,
-                              indent: 14,
-                              endIndent: 14,
-                              color: outline.withValues(alpha: 0.45),
-                            ),
-                            _DetailRow(
-                              icon: Icons.savings_outlined,
-                              label: AppStrings.totalCredit,
-                              value: Formatters.currencyPkr(credit),
-                              color: _received,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(AppStrings.close),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
+      child: _FinanceOverviewDialog(
+        invoiced: invoiced,
+        received: received,
+        pending: pending,
+        credit: credit,
+        invoicedColor: isDark ? _invoiced : _invoicedLight,
+        receivedColor: _received,
+        pendingColor: _pending,
       ),
     );
   }
@@ -270,6 +120,165 @@ class JobWorkFinanceOverviewBar extends StatelessWidget {
   }
 }
 
+class _FinanceOverviewDialog extends StatelessWidget {
+  const _FinanceOverviewDialog({
+    required this.invoiced,
+    required this.received,
+    required this.pending,
+    required this.credit,
+    required this.invoicedColor,
+    required this.receivedColor,
+    required this.pendingColor,
+  });
+
+  final double invoiced;
+  final double received;
+  final double pending;
+  final double credit;
+  final Color invoicedColor;
+  final Color receivedColor;
+  final Color pendingColor;
+
+  bool get _hasCredit => credit > 0.005;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final outline =
+        theme.colorScheme.outline.withValues(alpha: isDark ? 0.35 : 0.45);
+    final panelBg = isDark
+        ? AppColors.surfaceDarkMuted.withValues(alpha: 0.55)
+        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55);
+
+    final rows = <_LedgerRow>[
+      _LedgerRow(
+        icon: Icons.receipt_long_outlined,
+        label: AppStrings.totalInvoiced,
+        value: invoiced,
+        color: invoicedColor,
+      ),
+      _LedgerRow(
+        icon: Icons.payments_outlined,
+        label: AppStrings.totalReceived,
+        value: received,
+        color: receivedColor,
+      ),
+      _LedgerRow(
+        icon: Icons.pending_actions_outlined,
+        label: AppStrings.totalPending,
+        value: pending,
+        color: pendingColor,
+      ),
+      if (_hasCredit)
+        _LedgerRow(
+          icon: Icons.savings_outlined,
+          label: AppStrings.totalCredit,
+          value: credit,
+          color: receivedColor,
+        ),
+    ];
+
+    return AppDialog(
+      title: AppStrings.financeOverviewTitle,
+      message: AppStrings.financeOverviewSubtitle,
+      icon: Icons.account_balance_wallet_outlined,
+      maxWidth: 360,
+      content: Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 8),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: panelBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: outline.withValues(alpha: 0.55)),
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                rows[i],
+                if (i < rows.length - 1)
+                  Divider(
+                    height: 1,
+                    indent: 48,
+                    endIndent: 12,
+                    color: outline.withValues(alpha: 0.4),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        AppDialogActions.confirm(
+          context,
+          label: AppStrings.close,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ],
+    );
+  }
+}
+
+class _LedgerRow extends StatelessWidget {
+  const _LedgerRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final double value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 15, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: muted,
+                fontWeight: FontWeight.w600,
+                fontSize: 11.5,
+                height: 1.2,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            Formatters.currencyPkr(value),
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 13.5,
+              height: 1.15,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _MetricCell extends StatelessWidget {
   const _MetricCell({
     required this.label,
@@ -317,71 +326,6 @@ class _MetricCell extends StatelessWidget {
                 fontWeight: FontWeight.w800,
                 height: 1.05,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 13, 14, 13),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 17, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: color,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15.5,
-                    height: 1.15,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-              ],
             ),
           ),
         ],
