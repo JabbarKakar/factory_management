@@ -28,6 +28,7 @@ import '../../utils/user_permissions_context.dart';
 import '../../widgets/compact_status_chip.dart';
 import '../../widgets/dashboard/dashboard_surface.dart';
 import '../../widgets/dialogs/app_confirm_dialog.dart';
+import '../../widgets/job_work/job_work_credit_section.dart';
 import '../../widgets/job_work/job_work_detail_hero.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
@@ -672,67 +673,8 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                         bold: true,
                         highlight: true,
                         color: AppColors.warning,
-                      ),
-                    if (showCredit)
-                      JobWorkDetailRow(
-                        label: AppStrings.inCredit,
-                        color: AppColors.success,
-                        bold: true,
-                        highlight: true,
-                        valueWidget: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                Formatters.currencyPkr(heldCredit),
-                                textAlign: TextAlign.end,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      fontSize: 12,
-                                      height: 1.35,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.success,
-                                    ),
-                              ),
-                            ),
-                            if (canEditJobWork && !isSaving) ...[
-                              const SizedBox(width: 6),
-                              SizedBox(
-                                height: 22,
-                                child: TextButton(
-                                  onPressed: () => _openManageCredit(
-                                    context: context,
-                                    order: order,
-                                    state: state,
-                                    availableCredit: heldCredit,
-                                  ),
-                                  style: TextButton.styleFrom(
-                                    visualDensity: VisualDensity.compact,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                    ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    foregroundColor:
-                                        Theme.of(context).colorScheme.primary,
-                                  ),
-                                  child: const Text(
-                                    AppStrings.manageCredit,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    if (!showOutstanding && !showCredit)
+                      )
+                    else
                       JobWorkDetailRow(
                         label: AppStrings.outstandingBalance,
                         value: Formatters.currencyPkr(0),
@@ -745,6 +687,19 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                   ],
                 ),
               ),
+              if (showCredit)
+                JobWorkCreditSection(
+                  amount: heldCredit,
+                  manageEnabled: !isSaving,
+                  onManageCredit: canEditJobWork
+                      ? () => _openManageCredit(
+                            context: context,
+                            order: order,
+                            state: state,
+                            availableCredit: heldCredit,
+                          )
+                      : null,
+                ),
               JobWorkDetailSection(
                 title: '${AppStrings.allLoads} (${state.loads.length})',
                 icon: Icons.local_shipping_outlined,
