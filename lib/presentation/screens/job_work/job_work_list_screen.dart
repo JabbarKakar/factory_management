@@ -308,48 +308,57 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
     JobWorkListState state,
     List<JobWorkLoad> loads,
   ) {
+    final payments = state.paymentsForOrder(order.id);
     final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
       order: order,
       loads: loads,
       invoices: state.invoicesForOrder(order.id),
-      payments: state.paymentsForOrder(order.id),
+      payments: payments,
       alreadyScoped: true,
     );
-
-    final persistedLoads = loads.where((load) => !load.isVirtual).toList();
-    if (persistedLoads.isNotEmpty) {
-      if (finance.charges <= 0 && finance.paid <= 0 && finance.due <= 0 && finance.credit <= 0) {
-        return null;
-      }
-      return (paid: finance.paid, remaining: finance.due, credit: finance.credit);
-    }
-
-    final showPayment =
-        finance.charges > 0 || finance.paid > 0 || finance.due > 0 || finance.credit > 0;
-    if (!showPayment) return null;
-
-    return (paid: finance.paid, remaining: finance.due, credit: finance.credit);
+    final credit = JobWorkContainerSyncHelper.loadSummaryCredit(
+      jobCredit: finance.credit,
+      payments: payments,
+    );
+    final hasMoney = finance.charges > 0.005 ||
+        finance.paid > 0.005 ||
+        finance.due > 0.005 ||
+        credit > 0.005;
+    if (!hasMoney) return null;
+    return (paid: finance.paid, remaining: finance.due, credit: credit);
   }
 
-  ({double invoiced, double received, double pending}) _financeOverviewFor(
+  ({double invoiced, double received, double pending, double credit})
+      _financeOverviewFor(
     JobWorkListState state,
   ) {
     var invoiced = 0.0;
     var received = 0.0;
     var pending = 0.0;
+    var credit = 0.0;
     for (final order in state.visibleOrders) {
+      final payments = state.paymentsForOrder(order.id);
       final finance = JobWorkContainerSyncHelper.rollupInvoiceFinance(
         order: order,
         loads: state.loadsForOrder(order.id),
         invoices: state.invoicesForOrder(order.id),
-        payments: state.paymentsForOrder(order.id),
+        payments: payments,
         alreadyScoped: true,
       );
       invoiced += finance.charges;
       received += finance.paid;
       pending += finance.due;
+      credit += JobWorkContainerSyncHelper.loadSummaryCredit(
+        jobCredit: finance.credit,
+        payments: payments,
+      );
     }
-    return (invoiced: invoiced, received: received, pending: pending);
+    return (
+      invoiced: invoiced,
+      received: received,
+      pending: pending,
+      credit: credit,
+    );
   }
 
   @override
@@ -492,6 +501,7 @@ class _JobWorkListScreenState extends State<JobWorkListScreen> {
                 invoiced: overview.invoiced,
                 received: overview.received,
                 pending: overview.pending,
+                credit: overview.credit,
               );
             },
           ),

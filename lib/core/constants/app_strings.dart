@@ -201,9 +201,11 @@ abstract final class AppStrings {
   static const String totalInvoiced = 'Total Invoiced';
   static const String totalReceived = 'Total Received';
   static const String totalPending = 'Total Pending';
+  static const String totalCredit = 'Total Credit';
   static const String invoicedShort = 'Invoiced';
   static const String receivedShort = 'Received';
   static const String pendingShort = 'Pending';
+  static const String creditShort = 'Credit';
   static const String financeOverviewTitle = 'Financial Overview';
   static const String financeOverviewSubtitle =
       'Totals for the Job Works currently shown in the list.';
@@ -542,6 +544,17 @@ abstract final class AppStrings {
   static const String heldAsCustomerCredit = 'Held as customer credit';
   static const String overpayCreditTitle = 'Hold extra as credit?';
   static const String appliedCustomerCredit = 'Applied customer credit';
+  static const String inCredit = 'In Credit';
+  static const String manageCredit = 'Manage Credit';
+  static const String manageCreditTitle = 'Apply credit to a load';
+  static const String manageCreditMessage =
+      'Select a load with remaining due, then apply held credit against it.';
+  static const String availableCredit = 'Available credit';
+  static const String applyCreditToLoad = 'Apply to load';
+  static const String creditAppliedToLoad = 'Credit applied to the selected load';
+  static const String noLoadDueForCredit =
+      'Every load is paid. Credit stays on this customer until a load has remaining due.';
+  static const String selectLoadToApplyCredit = 'Select a load';
   static const String savePayment = 'Save Payment';
   static const String noPaymentsYet = 'No payments recorded yet';
   static const String accountLedger = 'Account Ledger';

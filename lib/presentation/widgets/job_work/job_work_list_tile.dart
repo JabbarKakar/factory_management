@@ -34,7 +34,10 @@ class JobWorkListTile extends StatelessWidget {
   final double? creditAmount;
 
   bool get _showPaymentStrip =>
-      paidAmount != null && (remainingAmount != null || creditAmount != null);
+      paidAmount != null &&
+      (remainingAmount != null ||
+          creditAmount != null ||
+          (paidAmount ?? 0) > 0.005);
 
   JobWorkStatus get _status => displayStatus ?? order.status;
 
@@ -173,37 +176,10 @@ class JobWorkListTile extends StatelessWidget {
                             ),
                             if (_showPaymentStrip) ...[
                               const SizedBox(height: 8),
-                              Builder(
-                                builder: (context) {
-                                  final hasCredit = creditAmount != null && creditAmount! > 0;
-                                  final balanceLabel = hasCredit
-                                      ? 'In Credit: ${Formatters.currencyPkrWhole(creditAmount!)}'
-                                      : '${AppStrings.balanceDue}: ${Formatters.currencyPkrWhole(remainingAmount ?? 0)}';
-                                  final balanceColor = hasCredit
-                                      ? AppColors.success
-                                      : ((remainingAmount ?? 0) > 0
-                                          ? AppColors.warning
-                                          : AppColors.success);
-
-                                  return Row(
-                                    children: [
-                                      Expanded(
-                                        child: _SummaryStrip(
-                                          label:
-                                              '${AppStrings.amountPaid}: ${Formatters.currencyPkrWhole(paidAmount!)}',
-                                          color: AppColors.success,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Expanded(
-                                        child: _SummaryStrip(
-                                          label: balanceLabel,
-                                          color: balanceColor,
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
+                              _PaymentSummaryStrips(
+                                paidAmount: paidAmount!,
+                                remainingAmount: remainingAmount ?? 0,
+                                creditAmount: creditAmount ?? 0,
                               ),
                             ],
                             if (loadSummary.total == 0) ...[
@@ -311,6 +287,63 @@ class _LoadSummary {
   final int partiallyCollected;
   final int collected;
   final int closed;
+}
+
+class _PaymentSummaryStrips extends StatelessWidget {
+  const _PaymentSummaryStrips({
+    required this.paidAmount,
+    required this.remainingAmount,
+    required this.creditAmount,
+  });
+
+  final double paidAmount;
+  final double remainingAmount;
+  final double creditAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasDue = remainingAmount > 0.005;
+    final hasCredit = creditAmount > 0.005;
+    final paidStrip = _SummaryStrip(
+      label: '${AppStrings.amountPaid}: ${Formatters.currencyPkrWhole(paidAmount)}',
+      color: AppColors.success,
+    );
+    final dueStrip = _SummaryStrip(
+      label:
+          '${AppStrings.balanceDue}: ${Formatters.currencyPkrWhole(remainingAmount)}',
+      color: hasDue ? AppColors.warning : AppColors.success,
+    );
+    final creditStrip = _SummaryStrip(
+      label:
+          '${AppStrings.inCredit}: ${Formatters.currencyPkrWhole(creditAmount)}',
+      color: AppColors.success,
+    );
+
+    if (hasDue && hasCredit) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: paidStrip),
+              const SizedBox(width: 6),
+              Expanded(child: dueStrip),
+            ],
+          ),
+          const SizedBox(height: 4),
+          creditStrip,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: paidStrip),
+        const SizedBox(width: 6),
+        Expanded(child: hasCredit ? creditStrip : dueStrip),
+      ],
+    );
+  }
 }
 
 class _SummaryStrip extends StatelessWidget {

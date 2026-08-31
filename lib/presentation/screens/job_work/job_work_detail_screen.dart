@@ -34,6 +34,7 @@ import '../../widgets/job_work/job_work_detail_section.dart';
 import '../../widgets/job_work/job_work_invoice_payment_history_section.dart';
 import '../../widgets/job_work/job_work_load_list_tile.dart';
 import '../../widgets/job_work/job_work_output_summary.dart';
+import '../../widgets/job_work/manage_job_work_credit_dialog.dart';
 import '../../widgets/job_work/stock_output_recording_panel.dart';
 import '../../widgets/quality/qc_reference_section.dart';
 import '../../widgets/tile_options_menu.dart';
@@ -412,6 +413,37 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
     context.read<JobWorkFormBloc>().add(JobWorkFormLoadRequested(jobWorkId));
   }
 
+  Future<void> _openManageCredit({
+    required BuildContext context,
+    required JobWorkOrder order,
+    required JobWorkFormState state,
+    required double availableCredit,
+  }) async {
+    if (availableCredit <= 0.005) return;
+    final invoices = state.invoices.isNotEmpty
+        ? state.invoices
+        : (state.invoice != null ? [state.invoice!] : const <JobWorkInvoice>[]);
+    final financeMap = JobWorkContainerSyncHelper.calculatePerLoadFinanceMap(
+      order: order,
+      loads: state.loads,
+      invoices: invoices,
+      payments: state.payments,
+      alreadyScoped: true,
+    );
+    final applied = await ManageJobWorkCreditDialog.show(
+      context,
+      availableCredit: availableCredit,
+      loads: state.loads,
+      invoices: invoices,
+      financeMap: financeMap,
+    );
+    if (!applied || !context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(AppStrings.creditAppliedToLoad)),
+    );
+    context.read<JobWorkFormBloc>().add(JobWorkFormLoadRequested(jobWorkId));
+  }
+
   void _advanceStatus(BuildContext context, JobWorkStatus nextStatus) {
     context.read<JobWorkFormBloc>().add(
           JobWorkFormStatusAdvanceRequested(
@@ -528,6 +560,12 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
           alreadyScoped: true,
         );
         final outstandingBalance = finance.due;
+        final heldCredit = JobWorkContainerSyncHelper.loadSummaryCredit(
+          jobCredit: finance.credit,
+          payments: state.payments,
+        );
+        final showOutstanding = outstandingBalance > 0.005;
+        final showCredit = heldCredit > 0.005;
         final canGenerateInvoice =
             JobWorkContainerSyncHelper.canGenerateInvoice(
           order: order,
@@ -627,23 +665,74 @@ class _JobWorkDetailScreenState extends State<JobWorkDetailScreen> {
                       value: Formatters.currencyPkr(finance.charges),
                       bold: true,
                     ),
-                    if (outstandingBalance > 0)
+                    if (showOutstanding)
                       JobWorkDetailRow(
                         label: AppStrings.outstandingBalance,
                         value: Formatters.currencyPkr(outstandingBalance),
                         bold: true,
                         highlight: true,
                         color: AppColors.warning,
-                      )
-                    else if (finance.credit > 0)
+                      ),
+                    if (showCredit)
                       JobWorkDetailRow(
-                        label: 'In Credit',
-                        value: Formatters.currencyPkr(finance.credit),
+                        label: AppStrings.inCredit,
+                        color: AppColors.success,
                         bold: true,
                         highlight: true,
-                        color: AppColors.success,
-                      )
-                    else
+                        valueWidget: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                Formatters.currencyPkr(heldCredit),
+                                textAlign: TextAlign.end,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      fontSize: 12,
+                                      height: 1.35,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.success,
+                                    ),
+                              ),
+                            ),
+                            if (canEditJobWork && !isSaving) ...[
+                              const SizedBox(width: 6),
+                              SizedBox(
+                                height: 22,
+                                child: TextButton(
+                                  onPressed: () => _openManageCredit(
+                                    context: context,
+                                    order: order,
+                                    state: state,
+                                    availableCredit: heldCredit,
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                    ),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    foregroundColor:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                  child: const Text(
+                                    AppStrings.manageCredit,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    if (!showOutstanding && !showCredit)
                       JobWorkDetailRow(
                         label: AppStrings.outstandingBalance,
                         value: Formatters.currencyPkr(0),

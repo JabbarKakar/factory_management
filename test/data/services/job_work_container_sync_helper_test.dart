@@ -931,4 +931,49 @@ void main() {
       expect(financeMap['load-8']?.due, closeTo(0, 0.01));
     });
   });
+
+  group('load summary credit', () {
+    test('prefers held overpay credit over zero job credit', () {
+      final payments = [
+        Payment(
+          id: 'p1',
+          factoryId: 'factory-1',
+          customerId: 'customer-1',
+          customerName: 'JK Test',
+          invoiceId: 'inv-1',
+          invoiceNumber: 'INV-1',
+          invoiceType: InvoiceType.jobWork,
+          amount: 800000,
+          appliedAmount: 526804,
+          method: PaymentMethod.cash,
+          paymentDate: DateTime(2026, 8, 31),
+          createdAt: DateTime(2026, 8, 31),
+        ),
+      ];
+      expect(
+        JobWorkContainerSyncHelper.loadSummaryCredit(
+          jobCredit: 0,
+          payments: payments,
+        ),
+        closeTo(273196, 0.01),
+      );
+    });
+
+    test('maxCreditToApply never exceeds load due or available credit', () {
+      expect(
+        JobWorkContainerSyncHelper.maxCreditToApply(
+          availableCredit: 273196,
+          loadDue: 50000,
+        ),
+        closeTo(50000, 0.01),
+      );
+      expect(
+        JobWorkContainerSyncHelper.maxCreditToApply(
+          availableCredit: 20000,
+          loadDue: 50000,
+        ),
+        closeTo(20000, 0.01),
+      );
+    });
+  });
 }

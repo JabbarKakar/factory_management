@@ -240,6 +240,29 @@ abstract final class JobWorkContainerSyncHelper {
         .toDouble();
   }
 
+  /// Unallocated cash on these payment rows (customer credit from overpay).
+  static double heldCustomerCredit(Iterable<Payment> payments) =>
+      Payment.unallocatedTotal(payments);
+
+  /// Credit to show on Load Summary: job over-application or held overpay.
+  static double loadSummaryCredit({
+    required double jobCredit,
+    required Iterable<Payment> payments,
+  }) {
+    final held = heldCustomerCredit(payments);
+    return jobCredit > held ? jobCredit : held;
+  }
+
+  static double maxCreditToApply({
+    required double availableCredit,
+    required double loadDue,
+  }) {
+    return math
+        .min(availableCredit, loadDue)
+        .clamp(0.0, double.infinity)
+        .toDouble();
+  }
+
   /// Non-cancelled persisted loads used for customer-facing money rollups.
   static List<JobWorkLoad> activeLoadsForFinance(
     JobWorkOrder order,

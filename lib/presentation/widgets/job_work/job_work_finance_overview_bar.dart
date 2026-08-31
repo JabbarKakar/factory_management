@@ -10,12 +10,16 @@ class JobWorkFinanceOverviewBar extends StatelessWidget {
     required this.invoiced,
     required this.received,
     required this.pending,
+    this.credit = 0,
     super.key,
   });
 
   final double invoiced;
   final double received;
   final double pending;
+  final double credit;
+
+  bool get _hasCredit => credit > 0.005;
 
   static const Color _cardBgDark = Color(0xFF121826);
   static const Color _cardBgLight = Color(0xFFF0F2F5);
@@ -150,6 +154,20 @@ class JobWorkFinanceOverviewBar extends StatelessWidget {
                             value: Formatters.currencyPkr(pending),
                             color: _pending,
                           ),
+                          if (_hasCredit) ...[
+                            Divider(
+                              height: 1,
+                              indent: 14,
+                              endIndent: 14,
+                              color: outline.withValues(alpha: 0.45),
+                            ),
+                            _DetailRow(
+                              icon: Icons.savings_outlined,
+                              label: AppStrings.totalCredit,
+                              value: Formatters.currencyPkr(credit),
+                              color: _received,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -231,6 +249,17 @@ class JobWorkFinanceOverviewBar extends StatelessWidget {
                       muted: muted,
                     ),
                   ),
+                  if (_hasCredit) ...[
+                    Container(width: 1, height: 22, color: divider),
+                    Expanded(
+                      child: _MetricCell(
+                        label: AppStrings.creditShort,
+                        value: credit,
+                        color: _received,
+                        muted: muted,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
