@@ -399,7 +399,7 @@ class _CollectStockDataRow extends StatelessWidget {
             if (exceeds) ...[
               const SizedBox(height: 4),
               Text(
-                AppStrings.collectExceedsRemaining(row.maxRemainingPieces),
+                AppStrings.quantityExceedsRemaining(row.maxRemainingPieces),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: error,
                   fontSize: 10,

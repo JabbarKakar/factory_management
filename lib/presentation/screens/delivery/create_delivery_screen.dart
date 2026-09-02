@@ -232,6 +232,7 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
 
   void _submit(BuildContext context, String factoryId, DeliveryFormState state) {
     if (!_formKey.currentState!.validate()) return;
+    if (_stockController?.hasExcessSchedule == true) return;
     final delivery = _buildDelivery(factoryId, state);
     if (delivery == null) return;
     context.read<DeliveryFormBloc>().add(DeliveryFormSubmitted(delivery));
@@ -357,6 +358,8 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
         final isSaving = state.status == DeliveryFormStatus.saving;
         final hasRemaining = state.logisticsOnly ||
             (_stockController?.hasRows ?? false);
+        final hasExcessSchedule =
+            _stockController?.hasExcessSchedule == true;
         final showLineItemEditor =
             _selectedOrderId != null && !state.logisticsOnly;
 
@@ -624,7 +627,9 @@ class _CreateDeliveryScreenState extends State<CreateDeliveryScreen> {
                         ? AppStrings.saveChanges
                         : AppStrings.saveDispatch,
                     isLoading: isSaving,
-                    onPressed: isSaving || (!state.logisticsOnly && !hasRemaining)
+                    onPressed: isSaving ||
+                            hasExcessSchedule ||
+                            (!state.logisticsOnly && !hasRemaining)
                         ? null
                         : () {
                             final factoryId = readFactoryId(context);

@@ -348,8 +348,10 @@ abstract final class AppStrings {
       'No remaining stock to collect. Record cutting output first, or all produced stock has already been collected.';
   static const String enterCollectPieces =
       'Enter pieces to collect for at least one size.';
-  static String collectExceedsRemaining(int remaining) =>
+  static String quantityExceedsRemaining(int remaining) =>
       'Only $remaining remaining';
+  static String collectExceedsRemaining(int remaining) =>
+      quantityExceedsRemaining(remaining);
   static const String piecesCollected = 'Pieces Collected';
   static const String squareFeetCollected = 'Sq. Ft. Collected';
   static const String collectionHistory = 'Collection History';

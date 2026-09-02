@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../forms/app_form_fields.dart';
 import 'dispatch_stock_form_controller.dart';
@@ -300,16 +301,10 @@ class _DispatchStockTable extends StatelessWidget {
                     _TableHeaderRow(mode: mode),
                     for (var i = 0; i < rows.length; i++) ...[
                       Divider(height: 1, thickness: 1, color: outline),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 4,
-                        ),
-                        child: _DispatchStockDataRow(
-                          row: rows[i],
-                          enabled: enabled,
-                          mode: mode,
-                        ),
+                      _DispatchStockDataRow(
+                        row: rows[i],
+                        enabled: enabled,
+                        mode: mode,
                       ),
                     ],
                   ],
@@ -431,9 +426,22 @@ class _DispatchStockDataRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final exceeds = switch (mode) {
+      DispatchStockPanelMode.schedule => row.exceedsRemaining,
+      DispatchStockPanelMode.confirm => row.exceedsScheduled,
+      DispatchStockPanelMode.readOnly => false,
+    };
+    final remainingCap = switch (mode) {
+      DispatchStockPanelMode.confirm => row.scheduledPieces,
+      _ => row.maxRemainingPieces,
+    };
+    final error = AppColors.error;
     final valueStyle = AppFormFields.valueStyle(context).copyWith(
       fontSize: 11,
       height: 1.1,
+      color: exceeds ? error : null,
+      fontWeight: exceeds ? FontWeight.w700 : null,
     );
     final remainingPieces = switch (mode) {
       DispatchStockPanelMode.confirm => row.remainingPiecesAfterDelivered,
@@ -444,101 +452,129 @@ class _DispatchStockDataRow extends StatelessWidget {
       _ => row.remainingSquareFeetAfterSchedule,
     };
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: switch (mode) {
-        DispatchStockPanelMode.readOnly => [
-            _sizeCell(row.size, valueStyle),
-            _metricCell('${row.orderedPieces}', valueStyle, flex: 8),
-            _metricCell('$remainingPieces', valueStyle, flex: 8),
-            _metricCell(
-              row.orderedSquareFeet.toStringAsFixed(2),
-              valueStyle,
-              flex: 9,
+    return ColoredBox(
+      color: exceeds ? error.withValues(alpha: 0.10) : Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(5, 4, 5, exceeds ? 2 : 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: switch (mode) {
+                DispatchStockPanelMode.readOnly => [
+                    _sizeCell(row.size, valueStyle),
+                    _metricCell('${row.orderedPieces}', valueStyle, flex: 8),
+                    _metricCell('$remainingPieces', valueStyle, flex: 8),
+                    _metricCell(
+                      row.orderedSquareFeet.toStringAsFixed(2),
+                      valueStyle,
+                      flex: 9,
+                    ),
+                    _metricCell(
+                      remainingSquareFeet.toStringAsFixed(2),
+                      valueStyle,
+                      flex: 9,
+                    ),
+                    _metricCell('${row.scheduledPieces}', valueStyle, flex: 8),
+                    _metricCell(
+                      row.scheduledSquareFeet > 0
+                          ? row.scheduledSquareFeet.toStringAsFixed(2)
+                          : '—',
+                      valueStyle,
+                      flex: 9,
+                    ),
+                  ],
+                DispatchStockPanelMode.confirm => [
+                    _sizeCell(row.size, valueStyle),
+                    _metricCell('${row.orderedPieces}', valueStyle, flex: 8),
+                    _metricCell('$remainingPieces', valueStyle, flex: 8),
+                    _metricCell(
+                      row.orderedSquareFeet.toStringAsFixed(2),
+                      valueStyle,
+                      flex: 9,
+                    ),
+                    _metricCell(
+                      remainingSquareFeet.toStringAsFixed(2),
+                      valueStyle,
+                      flex: 9,
+                    ),
+                    _metricCell('${row.scheduledPieces}', valueStyle, flex: 8),
+                    _metricCell(
+                      row.scheduledSquareFeet.toStringAsFixed(2),
+                      valueStyle,
+                      flex: 9,
+                    ),
+                    _CompactCell(
+                      flex: 8,
+                      hasError: exceeds,
+                      child: _InputCell(
+                        controller: row.piecesDeliveredController,
+                        enabled: enabled,
+                        style: valueStyle,
+                        hasError: exceeds,
+                        validator: (value) =>
+                            _validateDeliveredPieces(value, row),
+                      ),
+                    ),
+                    _metricCell(
+                      row.deliveredSquareFeet > 0
+                          ? row.deliveredSquareFeet.toStringAsFixed(2)
+                          : '—',
+                      valueStyle,
+                      flex: 9,
+                    ),
+                  ],
+                DispatchStockPanelMode.schedule => [
+                    _sizeCell(row.size, valueStyle),
+                    _metricCell('${row.orderedPieces}', valueStyle, flex: 8),
+                    _metricCell('$remainingPieces', valueStyle, flex: 8),
+                    _metricCell(
+                      row.orderedSquareFeet.toStringAsFixed(2),
+                      valueStyle,
+                      flex: 9,
+                    ),
+                    _metricCell(
+                      remainingSquareFeet.toStringAsFixed(2),
+                      valueStyle,
+                      flex: 9,
+                    ),
+                    _CompactCell(
+                      flex: 8,
+                      hasError: exceeds,
+                      child: _InputCell(
+                        controller: row.piecesController,
+                        enabled: enabled,
+                        style: valueStyle,
+                        hasError: exceeds,
+                        validator: (value) => _validatePieces(value, row),
+                      ),
+                    ),
+                    _metricCell(
+                      row.scheduledSquareFeet > 0
+                          ? row.scheduledSquareFeet.toStringAsFixed(2)
+                          : '—',
+                      valueStyle,
+                      flex: 9,
+                    ),
+                  ],
+              },
             ),
-            _metricCell(
-              remainingSquareFeet.toStringAsFixed(2),
-              valueStyle,
-              flex: 9,
-            ),
-            _metricCell('${row.scheduledPieces}', valueStyle, flex: 8),
-            _metricCell(
-              row.scheduledSquareFeet > 0
-                  ? row.scheduledSquareFeet.toStringAsFixed(2)
-                  : '—',
-              valueStyle,
-              flex: 9,
-            ),
-          ],
-        DispatchStockPanelMode.confirm => [
-            _sizeCell(row.size, valueStyle),
-            _metricCell('${row.orderedPieces}', valueStyle, flex: 8),
-            _metricCell('$remainingPieces', valueStyle, flex: 8),
-            _metricCell(
-              row.orderedSquareFeet.toStringAsFixed(2),
-              valueStyle,
-              flex: 9,
-            ),
-            _metricCell(
-              remainingSquareFeet.toStringAsFixed(2),
-              valueStyle,
-              flex: 9,
-            ),
-            _metricCell('${row.scheduledPieces}', valueStyle, flex: 8),
-            _metricCell(
-              row.scheduledSquareFeet.toStringAsFixed(2),
-              valueStyle,
-              flex: 9,
-            ),
-            _CompactCell(
-              flex: 8,
-              child: _InputCell(
-                controller: row.piecesDeliveredController,
-                enabled: enabled,
-                style: valueStyle,
-                validator: (value) => _validateDeliveredPieces(value, row),
+            if (exceeds) ...[
+              const SizedBox(height: 4),
+              Text(
+                AppStrings.quantityExceedsRemaining(remainingCap),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: error,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
               ),
-            ),
-            _metricCell(
-              row.deliveredSquareFeet > 0
-                  ? row.deliveredSquareFeet.toStringAsFixed(2)
-                  : '—',
-              valueStyle,
-              flex: 9,
-            ),
+            ],
           ],
-        DispatchStockPanelMode.schedule => [
-            _sizeCell(row.size, valueStyle),
-            _metricCell('${row.orderedPieces}', valueStyle, flex: 8),
-            _metricCell('$remainingPieces', valueStyle, flex: 8),
-            _metricCell(
-              row.orderedSquareFeet.toStringAsFixed(2),
-              valueStyle,
-              flex: 9,
-            ),
-            _metricCell(
-              remainingSquareFeet.toStringAsFixed(2),
-              valueStyle,
-              flex: 9,
-            ),
-            _CompactCell(
-              flex: 8,
-              child: _InputCell(
-                controller: row.piecesController,
-                enabled: enabled,
-                style: valueStyle,
-                validator: (value) => _validatePieces(value, row),
-              ),
-            ),
-            _metricCell(
-              row.scheduledSquareFeet > 0
-                  ? row.scheduledSquareFeet.toStringAsFixed(2)
-                  : '—',
-              valueStyle,
-              flex: 9,
-            ),
-          ],
-      },
+        ),
+      ),
     );
   }
 
@@ -567,7 +603,7 @@ class _DispatchStockDataRow extends StatelessWidget {
       return AppStrings.piecesCannotBeNegative;
     }
     if (parsed > row.maxRemainingPieces) {
-      return 'Max ${row.maxRemainingPieces} pcs';
+      return AppStrings.quantityExceedsRemaining(row.maxRemainingPieces);
     }
     final computedSqFt = row.outputForPieces(parsed).squareFeet;
     if (computedSqFt > row.maxRemainingSquareFeet + 0.001) {
@@ -585,7 +621,7 @@ class _DispatchStockDataRow extends StatelessWidget {
       return AppStrings.piecesCannotBeNegative;
     }
     if (parsed > row.scheduledPieces) {
-      return 'Max ${row.scheduledPieces} pcs';
+      return AppStrings.quantityExceedsRemaining(row.scheduledPieces);
     }
     return null;
   }
@@ -596,12 +632,14 @@ class _InputCell extends StatelessWidget {
     required this.controller,
     required this.enabled,
     required this.style,
+    this.hasError = false,
     this.validator,
   });
 
   final TextEditingController controller;
   final bool enabled;
   final TextStyle style;
+  final bool hasError;
   final String? Function(String?)? validator;
 
   @override
@@ -611,7 +649,10 @@ class _InputCell extends StatelessWidget {
       enabled: enabled,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      style: style,
+      style: style.copyWith(
+        color: hasError ? AppColors.error : null,
+        fontWeight: hasError ? FontWeight.w700 : null,
+      ),
       textAlign: TextAlign.center,
       decoration: const InputDecoration(
         isDense: true,
@@ -631,10 +672,12 @@ class _CompactCell extends StatelessWidget {
   const _CompactCell({
     required this.flex,
     required this.child,
+    this.hasError = false,
   });
 
   final int flex;
   final Widget child;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
@@ -650,8 +693,12 @@ class _CompactCell extends StatelessWidget {
                 .withValues(alpha: 0.35),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color:
-                  Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+              color: hasError
+                  ? AppColors.error
+                  : Theme.of(context)
+                      .colorScheme
+                      .outline
+                      .withValues(alpha: 0.2),
             ),
           ),
           child: SizedBox(

@@ -83,6 +83,10 @@ class DispatchStockRow {
 
   bool get hasScheduledDispatch => scheduledPieces > 0;
 
+  bool get exceedsRemaining => scheduledPieces > maxRemainingPieces;
+
+  bool get exceedsScheduled => deliveredPieces > scheduledPieces;
+
   DeliveryLineItem toScheduledLineItem() {
     return DeliveryLineItem(
       productType: productType,
@@ -276,6 +280,10 @@ class DispatchStockFormController extends ChangeNotifier {
 
   bool get hasScheduledDispatch =>
       allRows.any((row) => row.hasScheduledDispatch);
+
+  bool get hasExcessSchedule => allRows.any((row) => row.exceedsRemaining);
+
+  bool get hasExcessConfirm => allRows.any((row) => row.exceedsScheduled);
 
   int get totalDispatchPieces =>
       allRows.fold<int>(0, (sum, row) => sum + row.scheduledPieces);

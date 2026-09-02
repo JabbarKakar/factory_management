@@ -65,6 +65,7 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
   void _submit(BuildContext context) {
     final controller = _stockController;
     if (controller == null) return;
+    if (controller.hasExcessConfirm) return;
 
     context.read<DeliveryConfirmBloc>().add(
           DeliveryConfirmSubmitted(
@@ -131,6 +132,8 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
 
         _initController(delivery);
         final isSaving = state.status == DeliveryConfirmStatus.saving;
+        final hasExcessConfirm =
+            _stockController?.hasExcessConfirm == true;
 
         return Scaffold(
           appBar: AppBar(
@@ -201,7 +204,9 @@ class _ConfirmDeliveryScreenState extends State<ConfirmDeliveryScreen> {
               AppFormSubmitBar(
                 label: AppStrings.confirmDelivery,
                 isLoading: isSaving,
-                onPressed: isSaving ? null : () => _submit(context),
+                onPressed: isSaving || hasExcessConfirm
+                    ? null
+                    : () => _submit(context),
               ),
             ],
           ),
