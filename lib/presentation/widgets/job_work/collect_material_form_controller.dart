@@ -62,6 +62,8 @@ class CollectMaterialRow {
 
   bool get hasCollectQuantity => collectPieces > 0;
 
+  bool get exceedsRemaining => collectPieces > maxRemainingPieces;
+
   JobWorkCollectionLineItem toLineItem() {
     return JobWorkCollectionLineItem(
       size: size,
@@ -113,6 +115,8 @@ class CollectMaterialFormController extends ChangeNotifier {
   bool get hasRows => rows.isNotEmpty;
 
   bool get hasCollectQuantity => rows.any((row) => row.hasCollectQuantity);
+
+  bool get hasExcessCollect => rows.any((row) => row.exceedsRemaining);
 
   int get totalCollectPieces =>
       rows.fold<int>(0, (sum, row) => sum + row.collectPieces);

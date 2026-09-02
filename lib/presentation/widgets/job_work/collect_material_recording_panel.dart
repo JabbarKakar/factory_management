@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../forms/app_form_fields.dart';
 import 'collect_material_form_controller.dart';
@@ -226,16 +227,10 @@ class _SizeGroupSection extends StatelessWidget {
               _TableHeaderRow(),
               for (var i = 0; i < rows.length; i++) ...[
                 Divider(height: 1, thickness: 1, color: outline),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 4,
-                  ),
-                  child: _CollectStockDataRow(
-                    row: rows[i],
-                    enabled: enabled,
-                    onChanged: onChanged,
-                  ),
+                _CollectStockDataRow(
+                  row: rows[i],
+                  enabled: enabled,
+                  onChanged: onChanged,
                 ),
               ],
             ],
@@ -302,74 +297,120 @@ class _CollectStockDataRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final valueStyle = theme.textTheme.bodySmall?.copyWith(fontSize: 11);
+    final exceeds = row.exceedsRemaining;
+    final error = AppColors.error;
+    final valueStyle = theme.textTheme.bodySmall?.copyWith(
+      fontSize: 11,
+      color: exceeds ? error : null,
+      fontWeight: exceeds ? FontWeight.w700 : null,
+    );
 
-    return Row(
-      children: [
-        Expanded(
-          flex: 10,
-          child: Text(row.size, style: valueStyle),
-        ),
-        Expanded(
-          flex: 8,
-          child: Text(
-            '${row.producedPieces}',
-            textAlign: TextAlign.center,
-            style: valueStyle,
-          ),
-        ),
-        Expanded(
-          flex: 8,
-          child: Text(
-            '${row.remainingPiecesAfterCollect}',
-            textAlign: TextAlign.center,
-            style: valueStyle,
-          ),
-        ),
-        Expanded(
-          flex: 9,
-          child: Text(
-            row.producedSquareFeet.toStringAsFixed(2),
-            textAlign: TextAlign.center,
-            style: valueStyle,
-          ),
-        ),
-        Expanded(
-          flex: 9,
-          child: Text(
-            row.remainingSquareFeetAfterCollect.toStringAsFixed(2),
-            textAlign: TextAlign.center,
-            style: valueStyle,
-          ),
-        ),
-        Expanded(
-          flex: 8,
-          child: TextFormField(
-            controller: row.piecesController,
-            enabled: enabled,
-            textAlign: TextAlign.center,
-            style: AppFormFields.valueStyle(context).copyWith(fontSize: 12),
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-              border: OutlineInputBorder(),
+    return ColoredBox(
+      color: exceeds ? error.withValues(alpha: 0.10) : Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(5, 4, 5, exceeds ? 2 : 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  flex: 10,
+                  child: Text(row.size, style: valueStyle),
+                ),
+                Expanded(
+                  flex: 8,
+                  child: Text(
+                    '${row.producedPieces}',
+                    textAlign: TextAlign.center,
+                    style: valueStyle,
+                  ),
+                ),
+                Expanded(
+                  flex: 8,
+                  child: Text(
+                    '${row.remainingPiecesAfterCollect}',
+                    textAlign: TextAlign.center,
+                    style: valueStyle,
+                  ),
+                ),
+                Expanded(
+                  flex: 9,
+                  child: Text(
+                    row.producedSquareFeet.toStringAsFixed(2),
+                    textAlign: TextAlign.center,
+                    style: valueStyle,
+                  ),
+                ),
+                Expanded(
+                  flex: 9,
+                  child: Text(
+                    row.remainingSquareFeetAfterCollect.toStringAsFixed(2),
+                    textAlign: TextAlign.center,
+                    style: valueStyle,
+                  ),
+                ),
+                Expanded(
+                  flex: 8,
+                  child: TextFormField(
+                    controller: row.piecesController,
+                    enabled: enabled,
+                    textAlign: TextAlign.center,
+                    style: AppFormFields.valueStyle(context).copyWith(
+                      fontSize: 12,
+                      color: exceeds ? error : null,
+                      fontWeight: exceeds ? FontWeight.w700 : null,
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 6,
+                      ),
+                      border: const OutlineInputBorder(),
+                      enabledBorder: exceeds
+                          ? OutlineInputBorder(
+                              borderSide: BorderSide(color: error),
+                            )
+                          : null,
+                      focusedBorder: exceeds
+                          ? OutlineInputBorder(
+                              borderSide: BorderSide(color: error, width: 1.5),
+                            )
+                          : null,
+                    ),
+                    onChanged: (_) => onChanged(),
+                  ),
+                ),
+                Expanded(
+                  flex: 9,
+                  child: Text(
+                    row.collectSquareFeet > 0
+                        ? row.collectSquareFeet.toStringAsFixed(2)
+                        : '—',
+                    textAlign: TextAlign.center,
+                    style: valueStyle,
+                  ),
+                ),
+              ],
             ),
-            onChanged: (_) => onChanged(),
-          ),
+            if (exceeds) ...[
+              const SizedBox(height: 4),
+              Text(
+                AppStrings.collectExceedsRemaining(row.maxRemainingPieces),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: error,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ],
         ),
-        Expanded(
-          flex: 9,
-          child: Text(
-            row.collectSquareFeet > 0
-                ? row.collectSquareFeet.toStringAsFixed(2)
-                : '—',
-            textAlign: TextAlign.center,
-            style: valueStyle,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

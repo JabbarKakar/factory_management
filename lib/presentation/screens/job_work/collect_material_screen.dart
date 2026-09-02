@@ -135,6 +135,9 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
       );
       return;
     }
+    if (controller.hasExcessCollect) {
+      return;
+    }
 
     context.read<JobWorkCollectionFormBloc>().add(
           JobWorkCollectionFormSubmitted(
@@ -265,6 +268,7 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
         _ensureController(state);
         _populateReceiverDetails(state);
         final isSaving = state.status == JobWorkCollectionFormStatus.saving;
+        final hasExcessCollect = _stockController?.hasExcessCollect == true;
         final load = state.load;
         final loadLabel = load == null
             ? null
@@ -507,7 +511,9 @@ class _CollectMaterialScreenState extends State<CollectMaterialScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                   child: FilledButton(
-                    onPressed: isSaving ? null : () => _submit(context),
+                    onPressed: isSaving || hasExcessCollect
+                        ? null
+                        : () => _submit(context),
                     child: Text(
                       isSaving ? 'Saving…' : AppStrings.confirmCollectMaterial,
                     ),
