@@ -59,7 +59,10 @@ class DashboardFxOperationsHub extends StatelessWidget {
             title: 'Payment Reminders',
             subtitle: 'Due this week and overdue invoices',
             glowColor: DashboardFx.danger(context),
-            child: PaymentRemindersCard(factoryId: user!.factoryId),
+            child: PaymentRemindersCard(
+              factoryId: user!.factoryId,
+              kpis: kpis,
+            ),
           ),
         ],
         if (_can(AppModule.jobWork) &&

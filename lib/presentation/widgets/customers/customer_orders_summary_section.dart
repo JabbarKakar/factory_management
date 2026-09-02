@@ -20,16 +20,59 @@ import '../job_work/job_work_detail_section.dart';
 ///
 /// Decision C: when an open Job Work exists, primary CTA is Add Load;
 /// New Job Work remains secondary.
-class CustomerOrdersSummarySection extends StatelessWidget {
+class CustomerOrdersSummarySection extends StatefulWidget {
   const CustomerOrdersSummarySection({required this.customer, super.key});
 
   final Customer customer;
+
+  @override
+  State<CustomerOrdersSummarySection> createState() =>
+      _CustomerOrdersSummarySectionState();
+}
+
+class _CustomerOrdersSummarySectionState
+    extends State<CustomerOrdersSummarySection> {
+  late Stream<List<JobWorkOrder>> _jobWorkStream;
+  late Stream<int> _salesStream;
+
+  Customer get customer => widget.customer;
 
   bool get _tracksJobWork =>
       customer.serviceType != CustomerServiceType.buyer;
 
   bool get _tracksSales =>
       customer.serviceType != CustomerServiceType.jobWork;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindStreams();
+  }
+
+  @override
+  void didUpdateWidget(CustomerOrdersSummarySection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.customer.id != customer.id ||
+        oldWidget.customer.factoryId != customer.factoryId ||
+        oldWidget.customer.serviceType != customer.serviceType) {
+      _bindStreams();
+    }
+  }
+
+  void _bindStreams() {
+    _jobWorkStream = _tracksJobWork
+        ? getIt<JobWorkRepository>().watchOrdersForCustomer(
+            factoryId: customer.factoryId,
+            customerId: customer.id,
+          )
+        : Stream<List<JobWorkOrder>>.value(const []);
+    _salesStream = _tracksSales
+        ? getIt<SalesOrderRepository>().watchActiveOrderCountForCustomer(
+            factoryId: customer.factoryId,
+            customerId: customer.id,
+          )
+        : Stream<int>.value(0);
+  }
 
   JobWorkOrder? _preferredOpenJobWork(List<JobWorkOrder> orders) {
     final open = orders
@@ -42,24 +85,11 @@ class CustomerOrdersSummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final jobWorkStream = _tracksJobWork
-        ? getIt<JobWorkRepository>().watchOrdersForCustomer(
-            factoryId: customer.factoryId,
-            customerId: customer.id,
-          )
-        : Stream<List<JobWorkOrder>>.value(const []);
-    final salesStream = _tracksSales
-        ? getIt<SalesOrderRepository>().watchActiveOrderCountForCustomer(
-            factoryId: customer.factoryId,
-            customerId: customer.id,
-          )
-        : Stream<int>.value(0);
-
     return StreamBuilder<List<JobWorkOrder>>(
-      stream: jobWorkStream,
+      stream: _jobWorkStream,
       builder: (context, jobWorkSnapshot) {
         return StreamBuilder<int>(
-          stream: salesStream,
+          stream: _salesStream,
           builder: (context, salesSnapshot) {
             final jobWorkOrders = jobWorkSnapshot.data ?? const [];
             final jobWorkCount = jobWorkOrders.length;

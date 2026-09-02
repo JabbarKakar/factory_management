@@ -15,7 +15,7 @@ import '../../../domain/enums/invoice_enums.dart';
 import '../job_work/job_work_detail_section.dart';
 import '../payment_reminder_action_bar.dart';
 
-class CustomerLedgerSection extends StatelessWidget {
+class CustomerLedgerSection extends StatefulWidget {
   const CustomerLedgerSection({
     required this.factoryId,
     required this.customerId,
@@ -28,11 +28,46 @@ class CustomerLedgerSection extends StatelessWidget {
   final String customerName;
 
   @override
-  Widget build(BuildContext context) {
-    final jobWorkInvoiceRepository = getIt<JobWorkInvoiceRepository>();
-    final salesInvoiceRepository = getIt<SalesInvoiceRepository>();
-    final paymentRepository = getIt<PaymentRepository>();
+  State<CustomerLedgerSection> createState() => _CustomerLedgerSectionState();
+}
 
+class _CustomerLedgerSectionState extends State<CustomerLedgerSection> {
+  late Stream<List<JobWorkInvoice>> _jobWorkStream;
+  late Stream<List<SalesInvoice>> _salesStream;
+  late Stream<List<Payment>> _paymentStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindStreams();
+  }
+
+  @override
+  void didUpdateWidget(CustomerLedgerSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.factoryId != widget.factoryId ||
+        oldWidget.customerId != widget.customerId) {
+      _bindStreams();
+    }
+  }
+
+  void _bindStreams() {
+    _jobWorkStream = getIt<JobWorkInvoiceRepository>().watchInvoicesForCustomer(
+      factoryId: widget.factoryId,
+      customerId: widget.customerId,
+    );
+    _salesStream = getIt<SalesInvoiceRepository>().watchInvoicesForCustomer(
+      factoryId: widget.factoryId,
+      customerId: widget.customerId,
+    );
+    _paymentStream = getIt<PaymentRepository>().watchPaymentsForCustomer(
+      factoryId: widget.factoryId,
+      customerId: widget.customerId,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: JobWorkDetailSection(
@@ -53,22 +88,13 @@ class CustomerLedgerSection extends StatelessWidget {
               ),
               const SizedBox(height: 12),
             StreamBuilder<List<JobWorkInvoice>>(
-              stream: jobWorkInvoiceRepository.watchInvoicesForCustomer(
-                factoryId: factoryId,
-                customerId: customerId,
-              ),
+              stream: _jobWorkStream,
               builder: (context, jobWorkSnapshot) {
                 return StreamBuilder<List<SalesInvoice>>(
-                  stream: salesInvoiceRepository.watchInvoicesForCustomer(
-                    factoryId: factoryId,
-                    customerId: customerId,
-                  ),
+                  stream: _salesStream,
                   builder: (context, salesSnapshot) {
                     return StreamBuilder<List<Payment>>(
-                      stream: paymentRepository.watchPaymentsForCustomer(
-                        factoryId: factoryId,
-                        customerId: customerId,
-                      ),
+                      stream: _paymentStream,
                       builder: (context, paymentSnapshot) {
                         final jobWorkInvoices = jobWorkSnapshot.data ?? const [];
                         final salesInvoices = salesSnapshot.data ?? const [];
@@ -101,8 +127,8 @@ class CustomerLedgerSection extends StatelessWidget {
                             for (var i = 0; i < visible.length; i++) ...[
                               _LedgerRow(
                                 entry: visible[i],
-                                customerId: customerId,
-                                customerName: customerName,
+                                customerId: widget.customerId,
+                                customerName: widget.customerName,
                               ),
                               if (i < visible.length - 1)
                                 const SizedBox(height: 8),

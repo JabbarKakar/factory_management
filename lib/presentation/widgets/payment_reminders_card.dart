@@ -5,128 +5,112 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_strings.dart';
 import '../../core/di/injection.dart';
 import '../../core/utils/formatters.dart';
-import '../../data/repositories/job_work_invoice_repository.dart';
-import '../../data/repositories/sales_invoice_repository.dart';
 import '../../data/services/notification_engine_service.dart';
-import '../../data/services/payment_due_scanner_service.dart';
-import '../../domain/entities/job_work_invoice.dart';
-import '../../domain/entities/sales_invoice.dart';
+import '../../domain/entities/dashboard_kpis.dart';
 import '../../domain/enums/notification_enums.dart';
 import '../routes/route_paths.dart';
 import 'dashboard/dashboard_surface.dart';
 
 class PaymentRemindersCard extends StatelessWidget {
-  const PaymentRemindersCard({required this.factoryId, super.key});
+  const PaymentRemindersCard({
+    required this.factoryId,
+    required this.kpis,
+    super.key,
+  });
 
   final String factoryId;
+  final DashboardKpis kpis;
 
   static const double _wideBreakpoint = 900;
   static const double _mobileBreakpoint = 600;
 
+  bool get _hasAlerts => kpis.dueThisWeekCount > 0 || kpis.overdueCount > 0;
+
   @override
   Widget build(BuildContext context) {
-    final jobWorkInvoiceRepository = getIt<JobWorkInvoiceRepository>();
-    final salesInvoiceRepository = getIt<SalesInvoiceRepository>();
-    final scanner = getIt<PaymentDueScannerService>();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isWide = width >= _wideBreakpoint;
+        final isMobile = width < _mobileBreakpoint;
 
-    return StreamBuilder<List<JobWorkInvoice>>(
-      stream: jobWorkInvoiceRepository.watchOpenInvoicesForFactory(factoryId),
-      builder: (context, jobWorkSnapshot) {
-        return StreamBuilder<List<SalesInvoice>>(
-          stream: salesInvoiceRepository.watchOpenInvoicesForFactory(factoryId),
-          builder: (context, salesSnapshot) {
-            final summary = scanner.summarizeAll(
-              jobWorkInvoices: jobWorkSnapshot.data ?? const [],
-              salesInvoices: salesSnapshot.data ?? const [],
-            );
+        if (!_hasAlerts) {
+          return _AllClearState(isMobile: isMobile);
+        }
 
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final width = constraints.maxWidth;
-                final isWide = width >= _wideBreakpoint;
-                final isMobile = width < _mobileBreakpoint;
+        final dueCard = _PaymentMetricCard(
+          label: AppStrings.dueThisWeek,
+          count: kpis.dueThisWeekCount,
+          amount: kpis.dueThisWeekAmount,
+          color: AppColors.dueSoon,
+          icon: Icons.event_rounded,
+          dense: isMobile,
+          horizontal: isWide,
+          onTap: () => _openNotifications(
+            context,
+            NotificationFilter.dueThisWeek,
+          ),
+        );
 
-                if (!summary.hasAlerts) {
-                  return _AllClearState(isMobile: isMobile);
-                }
+        final overdueCard = _PaymentMetricCard(
+          label: AppStrings.overduePayments,
+          count: kpis.overdueCount,
+          amount: kpis.overdueAmount,
+          color: AppColors.overdue,
+          icon: Icons.error_outline_rounded,
+          dense: isMobile,
+          horizontal: isWide,
+          onTap: () => _openNotifications(
+            context,
+            NotificationFilter.overdue,
+          ),
+        );
 
-                final dueCard = _PaymentMetricCard(
-                  label: AppStrings.dueThisWeek,
-                  count: summary.dueThisWeekCount,
-                  amount: summary.dueThisWeekAmount,
-                  color: AppColors.dueSoon,
-                  icon: Icons.event_rounded,
-                  dense: isMobile,
-                  horizontal: isWide,
-                  onTap: () => _openNotifications(
-                    context,
-                    NotificationFilter.dueThisWeek,
-                  ),
-                );
+        final metrics = Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: dueCard),
+            SizedBox(width: isMobile ? 6 : 8),
+            Expanded(child: overdueCard),
+          ],
+        );
 
-                final overdueCard = _PaymentMetricCard(
-                  label: AppStrings.overduePayments,
-                  count: summary.overdueCount,
-                  amount: summary.overdueAmount,
-                  color: AppColors.overdue,
-                  icon: Icons.error_outline_rounded,
-                  dense: isMobile,
-                  horizontal: isWide,
-                  onTap: () => _openNotifications(
-                    context,
-                    NotificationFilter.overdue,
-                  ),
-                );
-
-                final metrics = Row(
+        return DashboardSurfaceCard(
+          compact: true,
+          borderRadius: 14,
+          padding: EdgeInsets.all(isMobile ? 10 : (isWide ? 16 : 12)),
+          child: isWide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: _PaymentRemindersHeader(
+                        isMobile: false,
+                        onViewAll: () => _openNotifications(
+                          context,
+                          NotificationFilter.all,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(flex: 6, child: metrics),
+                  ],
+                )
+              : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: dueCard),
-                    SizedBox(width: isMobile ? 6 : 8),
-                    Expanded(child: overdueCard),
+                    _PaymentRemindersHeader(
+                      isMobile: isMobile,
+                      onViewAll: () => _openNotifications(
+                        context,
+                        NotificationFilter.all,
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 8 : 10),
+                    metrics,
                   ],
-                );
-
-                return DashboardSurfaceCard(
-                  compact: true,
-                  borderRadius: 14,
-                  padding: EdgeInsets.all(isMobile ? 10 : (isWide ? 16 : 12)),
-                  child: isWide
-                      ? Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              flex: 5,
-                              child: _PaymentRemindersHeader(
-                                isMobile: false,
-                                onViewAll: () => _openNotifications(
-                                  context,
-                                  NotificationFilter.all,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(flex: 6, child: metrics),
-                          ],
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _PaymentRemindersHeader(
-                              isMobile: isMobile,
-                              onViewAll: () => _openNotifications(
-                                context,
-                                NotificationFilter.all,
-                              ),
-                            ),
-                            SizedBox(height: isMobile ? 8 : 10),
-                            metrics,
-                          ],
-                        ),
-                );
-              },
-            );
-          },
+                ),
         );
       },
     );

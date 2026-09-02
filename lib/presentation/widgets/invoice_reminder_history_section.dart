@@ -10,16 +10,43 @@ import '../../domain/entities/payment_reminder.dart';
 import '../../domain/enums/reminder_enums.dart';
 import 'job_work/job_work_detail_section.dart';
 
-class InvoiceReminderHistorySection extends StatelessWidget {
+class InvoiceReminderHistorySection extends StatefulWidget {
   const InvoiceReminderHistorySection({required this.invoiceId, super.key});
 
   final String invoiceId;
 
   @override
+  State<InvoiceReminderHistorySection> createState() =>
+      _InvoiceReminderHistorySectionState();
+}
+
+class _InvoiceReminderHistorySectionState
+    extends State<InvoiceReminderHistorySection> {
+  late Stream<List<PaymentReminder>> _stream;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindStream();
+  }
+
+  @override
+  void didUpdateWidget(InvoiceReminderHistorySection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.invoiceId != widget.invoiceId) {
+      _bindStream();
+    }
+  }
+
+  void _bindStream() {
+    _stream = getIt<PaymentReminderRepository>()
+        .watchRemindersForInvoice(widget.invoiceId);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<PaymentReminder>>(
-      stream: getIt<PaymentReminderRepository>()
-          .watchRemindersForInvoice(invoiceId),
+      stream: _stream,
       builder: (context, snapshot) {
         final reminders = snapshot.data ?? const [];
 

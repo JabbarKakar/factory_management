@@ -34,6 +34,13 @@ class _CustomerPickerSheet extends StatefulWidget {
 class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
   final _searchController = TextEditingController();
   final _repository = getIt<CustomerRepository>();
+  late final Stream<List<Customer>> _customersStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _customersStream = _repository.watchCustomers(widget.factoryId);
+  }
 
   @override
   void dispose() {
@@ -87,7 +94,7 @@ class _CustomerPickerSheetState extends State<_CustomerPickerSheet> {
             ),
             Expanded(
               child: StreamBuilder<List<Customer>>(
-                stream: _repository.watchCustomers(widget.factoryId),
+                stream: _customersStream,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
