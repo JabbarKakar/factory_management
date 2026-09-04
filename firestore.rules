@@ -433,6 +433,18 @@ service cloud.firestore {
       allow read: if canReadFactoryDoc() && canReadLabour();
       allow create, update: if canWriteFactoryDoc() && canWriteLabour();
       allow delete: if isOwner() && sameFactoryExisting();
+
+      match /monthly_ledgers/{monthKey} {
+        allow read: if canReadFactoryDoc() && canReadLabour();
+        allow create, update: if canWriteFactoryDoc() && canWriteLabour();
+        allow delete: if isOwner() && sameFactoryExisting();
+
+        match /payments/{paymentId} {
+          allow read: if canReadFactoryDoc() && canReadLabour();
+          allow create: if canWriteFactoryDoc() && canWriteLabour();
+          allow update, delete: if isOwner() && sameFactoryExisting();
+        }
+      }
     }
 
     match /attendanceRecords/{recordId} {

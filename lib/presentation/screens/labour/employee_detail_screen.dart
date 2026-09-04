@@ -4,16 +4,24 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../blocs/labour/employee_detail_bloc.dart';
+import '../../../blocs/labour/employee_salary_bloc.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../domain/enums/app_module_enums.dart';
+import '../../../domain/enums/factory_role_enums.dart';
+import '../../../domain/extensions/app_user_permissions.dart';
 import '../../routes/route_paths.dart';
 import '../../utils/user_permissions_context.dart';
+import '../../widgets/dialogs/app_confirm_dialog.dart';
 import '../../widgets/job_work/job_work_detail_row.dart';
 import '../../widgets/job_work/job_work_detail_section.dart';
+import '../../widgets/labour/close_month_cycle_sheet.dart';
 import '../../widgets/labour/employee_attendance_action_bar.dart';
 import '../../widgets/labour/employee_attendance_history_section.dart';
 import '../../widgets/labour/employee_detail_hero.dart';
+import '../../widgets/labour/employee_salary_summary_banner.dart';
+import '../../widgets/labour/record_wage_payment_sheet.dart';
+import '../../widgets/labour/wage_payment_history_section.dart';
 
 class EmployeeDetailScreen extends StatelessWidget {
   const EmployeeDetailScreen({required this.employeeId, super.key});
@@ -22,139 +30,238 @@ class EmployeeDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<EmployeeDetailBloc, EmployeeDetailState>(
-      builder: (context, state) {
-        if (state.status == EmployeeDetailStatus.loading ||
-            state.status == EmployeeDetailStatus.initial) {
-          return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.employeeDetails)),
-            body: const Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (state.employee == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text(AppStrings.employeeDetails)),
-            body: Center(
-              child: Text(state.errorMessage ?? AppStrings.employeeNotFound),
-            ),
-          );
-        }
-
-        final employee = state.employee!;
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(AppStrings.employeeDetails),
-                Text(
-                  employee.fullName,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: (Theme.of(context).appBarTheme.foregroundColor ??
-                                Theme.of(context).colorScheme.onSurface)
-                            .withValues(alpha: 0.78),
-                        fontWeight: FontWeight.w500,
-                        fontSize: 11,
-                      ),
-                ),
-              ],
-            ),
-            actions: [
-              if (context.userCanEdit(AppModule.labour))
-                IconButton(
-                  onPressed: () => context.push(
-                    RoutePaths.employeeEdit(employee.id),
-                  ),
-                  icon: const Icon(Icons.edit_outlined),
-                  tooltip: AppStrings.editEmployee,
-                ),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.only(bottom: 24),
-            children: [
-              EmployeeDetailHero(employee: employee),
-              if (employee.isActive &&
-                  context.userCanCreate(AppModule.labour))
-                EmployeeAttendanceActionBar(
-                  onPressed: () => context.push(RoutePaths.attendance),
-                ),
-              JobWorkDetailSection(
-                title: AppStrings.contactInformation,
-                icon: Icons.contact_phone_outlined,
-                child: JobWorkDetailRows(
-                  rows: [
-                    JobWorkDetailRow(
-                      label: AppStrings.phone,
-                      value: employee.phone,
-                    ),
-                    if (employee.cnic != null && employee.cnic!.isNotEmpty)
-                      JobWorkDetailRow(
-                        label: AppStrings.cnicNumber,
-                        value: employee.cnic!,
-                      ),
-                  ],
-                ),
-              ),
-              JobWorkDetailSection(
-                title: AppStrings.employmentType,
-                icon: Icons.payments_outlined,
-                child: JobWorkDetailRows(
-                  rows: [
-                    JobWorkDetailRow(
-                      label: AppStrings.workerCategory,
-                      value: employee.workerCategory.label,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.employmentType,
-                      value: employee.employmentType.label,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.salaryType,
-                      value: employee.salaryType.label,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.rateAmount,
-                      value:
-                          '${Formatters.currencyPkr(employee.rateAmount)} ${employee.rateLabel}',
-                      bold: true,
-                      highlight: true,
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.employeeJoinDate,
-                      value: DateFormat.yMMMd().format(employee.joinDate),
-                    ),
-                    JobWorkDetailRow(
-                      label: AppStrings.employeeStatus,
-                      value: employee.status.label,
-                    ),
-                  ],
-                ),
-              ),
-              if (employee.notes != null && employee.notes!.isNotEmpty)
-                JobWorkDetailSection(
-                  title: AppStrings.notes,
-                  icon: Icons.notes_outlined,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-                    child: Text(
-                      employee.notes!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            fontSize: 12,
-                            height: 1.35,
-                          ),
-                    ),
-                  ),
-                ),
-              EmployeeAttendanceHistorySection(
-                records: state.attendanceRecords,
-              ),
-            ],
+    return BlocListener<EmployeeSalaryBloc, EmployeeSalaryState>(
+      listenWhen: (previous, current) =>
+          previous.snackbarMessage != current.snackbarMessage &&
+          current.snackbarMessage != null,
+      listener: (context, state) {
+        final message = state.snackbarMessage;
+        if (message == null) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor:
+                state.actionStatus == EmployeeSalaryActionStatus.failure
+                    ? Theme.of(context).colorScheme.error
+                    : null,
           ),
         );
+        context
+            .read<EmployeeSalaryBloc>()
+            .add(const EmployeeSalarySnackbarCleared());
       },
+      child: BlocBuilder<EmployeeDetailBloc, EmployeeDetailState>(
+        builder: (context, state) {
+          if (state.status == EmployeeDetailStatus.loading ||
+              state.status == EmployeeDetailStatus.initial) {
+            return Scaffold(
+              appBar: AppBar(title: const Text(AppStrings.employeeDetails)),
+              body: const Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (state.employee == null) {
+            return Scaffold(
+              appBar: AppBar(title: const Text(AppStrings.employeeDetails)),
+              body: Center(
+                child: Text(state.errorMessage ?? AppStrings.employeeNotFound),
+              ),
+            );
+          }
+
+          final employee = state.employee!;
+
+          return BlocBuilder<EmployeeSalaryBloc, EmployeeSalaryState>(
+            builder: (context, salaryState) {
+              final busy =
+                  salaryState.actionStatus == EmployeeSalaryActionStatus.saving;
+              final canPay = context.userCanCreate(AppModule.labour) &&
+                  salaryState.canRecordPayment;
+              final canClose = context.userCanEdit(AppModule.labour) &&
+                  salaryState.ledger != null &&
+                  !salaryState.ledger!.isClosed;
+              final user = readCurrentUser(context);
+              final canReopen = salaryState.ledger?.isClosed == true &&
+                  (user?.factoryRole == FactoryRole.owner ||
+                      user?.factoryRole == FactoryRole.factoryManager);
+
+              return Scaffold(
+                appBar: AppBar(
+                  title: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(AppStrings.employeeDetails),
+                      Text(
+                        employee.fullName,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: (Theme.of(context)
+                                          .appBarTheme
+                                          .foregroundColor ??
+                                      Theme.of(context).colorScheme.onSurface)
+                                  .withValues(alpha: 0.78),
+                              fontWeight: FontWeight.w500,
+                              fontSize: 11,
+                            ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    if (context.userCanEdit(AppModule.labour))
+                      IconButton(
+                        onPressed: () => context.push(
+                          RoutePaths.employeeEdit(employee.id),
+                        ),
+                        icon: const Icon(Icons.edit_outlined),
+                        tooltip: AppStrings.editEmployee,
+                      ),
+                  ],
+                ),
+                floatingActionButton: canPay
+                    ? FloatingActionButton.extended(
+                        onPressed: busy
+                            ? null
+                            : () => RecordWagePaymentSheet.show(
+                                  context,
+                                  employee: employee,
+                                  ledger: salaryState.ledger,
+                                ),
+                        icon: const Icon(Icons.payments_outlined),
+                        label: const Text(AppStrings.recordWagePayment),
+                      )
+                    : null,
+                body: ListView(
+                  padding: const EdgeInsets.only(bottom: 88),
+                  children: [
+                    EmployeeDetailHero(employee: employee),
+                    EmployeeSalarySummaryBanner(
+                      employee: employee,
+                      ledger: salaryState.ledger,
+                      monthKey: salaryState.monthKey,
+                      isBusy: busy,
+                      onRecordPayment: canPay
+                          ? () => RecordWagePaymentSheet.show(
+                                context,
+                                employee: employee,
+                                ledger: salaryState.ledger,
+                              )
+                          : null,
+                      onViewHistory: () => context.push(
+                        RoutePaths.employeeLedgers(employee.id),
+                      ),
+                      onCloseCycle: canClose
+                          ? () => CloseMonthCycleSheet.show(
+                                context,
+                                ledger: salaryState.ledger!,
+                              )
+                          : null,
+                      onReopenCycle: canReopen
+                          ? () => _confirmReopen(context)
+                          : null,
+                      onRefreshPayable: context.userCanEdit(AppModule.labour) &&
+                              salaryState.ledger?.isClosed != true
+                          ? () => context.read<EmployeeSalaryBloc>().add(
+                                const EmployeeSalaryRefreshPayableRequested(),
+                              )
+                          : null,
+                    ),
+                    WagePaymentHistorySection(payments: salaryState.payments),
+                    if (employee.isActive &&
+                        context.userCanCreate(AppModule.labour))
+                      EmployeeAttendanceActionBar(
+                        onPressed: () => context.push(RoutePaths.attendance),
+                      ),
+                    JobWorkDetailSection(
+                      title: AppStrings.contactInformation,
+                      icon: Icons.contact_phone_outlined,
+                      child: JobWorkDetailRows(
+                        rows: [
+                          JobWorkDetailRow(
+                            label: AppStrings.phone,
+                            value: employee.phone,
+                          ),
+                          if (employee.cnic != null &&
+                              employee.cnic!.isNotEmpty)
+                            JobWorkDetailRow(
+                              label: AppStrings.cnicNumber,
+                              value: employee.cnic!,
+                            ),
+                        ],
+                      ),
+                    ),
+                    JobWorkDetailSection(
+                      title: AppStrings.employmentType,
+                      icon: Icons.payments_outlined,
+                      child: JobWorkDetailRows(
+                        rows: [
+                          JobWorkDetailRow(
+                            label: AppStrings.workerCategory,
+                            value: employee.workerCategory.label,
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.employmentType,
+                            value: employee.employmentType.label,
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.salaryType,
+                            value: employee.salaryType.label,
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.rateAmount,
+                            value:
+                                '${Formatters.currencyPkr(employee.rateAmount)} ${employee.rateLabel}',
+                            bold: true,
+                            highlight: true,
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.employeeJoinDate,
+                            value: DateFormat.yMMMd().format(employee.joinDate),
+                          ),
+                          JobWorkDetailRow(
+                            label: AppStrings.employeeStatus,
+                            value: employee.status.label,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (employee.notes != null && employee.notes!.isNotEmpty)
+                      JobWorkDetailSection(
+                        title: AppStrings.notes,
+                        icon: Icons.notes_outlined,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                          child: Text(
+                            employee.notes!,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontSize: 12,
+                                      height: 1.35,
+                                    ),
+                          ),
+                        ),
+                      ),
+                    EmployeeAttendanceHistorySection(
+                      records: state.attendanceRecords,
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
+  }
+
+  Future<void> _confirmReopen(BuildContext context) async {
+    final confirmed = await AppConfirmDialog.show(
+      context,
+      title: AppStrings.reopenMonthConfirmTitle,
+      message: AppStrings.reopenMonthConfirmMessage,
+      confirmLabel: AppStrings.reopenMonthCycle,
+    );
+    if (!confirmed || !context.mounted) return;
+    context
+        .read<EmployeeSalaryBloc>()
+        .add(const EmployeeSalaryReopenRequested());
   }
 }

@@ -19,6 +19,7 @@ class Employee extends Equatable {
     required this.createdAt,
     this.cnic,
     this.notes,
+    this.activeMonthKey,
     this.updatedAt,
   });
 
@@ -35,6 +36,9 @@ class Employee extends Equatable {
   final DateTime joinDate;
   final EmployeeStatus status;
   final String? notes;
+
+  /// Active billing cycle (`yyyy-MM`). Null until the first ledger is opened.
+  final String? activeMonthKey;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -60,6 +64,7 @@ class Employee extends Equatable {
     DateTime? joinDate,
     EmployeeStatus? status,
     String? notes,
+    String? activeMonthKey,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -77,6 +82,7 @@ class Employee extends Equatable {
       joinDate: joinDate ?? this.joinDate,
       status: status ?? this.status,
       notes: notes ?? this.notes,
+      activeMonthKey: activeMonthKey ?? this.activeMonthKey,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -97,6 +103,7 @@ class Employee extends Equatable {
         joinDate,
         status,
         notes,
+        activeMonthKey,
         createdAt,
         updatedAt,
       ];

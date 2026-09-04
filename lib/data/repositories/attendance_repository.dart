@@ -83,6 +83,28 @@ class AttendanceRepository {
     );
   }
 
+  Future<List<AttendanceRecord>> getForEmployeeMonth({
+    required String factoryId,
+    required String employeeId,
+    required String monthKey,
+  }) async {
+    final startKey = DateKeys.monthStartDateKey(monthKey);
+    final endExclusive = DateKeys.nextMonthStartDateKey(monthKey);
+    final snapshot = await collection
+        .where('factoryId', isEqualTo: factoryId)
+        .where('employeeId', isEqualTo: employeeId)
+        .where('dateKey', isGreaterThanOrEqualTo: startKey)
+        .where('dateKey', isLessThan: endExclusive)
+        .get();
+
+    final records = snapshot.docs
+        .map((doc) => AttendanceRecordModel.fromFirestore(doc.id, doc.data()))
+        .map((model) => model.toEntity())
+        .toList();
+    records.sort((a, b) => a.dateKey.compareTo(b.dateKey));
+    return records;
+  }
+
   Future<AttendanceRecord> upsertAttendance({
     required String factoryId,
     required String employeeId,

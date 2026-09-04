@@ -1140,6 +1140,47 @@ abstract final class AppStrings {
       'Some workers already have a different status. Marking all present will overwrite those entries.';
   static const String noAttendanceMatches = 'No workers match your search';
 
+  static const String salaryThisMonth = 'This month';
+  static const String totalSalaryDue = 'Total due';
+  static const String totalPaidToDate = 'Paid';
+  static const String remainingBalance = 'Remaining';
+  static const String overpaidBalance = 'Overpaid';
+  static const String recordWagePayment = 'Record Payment';
+  static const String monthlyLedgers = 'Monthly ledgers';
+  static const String monthlyLedgerHistory = 'Salary ledgers';
+  static const String monthLedgerDetail = 'Month ledger';
+  static const String wagePaymentHistory = 'Payment history';
+  static const String noWagePayments = 'No installments recorded this month';
+  static const String noMonthlyLedgers = 'No monthly ledgers yet';
+  static const String noMonthlyLedgersHint =
+      'Record a payment or open the worker profile to start this month\'s cycle';
+  static const String wagePaymentAmount = 'Payment amount (PKR)';
+  static const String wagePaymentDate = 'Payment date';
+  static const String wagePaymentNotes = 'Note (optional)';
+  static const String wagePaymentNotesHint =
+      'e.g. Advance requested for medical expenses';
+  static const String wageOverpaymentHint =
+      'Amount above remaining is recorded as overpayment';
+  static const String enterPaymentAmount = 'Enter payment amount';
+  static const String amountMustBePositive = 'Amount must be greater than zero';
+  static const String confirmWagePayment = 'Confirm & record payment';
+  static const String recordedBy = 'Recorded by';
+  static const String closeMonthCycle = 'Close month';
+  static const String reopenMonthCycle = 'Reopen month';
+  static const String confirmCloseMonth = 'Close and archive this month';
+  static const String closeMonthCycleHint =
+      'Closing locks this cycle. Further installments cannot be recorded unless an admin reopens it.';
+  static const String reopenMonthConfirmTitle = 'Reopen this month?';
+  static const String reopenMonthConfirmMessage =
+      'Payments can be recorded again. This month becomes the active billing cycle.';
+  static const String refreshWagePayable = 'Recalculate from attendance';
+  static const String ledgerBaseRate = 'Base rate';
+  static const String ledgerOpeningBalance = 'Opening balance';
+  static const String ledgerAdjustments = 'Adjustments';
+  static const String ledgerBillableDays = 'Billable days';
+  static const String ledgerTotalPayable = 'Total payable';
+  static const String ledgerClosedAt = 'Closed on';
+
   // Delivery & challan (Sprint 17)
   static const String deliveries = 'Deliveries';
   static const String deliveriesSubtitle = 'Dispatch sales orders to customers';

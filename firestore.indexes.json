@@ -222,6 +222,15 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "factoryId", "order": "ASCENDING" },
+        { "fieldPath": "employeeId", "order": "ASCENDING" },
+        { "fieldPath": "dateKey", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "attendanceRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "factoryId", "order": "ASCENDING" },
         { "fieldPath": "dateKey", "order": "ASCENDING" }
       ]
     },

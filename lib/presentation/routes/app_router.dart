@@ -33,7 +33,9 @@ import '../../blocs/quality/qc_list_bloc.dart';
 import '../../blocs/labour/daily_attendance_bloc.dart';
 import '../../blocs/labour/employee_detail_bloc.dart';
 import '../../blocs/labour/employee_form_bloc.dart';
+import '../../blocs/labour/employee_ledger_history_bloc.dart';
 import '../../blocs/labour/employee_list_bloc.dart';
+import '../../blocs/labour/employee_salary_bloc.dart';
 import '../../blocs/production/production_detail_bloc.dart';
 import '../../blocs/production/production_form_bloc.dart';
 import '../../blocs/production/production_list_bloc.dart';
@@ -130,6 +132,8 @@ import '../screens/quality/record_qc_screen.dart';
 import '../screens/labour/add_edit_employee_screen.dart';
 import '../screens/labour/daily_attendance_screen.dart';
 import '../screens/labour/employee_detail_screen.dart';
+import '../screens/labour/employee_ledger_history_screen.dart';
+import '../screens/labour/employee_month_ledger_screen.dart';
 import '../screens/labour/employees_screen.dart';
 import '../screens/production/add_production_batch_screen.dart';
 import '../screens/production/production_batch_detail_screen.dart';
@@ -1057,19 +1061,37 @@ GoRouter createAppRouter(AuthBloc authBloc) {
             builder: (context, state) {
               final employeeId = state.pathParameters['employeeId']!;
               final factoryId = readFactoryId(context);
-              return BlocProvider(
-                create: (context) {
-                  final bloc = getIt<EmployeeDetailBloc>();
-                  if (factoryId != null) {
-                    bloc.add(
-                      EmployeeDetailWatchStarted(
-                        factoryId: factoryId,
-                        employeeId: employeeId,
-                      ),
-                    );
-                  }
-                  return bloc;
-                },
+              return MultiBlocProvider(
+                providers: [
+                  BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<EmployeeDetailBloc>();
+                      if (factoryId != null) {
+                        bloc.add(
+                          EmployeeDetailWatchStarted(
+                            factoryId: factoryId,
+                            employeeId: employeeId,
+                          ),
+                        );
+                      }
+                      return bloc;
+                    },
+                  ),
+                  BlocProvider(
+                    create: (context) {
+                      final bloc = getIt<EmployeeSalaryBloc>();
+                      if (factoryId != null) {
+                        bloc.add(
+                          EmployeeSalaryWatchStarted(
+                            factoryId: factoryId,
+                            employeeId: employeeId,
+                          ),
+                        );
+                      }
+                      return bloc;
+                    },
+                  ),
+                ],
                 child: EmployeeDetailScreen(employeeId: employeeId),
               );
             },
@@ -1085,6 +1107,53 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                     child: AddEditEmployeeScreen(employeeId: employeeId),
                   );
                 },
+              ),
+              GoRoute(
+                path: 'ledgers',
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final employeeId = state.pathParameters['employeeId']!;
+                  return BlocProvider(
+                    create: (_) => getIt<EmployeeLedgerHistoryBloc>()
+                      ..add(
+                        EmployeeLedgerHistoryWatchStarted(
+                          employeeId: employeeId,
+                        ),
+                      ),
+                    child: EmployeeLedgerHistoryScreen(employeeId: employeeId),
+                  );
+                },
+                routes: [
+                  GoRoute(
+                    path: ':monthKey',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final employeeId = state.pathParameters['employeeId']!;
+                      final monthKey = state.pathParameters['monthKey']!;
+                      final factoryId = readFactoryId(context);
+                      return BlocProvider(
+                        create: (context) {
+                          final bloc = getIt<EmployeeSalaryBloc>();
+                          if (factoryId != null) {
+                            bloc.add(
+                              EmployeeSalaryWatchStarted(
+                                factoryId: factoryId,
+                                employeeId: employeeId,
+                                monthKey: monthKey,
+                                initializeIfMissing: false,
+                              ),
+                            );
+                          }
+                          return bloc;
+                        },
+                        child: EmployeeMonthLedgerScreen(
+                          employeeId: employeeId,
+                          monthKey: monthKey,
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ],
           ),

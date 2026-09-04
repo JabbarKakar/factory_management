@@ -136,3 +136,36 @@ enum AttendanceStatus {
 }
 
 typedef AttendanceShift = ProductionShift;
+
+enum MonthlyLedgerStatus {
+  open,
+  settled,
+  closed;
+
+  String get firestoreValue => name;
+
+  String get label => switch (this) {
+        MonthlyLedgerStatus.open => 'Pending',
+        MonthlyLedgerStatus.settled => 'Settled',
+        MonthlyLedgerStatus.closed => 'Closed',
+      };
+
+  static MonthlyLedgerStatus fromString(String? value) {
+    return MonthlyLedgerStatus.values.firstWhere(
+      (status) => status.name == value,
+      orElse: () => MonthlyLedgerStatus.open,
+    );
+  }
+}
+
+enum WageCycleRolloverAction {
+  carryForward,
+  writeOff;
+
+  String get firestoreValue => name;
+
+  String get label => switch (this) {
+        WageCycleRolloverAction.carryForward => 'Carry to next month',
+        WageCycleRolloverAction.writeOff => 'Write off (do not carry)',
+      };
+}

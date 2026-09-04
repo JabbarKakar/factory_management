@@ -280,6 +280,11 @@ abstract final class RoutePaths {
 
   static String employeeEdit(String id) => '/employees/$id/edit';
 
+  static String employeeLedgers(String id) => '/employees/$id/ledgers';
+
+  static String employeeMonthLedger(String employeeId, String monthKey) =>
+      '/employees/$employeeId/ledgers/$monthKey';
+
   static String attendanceForDate(DateTime date) {
     final key =
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';

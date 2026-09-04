@@ -19,6 +19,7 @@ class EmployeeModel {
     required this.createdAt,
     this.cnic,
     this.notes,
+    this.activeMonthKey,
     this.updatedAt,
   });
 
@@ -35,6 +36,7 @@ class EmployeeModel {
   final DateTime joinDate;
   final EmployeeStatus status;
   final String? notes;
+  final String? activeMonthKey;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -55,6 +57,7 @@ class EmployeeModel {
       joinDate: (data['joinDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       status: EmployeeStatus.fromString(data['status'] as String?),
       notes: data['notes'] as String?,
+      activeMonthKey: data['activeMonthKey'] as String?,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
     );
@@ -74,6 +77,8 @@ class EmployeeModel {
       'joinDate': Timestamp.fromDate(joinDate),
       'status': status.firestoreValue,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      if (activeMonthKey != null && activeMonthKey!.isNotEmpty)
+        'activeMonthKey': activeMonthKey,
       if (isCreate) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -93,6 +98,7 @@ class EmployeeModel {
         joinDate: joinDate,
         status: status,
         notes: notes,
+        activeMonthKey: activeMonthKey,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
@@ -111,6 +117,7 @@ class EmployeeModel {
         joinDate: employee.joinDate,
         status: employee.status,
         notes: employee.notes,
+        activeMonthKey: employee.activeMonthKey,
         createdAt: employee.createdAt,
         updatedAt: employee.updatedAt,
       );
