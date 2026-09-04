@@ -65,8 +65,14 @@ class EmployeeSalaryRepository {
     return MonthlyLedgerModel.fromFirestore(doc.id, doc.data()!).toEntity();
   }
 
-  Stream<List<MonthlyLedger>> watchLedgers(String employeeId) {
-    return _ledgers(employeeId).snapshots().map((snapshot) {
+  Stream<List<MonthlyLedger>> watchLedgers({
+    required String employeeId,
+    required String factoryId,
+  }) {
+    return _ledgers(employeeId)
+        .where('factoryId', isEqualTo: factoryId)
+        .snapshots()
+        .map((snapshot) {
       final ledgers = snapshot.docs
           .map((doc) => MonthlyLedgerModel.fromFirestore(doc.id, doc.data()))
           .map((model) => model.toEntity())
@@ -79,8 +85,10 @@ class EmployeeSalaryRepository {
   Stream<List<WagePayment>> watchPayments({
     required String employeeId,
     required String monthKey,
+    required String factoryId,
   }) {
     return _payments(employeeId: employeeId, monthKey: monthKey)
+        .where('factoryId', isEqualTo: factoryId)
         .snapshots()
         .map((snapshot) {
       final payments = snapshot.docs

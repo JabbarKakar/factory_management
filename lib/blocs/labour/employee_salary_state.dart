@@ -17,6 +17,7 @@ class EmployeeSalaryState extends Equatable {
     this.ledger,
     this.payments = const [],
     this.errorMessage,
+    this.paymentsErrorMessage,
     this.snackbarMessage,
   });
 
@@ -31,6 +32,7 @@ class EmployeeSalaryState extends Equatable {
   final MonthlyLedger? ledger;
   final List<WagePayment> payments;
   final String? errorMessage;
+  final String? paymentsErrorMessage;
   final String? snackbarMessage;
 
   bool get canRecordPayment => ledger?.canRecordPayment ?? true;
@@ -47,9 +49,11 @@ class EmployeeSalaryState extends Equatable {
     MonthlyLedger? ledger,
     List<WagePayment>? payments,
     String? errorMessage,
+    String? paymentsErrorMessage,
     String? snackbarMessage,
     bool clearLedger = false,
     bool clearError = false,
+    bool clearPaymentsError = false,
     bool clearSnackbar = false,
   }) {
     return EmployeeSalaryState(
@@ -64,6 +68,9 @@ class EmployeeSalaryState extends Equatable {
       ledger: clearLedger ? null : (ledger ?? this.ledger),
       payments: payments ?? this.payments,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      paymentsErrorMessage: clearPaymentsError
+          ? null
+          : (paymentsErrorMessage ?? this.paymentsErrorMessage),
       snackbarMessage:
           clearSnackbar ? null : (snackbarMessage ?? this.snackbarMessage),
     );
@@ -82,6 +89,7 @@ class EmployeeSalaryState extends Equatable {
         ledger,
         payments,
         errorMessage,
+        paymentsErrorMessage,
         snackbarMessage,
       ];
 }

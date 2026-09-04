@@ -164,7 +164,10 @@ class EmployeeDetailScreen extends StatelessWidget {
                               )
                           : null,
                     ),
-                    WagePaymentHistorySection(payments: salaryState.payments),
+                    WagePaymentHistorySection(
+                      payments: salaryState.payments,
+                      errorMessage: salaryState.paymentsErrorMessage,
+                    ),
                     if (employee.isActive &&
                         context.userCanCreate(AppModule.labour))
                       EmployeeAttendanceActionBar(

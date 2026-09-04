@@ -34,6 +34,7 @@ class EmployeeSalaryBloc
     on<_EmployeeSalaryEmployeeUpdated>(_onEmployeeUpdated);
     on<_EmployeeSalaryLedgerUpdated>(_onLedgerUpdated);
     on<_EmployeeSalaryPaymentsUpdated>(_onPaymentsUpdated);
+    on<_EmployeeSalaryPaymentsFailed>(_onPaymentsFailed);
     on<_EmployeeSalaryStreamFailed>(_onStreamFailed);
   }
 
@@ -109,6 +110,7 @@ class EmployeeSalaryBloc
     if (previousMonthKey != monthKey || _ledgerSubscription == null) {
       await _bindLedgerWatches(
         employeeId: event.employee!.id,
+        factoryId: event.employee!.factoryId,
         monthKey: monthKey,
         initializeIfMissing: state.initializeIfMissing,
         refreshPayable: event.employee!.salaryType == SalaryType.dailyRate,
@@ -118,6 +120,7 @@ class EmployeeSalaryBloc
 
   Future<void> _bindLedgerWatches({
     required String employeeId,
+    required String factoryId,
     required String monthKey,
     required bool initializeIfMissing,
     bool refreshPayable = false,
@@ -159,11 +162,15 @@ class EmployeeSalaryBloc
         );
 
     _paymentsSubscription = _salaryRepository
-        .watchPayments(employeeId: employeeId, monthKey: monthKey)
+        .watchPayments(
+          employeeId: employeeId,
+          monthKey: monthKey,
+          factoryId: factoryId,
+        )
         .listen(
           (payments) => add(_EmployeeSalaryPaymentsUpdated(payments)),
           onError: (_) => add(
-            const _EmployeeSalaryStreamFailed(
+            const _EmployeeSalaryPaymentsFailed(
               'Could not load wage payments.',
             ),
           ),
@@ -190,6 +197,21 @@ class EmployeeSalaryBloc
     emit(
       state.copyWith(
         payments: event.payments,
+        clearPaymentsError: true,
+        status: state.employee != null
+            ? EmployeeSalaryStatus.loaded
+            : state.status,
+      ),
+    );
+  }
+
+  void _onPaymentsFailed(
+    _EmployeeSalaryPaymentsFailed event,
+    Emitter<EmployeeSalaryState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        paymentsErrorMessage: event.message,
         status: state.employee != null
             ? EmployeeSalaryStatus.loaded
             : state.status,
@@ -406,6 +428,15 @@ final class _EmployeeSalaryPaymentsUpdated extends EmployeeSalaryEvent {
 
   @override
   List<Object?> get props => [payments];
+}
+
+final class _EmployeeSalaryPaymentsFailed extends EmployeeSalaryEvent {
+  const _EmployeeSalaryPaymentsFailed(this.message);
+
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
 }
 
 final class _EmployeeSalaryStreamFailed extends EmployeeSalaryEvent {

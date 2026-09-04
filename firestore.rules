@@ -203,6 +203,24 @@ service cloud.firestore {
       ];
     }
 
+    // Nested worker ledgers/payments are scoped by parent path. List queries
+    // cannot use resource.factoryId unless the query also filters on it, so
+    // reads are authorized from the parent employee document instead.
+    function employeeDocSameFactory(employeeId) {
+      return exists(/databases/$(database)/documents/employees/$(employeeId)) &&
+        get(/databases/$(database)/documents/employees/$(employeeId)).data.factoryId == myFactory();
+    }
+
+    function canReadEmployeeChild(employeeId) {
+      return signedIn() && isActiveUser() && canReadLabour() &&
+        employeeDocSameFactory(employeeId);
+    }
+
+    function canWriteEmployeeChild(employeeId) {
+      return canWriteFactoryDoc() && canWriteLabour() &&
+        employeeDocSameFactory(employeeId);
+    }
+
     function canReadDelivery() {
       return signedIn() && isActiveUser() && sameFactoryExisting() && (
         !isDriver() || resource.data.driverEmployeeId == myEmployeeId()
@@ -435,14 +453,14 @@ service cloud.firestore {
       allow delete: if isOwner() && sameFactoryExisting();
 
       match /monthly_ledgers/{monthKey} {
-        allow read: if canReadFactoryDoc() && canReadLabour();
-        allow create, update: if canWriteFactoryDoc() && canWriteLabour();
-        allow delete: if isOwner() && sameFactoryExisting();
+        allow read: if canReadEmployeeChild(employeeId);
+        allow create, update: if canWriteEmployeeChild(employeeId);
+        allow delete: if isOwner() && employeeDocSameFactory(employeeId);
 
         match /payments/{paymentId} {
-          allow read: if canReadFactoryDoc() && canReadLabour();
-          allow create: if canWriteFactoryDoc() && canWriteLabour();
-          allow update, delete: if isOwner() && sameFactoryExisting();
+          allow read: if canReadEmployeeChild(employeeId);
+          allow create: if canWriteEmployeeChild(employeeId);
+          allow update, delete: if isOwner() && employeeDocSameFactory(employeeId);
         }
       }
     }

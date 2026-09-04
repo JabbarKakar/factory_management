@@ -1113,13 +1113,20 @@ GoRouter createAppRouter(AuthBloc authBloc) {
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) {
                   final employeeId = state.pathParameters['employeeId']!;
+                  final factoryId = readFactoryId(context);
                   return BlocProvider(
-                    create: (_) => getIt<EmployeeLedgerHistoryBloc>()
-                      ..add(
-                        EmployeeLedgerHistoryWatchStarted(
-                          employeeId: employeeId,
-                        ),
-                      ),
+                    create: (_) {
+                      final bloc = getIt<EmployeeLedgerHistoryBloc>();
+                      if (factoryId != null) {
+                        bloc.add(
+                          EmployeeLedgerHistoryWatchStarted(
+                            employeeId: employeeId,
+                            factoryId: factoryId,
+                          ),
+                        );
+                      }
+                      return bloc;
+                    },
                     child: EmployeeLedgerHistoryScreen(employeeId: employeeId),
                   );
                 },

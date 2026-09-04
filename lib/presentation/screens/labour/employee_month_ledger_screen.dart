@@ -124,7 +124,10 @@ class EmployeeMonthLedgerScreen extends StatelessWidget {
                             MonthlyLedgerBreakdownSection(
                               ledger: state.ledger!,
                             ),
-                          WagePaymentHistorySection(payments: state.payments),
+                          WagePaymentHistorySection(
+                            payments: state.payments,
+                            errorMessage: state.paymentsErrorMessage,
+                          ),
                         ],
                       ),
           );

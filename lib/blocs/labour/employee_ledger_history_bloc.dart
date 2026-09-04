@@ -36,7 +36,12 @@ class EmployeeLedgerHistoryBloc
     );
 
     await _subscription?.cancel();
-    _subscription = _salaryRepository.watchLedgers(event.employeeId).listen(
+    _subscription = _salaryRepository
+        .watchLedgers(
+          employeeId: event.employeeId,
+          factoryId: event.factoryId,
+        )
+        .listen(
           (ledgers) => add(_EmployeeLedgerHistoryUpdated(ledgers)),
           onError: (_) => add(
             const _EmployeeLedgerHistoryFailed(

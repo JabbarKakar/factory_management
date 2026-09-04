@@ -10,10 +10,12 @@ import '../job_work/job_work_detail_section.dart';
 class WagePaymentHistorySection extends StatelessWidget {
   const WagePaymentHistorySection({
     required this.payments,
+    this.errorMessage,
     super.key,
   });
 
   final List<WagePayment> payments;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +27,16 @@ class WagePaymentHistorySection extends StatelessWidget {
           : '${payments.length} ${payments.length == 1 ? 'installment' : 'installments'}',
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-        child: payments.isEmpty
+        child: errorMessage != null
+            ? Text(
+                errorMessage!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 11,
+                      height: 1.35,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+              )
+            : payments.isEmpty
             ? Text(
                 AppStrings.noWagePayments,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

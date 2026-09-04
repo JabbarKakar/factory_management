@@ -9,12 +9,16 @@ sealed class EmployeeLedgerHistoryEvent extends Equatable {
 
 final class EmployeeLedgerHistoryWatchStarted
     extends EmployeeLedgerHistoryEvent {
-  const EmployeeLedgerHistoryWatchStarted({required this.employeeId});
+  const EmployeeLedgerHistoryWatchStarted({
+    required this.employeeId,
+    required this.factoryId,
+  });
 
   final String employeeId;
+  final String factoryId;
 
   @override
-  List<Object?> get props => [employeeId];
+  List<Object?> get props => [employeeId, factoryId];
 }
 
 final class EmployeeLedgerHistoryWatchStopped
